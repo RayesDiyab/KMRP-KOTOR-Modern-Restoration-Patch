@@ -28,6 +28,13 @@ KMRP's own renderings, and `lbl_mileftbot` is KMRP's own drawing under the game'
 name. The HD icons, portraits and menu art below are their authors' remakes,
 bundled with permission.
 
+Since 2026-10-22 the HD Original font's atlases are drawn from the KMRP Original HD
+fonts ([fonts/](fonts/README.md)), KMRP's own, Copyright 2026 RaymanGT, licensed
+under the SIL Open Font License 1.1 ([fonts/OFL.txt](fonts/OFL.txt)); until then they
+were rendered from Bank Gothic Medium and Helvetica fitted to the game's letters
+(`tools/build_hd_original_fonts.py`, those font files never in the repository), which
+no build uses any more.
+
 
 ## Party Portraits
 

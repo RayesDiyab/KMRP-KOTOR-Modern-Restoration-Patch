@@ -994,6 +994,17 @@ same plain C file as item 87, so the Mac calls it from `assets.cpp` the same way
 maintainer: "make sure the main menu buttons are centered in the art." **How to check:**
 every caption sits in the middle of its bar, New Game to Quit, within a pixel or so.
 
+## 97. HD Original's atlases drawn from KMRP's own fonts
+
+**To do on the Mac** (2026-10-22; [fonts/README.md](../fonts/README.md),
+`tools/build_hd_original_atlases.py`). The 17 atlases in `assets/hd-original-fonts` are now
+drawn from the KMRP Original HD fonts in `fonts/otf` (SIL OFL 1.1): straight diagonals,
+sharp corners, exact rings in © and ®; their TXI files are unchanged. The Mac's font art
+must take the new TGA files (whatever copies or packs them from `assets/hd-original-fonts`),
+and anything that caches the art by a version must take it again (Windows raised its art
+pack to 7). **How to check:** a diagonal in the menus (a V or a W) is one clean edge at a
+large size, not stepped, and every menu and dialogue line sets where it did.
+
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
 | Change | Commit | Why not the Mac |

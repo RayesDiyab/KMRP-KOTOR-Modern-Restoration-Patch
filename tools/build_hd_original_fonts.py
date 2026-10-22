@@ -4,6 +4,10 @@ drawn from vector faces at six times the original's size (the size 100% text is
 drawn at on a 2160-line screen; the game fits each atlas to the size it is drawn at,
 K1RuntimeAssets.cpp FitAtlas).
 
+No longer run since 2026-10-22: the atlases are drawn from the KMRP Original HD fonts
+(fonts/otf) by tools/build_hd_original_atlases.py. Kept as the record of how they were
+first made (docs/hd-original-font.md).
+
 The 18 stock atlases (`swpc_tex_gui.erf`) are hand-made pixel fonts in three designs,
 measured on 2026-10-18 (each original letter against each face, scaled to the same box,
 and the stroke, widths and gaps):

@@ -34,10 +34,9 @@ This folder builds on its own; nothing outside it is needed. Windows:
 `powershell -ExecutionPolicy Bypass -File build.ps1` makes `dist\KMRP Save Editor.exe`.
 Linux and macOS: `sh build.sh`. Both need Rust (stable).
 
-The window is set in KMRP's own Original HD Font when its OTF files are found: in
-`fonts/` here (copy them in; never committed), in the folder `KMRP_FONTS` names, or in
-the KMRP checkout around this folder (`build/fonts/KMRP-OriginalHD-OTF`, made by KMRP's
-`tools/build_hd_original_otf.py` from the game's font atlases). Without them the build
-uses the system's font and says so.
+The window is set in the KMRP Original HD fonts: the four it uses are in `fonts/` here,
+copies of KMRP's [fonts/](../fonts/README.md), under the SIL Open Font License 1.1
+([fonts/OFL.txt](fonts/OFL.txt)). A folder named by `KMRP_FONTS` is used instead when it
+holds all four.
 
-GPL-3.0-or-later, like KMRP. Created by RaymanGT.
+GPL-3.0-or-later, like KMRP; the fonts OFL-1.1. Created by RaymanGT.

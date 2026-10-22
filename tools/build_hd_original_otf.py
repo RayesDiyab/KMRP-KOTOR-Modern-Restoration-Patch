@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """OTF fonts of the (New) Original HD Font, traced from its atlases.
 
+Superseded on 2026-10-22 by the KMRP Original HD fonts in fonts/otf (fonts/README.md),
+redrawn as lines, corners and arcs, from which tools/build_hd_original_atlases.py now
+draws the atlases. Kept as the record of the first OTFs; fonts/tools reads them for
+their metrics and names.
+
 The maintainer asked on 2026-10-21 for font files "that give exactly this font", made
 "from the hd font": every letter here is traced from the atlas the game draws
 (assets/hd-original-fonts, six times the original's size), so its shapes, its letter

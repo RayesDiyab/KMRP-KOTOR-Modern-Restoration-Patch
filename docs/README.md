@@ -66,6 +66,7 @@ Design and build documentation. Engine analysis lives one level over, in
 | --- | --- |
 | [save-editor.md](../save-editor/docs/save-editor.md) | The **KMRP Save Editor** for KotOR 1 and 2: where it finds saves, every field it writes and under which rule, the bugs of older editors it avoids, how a write stays safe, and what was tested in both games. |
 | [save-editor-format.md](../save-editor/docs/save-editor-format.md) | The save format of both games, file by file and field by field, each fact tagged with how it was measured. |
+| [fonts/README.md](../fonts/README.md) | The **KMRP Original HD fonts**: 11 OTF files under the SIL Open Font License 1.1, how they were drawn from the HD atlases as lines, corners and arcs, what was measured, and how KMRP's atlases are drawn from them. |
 
 ## Controller support
 

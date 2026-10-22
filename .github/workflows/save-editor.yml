@@ -1,10 +1,9 @@
 # Builds and tests the KMRP Save Editor on Windows, Linux and macOS.
 #
-# The runners have no KotOR install and none of the game's font atlases, so the tests
-# that read real saves find none and pass empty, and the window is built with the
-# system's font instead of KMRP's (build.rs prints a warning). Release builds are made
-# where the fonts exist; this checks that the editor compiles and its unit tests pass
-# everywhere.
+# The runners have no KotOR install, so the tests that read real saves find none and
+# pass empty. The window's fonts are committed (save-editor/fonts, OFL 1.1), so the
+# builds here are set in KMRP's own fonts like a release; this checks that the editor
+# compiles and its unit tests pass everywhere.
 name: Save Editor
 
 on:

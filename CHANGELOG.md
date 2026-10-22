@@ -117,6 +117,24 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **The HD Original font is now KMRP's own, free under the SIL Open Font License 1.1**
+  (2026-10-22; [fonts/README.md](fonts/README.md)). The 11 KMRP Original HD fonts in
+  `fonts/otf` were redrawn from the HD atlases as straight lines, sharp corners and arcs:
+  every diagonal one straight line where the earlier OTFs (traced with potrace) stepped,
+  corners where two edges meet, the rings of © and ® exact circles or ovals, whichever the
+  HD letter is. Measured against the HD atlases they were drawn from: 2.3 to 3.4 times
+  closer than the traced OTFs (Menu 0.85% against 2.39% mean difference on the ink). They
+  follow the OpenType recommendations for CFF fonts (1000 units per em, production glyph
+  names, PostScript name, consistent vertical metrics, Windows-only names), are hinted,
+  carry the licence and the credit in their name tables, and pass fontbakery's universal
+  profile; Windows draws every character of every font. `fonts/KMRP-OriginalHD.ttc` holds
+  all 11 with TrueType outlines in one file to install. The game's 17 HD Original atlases
+  are now drawn from them ([build_hd_original_atlases.py](tools/build_hd_original_atlases.py);
+  about 1% mean change of the letters, MenuSmall's underscore now a bar where the atlas
+  cell cut it to a sliver), so no build needs Bank Gothic or Helvetica any more; the art
+  pack's version is 7, which makes `build_native_runtime.cmd` build it again. The KMRP Save
+  Editor carries the four it uses in `save-editor/fonts`, so it builds with them anywhere.
+  **Not yet seen in the game.**
 - **New tool: the KMRP Save Editor, for KotOR 1 and KotOR 2** (2026-10-22;
   `save-editor`, [save-editor.md](save-editor/docs/save-editor.md),
   [save-editor-format.md](save-editor/docs/save-editor-format.md)). A separate program, not part of

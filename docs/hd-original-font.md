@@ -7,6 +7,21 @@ style, the default since 2026-10-18. How the style is chosen, stored in the bank
 fitted to the drawn size is in [in-game text options](ingame-text-options.md); the
 Old HD atlases are in [font scaling](font-scaling.md).
 
+**Since 2026-10-22 the atlases are drawn from KMRP's own fonts.** The 11 KMRP Original
+HD fonts ([fonts/](../fonts/README.md), SIL Open Font License 1.1) were redrawn from
+these atlases as straight lines, corners and arcs, and
+[build_hd_original_atlases.py](../tools/build_hd_original_atlases.py) now writes the 17
+atlases from them: the same TXI files, cells and baselines, every cell rendered with
+exact coverage, fnt_console's black ring added as before. Measured against the atlases
+this document describes: 0.6% (dialogfont32x32) to 1.6% (the small menu and light
+fonts) mean change of the letters' coverage, straight diagonals where the faces'
+renderings were stepped, sharp corners where they were soft, the rings of © and ® exact,
+and dialogfont10x10's underscore a bar where its cell cut it to a sliver (per font in
+[fonts/README.md](../fonts/README.md), section 3).
+Bank Gothic Medium and Helvetica are no longer needed by any build. What follows is how
+the atlases were first made, and still the record of every decision their shapes came
+from; `build_hd_original_fonts.py` is no longer run.
+
 **Typography research credit:** Thanks to **SithHolocron** of DeadlyStream and Discord for
 providing the initial typeface research and comparisons that identified Bank Gothic and
 Helvetica as the likely basis for KOTOR's fonts. Those references were the starting point

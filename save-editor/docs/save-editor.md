@@ -22,7 +22,7 @@ bugs they reported. Untested parts are marked **untested** where they are descri
 | Toolchain | rustc 1.99.1 (2026-10-13), cargo 1.99.1 |
 | Windows build | `save-editor\dist\KMRP Save Editor.exe` from `save-editor\build.ps1` (size and SHA-256 printed by the script) |
 | Linux and macOS builds | `save-editor/build.sh`; **not built or run yet** (no Linux or Mac machine here) |
-| Fonts | KMRP's Original HD Font OTFs from `tools/build_hd_original_otf.py`, embedded at build time, never committed ([build.rs](../build.rs) says why) |
+| Fonts | the KMRP Original HD fonts ([fonts/](../../fonts/README.md), SIL OFL 1.1): Menu, MenuMedium, MenuSmallB and Descriptions, committed in `save-editor/fonts` and embedded at build time ([build.rs](../build.rs)). *Corrected 2026-10-22:* until then they were the traced OTFs from `tools/build_hd_original_otf.py`, made from the game's atlases and never committed |
 | KotOR 1 tested | Steam, `swkotor`, with KMRP and K1CP 1.10.0; and the KPM test copy `build/party-roster-kpm-check/game` |
 | KotOR 2 tested | Steam, German release, TSLRCM 1.8.6, saves in `cloudsaves\<account>` |
 
