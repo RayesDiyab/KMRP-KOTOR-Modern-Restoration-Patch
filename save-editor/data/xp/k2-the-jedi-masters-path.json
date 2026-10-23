@@ -1,0 +1,83 @@
+{
+ "game": "K2",
+ "what": "A full The Jedi Masters run: kills (hostile creatures and active encounters of each module), then the quest XP met in that module, in module order. Written by tools/xp/make_path.py; read by tools/xp/calc.py --scenario.",
+ "checked": false,
+ "assumptions": [
+  "Every creature data/xp/k2-enemies.json marks hostile is killed; creatures a script may turn hostile (hostile = maybe) are left out; creatures whose template cannot die (Plot, Min1HP) are left out.",
+  "Active encounters spawn as calc.py replays the engine's spawn list for a party of three (mean of 200 seeded runs); encounters that respawn are counted once.",
+  "Only the chapter's own quests (build.py PLANETS tag_prefix) count; a quest of another chapter that this chapter's files also set is counted by its own chapter.",
+  "Each quest follows one route to one ending (the lowest ending stage the quest database reaches unless make_path.py ENDINGS names another); a stage gives its journal XP and the largest XP of one of its steps.",
+  "Not counted: plot XP on dialog lines that set no journal stage, level-scaled computer and repair XP, stealth XP.",
+  "KotOR 2's kill XP follows swkotor2.exe 1.0.2 (calc.py use_game): its own tables, and a creature with an autobalance row (MultiplierSet) counted at the player's level when it spawns plus the row's crmod: a placed creature at the player's level on entering the module, a script's at the level of the kill. Encounter creatures are counted at their rating."
+ ],
+ "modules": [
+  {
+   "module": "650dan",
+   "steps": []
+  },
+  {
+   "module": "006ebo",
+   "steps": []
+  },
+  {
+   "module": "221tel",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 6,
+     "what": "221tel g_floatingmine (placed)"
+    }
+   ]
+  },
+  {
+   "module": "220tel",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 2,
+     "what": "220tel g_turretbl001 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 2,
+     "what": "220tel g_turretbl006 (placed)",
+     "multiplier_set": 3,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 5.0,
+     "count": 5,
+     "what": "220tel n_sithcmndo (placed)"
+    }
+   ]
+  },
+  {
+   "module": "222tel",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 5.0,
+     "count": 10,
+     "what": "222tel n_sithcmndo (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 1,
+     "what": "222tel sith_door (placed)",
+     "multiplier_set": 3,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "plot_xp",
+     "xp": 600,
+     "what": "fuel_sith stage 20: journal 600"
+    }
+   ]
+  }
+ ]
+}

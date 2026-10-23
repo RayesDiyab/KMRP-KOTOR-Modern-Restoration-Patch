@@ -1,0 +1,823 @@
+{
+  "game": "K1",
+  "planet": "Tatooine",
+  "generated_by": "tools/questdb/rewards.py",
+  "checked": false,
+  "xp_at_end": 72616,
+  "xp_chapter": 34001,
+  "xp_start": 53690,
+  "xp_note": "full-run scenario data/xp/k1-tatooine-path.json from the Dantooine rewards' xp_at_end, 53690 XP: tat_m17ab 53690, tat_m17aa 54240, tat_m17ac 54490, tat_m17ad 54490, tat_m17ae 55540, tat_m17af 55540, tat_m17ag 56940, tat_m18aa 65796, tat_m18ab 66396, tat_m18ac 68896, tat_m20aa 72616",
+  "xp_chapter_note": "the same scenario from a new character's 0 XP: 34001",
+  "enemies_killed": 66,
+  "drops": [
+    {
+      "resref": "g_i_medeqpmnt01",
+      "count": 2,
+      "from": [
+        "tat20_09warr_03",
+        "tat20_09warr_05"
+      ]
+    },
+    {
+      "resref": "g_i_medeqpmnt02",
+      "count": 3,
+      "from": [
+        "g_tuskenmale003",
+        "tat20_09first_01"
+      ]
+    },
+    {
+      "resref": "g_i_upgrade001",
+      "count": 1,
+      "from": [
+        "tat20_09first_01"
+      ]
+    },
+    {
+      "resref": "g_i_upgrade008",
+      "count": 1,
+      "from": [
+        "tat20_09chief_01"
+      ]
+    },
+    {
+      "resref": "g_w_blstrrfl001",
+      "count": 2,
+      "from": [
+        "tat20_09chief_01",
+        "tat20_09first_01"
+      ]
+    },
+    {
+      "resref": "g_w_hvyblstr01",
+      "count": 1,
+      "from": [
+        "tat20_09chief_01"
+      ]
+    },
+    {
+      "resref": "g_w_qtrstaff03",
+      "count": 1,
+      "from": [
+        "tat20_xstory_01"
+      ]
+    },
+    {
+      "resref": "g_w_vbroswrd02",
+      "count": 1,
+      "from": [
+        "tat20_09first_01"
+      ]
+    },
+    {
+      "resref": "tat17_sandperdis",
+      "count": 6,
+      "from": [
+        "g_tuskenmale003",
+        "tat18_tusken09",
+        "tat18_tusken010"
+      ]
+    },
+    {
+      "resref": "tat17_wraidplate",
+      "count": 24,
+      "from": [
+        "tat18_wraid01",
+        "tat18_wraid02",
+        "tat18_wraid03",
+        "tat18_wraid21",
+        "tat18_wraid22",
+        "tat18_wraid23"
+      ]
+    },
+    {
+      "resref": "tat20_banthafod",
+      "count": 2,
+      "from": [
+        "g_tuskenmale003"
+      ]
+    },
+    {
+      "resref": "tat20_gaffichief",
+      "count": 1,
+      "from": [
+        "tat20_09chief_01"
+      ]
+    },
+    {
+      "resref": "tat20_gaffistick",
+      "count": 31,
+      "from": [
+        "tat18_tusken09",
+        "tat18_tusken010",
+        "tat18_tusken",
+        "tat18_tusken02",
+        "tat18_14sandg_01",
+        "tat20_09first_01",
+        "tat20_09warr_002",
+        "tat20_09warr_01",
+        "tat20_09warr_02",
+        "tat20_09warr_03",
+        "tat20_09warr_04",
+        "tat20_09warr_05",
+        "tat20_09warr_06"
+      ]
+    },
+    {
+      "resref": "tat20aa_westmap",
+      "count": 1,
+      "from": [
+        "tat20_09chief_01"
+      ]
+    }
+  ],
+  "templates_missing": [],
+  "containers": [
+    {
+      "module": "tat_m18aa",
+      "area": "m18aa",
+      "container": "tat18aa_cont_01",
+      "template": "tat18aa_cont_01",
+      "position": [
+        285.55,
+        137.36
+      ],
+      "items": [
+        {
+          "resref": "g_i_parts01",
+          "count": 1
+        },
+        {
+          "resref": "g_i_drdrepeqp002",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "tat_m18aa",
+      "area": "m18aa",
+      "container": "HighRfPileLg",
+      "template": "g_tresrefuse004",
+      "position": [
+        278.08,
+        142.11
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        },
+        {
+          "resref": "g_i_progspike01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "tat_m18aa",
+      "area": "m18aa",
+      "container": "MilMidMetalBox",
+      "template": "g_tresmilmid006",
+      "position": [
+        188.56,
+        164.41
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt02",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "tat_m18aa",
+      "area": "m18aa",
+      "container": "MidCorpse",
+      "template": "g_tresgencorp004",
+      "position": [
+        259.61,
+        84.7
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        },
+        {
+          "resref": "g_i_implant102",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "tat_m18aa",
+      "area": "m18aa",
+      "container": "LowBroknDrd",
+      "template": "g_tresdrd004",
+      "position": [
+        258.64,
+        89.3
+      ],
+      "items": [
+        {
+          "resref": "g_i_parts01",
+          "count": 1
+        },
+        {
+          "resref": "g_i_drdrepeqp001",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "tat_m18ab",
+      "area": "m18ab",
+      "container": "tat18ab_cont_01",
+      "template": "tat18ab_cont_01",
+      "position": [
+        234.98,
+        210.58
+      ],
+      "items": [
+        {
+          "resref": "g_w_thermldet01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "tat_m18ab",
+      "area": "m18ab",
+      "container": "tat18ab_cont_02",
+      "template": "tat18ab_cont_02",
+      "position": [
+        124.3,
+        127.54
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt03",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "tat_m18ac",
+      "area": "m18ac",
+      "container": "tat18ac_cont_01",
+      "template": "tat18ac_cont_01",
+      "position": [
+        354.99,
+        337.35
+      ],
+      "items": [
+        {
+          "resref": "g_w_sbrcrstl06",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "tat_m18ac",
+      "area": "m18ac",
+      "container": "tat18ac_cont_02",
+      "template": "tat18ac_cont_02",
+      "position": [
+        345.16,
+        310.35
+      ],
+      "items": [
+        {
+          "resref": "g_w_sbrcrstl17",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "tat_m18ac",
+      "area": "m18ac",
+      "container": "ChwdTwlk",
+      "template": "chwdtwlk001",
+      "position": [
+        367.48,
+        324.79
+      ],
+      "items": [
+        {
+          "resref": "g_i_belt005",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "tat_m18ac",
+      "area": "m18ac",
+      "container": "tat18ac_cont_03",
+      "template": "tat18ac_cont_004",
+      "position": [
+        333.94,
+        304.16
+      ],
+      "items": [
+        {
+          "resref": "g_w_blstrrfl001",
+          "count": 1
+        },
+        {
+          "resref": "g_a_mstrrobe01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "tat_m20aa",
+      "area": "m20aa",
+      "container": "LowSkelCorpse",
+      "template": "g_tressklcorp004",
+      "position": [
+        44.12,
+        68.48
+      ],
+      "items": [
+        {
+          "resref": "g_i_mask10",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "tat_m20aa",
+      "area": "m20aa",
+      "container": "tat20_ragpile",
+      "template": "tat20_ragpile002",
+      "position": [
+        -13.8,
+        73.17
+      ],
+      "items": [
+        {
+          "resref": "tat20_banthafod",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "tat_m20aa",
+      "area": "m20aa",
+      "container": "TresSndPplBin",
+      "template": "g_tressndppl007",
+      "position": [
+        16.69,
+        66.16
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdrepeqp002",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "tat_m20aa",
+      "area": "m20aa",
+      "container": "TresSndPplBin",
+      "template": "g_tressndppl008",
+      "position": [
+        -4.39,
+        85.51
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdrepeqp001",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "tat_m20aa",
+      "area": "m20aa",
+      "container": "RfPileMd",
+      "template": "rfpilemd001",
+      "position": [
+        18.11,
+        72.15
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdhvplat002",
+          "count": 1
+        },
+        {
+          "resref": "g_i_drdutldev002",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "tat_m20aa",
+      "area": "m20aa",
+      "container": "RfPileMd",
+      "template": "rfpilemd002",
+      "position": [
+        16.65,
+        67.86
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdtrgcom002",
+          "count": 1
+        },
+        {
+          "resref": "g_i_drdcomspk003",
+          "count": 1
+        }
+      ]
+    }
+  ],
+  "credits": {
+    "light": {
+      "credits": 2470,
+      "light_points": 0,
+      "dark_points": 6
+    },
+    "dark": {
+      "credits": 2590,
+      "light_points": 0,
+      "dark_points": 136
+    },
+    "sources": [
+      {
+        "dialog": "k_hsenni_dialogx",
+        "module": "tat_m17aa",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "tat17_03shari_01",
+        "module": "tat_m17aa",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 14
+        }
+      },
+      {
+        "dialog": "tat17_05mecha_01",
+        "module": "tat_m17aa",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 50,
+          "light_points": 0,
+          "dark_points": 12
+        }
+      },
+      {
+        "dialog": "tat17_11guard_01",
+        "module": "tat_m17aa",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "tat17_11iziz_01",
+        "module": "tat_m17aa",
+        "light": {
+          "credits": 500,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 500,
+          "light_points": 0,
+          "dark_points": 6
+        }
+      },
+      {
+        "dialog": "kas_xor_dialog",
+        "module": "tat_m17ab",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "tat17_08yuka_01",
+        "module": "tat_m17ac",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "tat17_03dorak_01",
+        "module": "tat_m17ad",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 50,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "tat17_03fazza_01",
+        "module": "tat_m17ad",
+        "light": {
+          "credits": 500,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 500,
+          "light_points": 0,
+          "dark_points": 0
+        }
+      },
+      {
+        "dialog": "tat17_03gurke_01",
+        "module": "tat_m17ad",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 12
+        }
+      },
+      {
+        "dialog": "tat17_03komad_01",
+        "module": "tat_m17ad",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "tat17_03tanis_01",
+        "module": "tat_m17ad",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 6
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 9
+        }
+      },
+      {
+        "dialog": "tat17_04celis_01",
+        "module": "tat_m17ae",
+        "light": {
+          "credits": 2500,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 2500,
+          "light_points": 0,
+          "dark_points": 0
+        }
+      },
+      {
+        "dialog": "tat17_04garm_01",
+        "module": "tat_m17ae",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 20,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "tat17_04nico_01",
+        "module": "tat_m17ae",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 4
+        }
+      },
+      {
+        "dialog": "tat17_04yuka_01",
+        "module": "tat_m17ae",
+        "light": {
+          "credits": 50,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 50,
+          "light_points": 0,
+          "dark_points": 9
+        }
+      },
+      {
+        "dialog": "tat17_04zorii_01",
+        "module": "tat_m17ae",
+        "light": {
+          "credits": 50,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 50,
+          "light_points": 0,
+          "dark_points": 6
+        }
+      },
+      {
+        "dialog": "tat17_07gandr_01",
+        "module": "tat_m17af",
+        "light": {
+          "credits": 20,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 20,
+          "light_points": 0,
+          "dark_points": 6
+        }
+      },
+      {
+        "dialog": "tat17_07offic_01",
+        "module": "tat_m17af",
+        "light": {
+          "credits": 50,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 50,
+          "light_points": 0,
+          "dark_points": 6
+        }
+      },
+      {
+        "dialog": "tat17_10czerk_01",
+        "module": "tat_m17ag",
+        "light": {
+          "credits": 900,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 900,
+          "light_points": 0,
+          "dark_points": 0
+        }
+      },
+      {
+        "dialog": "tat18_10tanis_01",
+        "module": "tat_m18aa",
+        "light": {
+          "credits": 400,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 400,
+          "light_points": 0,
+          "dark_points": 10
+        }
+      },
+      {
+        "dialog": "tat18_vorn",
+        "module": "tat_m18ab",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "tat18_vornbike",
+        "module": "tat_m18ab",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "tat18_vorndroid2",
+        "module": "tat_m18ab",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "tat18_11komad_01",
+        "module": "tat_m18ac",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 6
+        }
+      },
+      {
+        "dialog": "tat20_griff",
+        "module": "tat_m20aa",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 6
+        }
+      }
+    ],
+    "note": "tools/questdb/credits.py: the credits and alignment points a full run of the chapter picks up from its conversations and scripts, for a light-side and a dark-side player (gambling left out). Worked out from the files, not played",
+    "fixed": [
+      {
+        "credits": -2500,
+        "note": "slot 3's purchase in tat_m17ac (tat17ad_buyinghk47 stage 30, dialog tat17_08yuka_01), since the milestone recruits slot 3",
+        "slot": 3
+      }
+    ]
+  }
+}

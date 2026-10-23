@@ -1,0 +1,77 @@
+{
+ "game": "K1",
+ "planet": "Yavin Station",
+ "generated_by": "tools/questdb/build.py",
+ "checked": false,
+ "quests": [
+  {
+   "tag": "k_pazaak",
+   "stages": [
+    {
+     "stage": 99,
+     "end": true,
+     "steps": [
+      {
+       "module": "liv_m99aa",
+       "via": {
+        "script": "yav47_suvam18"
+       },
+       "needs": [
+        {
+         "global_bool": "G_Paz_JustPlayed",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "k_pazaak",
+          99
+         ]
+        },
+        {
+         "set_global_bool": [
+          "G_Paz_JustPlayed",
+          false
+         ]
+        },
+        {
+         "other": "sets global number YAV_SUVAM_NUM to a value that is not constant: (GetGlobalNumber(\"YAV_SUVAM_NUM\") + 1)"
+        }
+       ],
+       "branch": "way 1: script yav47_suvam18 in liv_m99aa"
+      },
+      {
+       "module": "liv_m99aa",
+       "via": {
+        "script": "yav47_suvam19"
+       },
+       "needs": [
+        {
+         "global_bool": "G_Paz_JustPlayed",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "k_pazaak",
+          99
+         ]
+        },
+        {
+         "set_global_bool": [
+          "G_Paz_JustPlayed",
+          false
+         ]
+        }
+       ],
+       "branch": "way 2: script yav47_suvam19 in liv_m99aa"
+      }
+     ]
+    }
+   ],
+   "notes": "This quest is not a Yavin Station quest by its tag; only the stages set on Yavin Station are listed. Other planets also set its stages. stage 99: yav47_suvam18 (stage 99) also depends on: (GetLastPazaakResult() == 1) stage 99: yav47_suvam19 (stage 99) also depends on: (GetLastPazaakResult() == 0) stage 99 can be reached in 2 ways; each step's branch starts with its way UNCERTAIN: stage 99: script yav47_suvam18 is in liv_m99aa but nothing in the module's files names it (may be started by another script) UNCERTAIN: stage 99: script yav47_suvam19 is in liv_m99aa but nothing in the module's files names it (may be started by another script)"
+  }
+ ]
+}

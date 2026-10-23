@@ -1,0 +1,5288 @@
+{
+ "game": "K1",
+ "planet": "Dantooine",
+ "generated_by": "tools/questdb/build.py",
+ "checked": false,
+ "quests": [
+  {
+   "tag": "k_starforge",
+   "stages": [
+    {
+     "stage": 1,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_vandar",
+        "node": 5,
+        "speaker": "dan13_vandar",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_PLANET_PLOT",
+         "op": ">",
+         "value": 1
+        },
+        {
+         "global_bool": "DAN_VANDARP_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "k_starforge",
+          1
+         ]
+        }
+       ]
+      },
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_vandar",
+        "node": 5,
+        "speaker": "dan13_vandar",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_PLANET_PLOT",
+         "op": ">",
+         "value": 1
+        },
+        {
+         "global_bool": "DAN_VANDARP_DONE",
+         "is": false
+        },
+        {
+         "global_number": "K_KOTOR_MASTER",
+         "op": ">=",
+         "value": 15
+        }
+       ],
+       "does": [],
+       "branch": "if K_KOTOR_MASTER >= 15"
+      },
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_vandar",
+        "node": 5,
+        "speaker": "dan13_vandar",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_PLANET_PLOT",
+         "op": ">",
+         "value": 1
+        },
+        {
+         "global_bool": "DAN_VANDARP_DONE",
+         "is": false
+        },
+        {
+         "global_number": "K_KOTOR_MASTER",
+         "op": "<",
+         "value": 15
+        }
+       ],
+       "does": [
+        {
+         "set_global_number": [
+          "K_KOTOR_MASTER",
+          15
+         ]
+        }
+       ],
+       "branch": "if K_KOTOR_MASTER < 15"
+      }
+     ]
+    }
+   ],
+   "notes": "This quest is not a Dantooine quest by its tag; only the stages set on Dantooine are listed. Other planets also set its stages."
+  },
+  {
+   "tag": "dan_casus",
+   "stages": [
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm14ab",
+       "via": {
+        "script": "k_pdan_14b_itmaq"
+       },
+       "needs": [],
+       "does": [
+        {
+         "set_global_number": [
+          "DAN_CASUS_PLOT",
+          2
+         ]
+        },
+        {
+         "journal": [
+          "dan_casus",
+          10
+         ]
+        }
+       ],
+       "branch": "way 1: script k_pdan_14b_itmaq in danm14ab"
+      },
+      {
+       "module": "danm14ab",
+       "via": {
+        "script": "k_pdan_casus07"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "dan_casus",
+          10
+         ]
+        }
+       ],
+       "branch": "way 2: script k_pdan_casus07 in danm14ab"
+      }
+     ]
+    },
+    {
+     "stage": 20,
+     "end": true,
+     "steps": [
+      {
+       "module": "danm14ad",
+       "via": {
+        "dialog": "cp_dan14_sdroid",
+        "node": 8,
+        "speaker": "dan14_sdroid",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_ROMANCE_PLOT",
+         "op": ">",
+         "value": 4
+        },
+        {
+         "global_number": "DAN_CASUS_PLOT",
+         "op": "==",
+         "value": 2
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_casus",
+          20
+         ]
+        },
+        {
+         "set_global_number": [
+          "DAN_CASUS_PLOT",
+          3
+         ]
+        },
+        {
+         "set_global_number": [
+          "DAN_CASUS_PLOT",
+          3
+         ]
+        },
+        {
+         "take_item": [
+          "dan14_diary",
+          1
+         ]
+        },
+        {
+         "credits": 200
+        }
+       ],
+       "branch": "way 1: dan14_sdroid, dialog cp_dan14_sdroid E8 in danm14ad"
+      },
+      {
+       "module": "danm14ad",
+       "via": {
+        "dialog": "cp_dan14_sdroid",
+        "node": 13,
+        "speaker": "dan14_sdroid",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_ROMANCE_PLOT",
+         "op": "==",
+         "value": 3
+        },
+        {
+         "global_number": "DAN_CASUS_PLOT",
+         "op": "==",
+         "value": 2
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_casus",
+          20
+         ]
+        },
+        {
+         "set_global_number": [
+          "DAN_CASUS_PLOT",
+          3
+         ]
+        },
+        {
+         "set_global_number": [
+          "DAN_CASUS_PLOT",
+          3
+         ]
+        },
+        {
+         "take_item": [
+          "dan14_diary",
+          1
+         ]
+        },
+        {
+         "credits": 200
+        }
+       ],
+       "branch": "way 2: dan14_sdroid, dialog cp_dan14_sdroid E13 in danm14ad"
+      },
+      {
+       "module": "danm14ad",
+       "via": {
+        "dialog": "dan14_sdroid",
+        "node": 10,
+        "speaker": "",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_SAND_REFUSE",
+         "is": true
+        },
+        {
+         "global_number": "DAN_CASUS_PLOT",
+         "op": ">",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_casus",
+          20
+         ]
+        }
+       ],
+       "branch": "way 3: unknown speaker, dialog dan14_sdroid E10 in danm14ad"
+      },
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan14_sdroid",
+        "node": 10,
+        "speaker": "dan14_sdroid",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_SAND_REFUSE",
+         "is": true
+        },
+        {
+         "global_number": "DAN_CASUS_PLOT",
+         "op": ">",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_casus",
+          20
+         ]
+        }
+       ],
+       "branch": "way 4: dan14_sdroid, dialog dan14_sdroid E10 in danm16"
+      },
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan15_sdroid",
+        "node": 10,
+        "speaker": "",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_SAND_REFUSE",
+         "is": true
+        },
+        {
+         "global_number": "DAN_CASUS_PLOT",
+         "op": ">",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_casus",
+          20
+         ]
+        }
+       ],
+       "branch": "way 5: unknown speaker, dialog dan15_sdroid E10 in danm16"
+      },
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_nurik",
+        "node": 47,
+        "speaker": "dan16_nurik",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_ESTATEC_DONE",
+         "is": false
+        },
+        {
+         "global_number": "DAN_CASUS_PLOT",
+         "op": "==",
+         "value": 2
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_casus",
+          20
+         ]
+        },
+        {
+         "set_global_number": [
+          "DAN_CASUS_PLOT",
+          3
+         ]
+        }
+       ],
+       "branch": "way 6: dan16_nurik, dialog dan16_nurik E47 in danm16"
+      },
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_nurik",
+        "node": 47,
+        "speaker": "dan16_nurik",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [],
+       "branch": "way 6: dan16_nurik, dialog dan16_nurik E47 in danm16 / choice: reply R63"
+      },
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_nurik",
+        "node": 47,
+        "speaker": "dan16_nurik",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 1
+        }
+       ],
+       "branch": "way 6: dan16_nurik, dialog dan16_nurik E47 in danm16 / choice: reply R61 / if player alignment at most 39"
+      },
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_nurik",
+        "node": 47,
+        "speaker": "dan16_nurik",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 2
+        }
+       ],
+       "branch": "way 6: dan16_nurik, dialog dan16_nurik E47 in danm16 / choice: reply R61 / if player alignment from 40 to 60"
+      },
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_nurik",
+        "node": 47,
+        "speaker": "dan16_nurik",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 4
+        }
+       ],
+       "branch": "way 6: dan16_nurik, dialog dan16_nurik E47 in danm16 / choice: reply R61 / if player alignment from 61 to 84"
+      },
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_nurik",
+        "node": 47,
+        "speaker": "dan16_nurik",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 6
+        }
+       ],
+       "branch": "way 6: dan16_nurik, dialog dan16_nurik E47 in danm16 / choice: reply R61 / if player alignment at least 85"
+      }
+     ],
+     "journal_xp": 500
+    },
+    {
+     "stage": 30,
+     "end": true,
+     "steps": []
+    },
+    {
+     "stage": 40,
+     "end": true,
+     "steps": [
+      {
+       "module": "danm14ad",
+       "via": {
+        "script": "cp_dan_casus_ds"
+       },
+       "needs": [
+        {
+         "item": "dan14_diary"
+        }
+       ],
+       "does": [
+        {
+         "take_item": [
+          "dan14_diary",
+          1
+         ]
+        },
+        {
+         "journal": [
+          "dan_casus",
+          40
+         ]
+        },
+        {
+         "other": "that journal call may also lower the stage (bAllowOverrideHigher = 1)"
+        },
+        {
+         "set_global_bool": [
+          "DAN_DIARY_DONE",
+          true
+         ]
+        },
+        {
+         "take_item": [
+          "dan16_key",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "shenkey",
+          1
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "notes": "stage 10: k_pdan_14b_itmaq (stage 10) also depends on: (GetTag(GetModuleItemAcquired()) == \"dan14_diary\") stage 10 can be reached in 2 ways; each step's branch starts with its way stage 20: dialog dan16_nurik is used by several objects in danm16: dan16_cutscene01, dan16_nurik stage 20 can be reached in 6 ways; each step's branch starts with its way UNCERTAIN: stage 10: script k_pdan_casus07 is in danm14ab but nothing in the module's files names it (may be started by another script) UNCERTAIN: stage 20: no creature, placeable or door template in danm14ad names dialog dan14_sdroid, so its speaker is unknown; scripts that name it: cp_dan_prot_atk UNCERTAIN: stage 20: no creature, placeable or door template in danm16 names dialog dan15_sdroid, so its speaker is unknown UNCERTAIN: stage 30 has no setter in the Dantooine files (no dialog node or script sets it)",
+   "own": true,
+   "run_ending": 20
+  },
+  {
+   "tag": "dan_ruins",
+   "stages": [
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_vandar",
+        "node": 10,
+        "speaker": "dan13_vandar",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JUHANI_PLOT",
+         "op": "==",
+         "value": 3
+        },
+        {
+         "global_bool": "DAN_VANDARJ_DONE",
+         "is": false
+        },
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": "==",
+         "value": 7
+        },
+        {
+         "global_bool": "DAN_STARMAP_DONE",
+         "is": false
+        },
+        {
+         "global_bool": "DAN_VANDARR_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "other": "removes the journal quest \"dan_council\""
+        },
+        {
+         "journal": [
+          "dan_ruins",
+          10
+         ]
+        }
+       ],
+       "branch": "way 1: dan13_vandar, dialog dan13_vandar E10 in danm13"
+      },
+      {
+       "module": "danm15",
+       "via": {
+        "dialog": "dan15_bastila",
+        "node": 3,
+        "speaker": "Bastila",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_BASTILA_ZONE",
+         "op": "==",
+         "value": 4
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_ruins",
+          10
+         ]
+        }
+       ],
+       "branch": "way 2: Bastila, dialog dan15_bastila E3 in danm15"
+      }
+     ]
+    },
+    {
+     "stage": 15,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm15",
+       "via": {
+        "dialog": "dan15_ancientdrd",
+        "node": 46,
+        "speaker": "dan15_ancientdrd",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Dan_RakDroid_Time",
+         "is": false
+        },
+        {
+         "global_bool": "Dan_RakDroid_Build",
+         "is": true
+        },
+        {
+         "global_bool": "Dan_RakDroid_Forge",
+         "is": true
+        },
+        {
+         "global_bool": "Dan_RakDroid_Time",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_ruins",
+          15
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 300
+    },
+    {
+     "stage": 20,
+     "end": true,
+     "steps": [
+      {
+       "module": "danm15",
+       "via": {
+        "script": "k_pdan_starmap"
+       },
+       "needs": [],
+       "does": [
+        {
+         "other": "SetPartyLeader(-1)"
+        },
+        {
+         "give_item": [
+          "dan_starpad",
+          1
+         ]
+        },
+        {
+         "set_global_number": [
+          "DAN_BASTILA_ZONE",
+          4
+         ]
+        },
+        {
+         "journal": [
+          "dan_ruins",
+          20
+         ]
+        },
+        {
+         "other": "starts conversation \"\""
+        }
+       ],
+       "branch": "way 1: script k_pdan_starmap in danm15 / if not (1 && GetIsObjectValid(OBJECT_SELF))"
+      },
+      {
+       "module": "danm15",
+       "via": {
+        "script": "k_pdan_starmap"
+       },
+       "needs": [],
+       "does": [
+        {
+         "local": [
+          "dan15_trig05",
+          "bool",
+          0,
+          1
+         ]
+        },
+        {
+         "other": "SetPartyLeader(-1)"
+        },
+        {
+         "give_item": [
+          "dan_starpad",
+          1
+         ]
+        },
+        {
+         "set_global_number": [
+          "DAN_BASTILA_ZONE",
+          4
+         ]
+        },
+        {
+         "journal": [
+          "dan_ruins",
+          20
+         ]
+        },
+        {
+         "other": "starts conversation \"\""
+        }
+       ],
+       "branch": "way 1: script k_pdan_starmap in danm15 / if GetIsObjectValid(OBJECT_SELF)"
+      },
+      {
+       "module": "danm15",
+       "via": {
+        "script": "k_pdan_starmap02"
+       },
+       "needs": [],
+       "does": [
+        {
+         "give_item": [
+          "dan_starpad",
+          1
+         ]
+        },
+        {
+         "journal": [
+          "dan_ruins",
+          20
+         ]
+        },
+        {
+         "set_global_number": [
+          "DAN_BASTILA_ZONE",
+          4
+         ]
+        },
+        {
+         "set_global_number": [
+          "K_STAR_MAP",
+          10
+         ]
+        },
+        {
+         "set_global_bool": [
+          "DAN_STARMAP_DONE",
+          true
+         ]
+        }
+       ],
+       "branch": "way 2: script k_pdan_starmap02 in danm15"
+      }
+     ],
+     "journal_xp": 700
+    }
+   ],
+   "notes": "stage 10: dialog dan15_bastila is used by several objects in danm15: dan15_starmap, dan15_starmapobj stage 10: dan15_bastila E3 can be reached from 3 places; needs follow the shortest path stage 10 can be reached in 2 ways; each step's branch starts with its way stage 20: k_pdan_starmap (stage 20) also depends on: IsObjectPartyMember(GetEnteringObject()); (a helper function's result == 0); not (1 && GetIsObjectValid(OBJECT_SELF)) stage 20: k_pdan_starmap (stage 20) also depends on: IsObjectPartyMember(GetEnteringObject()); (a helper function's result == 0); GetIsObjectValid(OBJECT_SELF) stage 20 can be reached in 2 ways; each step's branch starts with its way UNCERTAIN: stage 15, dialog dan15_ancientdrd: the needs found contradict each other (Dan_RakDroid_Time must be both TRUE and FALSE); the shortest dialog path is probably not the one the game uses",
+   "own": true,
+   "run_ending": 20
+  },
+  {
+   "tag": "dan_trials",
+   "stages": [
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_zhar",
+        "node": 47,
+        "speaker": "dan13_zhar",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_ZHAR_TRAIN",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_trials",
+          10
+         ]
+        },
+        {
+         "set_global_bool": [
+          "DAN_JEDI_CODE",
+          true
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 15,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_belaya",
+        "node": 11,
+        "speaker": "dan13_belaya",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": ">",
+         "value": 1
+        },
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": "<",
+         "value": 7
+        },
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": "<",
+         "value": 3
+        },
+        {
+         "global_bool": "DAN_JEDI_CODE",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_trials",
+          15
+         ]
+        }
+       ],
+       "branch": "way 1: dan13_belaya, dialog dan13_belaya E11 in danm13"
+      },
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_deesra",
+        "node": 26,
+        "speaker": "Deesra",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": ">",
+         "value": 1
+        },
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": "<",
+         "value": 7
+        },
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": "<",
+         "value": 3
+        },
+        {
+         "global_bool": "DAN_JEDI_CODE",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_trials",
+          15
+         ]
+        }
+       ],
+       "branch": "way 2: Deesra, dialog dan13_deesra E26 in danm13"
+      },
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_dorak",
+        "node": 20,
+        "speaker": "dan13_dorak",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Dan_DorakHistory",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": "<",
+         "value": 3
+        },
+        {
+         "global_bool": "DAN_JEDI_CODE",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_trials",
+          15
+         ]
+        }
+       ],
+       "branch": "way 3: dan13_dorak, dialog dan13_dorak E20 in danm13"
+      },
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_vandar",
+        "node": 106,
+        "speaker": "dan13_vandar",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": ">",
+         "value": 1
+        },
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": "<",
+         "value": 7
+        },
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": "<",
+         "value": 3
+        },
+        {
+         "global_bool": "DAN_JEDI_CODE",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_trials",
+          15
+         ]
+        }
+       ],
+       "branch": "way 4: dan13_vandar, dialog dan13_vandar E106 in danm13"
+      },
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_vrook",
+        "node": 45,
+        "speaker": "dan13_vrook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": ">",
+         "value": 1
+        },
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": "<",
+         "value": 7
+        },
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": "<",
+         "value": 3
+        },
+        {
+         "global_bool": "DAN_JEDI_CODE",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_trials",
+          15
+         ]
+        }
+       ],
+       "branch": "way 5: dan13_vrook, dialog dan13_vrook E45 in danm13"
+      },
+      {
+       "module": "danm14aa",
+       "via": {
+        "dialog": "dan14_nemo",
+        "node": 35,
+        "speaker": "dan14_nemo",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JUHANI_PLOT",
+         "op": "==",
+         "value": 3
+        },
+        {
+         "global_bool": "DAN_NEMOJ_DONE",
+         "is": false
+        },
+        {
+         "global_number": "DAN_PLANET_PLOT",
+         "op": "<",
+         "value": 2
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_trials",
+          15
+         ]
+        }
+       ],
+       "branch": "way 6: dan14_nemo, dialog dan14_nemo E35 in danm14aa"
+      }
+     ]
+    },
+    {
+     "stage": 20,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_zhar",
+        "node": 61,
+        "speaker": "dan13_zhar",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_ZHAR_TRAIN",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_trials",
+          20
+         ]
+        },
+        {
+         "set_global_bool": [
+          "DAN_DORAK_DONE",
+          true
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 200
+    },
+    {
+     "stage": 25,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_dorak",
+        "node": 79,
+        "speaker": "dan13_dorak",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_DORAK_DONE",
+         "is": true
+        },
+        {
+         "global_number": "DAN_PATH_STATE",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_trials",
+          25
+         ]
+        },
+        {
+         "set_global_bool": [
+          "DAN_DORAK_DONE",
+          false
+         ]
+        },
+        {
+         "set_global_number": [
+          "DAN_PATH_STATE",
+          1
+         ]
+        },
+        {
+         "give_item": [
+          "dan13_bluecryst",
+          1
+         ]
+        }
+       ]
+      },
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_dorak",
+        "node": 79,
+        "speaker": "dan13_dorak",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [],
+       "branch": "choice: reply R105 (empty: [continue]) / otherwise"
+      },
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_dorak",
+        "node": 79,
+        "speaker": "dan13_dorak",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "set_global_number": [
+          "DAN_EXTRA_XP",
+          0
+         ]
+        },
+        {
+         "set_global_number": [
+          "DAN_EXTRA_XP2",
+          0
+         ]
+        },
+        {
+         "other": "gives XP to player: (((GetGlobalNumber(\"DAN_EXTRA_XP2\") + 128) << 8) | (GetGlobalNumber(\"DAN_EXTRA_XP\") + 128))"
+        }
+       ],
+       "branch": "choice: reply R105 (empty: [continue]) / if GetLevelByClass(3, player) is 0; GetLevelByClass(4, player) is 0; GetLevelByClass(5, player) is 0"
+      }
+     ]
+    },
+    {
+     "stage": 26,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_dorak",
+        "node": 78,
+        "speaker": "dan13_dorak",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_DORAK_DONE",
+         "is": true
+        },
+        {
+         "global_number": "DAN_PATH_STATE",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_trials",
+          26
+         ]
+        },
+        {
+         "set_global_bool": [
+          "DAN_DORAK_DONE",
+          false
+         ]
+        },
+        {
+         "set_global_number": [
+          "DAN_PATH_STATE",
+          2
+         ]
+        },
+        {
+         "give_item": [
+          "dan13_goldcryst",
+          1
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 27,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_dorak",
+        "node": 77,
+        "speaker": "dan13_dorak",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_DORAK_DONE",
+         "is": true
+        },
+        {
+         "global_number": "DAN_PATH_STATE",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_trials",
+          27
+         ]
+        },
+        {
+         "set_global_bool": [
+          "DAN_DORAK_DONE",
+          false
+         ]
+        },
+        {
+         "set_global_number": [
+          "DAN_PATH_STATE",
+          3
+         ]
+        },
+        {
+         "give_item": [
+          "dan13_grncryst",
+          1
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 30,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_zhar",
+        "node": 42,
+        "speaker": "dan13_zhar",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": ">",
+         "value": 1
+        },
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": "<",
+         "value": 4
+        },
+        {
+         "global_bool": "DAN_JUHANIQ_DONE",
+         "is": false
+        },
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": "==",
+         "value": 3
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_trials",
+          30
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 200
+    },
+    {
+     "stage": 35,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_juhani",
+        "node": 54,
+        "speaker": "dan14_juhani",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_JUHANIF_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_trials",
+          35
+         ]
+        }
+       ]
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_juhani",
+        "node": 54,
+        "speaker": "dan14_juhani",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [],
+       "branch": "choice: reply R79 or reply R78 or reply R77"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_juhani",
+        "node": 54,
+        "speaker": "dan14_juhani",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 2
+        }
+       ],
+       "branch": "choice: reply R75 / if player alignment at most 14"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_juhani",
+        "node": 54,
+        "speaker": "dan14_juhani",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 4
+        }
+       ],
+       "branch": "choice: reply R75 / if player alignment from 15 to 39"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_juhani",
+        "node": 54,
+        "speaker": "dan14_juhani",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 6
+        }
+       ],
+       "branch": "choice: reply R75 / if player alignment from 40 to 60"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_juhani",
+        "node": 54,
+        "speaker": "dan14_juhani",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 8
+        }
+       ],
+       "branch": "choice: reply R75 / if player alignment from 61 to 84"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_juhani",
+        "node": 54,
+        "speaker": "dan14_juhani",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 10
+        }
+       ],
+       "branch": "choice: reply R75 / if player alignment at least 85"
+      }
+     ]
+    },
+    {
+     "stage": 40,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_juhani",
+        "node": 23,
+        "speaker": "dan14_juhani",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JUHANI_STATE",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_trials",
+          40
+         ]
+        },
+        {
+         "other": "changes the faction of dan14_juhani to STANDARD_FACTION_HOSTILE_1"
+        },
+        {
+         "other": "SetLocalNumber on dan14_juhani: index 0 = GetLocalNumber(OBJECT_SELF, 0)"
+        },
+        {
+         "other": "SetLocalNumber on dan14_juhani: index 0 = (GetLocalNumber(OBJECT_SELF, 0) + a helper function's result)"
+        }
+       ],
+       "branch": "way 1: dan14_juhani, dialog dan14_juhani E23 in danm14ac"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_juhani",
+        "node": 23,
+        "speaker": "dan14_juhani",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JUHANI_STATE",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 2
+        }
+       ],
+       "branch": "way 1: dan14_juhani, dialog dan14_juhani E23 in danm14ac / before this line: if player alignment at most 14"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_juhani",
+        "node": 23,
+        "speaker": "dan14_juhani",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JUHANI_STATE",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 4
+        }
+       ],
+       "branch": "way 1: dan14_juhani, dialog dan14_juhani E23 in danm14ac / before this line: if player alignment from 15 to 39"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_juhani",
+        "node": 23,
+        "speaker": "dan14_juhani",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JUHANI_STATE",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 6
+        }
+       ],
+       "branch": "way 1: dan14_juhani, dialog dan14_juhani E23 in danm14ac / before this line: if player alignment from 40 to 60"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_juhani",
+        "node": 23,
+        "speaker": "dan14_juhani",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JUHANI_STATE",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 8
+        }
+       ],
+       "branch": "way 1: dan14_juhani, dialog dan14_juhani E23 in danm14ac / before this line: if player alignment from 61 to 84"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_juhani",
+        "node": 23,
+        "speaker": "dan14_juhani",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JUHANI_STATE",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 10
+        }
+       ],
+       "branch": "way 1: dan14_juhani, dialog dan14_juhani E23 in danm14ac / before this line: if player alignment at least 85"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_juhani",
+        "node": 55,
+        "speaker": "dan14_juhani",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_JUHANIF_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_trials",
+          40
+         ]
+        },
+        {
+         "other": "changes the faction of dan14_juhani to STANDARD_FACTION_HOSTILE_1"
+        },
+        {
+         "other": "SetLocalNumber on dan14_juhani: index 0 = GetLocalNumber(OBJECT_SELF, 0)"
+        },
+        {
+         "other": "SetLocalNumber on dan14_juhani: index 0 = (GetLocalNumber(OBJECT_SELF, 0) + a helper function's result)"
+        }
+       ],
+       "branch": "way 2: dan14_juhani, dialog dan14_juhani E55 in danm14ac"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_juhani",
+        "node": 55,
+        "speaker": "dan14_juhani",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_JUHANIF_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 2
+        }
+       ],
+       "branch": "way 2: dan14_juhani, dialog dan14_juhani E55 in danm14ac / before this line: if player alignment at most 14"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_juhani",
+        "node": 55,
+        "speaker": "dan14_juhani",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_JUHANIF_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 4
+        }
+       ],
+       "branch": "way 2: dan14_juhani, dialog dan14_juhani E55 in danm14ac / before this line: if player alignment from 15 to 39"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_juhani",
+        "node": 55,
+        "speaker": "dan14_juhani",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_JUHANIF_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 6
+        }
+       ],
+       "branch": "way 2: dan14_juhani, dialog dan14_juhani E55 in danm14ac / before this line: if player alignment from 40 to 60"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_juhani",
+        "node": 55,
+        "speaker": "dan14_juhani",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_JUHANIF_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 8
+        }
+       ],
+       "branch": "way 2: dan14_juhani, dialog dan14_juhani E55 in danm14ac / before this line: if player alignment from 61 to 84"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_juhani",
+        "node": 55,
+        "speaker": "dan14_juhani",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_JUHANIF_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 10
+        }
+       ],
+       "branch": "way 2: dan14_juhani, dialog dan14_juhani E55 in danm14ac / before this line: if player alignment at least 85"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_juhani",
+        "node": 64,
+        "speaker": "dan14_juhani",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "dan_trials",
+          40
+         ]
+        }
+       ],
+       "branch": "way 3: dan14_juhani, dialog dan14_juhani E64 in danm14ac"
+      }
+     ],
+     "journal_xp": 800
+    },
+    {
+     "stage": 45,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_juhani",
+        "node": 48,
+        "speaker": "dan14_juhani",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JUHANI_STATE",
+         "op": "==",
+         "value": 2
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_trials",
+          45
+         ]
+        }
+       ]
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_juhani",
+        "node": 48,
+        "speaker": "dan14_juhani",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "destroy": "dan14_juhani"
+        }
+       ],
+       "branch": "choice: reply R71 (empty: [continue]) / if not GetIsObjectValid(GetObjectByTag(\"dan13_groveflee\", 0))"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_juhani",
+        "node": 48,
+        "speaker": "dan14_juhani",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "destroy": "dan13_groveflee"
+        },
+        {
+         "destroy": "dan14_juhani"
+        }
+       ],
+       "branch": "choice: reply R71 (empty: [continue]) / if GetIsObjectValid(GetObjectByTag(\"dan13_groveflee\", 0))"
+      }
+     ],
+     "journal_xp": 1200
+    },
+    {
+     "stage": 46,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_juhani",
+        "node": 1,
+        "speaker": "dan13_juhani",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JUHANI_PLOT",
+         "op": "==",
+         "value": 3
+        },
+        {
+         "global_bool": "DAN_JUHANI_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_trials",
+          46
+         ]
+        }
+       ],
+       "branch": "way 1: dan13_juhani, dialog dan13_juhani E1 in danm13"
+      },
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_vandar",
+        "node": 117,
+        "speaker": "dan13_vandar",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JUHANI_PLOT",
+         "op": "==",
+         "value": 3
+        },
+        {
+         "global_bool": "DAN_VANDARJ_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_trials",
+          46
+         ]
+        }
+       ],
+       "branch": "way 2: dan13_vandar, dialog dan13_vandar E117 in danm13"
+      },
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_vandar",
+        "node": 117,
+        "speaker": "dan13_vandar",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JUHANI_PLOT",
+         "op": "==",
+         "value": 3
+        },
+        {
+         "global_bool": "DAN_VANDARJ_DONE",
+         "is": false
+        }
+       ],
+       "does": [],
+       "branch": "way 2: dan13_vandar, dialog dan13_vandar E117 in danm13 / otherwise"
+      },
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_vandar",
+        "node": 117,
+        "speaker": "dan13_vandar",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JUHANI_PLOT",
+         "op": "==",
+         "value": 3
+        },
+        {
+         "global_bool": "DAN_VANDARJ_DONE",
+         "is": false
+        },
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": "==",
+         "value": 7
+        }
+       ],
+       "does": [
+        {
+         "local": [
+          "dan13_vandar",
+          "bool",
+          53,
+          1
+         ]
+        },
+        {
+         "set_global_bool": [
+          "DAN_RUINS_GONE",
+          true
+         ]
+        }
+       ],
+       "branch": "way 2: dan13_vandar, dialog dan13_vandar E117 in danm13 / if DAN_JEDI_PLOT == 7"
+      },
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_vrook",
+        "node": 53,
+        "speaker": "dan13_vrook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JUHANI_PLOT",
+         "op": "==",
+         "value": 3
+        },
+        {
+         "global_bool": "DAN_VROOKJ_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_trials",
+          46
+         ]
+        }
+       ],
+       "branch": "way 3: dan13_vrook, dialog dan13_vrook E53 in danm13"
+      },
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_zhar",
+        "node": 16,
+        "speaker": "dan13_zhar",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JUHANI_PLOT",
+         "op": "==",
+         "value": 3
+        },
+        {
+         "global_bool": "DAN_ZHARJ_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_trials",
+          46
+         ]
+        }
+       ],
+       "branch": "way 4: dan13_zhar, dialog dan13_zhar E16 in danm13"
+      }
+     ]
+    },
+    {
+     "stage": 50,
+     "end": true,
+     "steps": [
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_zhar",
+        "node": 20,
+        "speaker": "dan13_zhar",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JUHANI_PLOT",
+         "op": "==",
+         "value": 2
+        },
+        {
+         "global_bool": "DAN_ZHARJ_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_trials",
+          50
+         ]
+        },
+        {
+         "set_global_number": [
+          "DAN_JEDI_PLOT",
+          7
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 800
+    }
+   ],
+   "notes": "stage 15: conditional k_pdan_histforce passes in 2 different cases; only the tests shared by all are listed as needs. Cases: not (1 && GetIsObjectValid(OBJECT_SELF)) | GetIsObjectValid(OBJECT_SELF) stage 15 can be reached in 6 ways; each step's branch starts with its way stage 20: dan13_zhar E61 can be reached from 2 places; needs follow the shortest path stage 30: dan13_zhar E42 can be reached from 2 places; needs follow the shortest path stage 40: dan14_juhani E23 can be reached from 2 places; needs follow the shortest path stage 40: dan14_juhani E64 can be reached from 3 places; needs follow the shortest path stage 40 can be reached in 3 ways; each step's branch starts with its way stage 45: dan14_juhani E48 can be reached from 2 places; needs follow the shortest path stage 46 can be reached in 4 ways; each step's branch starts with its way stage 50: dan13_zhar E20 can be reached from 2 places; needs follow the shortest path UNCERTAIN: stage 15: the condition script 0 on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 40: a script near dan14_juhani E23 was too large to follow completely UNCERTAIN: stage 40: a script near dan14_juhani E55 was too large to follow completely",
+   "own": true,
+   "run_ending": 50
+  },
+  {
+   "tag": "k_swg_juhani",
+   "stages": [
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_vandar",
+        "node": 77,
+        "speaker": "dan13_vrook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_VANDARR_DONE",
+         "is": false
+        },
+        {
+         "global_bool": "DAN_STARMAP_DONE",
+         "is": true
+        },
+        {
+         "global_number": "DAN_JUHANI_PLOT",
+         "op": "==",
+         "value": 3
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "k_swg_juhani",
+          10
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "notes": "This quest is not a Dantooine quest by its tag; only the stages set on Dantooine are listed. Other planets also set its stages."
+  },
+  {
+   "tag": "dan_raiders",
+   "stages": [
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm14aa",
+       "via": {
+        "dialog": "dan14_settlerm",
+        "node": 11,
+        "speaker": "dan14_settlerm",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": "==",
+         "value": 7
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_raiders",
+          10
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 20,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm14aa",
+       "via": {
+        "dialog": "dan14_jon",
+        "node": 34,
+        "speaker": "dan14_jon",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_MAND_STATE",
+         "op": "==",
+         "value": 0
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_raiders",
+          20
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 30,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm14ab",
+       "via": {
+        "script": "k_pdan_mand55"
+       },
+       "needs": [],
+       "does": [
+        {
+         "other": "sets global number DAN_MAND_STATE to a value that is not constant: (GetGlobalNumber(\"DAN_MAND_STATE\") + 1)"
+        },
+        {
+         "journal": [
+          "dan_raiders",
+          30
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 50
+    },
+    {
+     "stage": 35,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm14ac",
+       "via": {
+        "script": "k_pdan_mand54"
+       },
+       "needs": [],
+       "does": [
+        {
+         "other": "sets global number DAN_MAND_STATE to a value that is not constant: (GetGlobalNumber(\"DAN_MAND_STATE\") + 1)"
+        },
+        {
+         "journal": [
+          "dan_raiders",
+          35
+         ]
+        },
+        {
+         "take_item": [
+          "g_mandat1",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "g_mandat2",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "g_mandat3",
+          1
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 200
+    },
+    {
+     "stage": 40,
+     "end": true,
+     "steps": [
+      {
+       "module": "danm14aa",
+       "via": {
+        "dialog": "dan14_jon",
+        "node": 15,
+        "speaker": "dan14_jon",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_MAND_STATE",
+         "op": "==",
+         "value": 5
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_raiders",
+          40
+         ]
+        },
+        {
+         "credits": 1000
+        },
+        {
+         "give_item": [
+          "g_i_upgrade010",
+          1
+         ]
+        },
+        {
+         "give_item": [
+          "g_i_gauntlet006",
+          1
+         ]
+        },
+        {
+         "set_global_number": [
+          "DAN_JON_STATE",
+          3
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 250
+    }
+   ],
+   "notes": "stage 20: dan14_jon E34 can be reached from 4 places; needs follow the shortest path stage 30: k_pdan_mand55 (stage 30) also depends on: (user-defined event == 1007) stage 35: k_pdan_mand54 (stage 35) also depends on: (user-defined event == 1007) stage 40: conditional k_pdan_mand04 passes in 2 different cases; only the tests shared by all are listed as needs. Cases: DAN_JON_STATE == 1 | DAN_JON_STATE == 0",
+   "own": true,
+   "run_ending": 40
+  },
+  {
+   "tag": "dan_companion",
+   "stages": [
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm14aa",
+       "via": {
+        "dialog": "dan14_elise",
+        "node": 1,
+        "speaker": "dan14_elise",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "dan_companion",
+          10
+         ]
+        }
+       ],
+       "branch": "way 1: dan14_elise, dialog dan14_elise E1 in danm14aa"
+      },
+      {
+       "module": "danm14aa",
+       "via": {
+        "dialog": "dan14_elise",
+        "node": 1,
+        "speaker": "dan14_elise",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_ELISE_PLOT",
+         "op": "!=",
+         "value": 0
+        }
+       ],
+       "does": [],
+       "branch": "way 1: dan14_elise, dialog dan14_elise E1 in danm14aa / before this line: if DAN_ELISE_PLOT != 0"
+      },
+      {
+       "module": "danm14aa",
+       "via": {
+        "dialog": "dan14_elise",
+        "node": 1,
+        "speaker": "dan14_elise",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_ELISE_PLOT",
+         "op": "==",
+         "value": 0
+        }
+       ],
+       "does": [
+        {
+         "set_global_number": [
+          "DAN_ELISE_PLOT",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: dan14_elise, dialog dan14_elise E1 in danm14aa / before this line: if DAN_ELISE_PLOT == 0"
+      },
+      {
+       "module": "danm14aa",
+       "via": {
+        "dialog": "dan14_elise",
+        "node": 1,
+        "speaker": "dan14_elise",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_ELISE_PLOT",
+         "op": "!=",
+         "value": 0
+        }
+       ],
+       "does": [],
+       "branch": "way 1: dan14_elise, dialog dan14_elise E1 in danm14aa / choice: reply R1 (empty: [continue]) / if DAN_ELISE_PLOT != 0"
+      },
+      {
+       "module": "danm14aa",
+       "via": {
+        "dialog": "dan14_elise",
+        "node": 1,
+        "speaker": "dan14_elise",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_ELISE_PLOT",
+         "op": "==",
+         "value": 0
+        }
+       ],
+       "does": [
+        {
+         "set_global_number": [
+          "DAN_ELISE_PLOT",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: dan14_elise, dialog dan14_elise E1 in danm14aa / choice: reply R1 (empty: [continue]) / if DAN_ELISE_PLOT == 0"
+      },
+      {
+       "module": "danm14aa",
+       "via": {
+        "dialog": "dan14_elise",
+        "node": 24,
+        "speaker": "dan14_elise",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_ELISEF_DONE",
+         "is": false
+        },
+        {
+         "global_bool": "DAN_ELISEH_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_companion",
+          10
+         ]
+        }
+       ],
+       "branch": "way 2: dan14_elise, dialog dan14_elise E24 in danm14aa"
+      },
+      {
+       "module": "danm14aa",
+       "via": {
+        "dialog": "dan14_elise",
+        "node": 24,
+        "speaker": "dan14_elise",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_ELISEF_DONE",
+         "is": false
+        },
+        {
+         "global_bool": "DAN_ELISEH_DONE",
+         "is": false
+        },
+        {
+         "global_number": "DAN_ELISE_PLOT",
+         "op": "!=",
+         "value": 0
+        }
+       ],
+       "does": [],
+       "branch": "way 2: dan14_elise, dialog dan14_elise E24 in danm14aa / if DAN_ELISE_PLOT != 0"
+      },
+      {
+       "module": "danm14aa",
+       "via": {
+        "dialog": "dan14_elise",
+        "node": 24,
+        "speaker": "dan14_elise",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_ELISEF_DONE",
+         "is": false
+        },
+        {
+         "global_bool": "DAN_ELISEH_DONE",
+         "is": false
+        },
+        {
+         "global_number": "DAN_ELISE_PLOT",
+         "op": "==",
+         "value": 0
+        }
+       ],
+       "does": [
+        {
+         "set_global_number": [
+          "DAN_ELISE_PLOT",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: dan14_elise, dialog dan14_elise E24 in danm14aa / if DAN_ELISE_PLOT == 0"
+      },
+      {
+       "module": "danm14aa",
+       "via": {
+        "dialog": "dan14_elise",
+        "node": 25,
+        "speaker": "dan14_elise",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_ELISEF_DONE",
+         "is": false
+        },
+        {
+         "global_bool": "DAN_ELISEH_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_companion",
+          10
+         ]
+        }
+       ],
+       "branch": "way 3: dan14_elise, dialog dan14_elise E25 in danm14aa"
+      },
+      {
+       "module": "danm14aa",
+       "via": {
+        "dialog": "dan14_elise",
+        "node": 25,
+        "speaker": "dan14_elise",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_ELISEF_DONE",
+         "is": false
+        },
+        {
+         "global_bool": "DAN_ELISEH_DONE",
+         "is": false
+        },
+        {
+         "global_number": "DAN_ELISE_PLOT",
+         "op": "!=",
+         "value": 0
+        }
+       ],
+       "does": [],
+       "branch": "way 3: dan14_elise, dialog dan14_elise E25 in danm14aa / if DAN_ELISE_PLOT != 0"
+      },
+      {
+       "module": "danm14aa",
+       "via": {
+        "dialog": "dan14_elise",
+        "node": 25,
+        "speaker": "dan14_elise",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_ELISEF_DONE",
+         "is": false
+        },
+        {
+         "global_bool": "DAN_ELISEH_DONE",
+         "is": false
+        },
+        {
+         "global_number": "DAN_ELISE_PLOT",
+         "op": "==",
+         "value": 0
+        }
+       ],
+       "does": [
+        {
+         "set_global_number": [
+          "DAN_ELISE_PLOT",
+          1
+         ]
+        }
+       ],
+       "branch": "way 3: dan14_elise, dialog dan14_elise E25 in danm14aa / if DAN_ELISE_PLOT == 0"
+      }
+     ]
+    },
+    {
+     "stage": 20,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm14ad",
+       "via": {
+        "dialog": "dan14_c869",
+        "node": 28,
+        "speaker": "dan14_c869",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "set_global_number": [
+          "DAN_ELISE_PLOT",
+          2
+         ]
+        },
+        {
+         "journal": [
+          "dan_companion",
+          20
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 200
+    },
+    {
+     "stage": 23,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm14ad",
+       "via": {
+        "dialog": "dan14_c869",
+        "node": 21,
+        "speaker": "dan14_c869",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "dan_companion",
+          23
+         ]
+        }
+       ],
+       "branch": "way 1: dan14_c869, dialog dan14_c869 E21 in danm14ad"
+      },
+      {
+       "module": "danm14ad",
+       "via": {
+        "dialog": "dan14_c869",
+        "node": 23,
+        "speaker": "dan14_c869",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "dan_companion",
+          23
+         ]
+        }
+       ],
+       "branch": "way 2: dan14_c869, dialog dan14_c869 E23 in danm14ad"
+      },
+      {
+       "module": "danm14ad",
+       "via": {
+        "dialog": "dan14_c869",
+        "node": 27,
+        "speaker": "dan14_c869",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "dan_companion",
+          23
+         ]
+        }
+       ],
+       "branch": "way 3: dan14_c869, dialog dan14_c869 E27 in danm14ad"
+      }
+     ],
+     "journal_xp": 300
+    },
+    {
+     "stage": 26,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm14ad",
+       "via": {
+        "dialog": "dan14_c869",
+        "node": 14,
+        "speaker": "dan14_c869",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "dan_companion",
+          26
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 300
+    },
+    {
+     "stage": 30,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm14aa",
+       "via": {
+        "dialog": "dan14_elise",
+        "node": 11,
+        "speaker": "dan14_elise",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_ELISE_PLOT",
+         "op": ">",
+         "value": 1
+        },
+        {
+         "global_number": "DAN_ELISE_PLOT",
+         "op": "<",
+         "value": 6
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_companion",
+          30
+         ]
+        }
+       ],
+       "branch": "way 1: dan14_elise, dialog dan14_elise E11 in danm14aa"
+      },
+      {
+       "module": "danm14aa",
+       "via": {
+        "dialog": "dan14_elise",
+        "node": 12,
+        "speaker": "dan14_elise",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_ELISE_PLOT",
+         "op": ">",
+         "value": 1
+        },
+        {
+         "global_number": "DAN_ELISE_PLOT",
+         "op": "<",
+         "value": 6
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_companion",
+          30
+         ]
+        },
+        {
+         "set_global_bool": [
+          "DAN_ELISE_TOLD",
+          true
+         ]
+        },
+        {
+         "set_global_bool": [
+          "DAN_ELISE_COMPOUND",
+          true
+         ]
+        }
+       ],
+       "branch": "way 2: dan14_elise, dialog dan14_elise E12 in danm14aa"
+      }
+     ],
+     "journal_xp": 150
+    },
+    {
+     "stage": 31,
+     "end": true,
+     "steps": [
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_elise",
+        "node": 0,
+        "speaker": "dan13_elise",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "dan_companion",
+          31
+         ]
+        }
+       ]
+      },
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_elise",
+        "node": 0,
+        "speaker": "dan13_elise",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [],
+       "branch": "choice: reply R4 or reply R2"
+      },
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_elise",
+        "node": 0,
+        "speaker": "dan13_elise",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 1
+        }
+       ],
+       "branch": "choice: reply R0 / if player alignment at most 39"
+      },
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_elise",
+        "node": 0,
+        "speaker": "dan13_elise",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 2
+        }
+       ],
+       "branch": "choice: reply R0 / if player alignment from 40 to 60"
+      },
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_elise",
+        "node": 0,
+        "speaker": "dan13_elise",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 4
+        }
+       ],
+       "branch": "choice: reply R0 / if player alignment from 61 to 84"
+      },
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_elise",
+        "node": 0,
+        "speaker": "dan13_elise",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 6
+        }
+       ],
+       "branch": "choice: reply R0 / if player alignment at least 85"
+      }
+     ],
+     "journal_xp": 150
+    },
+    {
+     "stage": 33,
+     "end": true,
+     "steps": [
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_elise",
+        "node": 10,
+        "speaker": "dan13_elise",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "dan_companion",
+          33
+         ]
+        }
+       ],
+       "branch": "way 1: dan13_elise, dialog dan13_elise E10 in danm13"
+      },
+      {
+       "module": "danm14aa",
+       "via": {
+        "dialog": "dan14_elise",
+        "node": 48,
+        "speaker": "dan14_elise",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "dan_companion",
+          33
+         ]
+        }
+       ],
+       "branch": "way 2: dan14_elise, dialog dan14_elise E48 in danm14aa"
+      }
+     ],
+     "journal_xp": 200
+    },
+    {
+     "stage": 36,
+     "end": true,
+     "steps": [
+      {
+       "module": "danm14aa",
+       "via": {
+        "dialog": "dan14_elise",
+        "node": 2,
+        "speaker": "dan14_elise",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_ELISE_PLOT",
+         "op": ">",
+         "value": 1
+        },
+        {
+         "global_number": "DAN_ELISE_PLOT",
+         "op": "<",
+         "value": 6
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_companion",
+          36
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 150
+    }
+   ],
+   "notes": "stage 10: dan14_elise E1 can be reached from 4 places; needs follow the shortest path stage 10: dan14_elise E25 can be reached from 2 places; needs follow the shortest path stage 10 can be reached in 3 ways; each step's branch starts with its way stage 23: dan14_c869 E21 can be reached from 2 places; needs follow the shortest path stage 23 can be reached in 3 ways; each step's branch starts with its way stage 26: dan14_c869 E14 can be reached from 2 places; needs follow the shortest path stage 30 can be reached in 2 ways; each step's branch starts with its way stage 33: conditional k_pdan_droid50 passes in 2 different cases; only the tests shared by all are listed as needs. Cases: DAN_ELISE_PLOT == 5 | DAN_ELISE_PLOT == 4 stage 33 can be reached in 2 ways; each step's branch starts with its way",
+   "own": true,
+   "run_ending": 31
+  },
+  {
+   "tag": "dan_murder",
+   "stages": [
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 206,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_BOLOOKF_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          10
+         ]
+        }
+       ],
+       "branch": "way 1: dan14_bolook, dialog dan14_bolook E206 in danm14ac"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 222,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_BOLOOK_WEST",
+         "is": true
+        },
+        {
+         "global_bool": "DAN_BOLOOKF_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          10
+         ]
+        }
+       ],
+       "branch": "way 2: dan14_bolook, dialog dan14_bolook E222 in danm14ac"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 238,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": "==",
+         "value": 7
+        },
+        {
+         "global_bool": "DAN_BOLOOKF_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          10
+         ]
+        }
+       ],
+       "branch": "way 3: dan14_bolook, dialog dan14_bolook E238 in danm14ac"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 254,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_BOLOOK_WEST",
+         "is": true
+        },
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": "==",
+         "value": 7
+        },
+        {
+         "global_bool": "DAN_BOLOOKF_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          10
+         ]
+        }
+       ],
+       "branch": "way 4: dan14_bolook, dialog dan14_bolook E254 in danm14ac"
+      }
+     ]
+    },
+    {
+     "stage": 70,
+     "end": true,
+     "steps": [
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 65,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_HANDONF_DONE",
+         "is": true
+        },
+        {
+         "global_bool": "DAN_RICKARDF_DONE",
+         "is": true
+        },
+        {
+         "global_number": "DAN_BOLOOK_STATE",
+         "op": "==",
+         "value": 3
+        },
+        {
+         "global_bool": "Dan_Blood",
+         "is": true
+        },
+        {
+         "global_bool": "Dan_Handaccuse",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          70
+         ]
+        },
+        {
+         "xp": 160
+        }
+       ]
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 65,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Dan_FalseAccuse",
+         "is": true
+        }
+       ],
+       "does": [],
+       "branch": "choice: reply R83 (empty: [continue]) / line E67"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 65,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "xp": 110
+        }
+       ],
+       "branch": "choice: reply R83 (empty: [continue]) / line E66"
+      }
+     ],
+     "journal_xp": 200
+    },
+    {
+     "stage": 74,
+     "end": true,
+     "steps": [
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 101,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_HANDONF_DONE",
+         "is": true
+        },
+        {
+         "global_bool": "DAN_RICKARDF_DONE",
+         "is": true
+        },
+        {
+         "global_number": "DAN_BOLOOK_STATE",
+         "op": "==",
+         "value": 3
+        },
+        {
+         "global_bool": "Dan_Blood",
+         "is": true
+        },
+        {
+         "global_bool": "Dan_Rickaccuse",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          74
+         ]
+        },
+        {
+         "xp": 160
+        }
+       ]
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 101,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Dan_FalseAccuse",
+         "is": true
+        }
+       ],
+       "does": [],
+       "branch": "choice: reply R132 (empty: [continue]) / line E103"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 101,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "xp": 110
+        }
+       ],
+       "branch": "choice: reply R132 (empty: [continue]) / line E102"
+      }
+     ],
+     "journal_xp": 200
+    },
+    {
+     "stage": 78,
+     "end": true,
+     "steps": [
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 40,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_HANDONF_DONE",
+         "is": true
+        },
+        {
+         "global_bool": "DAN_RICKARDF_DONE",
+         "is": true
+        },
+        {
+         "global_number": "DAN_BOLOOK_STATE",
+         "op": "==",
+         "value": 3
+        },
+        {
+         "global_bool": "Dan_Blood",
+         "is": true
+        },
+        {
+         "global_bool": "Dan_Handaccuse",
+         "is": true
+        },
+        {
+         "global_bool": "Dan_Rickaccuse",
+         "is": true
+        },
+        {
+         "global_bool": "Dan_wife",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          78
+         ]
+        },
+        {
+         "xp": 310
+        }
+       ]
+      }
+     ],
+     "journal_xp": 500
+    },
+    {
+     "stage": 99,
+     "end": true,
+     "steps": [
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 109,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_HANDONF_DONE",
+         "is": true
+        },
+        {
+         "global_bool": "DAN_RICKARDF_DONE",
+         "is": true
+        },
+        {
+         "global_number": "DAN_BOLOOK_STATE",
+         "op": "==",
+         "value": 3
+        },
+        {
+         "global_bool": "Dan_Blood",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          99
+         ]
+        },
+        {
+         "destroy": "dan14_rickard"
+        },
+        {
+         "destroy": "dan14_handon"
+        },
+        {
+         "destroy": "dan14_bolook"
+        },
+        {
+         "destroy": "dan14_idroid"
+        },
+        {
+         "destroy": "dan14_corpse"
+        },
+        {
+         "destroy": "cp_dan14ac_cpse"
+        }
+       ],
+       "branch": "way 1: dan14_bolook, dialog dan14_bolook E109 in danm14ac"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 111,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_HANDONF_DONE",
+         "is": true
+        },
+        {
+         "global_bool": "DAN_RICKARDF_DONE",
+         "is": true
+        },
+        {
+         "global_number": "DAN_BOLOOK_STATE",
+         "op": "==",
+         "value": 3
+        },
+        {
+         "global_bool": "Dan_Blood",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          99
+         ]
+        },
+        {
+         "destroy": "dan14_rickard"
+        },
+        {
+         "destroy": "dan14_handon"
+        },
+        {
+         "destroy": "dan14_bolook"
+        },
+        {
+         "destroy": "dan14_idroid"
+        },
+        {
+         "destroy": "dan14_corpse"
+        },
+        {
+         "destroy": "cp_dan14ac_cpse"
+        }
+       ],
+       "branch": "way 2: dan14_bolook, dialog dan14_bolook E111 in danm14ac"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 113,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_HANDONF_DONE",
+         "is": true
+        },
+        {
+         "global_bool": "DAN_RICKARDF_DONE",
+         "is": true
+        },
+        {
+         "global_number": "DAN_BOLOOK_STATE",
+         "op": "==",
+         "value": 3
+        },
+        {
+         "global_bool": "Dan_Blood",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          99
+         ]
+        },
+        {
+         "destroy": "dan14_rickard"
+        },
+        {
+         "destroy": "dan14_handon"
+        },
+        {
+         "destroy": "dan14_bolook"
+        },
+        {
+         "destroy": "dan14_idroid"
+        },
+        {
+         "destroy": "dan14_corpse"
+        },
+        {
+         "destroy": "cp_dan14ac_cpse"
+        }
+       ],
+       "branch": "way 3: dan14_bolook, dialog dan14_bolook E113 in danm14ac"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 145,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_HANDONF_DONE",
+         "is": true
+        },
+        {
+         "global_bool": "DAN_RICKARDF_DONE",
+         "is": true
+        },
+        {
+         "global_number": "DAN_BOLOOK_STATE",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          99
+         ]
+        },
+        {
+         "destroy": "dan14_rickard"
+        },
+        {
+         "destroy": "dan14_handon"
+        },
+        {
+         "destroy": "dan14_bolook"
+        },
+        {
+         "destroy": "dan14_idroid"
+        },
+        {
+         "destroy": "dan14_corpse"
+        },
+        {
+         "destroy": "cp_dan14ac_cpse"
+        }
+       ],
+       "branch": "way 4: dan14_bolook, dialog dan14_bolook E145 in danm14ac"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 147,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_HANDONF_DONE",
+         "is": true
+        },
+        {
+         "global_bool": "DAN_RICKARDF_DONE",
+         "is": true
+        },
+        {
+         "global_number": "DAN_BOLOOK_STATE",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          99
+         ]
+        },
+        {
+         "destroy": "dan14_rickard"
+        },
+        {
+         "destroy": "dan14_handon"
+        },
+        {
+         "destroy": "dan14_bolook"
+        },
+        {
+         "destroy": "dan14_idroid"
+        },
+        {
+         "destroy": "dan14_corpse"
+        },
+        {
+         "destroy": "cp_dan14ac_cpse"
+        }
+       ],
+       "branch": "way 5: dan14_bolook, dialog dan14_bolook E147 in danm14ac"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 149,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_HANDONF_DONE",
+         "is": true
+        },
+        {
+         "global_bool": "DAN_RICKARDF_DONE",
+         "is": true
+        },
+        {
+         "global_number": "DAN_BOLOOK_STATE",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          99
+         ]
+        },
+        {
+         "destroy": "dan14_rickard"
+        },
+        {
+         "destroy": "dan14_handon"
+        },
+        {
+         "destroy": "dan14_bolook"
+        },
+        {
+         "destroy": "dan14_idroid"
+        },
+        {
+         "destroy": "dan14_corpse"
+        },
+        {
+         "destroy": "cp_dan14ac_cpse"
+        }
+       ],
+       "branch": "way 6: dan14_bolook, dialog dan14_bolook E149 in danm14ac"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 179,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_HANDONF_DONE",
+         "is": true
+        },
+        {
+         "global_bool": "DAN_RICKARDF_DONE",
+         "is": true
+        },
+        {
+         "global_number": "DAN_BOLOOK_STATE",
+         "op": "==",
+         "value": 0
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          99
+         ]
+        },
+        {
+         "destroy": "dan14_rickard"
+        },
+        {
+         "destroy": "dan14_handon"
+        },
+        {
+         "destroy": "dan14_bolook"
+        },
+        {
+         "destroy": "dan14_idroid"
+        },
+        {
+         "destroy": "dan14_corpse"
+        },
+        {
+         "destroy": "cp_dan14ac_cpse"
+        }
+       ],
+       "branch": "way 7: dan14_bolook, dialog dan14_bolook E179 in danm14ac"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 181,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_HANDONF_DONE",
+         "is": true
+        },
+        {
+         "global_bool": "DAN_RICKARDF_DONE",
+         "is": true
+        },
+        {
+         "global_number": "DAN_BOLOOK_STATE",
+         "op": "==",
+         "value": 0
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          99
+         ]
+        },
+        {
+         "destroy": "dan14_rickard"
+        },
+        {
+         "destroy": "dan14_handon"
+        },
+        {
+         "destroy": "dan14_bolook"
+        },
+        {
+         "destroy": "dan14_idroid"
+        },
+        {
+         "destroy": "dan14_corpse"
+        },
+        {
+         "destroy": "cp_dan14ac_cpse"
+        }
+       ],
+       "branch": "way 8: dan14_bolook, dialog dan14_bolook E181 in danm14ac"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 183,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_HANDONF_DONE",
+         "is": true
+        },
+        {
+         "global_bool": "DAN_RICKARDF_DONE",
+         "is": true
+        },
+        {
+         "global_number": "DAN_BOLOOK_STATE",
+         "op": "==",
+         "value": 0
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          99
+         ]
+        },
+        {
+         "destroy": "dan14_rickard"
+        },
+        {
+         "destroy": "dan14_handon"
+        },
+        {
+         "destroy": "dan14_bolook"
+        },
+        {
+         "destroy": "dan14_idroid"
+        },
+        {
+         "destroy": "dan14_corpse"
+        },
+        {
+         "destroy": "cp_dan14ac_cpse"
+        }
+       ],
+       "branch": "way 9: dan14_bolook, dialog dan14_bolook E183 in danm14ac"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 210,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_BOLOOKF_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          99
+         ]
+        },
+        {
+         "destroy": "dan14_bolook"
+        }
+       ],
+       "branch": "way 10: dan14_bolook, dialog dan14_bolook E210 in danm14ac"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 211,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_BOLOOKF_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          99
+         ]
+        },
+        {
+         "destroy": "dan14_bolook"
+        }
+       ],
+       "branch": "way 11: dan14_bolook, dialog dan14_bolook E211 in danm14ac"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 212,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_BOLOOKF_DONE",
+         "is": false
+        },
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": "==",
+         "value": 7
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          99
+         ]
+        },
+        {
+         "destroy": "dan14_bolook"
+        }
+       ],
+       "branch": "way 12: dan14_bolook, dialog dan14_bolook E212 in danm14ac"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 226,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_BOLOOK_WEST",
+         "is": true
+        },
+        {
+         "global_bool": "DAN_BOLOOKF_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          99
+         ]
+        },
+        {
+         "destroy": "dan14_bolook"
+        }
+       ],
+       "branch": "way 13: dan14_bolook, dialog dan14_bolook E226 in danm14ac"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 227,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_BOLOOK_WEST",
+         "is": true
+        },
+        {
+         "global_bool": "DAN_BOLOOKF_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          99
+         ]
+        },
+        {
+         "destroy": "dan14_bolook"
+        }
+       ],
+       "branch": "way 14: dan14_bolook, dialog dan14_bolook E227 in danm14ac"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 228,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_BOLOOK_WEST",
+         "is": true
+        },
+        {
+         "global_bool": "DAN_BOLOOKF_DONE",
+         "is": false
+        },
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": "==",
+         "value": 7
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          99
+         ]
+        },
+        {
+         "destroy": "dan14_bolook"
+        }
+       ],
+       "branch": "way 15: dan14_bolook, dialog dan14_bolook E228 in danm14ac"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 242,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": "==",
+         "value": 7
+        },
+        {
+         "global_bool": "DAN_BOLOOKF_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          99
+         ]
+        },
+        {
+         "destroy": "dan14_bolook"
+        }
+       ],
+       "branch": "way 16: dan14_bolook, dialog dan14_bolook E242 in danm14ac"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 243,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": "==",
+         "value": 7
+        },
+        {
+         "global_bool": "DAN_BOLOOKF_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          99
+         ]
+        },
+        {
+         "destroy": "dan14_bolook"
+        }
+       ],
+       "branch": "way 17: dan14_bolook, dialog dan14_bolook E243 in danm14ac"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 244,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": "==",
+         "value": 7
+        },
+        {
+         "global_bool": "DAN_BOLOOKF_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          99
+         ]
+        },
+        {
+         "destroy": "dan14_bolook"
+        }
+       ],
+       "branch": "way 18: dan14_bolook, dialog dan14_bolook E244 in danm14ac"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 258,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_BOLOOK_WEST",
+         "is": true
+        },
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": "==",
+         "value": 7
+        },
+        {
+         "global_bool": "DAN_BOLOOKF_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          99
+         ]
+        },
+        {
+         "destroy": "dan14_bolook"
+        }
+       ],
+       "branch": "way 19: dan14_bolook, dialog dan14_bolook E258 in danm14ac"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 259,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_BOLOOK_WEST",
+         "is": true
+        },
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": "==",
+         "value": 7
+        },
+        {
+         "global_bool": "DAN_BOLOOKF_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          99
+         ]
+        },
+        {
+         "destroy": "dan14_bolook"
+        }
+       ],
+       "branch": "way 20: dan14_bolook, dialog dan14_bolook E259 in danm14ac"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 260,
+        "speaker": "dan14_bolook",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_BOLOOK_WEST",
+         "is": true
+        },
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": "==",
+         "value": 7
+        },
+        {
+         "global_bool": "DAN_BOLOOKF_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          99
+         ]
+        },
+        {
+         "destroy": "dan14_bolook"
+        }
+       ],
+       "branch": "way 21: dan14_bolook, dialog dan14_bolook E260 in danm14ac"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 5,
+        "speaker": "dan14_bolook",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_HANDONF_DONE",
+         "is": true
+        },
+        {
+         "global_bool": "DAN_RICKARDF_DONE",
+         "is": true
+        },
+        {
+         "global_number": "DAN_BOLOOK_STATE",
+         "op": "==",
+         "value": 2
+        },
+        {
+         "global_bool": "Dan_Blaster",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          99
+         ]
+        },
+        {
+         "destroy": "dan14_rickard"
+        },
+        {
+         "destroy": "dan14_handon"
+        },
+        {
+         "destroy": "dan14_bolook"
+        },
+        {
+         "destroy": "dan14_idroid"
+        },
+        {
+         "destroy": "dan14_corpse"
+        },
+        {
+         "destroy": "cp_dan14ac_cpse"
+        }
+       ],
+       "branch": "way 22: dan14_bolook, dialog dan14_bolook R5 in danm14ac"
+      },
+      {
+       "module": "danm14ac",
+       "via": {
+        "dialog": "dan14_bolook",
+        "node": 95,
+        "speaker": "dan14_bolook",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_HANDONF_DONE",
+         "is": true
+        },
+        {
+         "global_bool": "DAN_RICKARDF_DONE",
+         "is": true
+        },
+        {
+         "global_number": "DAN_BOLOOK_STATE",
+         "op": "==",
+         "value": 3
+        },
+        {
+         "global_bool": "Dan_Blood",
+         "is": true
+        },
+        {
+         "global_bool": "Dan_Handaccuse",
+         "is": true
+        },
+        {
+         "global_bool": "DAN_BOLOOK_PERS",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_murder",
+          99
+         ]
+        },
+        {
+         "destroy": "dan14_rickard"
+        },
+        {
+         "destroy": "dan14_handon"
+        },
+        {
+         "destroy": "dan14_bolook"
+        },
+        {
+         "destroy": "dan14_idroid"
+        },
+        {
+         "destroy": "dan14_corpse"
+        },
+        {
+         "destroy": "cp_dan14ac_cpse"
+        }
+       ],
+       "branch": "way 23: dan14_bolook, dialog dan14_bolook R95 in danm14ac"
+      }
+     ]
+    }
+   ],
+   "notes": "stage 10 can be reached in 4 ways; each step's branch starts with its way stage 99: condition k_pdan_murder62 also tests: impossible test on DAN_BOLOOK_ANGER stage 99: condition k_pdan_murder58 also tests: impossible test on DAN_BOLOOK_ANGER stage 99 can be reached in 23 ways; each step's branch starts with its way",
+   "own": true,
+   "run_ending": 70
+  },
+  {
+   "tag": "k_pazaak",
+   "stages": [
+    {
+     "stage": 1,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_solaa",
+        "node": 6,
+        "speaker": "dan13_solaa",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "G_PazzakDeck",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "credits": -100
+        },
+        {
+         "journal": [
+          "k_pazaak",
+          1
+         ]
+        },
+        {
+         "give_item": [
+          "g_i_pazdeck",
+          1
+         ]
+        },
+        {
+         "set_global_bool": [
+          "G_PazzakDeck",
+          true
+         ]
+        }
+       ],
+       "branch": "way 1: dan13_solaa, dialog dan13_solaa E6 in danm13"
+      },
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "man26_gonto",
+        "node": 26,
+        "speaker": "",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "k_pazaak",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: unknown speaker, dialog man26_gonto E26 in danm13"
+      },
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "man26_gonto",
+        "node": 35,
+        "speaker": "",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "k_pazaak",
+          1
+         ]
+        },
+        {
+         "credits": -100
+        },
+        {
+         "set_global_bool": [
+          "G_PazzakDeck",
+          true
+         ]
+        }
+       ],
+       "branch": "way 3: unknown speaker, dialog man26_gonto R35 in danm13"
+      }
+     ]
+    },
+    {
+     "stage": 99,
+     "end": true,
+     "steps": [
+      {
+       "module": "danm13",
+       "via": {
+        "script": "k_pdan_sol14"
+       },
+       "needs": [
+        {
+         "global_bool": "G_Paz_JustPlayed",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "set_global_bool": [
+          "G_Paz_JustPlayed",
+          false
+         ]
+        },
+        {
+         "journal": [
+          "k_pazaak",
+          99
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "notes": "This quest is not a Dantooine quest by its tag; only the stages set on Dantooine are listed. Other planets also set its stages. stage 1 can be reached in 3 ways; each step's branch starts with its way stage 99: k_pdan_sol14 (stage 99) also depends on: (GetLastPazaakResult() == 1) UNCERTAIN: stage 1: no creature, placeable or door template in danm13 names dialog man26_gonto, so its speaker is unknown; scripts that name it: k_pman_gontoend"
+  },
+  {
+   "tag": "dan_romance",
+   "stages": [
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_ahlan",
+        "node": 7,
+        "speaker": "dan13_vandar",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "dan_romance",
+          10
+         ]
+        }
+       ]
+      },
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_ahlan",
+        "node": 7,
+        "speaker": "dan13_vandar",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_ROMANCE_PLOT",
+         "op": ">=",
+         "value": 1
+        }
+       ],
+       "does": [],
+       "branch": "if DAN_ROMANCE_PLOT >= 1"
+      },
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_ahlan",
+        "node": 7,
+        "speaker": "dan13_vandar",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_ROMANCE_PLOT",
+         "op": "<",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "set_global_number": [
+          "DAN_ROMANCE_PLOT",
+          1
+         ]
+        }
+       ],
+       "branch": "if DAN_ROMANCE_PLOT < 1"
+      }
+     ]
+    },
+    {
+     "stage": 20,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm14ab",
+       "via": {
+        "dialog": "dan14_mdroid",
+        "node": 34,
+        "speaker": "dan14_ahlan",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_ROMANCE_PLOT",
+         "op": "<",
+         "value": 3
+        },
+        {
+         "global_bool": "DAN_AHLAN_DONE",
+         "is": false
+        },
+        {
+         "global_number": "DAN_ROMANCE_PLOT",
+         "op": ">",
+         "value": 0
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_romance",
+          20
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 150
+    },
+    {
+     "stage": 30,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_nurik",
+        "node": 1,
+        "speaker": "dan16_rahasia",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "dan_romance",
+          30
+         ]
+        },
+        {
+         "set_global_bool": [
+          "DAN_HATE_DONE",
+          true
+         ]
+        }
+       ],
+       "branch": "way 1: dan16_rahasia, dialog dan16_nurik E1 in danm16"
+      },
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_nurik",
+        "node": 1,
+        "speaker": "dan16_rahasia",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 1
+        }
+       ],
+       "branch": "way 1: dan16_rahasia, dialog dan16_nurik E1 in danm16 / before this line: if player alignment at most 39"
+      },
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_nurik",
+        "node": 1,
+        "speaker": "dan16_rahasia",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 2
+        }
+       ],
+       "branch": "way 1: dan16_rahasia, dialog dan16_nurik E1 in danm16 / before this line: if player alignment from 40 to 60"
+      },
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_nurik",
+        "node": 1,
+        "speaker": "dan16_rahasia",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 4
+        }
+       ],
+       "branch": "way 1: dan16_rahasia, dialog dan16_nurik E1 in danm16 / before this line: if player alignment from 61 to 84"
+      },
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_nurik",
+        "node": 1,
+        "speaker": "dan16_rahasia",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 6
+        }
+       ],
+       "branch": "way 1: dan16_rahasia, dialog dan16_nurik E1 in danm16 / before this line: if player alignment at least 85"
+      },
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_rahasia",
+        "node": 19,
+        "speaker": "dan16_rahasia",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "dan_romance",
+          30
+         ]
+        },
+        {
+         "set_global_bool": [
+          "DAN_HATE_DONE",
+          true
+         ]
+        }
+       ],
+       "branch": "way 2: dan16_rahasia, dialog dan16_rahasia E19 in danm16"
+      },
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_rahasia",
+        "node": 19,
+        "speaker": "dan16_rahasia",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 1
+        }
+       ],
+       "branch": "way 2: dan16_rahasia, dialog dan16_rahasia E19 in danm16 / before this line: if player alignment at most 39"
+      },
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_rahasia",
+        "node": 19,
+        "speaker": "dan16_rahasia",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 2
+        }
+       ],
+       "branch": "way 2: dan16_rahasia, dialog dan16_rahasia E19 in danm16 / before this line: if player alignment from 40 to 60"
+      },
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_rahasia",
+        "node": 19,
+        "speaker": "dan16_rahasia",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 4
+        }
+       ],
+       "branch": "way 2: dan16_rahasia, dialog dan16_rahasia E19 in danm16 / before this line: if player alignment from 61 to 84"
+      },
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_rahasia",
+        "node": 19,
+        "speaker": "dan16_rahasia",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 6
+        }
+       ],
+       "branch": "way 2: dan16_rahasia, dialog dan16_rahasia E19 in danm16 / before this line: if player alignment at least 85"
+      }
+     ]
+    },
+    {
+     "stage": 31,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_nurik",
+        "node": 16,
+        "speaker": "dan16_rahasia",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "dan_romance",
+          31
+         ]
+        }
+       ],
+       "branch": "way 1: dan16_rahasia, dialog dan16_nurik E16 in danm16"
+      },
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_nurik",
+        "node": 16,
+        "speaker": "dan16_rahasia",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 1
+        }
+       ],
+       "branch": "way 1: dan16_rahasia, dialog dan16_nurik E16 in danm16 / before this line: if player alignment at most 39"
+      },
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_nurik",
+        "node": 16,
+        "speaker": "dan16_rahasia",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 2
+        }
+       ],
+       "branch": "way 1: dan16_rahasia, dialog dan16_nurik E16 in danm16 / before this line: if player alignment from 40 to 60"
+      },
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_nurik",
+        "node": 16,
+        "speaker": "dan16_rahasia",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 4
+        }
+       ],
+       "branch": "way 1: dan16_rahasia, dialog dan16_nurik E16 in danm16 / before this line: if player alignment from 61 to 84"
+      },
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_nurik",
+        "node": 16,
+        "speaker": "dan16_rahasia",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 6
+        }
+       ],
+       "branch": "way 1: dan16_rahasia, dialog dan16_nurik E16 in danm16 / before this line: if player alignment at least 85"
+      },
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_nurik",
+        "node": 16,
+        "speaker": "dan16_rahasia",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "give_item": [
+          "dan16_key",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: dan16_rahasia, dialog dan16_nurik E16 in danm16 / choice: reply R28 (empty: [continue]) / line E26"
+      },
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_nurik",
+        "node": 16,
+        "speaker": "dan16_rahasia",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [],
+       "branch": "way 1: dan16_rahasia, dialog dan16_nurik E16 in danm16 / choice: reply R28 (empty: [continue]) / line E17"
+      },
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_rahasia",
+        "node": 0,
+        "speaker": "dan16_rahasia",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "dan_romance",
+          31
+         ]
+        }
+       ],
+       "branch": "way 2: dan16_rahasia, dialog dan16_rahasia E0 in danm16"
+      },
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_rahasia",
+        "node": 0,
+        "speaker": "dan16_rahasia",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "give_item": [
+          "dan16_key",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: dan16_rahasia, dialog dan16_rahasia E0 in danm16 / choice: reply R0 (empty: [continue]) / line E10"
+      },
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_rahasia",
+        "node": 0,
+        "speaker": "dan16_rahasia",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [],
+       "branch": "way 2: dan16_rahasia, dialog dan16_rahasia E0 in danm16 / choice: reply R0 (empty: [continue]) / line E1"
+      }
+     ],
+     "journal_xp": 300
+    },
+    {
+     "stage": 40,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_shen",
+        "node": 0,
+        "speaker": "dan16_shen",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "dan_romance",
+          40
+         ]
+        },
+        {
+         "set_global_bool": [
+          "DAN_SHEN_DONE",
+          true
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 150
+    },
+    {
+     "stage": 50,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm16",
+       "via": {
+        "dialog": "dan16_rahasia",
+        "node": 13,
+        "speaker": "dan16_rahasia",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "DAN_SHEN_DONE",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_romance",
+          50
+         ]
+        },
+        {
+         "set_global_bool": [
+          "DAN_RAHA_AGREE",
+          true
+         ]
+        },
+        {
+         "destroy": "dan16_rahasia"
+        }
+       ]
+      }
+     ],
+     "journal_xp": 300
+    },
+    {
+     "stage": 60,
+     "end": true,
+     "steps": [
+      {
+       "module": "danm14ad",
+       "via": {
+        "dialog": "dan14_cutscene",
+        "node": 16,
+        "speaker": "dan14_shen",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "take_item": [
+          "dan16_key",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "shenkey",
+          1
+         ]
+        },
+        {
+         "journal": [
+          "dan_romance",
+          60
+         ]
+        },
+        {
+         "destroy": "dan14_nurik"
+        },
+        {
+         "destroy": "dan14_shen"
+        },
+        {
+         "destroy": "dan14_ahlan"
+        },
+        {
+         "destroy": "dan14_rahasia"
+        },
+        {
+         "destroy": "dan14ad_drd01"
+        },
+        {
+         "destroy": "dan14ad_drd02"
+        },
+        {
+         "destroy": "dan14ad_drd03"
+        },
+        {
+         "destroy": "dan14ad_drd04"
+        }
+       ]
+      }
+     ],
+     "journal_xp": 900
+    },
+    {
+     "stage": 62,
+     "end": true,
+     "steps": [
+      {
+       "module": "danm14ad",
+       "via": {
+        "dialog": "dan14_cutscene",
+        "node": 31,
+        "speaker": "dan14_nurik",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "take_item": [
+          "dan16_key",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "shenkey",
+          1
+         ]
+        },
+        {
+         "journal": [
+          "dan_romance",
+          62
+         ]
+        },
+        {
+         "destroy": "dan14_nurik"
+        },
+        {
+         "destroy": "dan14_shen"
+        },
+        {
+         "destroy": "dan14_ahlan"
+        },
+        {
+         "destroy": "dan14_rahasia"
+        },
+        {
+         "destroy": "dan14ad_drd01"
+        },
+        {
+         "destroy": "dan14ad_drd02"
+        },
+        {
+         "destroy": "dan14ad_drd03"
+        },
+        {
+         "destroy": "dan14ad_drd04"
+        }
+       ]
+      }
+     ],
+     "journal_xp": 600
+    },
+    {
+     "stage": 64,
+     "end": true,
+     "steps": [
+      {
+       "module": "danm14ad",
+       "via": {
+        "dialog": "dan14_cutscene",
+        "node": 38,
+        "speaker": "dan14_shen",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "dan_romance",
+          64
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 450
+    },
+    {
+     "stage": 66,
+     "end": true,
+     "steps": [
+      {
+       "module": "danm14ad",
+       "via": {
+        "dialog": "dan14_cutscene",
+        "node": 43,
+        "speaker": "dan14_shen",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "dan_romance",
+          66
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 450
+    },
+    {
+     "stage": 68,
+     "end": true,
+     "steps": [
+      {
+       "module": "danm14ad",
+       "via": {
+        "dialog": "dan14_cutscene",
+        "node": 51,
+        "speaker": "dan14_rahasia",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "dan_romance",
+          68
+         ]
+        },
+        {
+         "set_global_number": [
+          "DAN_ROMANCE_PLOT",
+          7
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 600
+    }
+   ],
+   "notes": "stage 10: conditional k_pdan_alhan03 passes in 2 different cases; only the tests shared by all are listed as needs. Cases: not (1 && GetIsObjectValid(OBJECT_SELF)) | GetIsObjectValid(OBJECT_SELF) stage 20: dan14_mdroid E34 can be reached from 3 places; needs follow the shortest path stage 30: dialog dan16_nurik is used by several objects in danm16: dan16_cutscene01, dan16_nurik stage 30: dan16_nurik E1 can be reached from 2 places; needs follow the shortest path stage 30: dialog dan16_rahasia is used by several objects in danm16: dan16_rahasia, dan16_rahasia2 stage 30: dan16_rahasia E19 can be reached from 2 places; needs follow the shortest path stage 30 can be reached in 2 ways; each step's branch starts with its way stage 31: dialog dan16_nurik is used by several objects in danm16: dan16_cutscene01, dan16_nurik stage 31: dan16_nurik E16 can be reached from 4 places; needs follow the shortest path stage 31: condition k_pdan_romance41 also tests: (GetIsObjectValid(GetItemPossessedBy(player, \"dan16_key\")) == 0) stage 31: dialog dan16_rahasia is used by several objects in danm16: dan16_rahasia, dan16_rahasia2 stage 31: dan16_rahasia E0 can be reached from 4 places; needs follow the shortest path stage 31 can be reached in 2 ways; each step's branch starts with its way stage 40: dan16_shen E0 can be reached from 3 places; needs follow the shortest path stage 50: dialog dan16_rahasia is used by several objects in danm16: dan16_rahasia, dan16_rahasia2 stage 60: dialog dan14_cutscene is used by several objects in danm14ad: dan14_cutscene01, dan14_rahasia stage 62: dialog dan14_cutscene is used by several objects in danm14ad: dan14_cutscene01, dan14_rahasia stage 62: dan14_cutscene E31 can be reached from 2 places; needs follow the shortest path stage 64: dialog dan14_cutscene is used by several objects in danm14ad: dan14_cutscene01, dan14_rahasia stage 66: dialog dan14_cutscene is used by several objects in danm14ad: dan14_cutscene01, dan14_rahasia stage 68: dialog dan14_cutscene is used by several objects in danm14ad: dan14_cutscene01, dan14_rahasia",
+   "own": true,
+   "run_ending": 60
+  },
+  {
+   "tag": "k_ebonhawk",
+   "stages": [
+    {
+     "stage": 1,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm13",
+       "via": {
+        "script": "k_pdan_trig1301"
+       },
+       "needs": [],
+       "does": [
+        {
+         "other": "RemovePartyMember(0)"
+        },
+        {
+         "other": "RemovePartyMember(2)"
+        },
+        {
+         "set_global_number": [
+          "DAN_BASTILA_ZONE",
+          10
+         ]
+        },
+        {
+         "journal": [
+          "k_ebonhawk",
+          1
+         ]
+        },
+        {
+         "other": "starts conversation \"bastila\""
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "notes": "This quest is not a Dantooine quest by its tag; only the stages set on Dantooine are listed. Other planets also set its stages. stage 1: k_pdan_trig1301 (stage 1) also depends on: GetIsPC(GetEnteringObject()); not a helper function's result; not (1 && GetIsObjectValid(OBJECT_SELF)) UNCERTAIN: stage 1: script k_pdan_trig1301 was too large to follow completely; effects may be missing"
+  },
+  {
+   "tag": "dan_council",
+   "stages": [
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_zhar",
+        "node": 124,
+        "speaker": "dan13_zhar",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JEDI_PLOT",
+         "op": "==",
+         "value": 0
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_council",
+          10
+         ]
+        },
+        {
+         "set_global_bool": [
+          "DAN_STUNT00",
+          true
+         ]
+        },
+        {
+         "other": "moves the party to module \"STUNT_00\""
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 20,
+     "end": false,
+     "steps": [
+      {
+       "module": "danm13",
+       "via": {
+        "dialog": "dan13_zhar",
+        "node": 22,
+        "speaker": "dan13_zhar",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "DAN_JUHANI_PLOT",
+         "op": "==",
+         "value": 2
+        },
+        {
+         "global_bool": "DAN_ZHARJ_DONE",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "dan_council",
+          20
+         ]
+        },
+        {
+         "give_item": [
+          "g_a_jedirobe01",
+          1
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "notes": "",
+   "own": true
+  }
+ ]
+}

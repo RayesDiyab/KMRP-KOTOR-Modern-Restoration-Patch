@@ -300,6 +300,20 @@ export global App {
     in property <int> skip-asked;
     in property <string> skip-title;
     in property <string> skip-summary;
+    // A skip that makes the player a Jedi asks which class (0 Guardian, 1 Sentinel, 2 Consular).
+    in property <bool> skip-jedi;
+    in-out property <int> skip-class: 0;
+    // A skip whose chapters end differently for a light- and a dark-side player asks which
+    // (0 light, 1 dark): the story where it branches, the credits and the alignment.
+    in property <bool> skip-side;
+    in-out property <int> skip-dark: 0;
+    // KotOR 2: a skip past level 15 without a prestige class offers one, as Kreia does
+    // (0 to 2 the side's three classes, 3 not now).
+    in property <bool> skip-prestige;
+    in-out property <int> skip-prestige-pick: 3;
+    // KotOR 2: train the companions as Jedi without their conversations (0 yes, 1 no)
+    in property <bool> skip-train;
+    in-out property <int> skip-train-pick: 0;
     callback ask-skip(int);
     callback do-skip();
     callback spawn-here();

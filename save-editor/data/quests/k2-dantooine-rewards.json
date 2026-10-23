@@ -1,0 +1,491 @@
+{
+  "game": "K2",
+  "planet": "Dantooine",
+  "generated_by": "tools/questdb/rewards.py",
+  "checked": false,
+  "xp_at_end": 175010,
+  "xp_chapter": 22050,
+  "xp_start": 145010,
+  "xp_note": "full-run scenario data/xp/k2-dantooine-path.json from the Onderon rewards' xp_at_end, 145010 XP: 601dan 150085, 602dan 153335, 605dan 156610, 610dan 169585, 604dan 174360, 603dan 175010",
+  "xp_chapter_note": "the same scenario from a new character's 0 XP: 22050",
+  "enemies_killed": 77,
+  "drops": [],
+  "templates_missing": [],
+  "containers": [
+    {
+      "module": "604dan",
+      "area": "604dan",
+      "container": "cryform_bl",
+      "template": "cryform_bl",
+      "position": [
+        72.33,
+        -41.81
+      ],
+      "items": [
+        {
+          "resref": "u_l_colo_05",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "610dan",
+      "area": "610dan",
+      "container": "datapad_contain",
+      "template": "datapad_contain",
+      "position": [
+        -58.5,
+        -120.88
+      ],
+      "items": [
+        {
+          "resref": "datapad_storage",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "610dan",
+      "area": "610dan",
+      "container": "bag_headtech",
+      "template": "bag_headtech",
+      "position": [
+        -33.2,
+        -105.12
+      ],
+      "items": [
+        {
+          "resref": "datapad_headtech",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "610dan",
+      "area": "610dan",
+      "container": "deadmerc_cont",
+      "template": "deadmerc_cont",
+      "position": [
+        0.97,
+        -176.82
+      ],
+      "items": [
+        {
+          "resref": "datapad_merc",
+          "count": 1
+        },
+        {
+          "resref": "g_w_fraggren01",
+          "count": 2
+        },
+        {
+          "resref": "g_i_credits003",
+          "count": 1
+        },
+        {
+          "resref": "a_helmet_08",
+          "count": 1
+        }
+      ]
+    }
+  ],
+  "credits": {
+    "light": {
+      "credits": 12000,
+      "light_points": 54,
+      "dark_points": 0,
+      "influence": {
+        "1": 16,
+        "4": 8,
+        "6": 8,
+        "8": 8,
+        "9": 24,
+        "10": 8,
+        "11": 56
+      }
+    },
+    "dark": {
+      "credits": 13575,
+      "light_points": 0,
+      "dark_points": 87,
+      "influence": {
+        "1": 16,
+        "4": -16,
+        "5": 8,
+        "6": 16,
+        "8": 8,
+        "9": 24,
+        "10": 8,
+        "11": -40
+      }
+    },
+    "sources": [
+      {
+        "dialog": "000react",
+        "module": "601dan",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "9": 24,
+            "10": 8
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "9": 24,
+            "10": 8
+          }
+        }
+      },
+      {
+        "dialog": "akkere",
+        "module": "601dan",
+        "light": {
+          "credits": 0,
+          "light_points": 3,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 500,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "azkul",
+        "module": "601dan",
+        "light": {
+          "credits": 0,
+          "light_points": 3,
+          "dark_points": 0,
+          "influence": {
+            "4": 8
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 9,
+          "influence": {
+            "5": 8,
+            "6": 8
+          }
+        }
+      },
+      {
+        "dialog": "mechanic",
+        "module": "601dan",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "6": 8
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 7,
+          "influence": {
+            "4": -8,
+            "6": 8
+          }
+        }
+      },
+      {
+        "dialog": "olddroid",
+        "module": "601dan",
+        "light": {
+          "credits": 0,
+          "light_points": 3,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 7,
+          "influence": {
+            "4": -8
+          }
+        }
+      },
+      {
+        "dialog": "saedhe",
+        "module": "601dan",
+        "light": {
+          "credits": 10000,
+          "light_points": 4,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 5000,
+          "light_points": 0,
+          "dark_points": 9
+        }
+      },
+      {
+        "dialog": "zherron",
+        "module": "601dan",
+        "light": {
+          "credits": 0,
+          "light_points": 3,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "disciple",
+        "module": "602dan",
+        "light": {
+          "credits": 0,
+          "light_points": 9,
+          "dark_points": 0,
+          "influence": {
+            "11": 56
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 12,
+          "influence": {
+            "11": -40
+          }
+        }
+      },
+      {
+        "dialog": "dopak",
+        "module": "602dan",
+        "light": {
+          "credits": 0,
+          "light_points": 3,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        }
+      },
+      {
+        "dialog": "g_ml_wnd",
+        "module": "602dan",
+        "light": {
+          "credits": 0,
+          "light_points": 3,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        }
+      },
+      {
+        "dialog": "med_drd",
+        "module": "602dan",
+        "light": {
+          "credits": 0,
+          "light_points": 3,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "suulru",
+        "module": "602dan",
+        "light": {
+          "credits": 0,
+          "light_points": 3,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        }
+      },
+      {
+        "dialog": "terena",
+        "module": "602dan",
+        "light": {
+          "credits": 0,
+          "light_points": 6,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 5000,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "vrook",
+        "module": "602dan",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "bao_sens",
+        "module": "604dan",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "1": 16
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "1": 16
+          }
+        }
+      },
+      {
+        "dialog": "merc_cpt",
+        "module": "604dan",
+        "light": {
+          "credits": 0,
+          "light_points": 4,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 300,
+          "light_points": 0,
+          "dark_points": 8
+        }
+      },
+      {
+        "dialog": "merc_pat",
+        "module": "604dan",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 6
+        }
+      },
+      {
+        "dialog": "daraala",
+        "module": "605dan",
+        "light": {
+          "credits": 1000,
+          "light_points": 4,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 1000,
+          "light_points": 0,
+          "dark_points": 0
+        }
+      },
+      {
+        "dialog": "jorran",
+        "module": "605dan",
+        "light": {
+          "credits": 1000,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 1500,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "nallek",
+        "module": "605dan",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 275,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "ralon",
+        "module": "605dan",
+        "light": {
+          "credits": 0,
+          "light_points": 3,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 4
+        }
+      },
+      {
+        "dialog": "taepalae",
+        "module": "605dan",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 4
+        }
+      },
+      {
+        "dialog": "prot_drd",
+        "module": "610dan",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "8": 8
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "8": 8
+          }
+        }
+      }
+    ],
+    "note": "tools/questdb/credits.py: the credits and alignment points a full run of the chapter picks up from its conversations and scripts, for a light-side and a dark-side player (gambling left out). Worked out from the files, not played"
+  }
+}

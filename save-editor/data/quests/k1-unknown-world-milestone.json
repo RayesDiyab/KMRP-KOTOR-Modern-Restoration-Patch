@@ -1,0 +1,7247 @@
+{
+ "game": "K1",
+ "planet": "Unknown World",
+ "order": 9,
+ "chapter_title": "The Unknown World: the temple and the last star map",
+ "generated_by": "tools/questdb/build.py --milestone",
+ "checked": false,
+ "about": "Story state every completed run of the chapter ends with, for a skip-to-the-end feature. Curated in tools/questdb/chapters.py; values marked certain = false were worked out by reading the scripts or seen in one real save, not proven for every run.",
+ "journal": [
+  {
+   "tag": "unk_trapped",
+   "stage": 99,
+   "set_by": "dialog unk44_evilbast R149 / R60 (unk_m44ac): the light-side ending"
+  },
+  {
+   "tag": "k_starforge",
+   "stage": 75,
+   "set_by": "dialog unk41_carth (ebo_m41aa): the light-side stage"
+  }
+ ],
+ "journal_remove": [],
+ "globals": [
+  {
+   "name": "G_FinalChoice",
+   "type": "Number",
+   "value": 2,
+   "certain": false,
+   "note": "light side (k_punk_bastesc); the dark side sets 1 and changes the party (k_punk_bastjoin)",
+   "read_after_planet": [
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_leavhawk"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebo_upgrade"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_pebo_carthtlk"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_punk_evilpc"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_punk_goodpc"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_punk_landcs_en"
+    },
+    {
+     "where": "modules/sta_m45aa.mod",
+     "script": "k_psta_bastleav2"
+    },
+    {
+     "where": "modules/sta_m45aa.mod",
+     "script": "k_psta_doorend"
+    },
+    {
+     "where": "modules/sta_m45aa.mod",
+     "script": "k_psta_init_cart"
+    },
+    {
+     "where": "modules/sta_m45aa.mod",
+     "script": "k_psta_spn_carth"
+    },
+    {
+     "where": "modules/sta_m45aa.mod",
+     "script": "k_punk_pcevil"
+    },
+    {
+     "where": "modules/sta_m45aa.mod",
+     "script": "k_punk_pcgood"
+    }
+   ],
+   "read_after_planet_total": 23,
+   "writers": [
+    {
+     "set": 1,
+     "script": "k_punk_bastjoin",
+     "module": "unk_m44ac",
+     "from": [
+      "unk44_evilbast E63 script",
+      "unk44_evilbast E138 script",
+      "unk44_evilbast2 E63 script"
+     ],
+     "branch": "if ((GetLevelByPosition(1, OBJECT_SELF) + GetLevelByPosition(2, OBJECT_SELF)) + GetLevelByPosition(3, OBJEC...",
+     "critical": false
+    },
+    {
+     "set": 2,
+     "script": "k_punk_bastesc",
+     "module": "unk_m44ac",
+     "from": [
+      "unk44_evilbast R60 script",
+      "unk44_evilbast R149 script",
+      "unk44_evilbast2 R60 script"
+     ],
+     "branch": "if not (IsNPCPartyMember(5) == 1)",
+     "critical": true
+    },
+    {
+     "set": 2,
+     "script": "k_punk_bastesc",
+     "module": "unk_m44ac",
+     "from": [
+      "unk44_evilbast R60 script",
+      "unk44_evilbast R149 script",
+      "unk44_evilbast2 R60 script"
+     ],
+     "branch": "if IsNPCPartyMember(5) is 1",
+     "critical": true
+    }
+   ]
+  },
+  {
+   "name": "K_CURRENT_PLANET",
+   "type": "Number",
+   "value": 45,
+   "certain": true,
+   "note": "k_ren_unkcrash on arrival",
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_bant_trig",
+     "named_outside_planet": 33,
+     "named_by_examples": [
+      "danm14ab",
+      "danm14ad",
+      "kas_m22aa",
+      "kas_m22ab"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_con_atdant",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "ebo_m12aa"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_con_atkash",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "ebo_m12aa"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_con_atkorr",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "ebo_m12aa"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_con_atmann",
+     "named_outside_planet": 5,
+     "named_by_examples": [
+      "ebo_m12aa",
+      "kas_m24aa",
+      "korr_m36aa",
+      "manm28aa"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_con_attat",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "ebo_m12aa"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid01",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "danm13"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid02",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "danm14aa"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid03",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "danm14ad"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid04",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "danm14ab"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid05",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "danm14ac"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pebn_galaxy",
+     "named_outside_planet": 2,
+     "named_by_examples": [
+      "ebo_m12aa",
+      "ebo_m41aa"
+     ]
+    }
+   ],
+   "read_after_planet_total": 98,
+   "writers": []
+  },
+  {
+   "name": "K_KOTOR_MASTER",
+   "type": "Number",
+   "value": 50,
+   "certain": true,
+   "note": "k_punk_fincs_en / k_pebn_starf; the galaxy map then plays the take-off to the Star Forge",
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid01",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "danm13"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid02",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "danm14aa"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid03",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "danm14ad"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid04",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "danm14ab"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid05",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "danm14ac"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pebn_galaxy",
+     "named_outside_planet": 2,
+     "named_by_examples": [
+      "ebo_m12aa",
+      "ebo_m41aa"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_rapid02",
+     "named_outside_planet": 2,
+     "named_by_examples": [
+      "manm26ac",
+      "manm26ae"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_rapid03",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "manm26ab"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_rapid04",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "manm26ab"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_rapid05",
+     "named_outside_planet": 2,
+     "named_by_examples": [
+      "manm26ac",
+      "manm26ae"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_ren_turret",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "m12ab"
+     ]
+    },
+    {
+     "where": "modules/danm13.mod",
+     "script": "k_pdan_trig1301"
+    }
+   ],
+   "read_after_planet_total": 49,
+   "writers": [
+    {
+     "set": 50,
+     "script": "k_punk_fincs_en",
+     "module": "unk_m41aa",
+     "from": [
+      "unk41_fincs.utt ScriptOnEnter (unk41_fincs)"
+     ],
+     "branch": "if G_FinalChoice > 0",
+     "critical": true
+    }
+   ]
+  },
+  {
+   "name": "UNK_DISRUPT_OFF",
+   "type": "Boolean",
+   "value": true,
+   "certain": true,
+   "note": "k_punk_disfldoff: the ship can leave",
+   "read_after_planet": [
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_pebo_galaxytlk"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_punk_disoff"
+    }
+   ],
+   "writers": [
+    {
+     "set": true,
+     "script": "k_punk_disfldoff",
+     "module": "unk_m44ac",
+     "from": [
+      "unk44_comp E3 script",
+      "unk44_comp E4 script"
+     ],
+     "branch": "if UNK_DISRUPT_OFF is FALSE",
+     "critical": true
+    },
+    {
+     "set": true,
+     "script": "k_punk_disfldoff",
+     "module": "unk_m44ac",
+     "from": [
+      "unk44_comp E3 script",
+      "unk44_comp E4 script"
+     ],
+     "branch": "if UNK_DISRUPT_OFF is TRUE",
+     "critical": true
+    },
+    {
+     "set": true,
+     "script": "k_punk_disfldoff",
+     "module": "unk_m44ac",
+     "from": [
+      "unk44_comp E3 script",
+      "unk44_comp E4 script"
+     ],
+     "branch": "if UNK_DISRUPT_OFF is TRUE; UNK_SHIELD_OFF is TRUE; G_FinalChoice != 1",
+     "critical": true
+    },
+    {
+     "set": true,
+     "script": "k_punk_disfldoff",
+     "module": "unk_m44ac",
+     "from": [
+      "unk44_comp E3 script",
+      "unk44_comp E4 script"
+     ],
+     "branch": "if UNK_DISRUPT_OFF is TRUE; UNK_SHIELD_OFF is TRUE; G_FinalChoice == 1",
+     "critical": true
+    }
+   ]
+  },
+  {
+   "name": "UNK_SHIELD_OFF",
+   "type": "Boolean",
+   "value": true,
+   "certain": false,
+   "note": "k_punk_shieldoff",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "set": true,
+     "script": "k_punk_shieldoff",
+     "module": "unk_m44ac",
+     "from": [
+      "unk44_comp E2 script",
+      "unk44_comp E5 script"
+     ],
+     "branch": "if UNK_DISRUPT_OFF is FALSE",
+     "critical": false
+    },
+    {
+     "set": true,
+     "script": "k_punk_shieldoff",
+     "module": "unk_m44ac",
+     "from": [
+      "unk44_comp E2 script",
+      "unk44_comp E5 script"
+     ],
+     "branch": "if UNK_DISRUPT_OFF is TRUE",
+     "critical": false
+    },
+    {
+     "set": true,
+     "script": "k_punk_shieldoff",
+     "module": "unk_m44ac",
+     "from": [
+      "unk44_comp E2 script",
+      "unk44_comp E5 script"
+     ],
+     "branch": "if UNK_DISRUPT_OFF is TRUE; UNK_SHIELD_OFF is TRUE; G_FinalChoice != 1",
+     "critical": false
+    },
+    {
+     "set": true,
+     "script": "k_punk_shieldoff",
+     "module": "unk_m44ac",
+     "from": [
+      "unk44_comp E2 script",
+      "unk44_comp E5 script"
+     ],
+     "branch": "if UNK_DISRUPT_OFF is TRUE; UNK_SHIELD_OFF is TRUE; G_FinalChoice == 1",
+     "critical": false
+    }
+   ]
+  },
+  {
+   "name": "Ebn_Bast_ForceTalk",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    99
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_swg_bastforcex",
+     "module": "unk_m44ac",
+     "set": 99
+    },
+    {
+     "script": "k_swg_bastforcey",
+     "module": "unk_m44ac",
+     "set": 99
+    }
+   ]
+  },
+  {
+   "name": "G_NPC_Talk",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    false
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_act_npctalk",
+     "module": "unk_m44ac",
+     "set": false
+    }
+   ]
+  },
+  {
+   "name": "K_BAST_DREAMTALK",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_swg_bastila27x",
+     "module": "unk_m44ac",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "K_LastPlanet",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_swg_bastila20",
+     "module": "unk_m44ac",
+     "expr": "GetGlobalNumber(\"K_Current_Planet\")"
+    },
+    {
+     "script": "k_swg_bastila20x",
+     "module": "unk_m44ac",
+     "expr": "GetGlobalNumber(\"K_Current_Planet\")"
+    }
+   ]
+  },
+  {
+   "name": "K_PUNK_BEACH_RESET",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "k_punk_41aa_ex",
+     "module": "unk_m41aa",
+     "set": true,
+     "branch": "if not GetLoadFromSaveGame(); (GetExitingObject() == player); not GetIsObjectValid(GetObjectByTag(\"unk41_bl..."
+    },
+    {
+     "script": "k_punk_41aa_ex",
+     "module": "unk_m41aa",
+     "set": true,
+     "branch": "if not GetLoadFromSaveGame(); (GetExitingObject() == player); GetIsObjectValid(GetObjectByTag(\"unk41_blk1\",..."
+    },
+    {
+     "script": "k_punk_41aa_def",
+     "module": "unk_m41aa",
+     "set": true,
+     "branch": "if K_PUNK_BEACH_RESET is FALSE"
+    }
+   ]
+  },
+  {
+   "name": "K_SWG_BASTILA",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    2,
+    3,
+    99
+   ],
+   "writers_total": 6,
+   "writers": [
+    {
+     "script": "k_swg_bastila20",
+     "module": "unk_m44ac",
+     "add": 1
+    },
+    {
+     "script": "k_swg_bastforcex",
+     "module": "unk_m44ac",
+     "set": 99
+    },
+    {
+     "script": "k_swg_bastforcey",
+     "module": "unk_m44ac",
+     "set": 3
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pla_actmap"
+    },
+    {
+     "where": "Override",
+     "script": "k_trg_partyinit"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_ebn_bast3"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_ebn_bast5"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_basttalk"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_basttalk2"
+    }
+   ],
+   "read_after_planet_total": 16
+  },
+  {
+   "name": "K_SWG_BASTILA_LEVEL",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_swg_bastila20",
+     "module": "unk_m44ac",
+     "expr": "GetHitDice(GetFirstPC())"
+    },
+    {
+     "script": "k_swg_bastila20x",
+     "module": "unk_m44ac",
+     "expr": "GetHitDice(GetFirstPC())"
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "Override",
+     "script": "k_trg_partyinit"
+    }
+   ]
+  },
+  {
+   "name": "K_SWG_CARTH",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    16
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_punk_carthadd",
+     "module": "unk_m41aa",
+     "set": 16
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "Override",
+     "script": "k_trg_partyinit"
+    },
+    {
+     "where": "modules/ebo_m40ad.mod",
+     "script": "k_pebo_carthrom"
+    },
+    {
+     "where": "modules/ebo_m40ad.mod",
+     "script": "k_pebo_carthromn"
+    },
+    {
+     "where": "modules/ebo_m40ad.mod",
+     "script": "cp_ebo40ad_done"
+    },
+    {
+     "where": "modules/ebo_m40ad.mod",
+     "script": "cp_ebo40ad_rdone"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_punk_carthrom"
+    }
+   ],
+   "read_after_planet_total": 10
+  },
+  {
+   "name": "K_SWG_HELENA",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_swg_bastila21",
+     "module": "unk_m44ac",
+     "set": 1
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "Override",
+     "script": "k_trg_partyinit"
+    },
+    {
+     "where": "modules/danm13.mod",
+     "script": "k_pdan_trig1301"
+    },
+    {
+     "where": "modules/tat_m17aa.mod",
+     "script": "k_ptat_maanatrig"
+    },
+    {
+     "where": "modules/tat_m17aa.mod",
+     "script": "k_ptat_maanauser"
+    },
+    {
+     "where": "modules/tat_m17af.mod",
+     "script": "k_ptat17af_enter"
+    },
+    {
+     "where": "modules/tat_m17af.mod",
+     "script": "k_swg_helena01"
+    }
+   ],
+   "read_after_planet_total": 9
+  },
+  {
+   "name": "K_SWG_HELENA_TALK",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_swg_bastila17",
+     "module": "unk_m44ac",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "MAN_GAS1",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_pman_gas03",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if does not have item K_COMPUTER_SPIKE"
+    },
+    {
+     "script": "k_pman_gas03",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if has item K_COMPUTER_SPIKE"
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/danm16.mod",
+     "script": "k_pman_gas01"
+    },
+    {
+     "where": "modules/manm27aa.mod",
+     "script": "k_pman_gas01"
+    },
+    {
+     "where": "modules/manm28aa.mod",
+     "script": "k_pman_gas01"
+    }
+   ]
+  },
+  {
+   "name": "MAN_GAS2",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_pman_gas04",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if does not have item K_COMPUTER_SPIKE"
+    },
+    {
+     "script": "k_pman_gas04",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if has item K_COMPUTER_SPIKE"
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/danm16.mod",
+     "script": "k_pman_gas02"
+    },
+    {
+     "where": "modules/manm27aa.mod",
+     "script": "k_pman_gas02"
+    },
+    {
+     "where": "modules/manm28aa.mod",
+     "script": "k_pman_gas02"
+    }
+   ]
+  },
+  {
+   "name": "MAN_OFF_SEN",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_pman_droid01",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if does not have item K_COMPUTER_SPIKE"
+    },
+    {
+     "script": "k_pman_droid01",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if has item K_COMPUTER_SPIKE"
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_comp01"
+    }
+   ]
+  },
+  {
+   "name": "Punk_stargem",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_punk_givestar",
+     "module": "unk_m44ab",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "STA_BAST_MOVIE",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_swg_bastmovie",
+     "module": "unk_m44ac",
+     "set": true,
+     "branch": "if STA_BAST_MOVIE is FALSE"
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/sta_m45ac.mod",
+     "script": "k_swg_bastmovie"
+    }
+   ]
+  },
+  {
+   "name": "TAR_RANDOM_TALK",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    0,
+    1
+   ],
+   "writers_total": 6,
+   "writers": [
+    {
+     "script": "k_ptar_rndtlkres",
+     "module": "unk_m41ac",
+     "set": 0
+    },
+    {
+     "script": "k_ptar_rndtlkinc",
+     "module": "unk_m41ac",
+     "add": 1
+    },
+    {
+     "script": "k_ptar_rndtlkres",
+     "module": "unk_m42aa",
+     "set": 0
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/tar_m02aa.mod",
+     "script": "k_ptar_malemb"
+    },
+    {
+     "where": "modules/tar_m02aa.mod",
+     "script": "k_ptar_malesw"
+    },
+    {
+     "where": "modules/tar_m02aa.mod",
+     "script": "k_ptar_rndtalk0"
+    },
+    {
+     "where": "modules/tar_m02aa.mod",
+     "script": "k_ptar_rndtalk0m"
+    },
+    {
+     "where": "modules/tar_m02aa.mod",
+     "script": "k_ptar_rndtalk0s"
+    },
+    {
+     "where": "modules/tar_m02aa.mod",
+     "script": "k_ptar_rndtalk1"
+    }
+   ],
+   "read_after_planet_total": 105
+  },
+  {
+   "name": "Unk_Ambush_Temp",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    false,
+    true
+   ],
+   "writers_total": 11,
+   "writers": [
+    {
+     "script": "k_punk_ambush",
+     "module": "unk_m41ac",
+     "set": true,
+     "branch": "if UNK_TEMP5 is TRUE; UNK_TEMP6 is FALSE; UNK_RED_TALK is TRUE"
+    },
+    {
+     "script": "k_punk_ambush",
+     "module": "unk_m41ac",
+     "set": true,
+     "branch": "if UNK_TEMP5 is TRUE; UNK_TEMP6 is FALSE; UNK_BLACKHOSTILE is TRUE; UNK_RED_TALK is TRUE"
+    },
+    {
+     "script": "k_punk_ambush",
+     "module": "unk_m41ac",
+     "set": true,
+     "branch": "if UNK_TEMP5 is TRUE; UNK_TEMP6 is FALSE; UNK_BLACKHOSTILE is TRUE; UNK_RED_TALK is FALSE"
+    }
+   ]
+  },
+  {
+   "name": "UNK_AREA",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    10,
+    11,
+    12,
+    13,
+    2,
+    3,
+    4
+   ],
+   "writers_total": 13,
+   "writers": [
+    {
+     "script": "k_punk_area01",
+     "module": "unk_m44ac",
+     "set": 1,
+     "branch": "if (GetTag(GetEnteringObject()) == \"Bastilae\")"
+    },
+    {
+     "script": "k_punk_area02",
+     "module": "unk_m44ac",
+     "set": 2,
+     "branch": "if (GetTag(GetEnteringObject()) == \"Bastilae\")"
+    },
+    {
+     "script": "k_punk_area03",
+     "module": "unk_m44ac",
+     "set": 3,
+     "branch": "if (GetTag(GetEnteringObject()) == \"Bastilae\")"
+    }
+   ]
+  },
+  {
+   "name": "UNK_AREA1",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_pman_area",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if does not have item K_COMPUTER_SPIKE"
+    },
+    {
+     "script": "k_pman_area",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if has item K_COMPUTER_SPIKE"
+    }
+   ]
+  },
+  {
+   "name": "UNK_BASTILA_CS",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_punk_bastcs_en",
+     "module": "unk_m44ac",
+     "set": true,
+     "branch": "if GetIsPC(GetEnteringObject()); not a helper function's result"
+    }
+   ]
+  },
+  {
+   "name": "Unk_Black_RedRak",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_punk_redrakx",
+     "module": "unk_m42aa",
+     "set": true
+    },
+    {
+     "script": "k_punk_redrakx",
+     "module": "unk_m43aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "Unk_black_repair",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_punk_repairx",
+     "module": "unk_m42aa",
+     "set": true
+    },
+    {
+     "script": "k_punk_repairx",
+     "module": "unk_m43aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "Unk_Black_Ship",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_punk_shipx",
+     "module": "unk_m42aa",
+     "set": true
+    },
+    {
+     "script": "k_punk_shipx",
+     "module": "unk_m43aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "Unk_Black_Temple",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_punk_templex",
+     "module": "unk_m42aa",
+     "set": true
+    },
+    {
+     "script": "k_punk_templex",
+     "module": "unk_m43aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "unk_blackholocron",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_punk_blackholo",
+     "module": "unk_m42aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "UNK_Blackholocron2",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 4,
+   "writers": [
+    {
+     "script": "k_punk_blvill30",
+     "module": "unk_m43aa",
+     "set": true,
+     "branch": "if does not have item punk_holocron; does not have item AncientTome"
+    },
+    {
+     "script": "k_punk_blvill30",
+     "module": "unk_m43aa",
+     "set": true,
+     "branch": "if does not have item punk_holocron; has item AncientTome"
+    },
+    {
+     "script": "k_punk_blvill30",
+     "module": "unk_m43aa",
+     "set": true,
+     "branch": "if has item punk_holocron; does not have item AncientTome"
+    }
+   ]
+  },
+  {
+   "name": "UNK_BLACKHOSTILE",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 19,
+   "writers": [
+    {
+     "script": "k_punk_blhostx",
+     "module": "unk_m41aa",
+     "set": true
+    },
+    {
+     "script": "k_punk_41ac_en",
+     "module": "unk_m41ac",
+     "set": true,
+     "branch": "if G_FinalChoice <= 0; UNK_BLACKHOSTILE is FALSE; UNK_SPAWN is FALSE; UNK_TEMP6 is TRUE; UNK_RED_TALK is FALSE"
+    },
+    {
+     "script": "k_punk_41ac_en",
+     "module": "unk_m41ac",
+     "set": true,
+     "branch": "if G_FinalChoice <= 0; UNK_BLACKHOSTILE is FALSE; UNK_SPAWN is FALSE; UNK_TEMP6 is TRUE; UNK_RED_TALK is TRUE"
+    }
+   ]
+  },
+  {
+   "name": "UNK_GUARD_DOWN",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_def_userdef02",
+     "module": "unk_m44ab",
+     "set": true,
+     "branch": "if UNK_GUARD_DOWN is FALSE"
+    }
+   ]
+  },
+  {
+   "name": "UNK_NC",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_punk_comp06",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if does not have item K_COMPUTER_SPIKE"
+    },
+    {
+     "script": "k_punk_comp06",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if has item K_COMPUTER_SPIKE"
+    }
+   ]
+  },
+  {
+   "name": "UNK_NCD",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_punk_comp21",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if does not have item K_COMPUTER_SPIKE"
+    },
+    {
+     "script": "k_punk_comp21",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if has item K_COMPUTER_SPIKE"
+    }
+   ]
+  },
+  {
+   "name": "UNK_NCO",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 10,
+   "writers": [
+    {
+     "script": "k_punk_comp15",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if not (1 && GetIsObjectValid(GetObjectByTag(\"TempleComp3\", 0)))"
+    },
+    {
+     "script": "k_punk_comp15",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if GetIsObjectValid(GetObjectByTag(\"TempleComp3\", 0))"
+    },
+    {
+     "script": "k_punk_comp13",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if UNK_NC is FALSE; UNK_SC is FALSE; UNK_WG is FALSE"
+    }
+   ]
+  },
+  {
+   "name": "UNK_NCOMP",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    false,
+    true
+   ],
+   "writers_total": 33,
+   "writers": [
+    {
+     "script": "k_punk_comptalk2",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if a helper function's result is 0"
+    },
+    {
+     "script": "k_punk_end",
+     "module": "unk_m44aa",
+     "set": false,
+     "branch": "if UNK_NC is FALSE; UNK_SC is FALSE; UNK_WG is FALSE"
+    },
+    {
+     "script": "k_punk_end",
+     "module": "unk_m44aa",
+     "set": false,
+     "branch": "if UNK_NC is FALSE; UNK_SC is FALSE; UNK_WG is TRUE"
+    }
+   ]
+  },
+  {
+   "name": "UNK_OB",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_punk_comp24",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if does not have item K_COMPUTER_SPIKE"
+    },
+    {
+     "script": "k_punk_comp24",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if has item K_COMPUTER_SPIKE"
+    }
+   ]
+  },
+  {
+   "name": "Unk_One_Dead",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_punk_one_ud",
+     "module": "unk_m43aa",
+     "set": true,
+     "branch": "if UNK_REDTALK is FALSE"
+    },
+    {
+     "script": "k_punk_one_ud",
+     "module": "unk_m43aa",
+     "set": true,
+     "branch": "if UNK_REDTALK is TRUE"
+    }
+   ]
+  },
+  {
+   "name": "Unk_One_Spoke",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_punk_theone04",
+     "module": "unk_m43aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "UNK_PARTY_DOWN",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    false,
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_punk_44ac_en",
+     "module": "unk_m44ac",
+     "set": false,
+     "branch": "if not (GetIsObjectValid(GetPartyMemberByIndex(2)) == 0)"
+    },
+    {
+     "script": "k_punk_44ac_en",
+     "module": "unk_m44ac",
+     "set": true,
+     "branch": "if GetIsObjectValid(GetPartyMemberByIndex(2)) is 0"
+    }
+   ]
+  },
+  {
+   "name": "UNK_PARTYSHOWDOWN",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 10,
+   "writers": [
+    {
+     "script": "k_punk_41aa_en",
+     "module": "unk_m41aa",
+     "set": 1,
+     "branch": "if G_FinalChoice > 0; UNK_PARTYSHOWDOWN == 0; UNK_TEMP4 is FALSE"
+    },
+    {
+     "script": "k_punk_41aa_en",
+     "module": "unk_m41aa",
+     "set": 1,
+     "branch": "if G_FinalChoice > 0; UNK_PARTYSHOWDOWN == 0; UNK_TEMP4 is TRUE"
+    },
+    {
+     "script": "k_punk_41aa_en",
+     "module": "unk_m41aa",
+     "set": 1,
+     "branch": "if G_FinalChoice > 0; UNK_PARTYSHOWDOWN == 0; UNK_TEMP4 is TRUE; UNK_BLACKHOSTILE is FALSE; UNK_TEMP12 is TRUE"
+    }
+   ]
+  },
+  {
+   "name": "Unk_Prisoner",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "k_punk_prison3x",
+     "module": "unk_m42aa",
+     "set": 3
+    },
+    {
+     "script": "k_punk_prison1x",
+     "module": "unk_m42aa",
+     "set": 1
+    },
+    {
+     "script": "k_punk_pris06",
+     "module": "unk_m43aa",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "Unk_ProtDroidCrazy",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_punk_shieldczy",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if does not have item K_COMPUTER_SPIKE"
+    },
+    {
+     "script": "k_punk_shieldczy",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if has item K_COMPUTER_SPIKE"
+    }
+   ]
+  },
+  {
+   "name": "Unk_ProtDroidShield",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_punk_shieldoff",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if does not have item K_COMPUTER_SPIKE"
+    },
+    {
+     "script": "k_punk_shieldoff",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if has item K_COMPUTER_SPIKE"
+    }
+   ]
+  },
+  {
+   "name": "UNK_PTO",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 10,
+   "writers": [
+    {
+     "script": "k_punk_comp18",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if not (1 && GetIsObjectValid(GetObjectByTag(\"TempleComp2\", 0)))"
+    },
+    {
+     "script": "k_punk_comp18",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if GetIsObjectValid(GetObjectByTag(\"TempleComp2\", 0))"
+    },
+    {
+     "script": "k_punk_comp25",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if UNK_NC is FALSE; UNK_SC is FALSE; UNK_WG is FALSE"
+    }
+   ]
+  },
+  {
+   "name": "UNK_RAK_TEMPLE_OK",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_punk_temple04",
+     "module": "unk_m41ad",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "UNK_RAKPLOT",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_punk_rakplot01",
+     "module": "unk_m41ac",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "Unk_Red_Talk",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_punk_redtalk1",
+     "module": "unk_m42aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "Unk_RedHostile",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 13,
+   "writers": [
+    {
+     "script": "k_punk_41ab_en",
+     "module": "unk_m41ab",
+     "set": true,
+     "branch": "if G_FinalChoice <= 0; Unk_RedHostile is TRUE; UNK_TEMP10 is FALSE"
+    },
+    {
+     "script": "k_punk_41ab_en",
+     "module": "unk_m41ab",
+     "set": true,
+     "branch": "if G_FinalChoice <= 0; Unk_RedHostile is TRUE; UNK_TEMP10 is TRUE"
+    },
+    {
+     "script": "k_punk_41ab_en",
+     "module": "unk_m41ab",
+     "set": true,
+     "branch": "if G_FinalChoice > 0; Unk_RedHostile is TRUE; UNK_TEMP10 is FALSE"
+    }
+   ]
+  },
+  {
+   "name": "unk_redvill",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    99
+   ],
+   "writers_total": 13,
+   "writers": [
+    {
+     "script": "k_punk_41ab_en",
+     "module": "unk_m41ab",
+     "set": 99,
+     "branch": "if G_FinalChoice <= 0; Unk_RedHostile is TRUE; UNK_TEMP10 is FALSE"
+    },
+    {
+     "script": "k_punk_41ab_en",
+     "module": "unk_m41ab",
+     "set": 99,
+     "branch": "if G_FinalChoice <= 0; Unk_RedHostile is TRUE; UNK_TEMP10 is TRUE"
+    },
+    {
+     "script": "k_punk_41ab_en",
+     "module": "unk_m41ab",
+     "set": 99,
+     "branch": "if G_FinalChoice > 0; Unk_RedHostile is TRUE; UNK_TEMP10 is FALSE"
+    }
+   ]
+  },
+  {
+   "name": "UNK_RESEARCH",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "k_punk_final09",
+     "module": "unk_m42aa",
+     "set": 1
+    },
+    {
+     "script": "k_punk_final05",
+     "module": "unk_m42aa",
+     "set": 3
+    },
+    {
+     "script": "k_punk_resplotx",
+     "module": "unk_m44ab",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "UNK_SC",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_punk_comp08",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if does not have item K_COMPUTER_SPIKE"
+    },
+    {
+     "script": "k_punk_comp08",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if has item K_COMPUTER_SPIKE"
+    }
+   ]
+  },
+  {
+   "name": "UNK_SCD",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_punk_comp22",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if does not have item K_COMPUTER_SPIKE"
+    },
+    {
+     "script": "k_punk_comp22",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if has item K_COMPUTER_SPIKE"
+    }
+   ]
+  },
+  {
+   "name": "UNK_SCO",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 10,
+   "writers": [
+    {
+     "script": "k_punk_comp16",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if not (1 && GetIsObjectValid(GetObjectByTag(\"TempleComp1\", 0)))"
+    },
+    {
+     "script": "k_punk_comp16",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if GetIsObjectValid(GetObjectByTag(\"TempleComp1\", 0))"
+    },
+    {
+     "script": "k_punk_comp14",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if UNK_NC is FALSE; UNK_SC is FALSE; UNK_WG is FALSE"
+    }
+   ]
+  },
+  {
+   "name": "UNK_SCOMP",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    false,
+    true
+   ],
+   "writers_total": 33,
+   "writers": [
+    {
+     "script": "k_punk_comptalk",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if a helper function's result is 0"
+    },
+    {
+     "script": "k_punk_end",
+     "module": "unk_m44aa",
+     "set": false,
+     "branch": "if UNK_NC is FALSE; UNK_SC is FALSE; UNK_WG is FALSE"
+    },
+    {
+     "script": "k_punk_end",
+     "module": "unk_m44aa",
+     "set": false,
+     "branch": "if UNK_NC is FALSE; UNK_SC is FALSE; UNK_WG is TRUE"
+    }
+   ]
+  },
+  {
+   "name": "UNK_SHIPPARTS",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_punk_shipparts",
+     "module": "unk_m41ab",
+     "set": true
+    },
+    {
+     "script": "k_punk_shipparts",
+     "module": "unk_m43aa",
+     "set": true
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_pebn_hyper01"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_pebn_remove"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_punk_loseparts"
+    }
+   ]
+  },
+  {
+   "name": "UNK_SPAWN",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_punk_jump432",
+     "module": "unk_m41ac",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "UNK_STORY",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "writers_total": 6,
+   "writers": [
+    {
+     "script": "k_punk_story07",
+     "module": "unk_m43aa",
+     "set": 6,
+     "branch": "if UNK_STORY < 6"
+    },
+    {
+     "script": "k_punk_story06",
+     "module": "unk_m43aa",
+     "set": 5,
+     "branch": "if UNK_STORY < 5"
+    },
+    {
+     "script": "k_punk_story05",
+     "module": "unk_m43aa",
+     "set": 4,
+     "branch": "if UNK_STORY < 4"
+    }
+   ]
+  },
+  {
+   "name": "UNK_SWITCH_DONE",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_punk_sparty",
+     "module": "unk_m44ab",
+     "set": true,
+     "branch": "if UNK_SWITCH_DONE is FALSE; UNK_TILES is FALSE"
+    }
+   ]
+  },
+  {
+   "name": "UNK_TEMP10",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    false,
+    true
+   ],
+   "writers_total": 5,
+   "writers": [
+    {
+     "script": "k_punk_41ab_en",
+     "module": "unk_m41ab",
+     "set": false,
+     "branch": "if G_FinalChoice <= 0; Unk_RedHostile is FALSE; UNK_TEMP10 is TRUE"
+    },
+    {
+     "script": "k_punk_41ab_en",
+     "module": "unk_m41ab",
+     "set": false,
+     "branch": "if G_FinalChoice <= 0; Unk_RedHostile is TRUE; UNK_TEMP10 is TRUE"
+    },
+    {
+     "script": "k_punk_41ab_en",
+     "module": "unk_m41ab",
+     "set": false,
+     "branch": "if G_FinalChoice > 0; Unk_RedHostile is FALSE; UNK_TEMP10 is TRUE"
+    }
+   ]
+  },
+  {
+   "name": "UNK_TEMP11",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_punk_newfight",
+     "module": "unk_m41aa",
+     "set": true,
+     "branch": "if G_FinalChoice != 0"
+    },
+    {
+     "script": "k_punk_newfight",
+     "module": "unk_m41aa",
+     "set": true,
+     "branch": "if G_FinalChoice == 0"
+    }
+   ]
+  },
+  {
+   "name": "UNK_TEMP12",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 4,
+   "writers": [
+    {
+     "script": "k_punk_41aa_en",
+     "module": "unk_m41aa",
+     "set": true,
+     "branch": "if G_FinalChoice <= 0; UNK_TEMP4 is TRUE; UNK_BLACKHOSTILE is FALSE; UNK_TEMP12 is FALSE"
+    },
+    {
+     "script": "k_punk_41aa_en",
+     "module": "unk_m41aa",
+     "set": true,
+     "branch": "if G_FinalChoice > 0; UNK_TEMP4 is TRUE; UNK_BLACKHOSTILE is FALSE; UNK_TEMP12 is FALSE"
+    },
+    {
+     "script": "k_punk_41aa_en",
+     "module": "unk_m41aa",
+     "set": true,
+     "branch": "if G_FinalChoice > 0; UNK_PARTYSHOWDOWN == 0; UNK_TEMP4 is TRUE; UNK_BLACKHOSTILE is FALSE; UNK_TEMP12 is F..."
+    }
+   ]
+  },
+  {
+   "name": "UNK_TEMP2",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_punk_move",
+     "module": "unk_m41ac",
+     "set": true,
+     "branch": "if UNK_THEONE is TRUE"
+    }
+   ]
+  },
+  {
+   "name": "UNK_TEMP4",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    false,
+    true
+   ],
+   "writers_total": 11,
+   "writers": [
+    {
+     "script": "k_punk_41aa_en",
+     "module": "unk_m41aa",
+     "set": false,
+     "branch": "if G_FinalChoice <= 0; UNK_TEMP4 is TRUE; UNK_BLACKHOSTILE is FALSE; UNK_TEMP12 is TRUE"
+    },
+    {
+     "script": "k_punk_41aa_en",
+     "module": "unk_m41aa",
+     "set": false,
+     "branch": "if G_FinalChoice <= 0; UNK_TEMP4 is TRUE; UNK_BLACKHOSTILE is FALSE; UNK_TEMP12 is FALSE"
+    },
+    {
+     "script": "k_punk_41aa_en",
+     "module": "unk_m41aa",
+     "set": false,
+     "branch": "if G_FinalChoice <= 0; UNK_TEMP4 is TRUE; UNK_BLACKHOSTILE is TRUE"
+    }
+   ]
+  },
+  {
+   "name": "UNK_TEMP5",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 11,
+   "writers": [
+    {
+     "script": "k_punk_ambush",
+     "module": "unk_m41ac",
+     "set": true,
+     "branch": "if UNK_TEMP5 is TRUE; UNK_TEMP6 is FALSE; UNK_RED_TALK is TRUE"
+    },
+    {
+     "script": "k_punk_ambush",
+     "module": "unk_m41ac",
+     "set": true,
+     "branch": "if UNK_TEMP5 is TRUE; UNK_TEMP6 is FALSE; UNK_BLACKHOSTILE is TRUE; UNK_RED_TALK is TRUE"
+    },
+    {
+     "script": "k_punk_ambush",
+     "module": "unk_m41ac",
+     "set": true,
+     "branch": "if UNK_TEMP5 is TRUE; UNK_TEMP6 is FALSE; UNK_BLACKHOSTILE is TRUE; UNK_RED_TALK is FALSE"
+    }
+   ]
+  },
+  {
+   "name": "UNK_TEMP6",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 8,
+   "writers": [
+    {
+     "script": "k_punk_ambush",
+     "module": "unk_m41ac",
+     "set": true,
+     "branch": "if UNK_TEMP5 is TRUE; UNK_TEMP6 is FALSE; UNK_BLACKHOSTILE is TRUE; UNK_RED_TALK is TRUE"
+    },
+    {
+     "script": "k_punk_ambush",
+     "module": "unk_m41ac",
+     "set": true,
+     "branch": "if UNK_TEMP5 is TRUE; UNK_TEMP6 is FALSE; UNK_BLACKHOSTILE is TRUE; UNK_RED_TALK is FALSE"
+    },
+    {
+     "script": "k_punk_ambush",
+     "module": "unk_m41ac",
+     "set": true,
+     "branch": "if UNK_TEMP5 is FALSE; UNK_TEMP6 is FALSE; UNK_BLACKHOSTILE is TRUE; UNK_RED_TALK is TRUE"
+    }
+   ]
+  },
+  {
+   "name": "UNK_TEMP7",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "unk42_cage01",
+     "module": "unk_m42aa",
+     "set": true,
+     "branch": "if UNK_REDHOSTILE is TRUE; UNK_TEMP8 is FALSE; UNK_TEMP7 is FALSE"
+    },
+    {
+     "script": "unk42_cage02",
+     "module": "unk_m42aa",
+     "set": true,
+     "branch": "if UNK_REDHOSTILE is TRUE; UNK_TEMP8 is FALSE; UNK_TEMP7 is FALSE"
+    },
+    {
+     "script": "unk42_cage03",
+     "module": "unk_m42aa",
+     "set": true,
+     "branch": "if UNK_REDHOSTILE is TRUE; UNK_TEMP8 is FALSE; UNK_TEMP7 is FALSE"
+    }
+   ]
+  },
+  {
+   "name": "UNK_TEMP8",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_punk_final08",
+     "module": "unk_m42aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "UNK_TEMP9",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    false,
+    true
+   ],
+   "writers_total": 4,
+   "writers": [
+    {
+     "script": "k_punk_41ad_en",
+     "module": "unk_m41ad",
+     "set": false,
+     "branch": "if G_FinalChoice <= 0; UNK_SHIELD_OFF is FALSE; UNK_TEMPLEREADY is FALSE; UNK_BLACKHOSTILE is TRUE; UNK_TEM..."
+    },
+    {
+     "script": "k_punk_41ad_en",
+     "module": "unk_m41ad",
+     "set": false,
+     "branch": "if G_FinalChoice <= 0; UNK_SHIELD_OFF is FALSE; UNK_TEMPLEREADY is FALSE; UNK_BLACKHOSTILE is FALSE; UNK_TE..."
+    },
+    {
+     "script": "k_punk_41ad_en",
+     "module": "unk_m41ad",
+     "set": false,
+     "branch": "if G_FinalChoice <= 0; UNK_SHIELD_OFF is FALSE; UNK_TEMPLEREADY is FALSE; UNK_BLACKHOSTILE is FALSE; UNK_TH..."
+    }
+   ]
+  },
+  {
+   "name": "UNK_TEMPLEALARM",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    4
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_punk_patrol_hb",
+     "module": "unk_m44aa",
+     "set": 4,
+     "branch": "if UNK_TEMPLEALARM <= 0"
+    },
+    {
+     "script": "k_punk_patrol_hb",
+     "module": "unk_m44aa",
+     "add": -1,
+     "branch": "if UNK_TEMPLEALARM > 0"
+    }
+   ]
+  },
+  {
+   "name": "UNK_TEMPLEREADY",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_punk_jump41ad",
+     "module": "unk_m42aa",
+     "set": true
+    },
+    {
+     "script": "k_punk_jump41ad",
+     "module": "unk_m43aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "UNK_THEONE",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_punk_theone04",
+     "module": "unk_m43aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "UNK_TILES",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 9,
+   "writers": [
+    {
+     "script": "k_punk_floor05",
+     "module": "unk_m44ab",
+     "set": true,
+     "branch": "if UNK_TILES is FALSE"
+    },
+    {
+     "script": "k_punk_floor01",
+     "module": "unk_m44ab",
+     "set": true,
+     "branch": "if UNK_TILES is FALSE"
+    },
+    {
+     "script": "k_punk_floor02",
+     "module": "unk_m44ab",
+     "set": true,
+     "branch": "if UNK_TILES is FALSE"
+    }
+   ]
+  },
+  {
+   "name": "UNK_WG",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_punk_comp04",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if does not have item K_COMPUTER_SPIKE"
+    },
+    {
+     "script": "k_punk_comp04",
+     "module": "unk_m44aa",
+     "set": true,
+     "branch": "if has item K_COMPUTER_SPIKE"
+    }
+   ]
+  },
+  {
+   "name": "Unk_ZaalbarInsane",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_punk_zaalbarin",
+     "module": "unk_m41aa",
+     "set": true
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/sta_m45aa.mod",
+     "script": "k_psta_init_zaal"
+    },
+    {
+     "where": "modules/sta_m45aa.mod",
+     "script": "k_sta_zalbins01"
+    }
+   ]
+  }
+ ],
+ "globals_never_set": [
+  "UNK_BlackTemple",
+  "UNK_COLDOFF",
+  "UNK_EG",
+  "UNK_GUARD",
+  "UNK_GUIDE",
+  "UNK_PUZD_FINAL",
+  "UNK_PUZD_STATE",
+  "UNK_PUZE_FINAL",
+  "UNK_PUZE_STATE",
+  "UNK_PUZF_FINAL",
+  "UNK_PUZG_DONE",
+  "UNK_RAKATAGUARDSTATUS",
+  "UNK_REDTALK",
+  "UNK_RakataTemple",
+  "UNK_RedTemple",
+  "UNK_TEMP",
+  "UNK_TEMP3",
+  "UNK_USEDDARKSIDE",
+  "UNK_injuredSith",
+  "Unk_RedConch",
+  "unk_BlackRakata"
+ ],
+ "items": {
+  "held_at_end": [],
+  "held_note": "Given by scripts on the critical path (tools/questdb/chapters.py).",
+  "other_script_gifts": [
+   {
+    "item": "g_shipparts",
+    "count": 1,
+    "script": "k_punk_shipparts",
+    "module": "unk_m41ab"
+   },
+   {
+    "item": "g_shipparts",
+    "count": 1,
+    "script": "k_punk_shipparts",
+    "module": "unk_m43aa"
+   },
+   {
+    "item": "unk_researchpad",
+    "count": 1,
+    "script": "k_punk_resplotx",
+    "module": "unk_m44ab"
+   }
+  ],
+  "taken_optional": [
+   {
+    "item": "unk_researchpad",
+    "script": "k_punk_final05",
+    "module": "unk_m42aa",
+    "from": [
+     "unk42_redbreed01 R1 script"
+    ]
+   },
+   {
+    "item": "g_i_datapad002",
+    "script": "k_punk_blvill30",
+    "module": "unk_m43aa",
+    "from": [
+     "unk43_theone R15 script"
+    ],
+    "branch": "if does not have item punk_holocron; does not have item AncientTome"
+   },
+   {
+    "item": "g_i_datapad002",
+    "script": "k_punk_blvill30",
+    "module": "unk_m43aa",
+    "from": [
+     "unk43_theone R15 script"
+    ],
+    "branch": "if does not have item punk_holocron; has item AncientTome"
+   },
+   {
+    "item": "AncientTome",
+    "script": "k_punk_blvill30",
+    "module": "unk_m43aa",
+    "from": [
+     "unk43_theone R15 script"
+    ],
+    "branch": "if does not have item punk_holocron; has item AncientTome"
+   },
+   {
+    "item": "g_i_datapad002",
+    "script": "k_punk_blvill30",
+    "module": "unk_m43aa",
+    "from": [
+     "unk43_theone R15 script"
+    ],
+    "branch": "if has item punk_holocron; does not have item AncientTome"
+   },
+   {
+    "item": "punk_holocron",
+    "script": "k_punk_blvill30",
+    "module": "unk_m43aa",
+    "from": [
+     "unk43_theone R15 script"
+    ],
+    "branch": "if has item punk_holocron; does not have item AncientTome"
+   },
+   {
+    "item": "g_i_datapad002",
+    "script": "k_punk_blvill30",
+    "module": "unk_m43aa",
+    "from": [
+     "unk43_theone R15 script"
+    ],
+    "branch": "if has item punk_holocron; has item AncientTome"
+   },
+   {
+    "item": "punk_holocron",
+    "script": "k_punk_blvill30",
+    "module": "unk_m43aa",
+    "from": [
+     "unk43_theone R15 script"
+    ],
+    "branch": "if has item punk_holocron; has item AncientTome"
+   },
+   {
+    "item": "AncientTome",
+    "script": "k_punk_blvill30",
+    "module": "unk_m43aa",
+    "from": [
+     "unk43_theone R15 script"
+    ],
+    "branch": "if has item punk_holocron; has item AncientTome"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_act_com35",
+    "module": "unk_m44aa",
+    "from": [
+     "k_pman_comp01 E4 script",
+     "unk_comp E4 script",
+     "unk_comp2 E4 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_pman_area",
+    "module": "unk_m44aa",
+    "from": [
+     "k_pman_comp01 E5 script",
+     "unk_comp E6 script",
+     "unk_comp2 E6 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_pman_gas03",
+    "module": "unk_m44aa",
+    "from": [
+     "k_pman_comp01 E10 script",
+     "k_pman_comp01 E46 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_pman_droid01",
+    "module": "unk_m44aa",
+    "from": [
+     "k_pman_comp01 E18 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_pman_droid04",
+    "module": "unk_m44aa",
+    "from": [
+     "k_pman_comp01 E23 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_pman_turret01",
+    "module": "unk_m44aa",
+    "from": [
+     "k_pman_comp01 E28 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_pman_droid03",
+    "module": "unk_m44aa",
+    "from": [
+     "k_pman_comp01 E30 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_pman_droid02",
+    "module": "unk_m44aa",
+    "from": [
+     "k_pman_comp01 E35 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_pman_gas04",
+    "module": "unk_m44aa",
+    "from": [
+     "k_pman_comp01 E39 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_REPAIR_PART",
+    "script": "k_com_compart",
+    "module": "unk_m44aa",
+    "from": [
+     "unk44_brokdro001 E4 script"
+    ],
+    "branch": "if has item K_REPAIR_PART",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_REPAIR_PART",
+    "script": "k_act_com45",
+    "module": "unk_m44aa",
+    "from": [
+     "unk44_brokdro001 E6 script"
+    ],
+    "branch": "if has item K_REPAIR_PART",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_REPAIR_PART",
+    "script": "k_act_com44",
+    "module": "unk_m44aa",
+    "from": [
+     "unk44_brokdro001 E8 script"
+    ],
+    "branch": "if has item K_REPAIR_PART",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_REPAIR_PART",
+    "script": "k_act_com43",
+    "module": "unk_m44aa",
+    "from": [
+     "unk44_brokdro001 E9 script"
+    ],
+    "branch": "if has item K_REPAIR_PART",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_REPAIR_PART",
+    "script": "k_act_com42",
+    "module": "unk_m44aa",
+    "from": [
+     "unk44_brokdro001 E10 script"
+    ],
+    "branch": "if has item K_REPAIR_PART",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_punk_comp22",
+    "module": "unk_m44aa",
+    "from": [
+     "unk_comp E13 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_punk_comp08",
+    "module": "unk_m44aa",
+    "from": [
+     "unk_comp E16 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_punk_comp21",
+    "module": "unk_m44aa",
+    "from": [
+     "unk_comp E22 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_punk_comp06",
+    "module": "unk_m44aa",
+    "from": [
+     "unk_comp E25 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_punk_comp24",
+    "module": "unk_m44aa",
+    "from": [
+     "unk_comp E31 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_punk_comp26",
+    "module": "unk_m44aa",
+    "from": [
+     "unk_comp E43 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_punk_comp04",
+    "module": "unk_m44aa",
+    "from": [
+     "unk_comp E52 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_act_com32",
+    "module": "unk_m44aa",
+    "from": [
+     "unk_comp E61 script",
+     "unk_comp E70 script",
+     "unk_comp2 E21 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_punk_shieldczy",
+    "module": "unk_m44aa",
+    "from": [
+     "unk_comp2 E37 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_punk_shieldoff",
+    "module": "unk_m44aa",
+    "from": [
+     "unk_comp2 E40 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   }
+  ],
+  "container_loot_optional": [
+   {
+    "module": "unk_m41aa",
+    "area": "m41aa",
+    "container": "FootLker",
+    "template": "footlker001",
+    "position": [
+     49.31,
+     184.89
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt02",
+      "count": 3
+     },
+     {
+      "resref": "g_i_drdrepeqp002",
+      "count": 3
+     }
+    ]
+   },
+   {
+    "module": "unk_m42aa",
+    "area": "m42aa",
+    "container": "MetalBox",
+    "template": "metalbox001",
+    "position": [
+     59.22,
+     95.16
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 2
+     },
+     {
+      "resref": "g_i_drdrepeqp001",
+      "count": 2
+     }
+    ]
+   },
+   {
+    "module": "unk_m42aa",
+    "area": "m42aa",
+    "container": "MetalBox",
+    "template": "metalbox001",
+    "position": [
+     57.57,
+     94.06
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 2
+     },
+     {
+      "resref": "g_i_drdrepeqp001",
+      "count": 2
+     }
+    ]
+   },
+   {
+    "module": "unk_m42aa",
+    "area": "m42aa",
+    "container": "PlstcCrt",
+    "template": "plstccrt001",
+    "position": [
+     45.68,
+     95.4
+    ],
+    "items": [
+     {
+      "resref": "g_w_adhsvgren001",
+      "count": 5
+     },
+     {
+      "resref": "g_w_stungren01",
+      "count": 5
+     }
+    ]
+   },
+   {
+    "module": "unk_m42aa",
+    "area": "m42aa",
+    "container": "PlstcCrt",
+    "template": "plstccrt002",
+    "position": [
+     46.96,
+     94.08
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt02",
+      "count": 2
+     },
+     {
+      "resref": "g_i_drdrepeqp002",
+      "count": 2
+     }
+    ]
+   },
+   {
+    "module": "unk_m43aa",
+    "area": "m43aa",
+    "container": "unk43_treas0",
+    "template": "unk43_treas0",
+    "position": [
+     14.22,
+     135.53
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt04",
+      "count": 2
+     },
+     {
+      "resref": "g_i_cmbtshot001",
+      "count": 1
+     },
+     {
+      "resref": "g_i_drdutldev008",
+      "count": 1
+     },
+     {
+      "resref": "g_i_medeqpmnt03",
+      "count": 2
+     },
+     {
+      "resref": "g_i_drdtrgcom004",
+      "count": 1
+     },
+     {
+      "resref": "g_i_drdtrgcom005",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "unk_m43aa",
+    "area": "m43aa",
+    "container": "unk43_treas0",
+    "template": "unk43_treas001",
+    "position": [
+     14.2,
+     138.75
+    ],
+    "items": [
+     {
+      "resref": "g_i_progspike01",
+      "count": 3
+     },
+     {
+      "resref": "g_i_trapkit009",
+      "count": 2
+     },
+     {
+      "resref": "g_w_cryobgren001",
+      "count": 3
+     },
+     {
+      "resref": "g_w_thermldet01",
+      "count": 2
+     },
+     {
+      "resref": "g_w_poisngren01",
+      "count": 5
+     },
+     {
+      "resref": "g_w_sbrcrstl16",
+      "count": 1
+     },
+     {
+      "resref": "g_w_warblade001",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "unk_m43aa",
+    "area": "m43aa",
+    "container": "RakatBn2",
+    "template": "rakatbn003",
+    "position": [
+     14.79,
+     131.64
+    ],
+    "items": [
+     {
+      "resref": "g_i_frarmbnds03",
+      "count": 1
+     },
+     {
+      "resref": "g_a_class4001",
+      "count": 1
+     },
+     {
+      "resref": "g_i_belt008",
+      "count": 1
+     },
+     {
+      "resref": "g_i_frarmbnds01",
+      "count": 1
+     },
+     {
+      "resref": "g_i_mask01",
+      "count": 1
+     },
+     {
+      "resref": "g_i_frarmbnds05",
+      "count": 1
+     },
+     {
+      "resref": "g_i_gauntlet01",
+      "count": 2
+     },
+     {
+      "resref": "g_a_class4002",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "unk_m43aa",
+    "area": "m43aa",
+    "container": "RakatBin",
+    "template": "rakatbin002",
+    "position": [
+     14.81,
+     142.68
+    ],
+    "items": [
+     {
+      "resref": "g_a_class9003",
+      "count": 1
+     },
+     {
+      "resref": "g_a_mstrrobe01",
+      "count": 1
+     },
+     {
+      "resref": "g_w_ionrfl02",
+      "count": 1
+     },
+     {
+      "resref": "g_w_hvyblstr03",
+      "count": 1
+     },
+     {
+      "resref": "g_w_hvrptbltr02",
+      "count": 1
+     },
+     {
+      "resref": "g_w_rptnblstr02",
+      "count": 1
+     },
+     {
+      "resref": "g_w_qtrstaff01",
+      "count": 2
+     },
+     {
+      "resref": "g_w_stunbaton01",
+      "count": 1
+     },
+     {
+      "resref": "g_w_stunbaton04",
+      "count": 2
+     },
+     {
+      "resref": "g_w_vbroswrd03",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "unk_m43aa",
+    "area": "m43aa",
+    "container": "RakatBn2",
+    "template": "rakatbn004",
+    "position": [
+     198.4,
+     54.5
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt02",
+      "count": 1
+     },
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 3
+     }
+    ]
+   },
+   {
+    "module": "unk_m43aa",
+    "area": "m43aa",
+    "container": "RakatBin",
+    "template": "rakatbin003",
+    "position": [
+     194.2,
+     85.35
+    ],
+    "items": [
+     {
+      "resref": "g_i_drdrepeqp001",
+      "count": 3
+     }
+    ]
+   },
+   {
+    "module": "unk_m44aa",
+    "area": "m44aa",
+    "container": "RnePillr",
+    "template": "rnepillr001",
+    "position": [
+     76.78,
+     106.9
+    ],
+    "items": [
+     {
+      "resref": "g_w_sbrcrstl04",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "unk_m44aa",
+    "area": "m44aa",
+    "container": "LockerLg",
+    "template": "lockerlg002",
+    "position": [
+     68.38,
+     51.82
+    ],
+    "items": [
+     {
+      "resref": "g_w_blstrcrbn002",
+      "count": 4
+     },
+     {
+      "resref": "g_w_blstrrfl002",
+      "count": 2
+     }
+    ]
+   },
+   {
+    "module": "unk_m44aa",
+    "area": "m44aa",
+    "container": "LockerLg",
+    "template": "lockerlg003",
+    "position": [
+     68.38,
+     50.92
+    ],
+    "items": [
+     {
+      "resref": "g_w_rptnblstr01",
+      "count": 2
+     },
+     {
+      "resref": "g_w_dsrptrfl002",
+      "count": 2
+     }
+    ]
+   },
+   {
+    "module": "unk_m44aa",
+    "area": "m44aa",
+    "container": "LockerLg",
+    "template": "lockerlg004",
+    "position": [
+     71.03,
+     55.63
+    ],
+    "items": [
+     {
+      "resref": "g_a_class7003",
+      "count": 1
+     },
+     {
+      "resref": "g_i_frarmbnds09",
+      "count": 1
+     },
+     {
+      "resref": "g_a_class8002",
+      "count": 1
+     },
+     {
+      "resref": "g_i_frarmbnds02",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "unk_m44aa",
+    "area": "m44aa",
+    "container": "LockerLg",
+    "template": "lockerlg005",
+    "position": [
+     72.85,
+     55.63
+    ],
+    "items": [
+     {
+      "resref": "g_i_belt007",
+      "count": 1
+     },
+     {
+      "resref": "g_i_belt010",
+      "count": 1
+     },
+     {
+      "resref": "g_i_mask07",
+      "count": 1
+     },
+     {
+      "resref": "g_i_frarmbnds02",
+      "count": 2
+     },
+     {
+      "resref": "g_i_mask03",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "unk_m44aa",
+    "area": "m44aa",
+    "container": "PlstcCrt",
+    "template": "plstccrt001",
+    "position": [
+     135.02,
+     91.89
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt02",
+      "count": 4
+     },
+     {
+      "resref": "g_i_medeqpmnt03",
+      "count": 2
+     }
+    ]
+   },
+   {
+    "module": "unk_m44aa",
+    "area": "m44aa",
+    "container": "PlstcCrt",
+    "template": "plstccrt001",
+    "position": [
+     135.69,
+     98.07
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt02",
+      "count": 4
+     },
+     {
+      "resref": "g_i_medeqpmnt03",
+      "count": 2
+     }
+    ]
+   },
+   {
+    "module": "unk_m44aa",
+    "area": "m44aa",
+    "container": "MetalBox",
+    "template": "metalbox001",
+    "position": [
+     132.52,
+     80.7
+    ],
+    "items": [
+     {
+      "resref": "g_i_drdrepeqp002",
+      "count": 4
+     },
+     {
+      "resref": "g_i_drdrepeqp003",
+      "count": 2
+     }
+    ]
+   },
+   {
+    "module": "unk_m44aa",
+    "area": "m44aa",
+    "container": "MetalBox",
+    "template": "metalbox001",
+    "position": [
+     135.64,
+     46.6
+    ],
+    "items": [
+     {
+      "resref": "g_i_drdrepeqp002",
+      "count": 4
+     },
+     {
+      "resref": "g_i_drdrepeqp003",
+      "count": 2
+     }
+    ]
+   },
+   {
+    "module": "unk_m44aa",
+    "area": "m44aa",
+    "container": "MetalBox",
+    "template": "metalbox001",
+    "position": [
+     56.9,
+     91.65
+    ],
+    "items": [
+     {
+      "resref": "g_i_drdrepeqp002",
+      "count": 4
+     },
+     {
+      "resref": "g_i_drdrepeqp003",
+      "count": 2
+     }
+    ]
+   },
+   {
+    "module": "unk_m44aa",
+    "area": "m44aa",
+    "container": "MetalBox",
+    "template": "metalbox002",
+    "position": [
+     61.46,
+     91.98
+    ],
+    "items": [
+     {
+      "resref": "g_i_progspike01",
+      "count": 2
+     },
+     {
+      "resref": "g_i_parts01",
+      "count": 6
+     }
+    ]
+   },
+   {
+    "module": "unk_m44aa",
+    "area": "m44aa",
+    "container": "MetalBox",
+    "template": "metalbox002",
+    "position": [
+     129.26,
+     88.84
+    ],
+    "items": [
+     {
+      "resref": "g_i_progspike01",
+      "count": 2
+     },
+     {
+      "resref": "g_i_parts01",
+      "count": 6
+     }
+    ]
+   },
+   {
+    "module": "unk_m44aa",
+    "area": "m44aa",
+    "container": "FootLker",
+    "template": "footlker001",
+    "position": [
+     68.47,
+     49.61
+    ],
+    "items": [
+     {
+      "resref": "g_w_adhsvgren001",
+      "count": 5
+     },
+     {
+      "resref": "g_w_cryobgren001",
+      "count": 5
+     },
+     {
+      "resref": "g_w_fraggren01",
+      "count": 5
+     },
+     {
+      "resref": "g_w_iongren01",
+      "count": 5
+     },
+     {
+      "resref": "g_w_firegren001",
+      "count": 5
+     },
+     {
+      "resref": "g_w_poisngren01",
+      "count": 5
+     },
+     {
+      "resref": "g_w_sonicgren01",
+      "count": 5
+     },
+     {
+      "resref": "g_w_stungren01",
+      "count": 5
+     },
+     {
+      "resref": "g_w_thermldet01",
+      "count": 5
+     }
+    ]
+   },
+   {
+    "module": "unk_m44aa",
+    "area": "m44aa",
+    "container": "MetalBox",
+    "template": "metalbox003",
+    "position": [
+     54.39,
+     97.86
+    ],
+    "items": [
+     {
+      "resref": "g_i_drdrepeqp002",
+      "count": 2
+     },
+     {
+      "resref": "g_i_drdrepeqp003",
+      "count": 2
+     },
+     {
+      "resref": "g_i_drdhvplat003",
+      "count": 1
+     },
+     {
+      "resref": "g_i_drdhvplat002",
+      "count": 1
+     },
+     {
+      "resref": "g_i_drdmdplat003",
+      "count": 1
+     },
+     {
+      "resref": "g_i_drdshld003",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "unk_m44aa",
+    "area": "m44aa",
+    "container": "MetalBox",
+    "template": "metalbox004",
+    "position": [
+     64.88,
+     92.21
+    ],
+    "items": [
+     {
+      "resref": "g_i_drdmtnsen002",
+      "count": 1
+     },
+     {
+      "resref": "g_i_drdmtnsen003",
+      "count": 1
+     },
+     {
+      "resref": "g_i_drdshld007",
+      "count": 1
+     },
+     {
+      "resref": "g_i_drdcomspk002",
+      "count": 1
+     },
+     {
+      "resref": "g_i_drdrepeqp002",
+      "count": 2
+     },
+     {
+      "resref": "g_i_drdrepeqp003",
+      "count": 2
+     }
+    ]
+   },
+   {
+    "module": "unk_m44aa",
+    "area": "m44aa",
+    "container": "MetalBox",
+    "template": "metalbox005",
+    "position": [
+     80.75,
+     52.77
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt02",
+      "count": 5
+     },
+     {
+      "resref": "g_i_medeqpmnt03",
+      "count": 2
+     }
+    ]
+   },
+   {
+    "module": "unk_m44aa",
+    "area": "m44aa",
+    "container": "unk44_strong",
+    "template": "unk44_strong003",
+    "position": [
+     103.21,
+     90.95
+    ],
+    "items": [
+     {
+      "resref": "g_i_credits014",
+      "count": 1
+     },
+     {
+      "resref": "g_w_sbrcrstl18",
+      "count": 2
+     },
+     {
+      "resref": "g_i_drdrepeqp003",
+      "count": 2
+     },
+     {
+      "resref": "g_i_medeqpmnt03",
+      "count": 2
+     }
+    ]
+   },
+   {
+    "module": "unk_m44ab",
+    "area": "m44ab",
+    "container": "RnePillr",
+    "template": "rnepillr001",
+    "position": [
+     48.73,
+     74.31
+    ],
+    "items": [
+     {
+      "resref": "g_w_sbrcrstl04",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "unk_m44ab",
+    "area": "m44ab",
+    "container": "FootLker",
+    "template": "footlker001",
+    "position": [
+     50.6,
+     80.53
+    ],
+    "items": [
+     {
+      "resref": "unk44_data",
+      "count": 1
+     }
+    ]
+   }
+  ],
+  "random_loot": "creature drops rolled by the generic treasure scripts at death are random and not listed"
+ },
+ "party": {
+  "recruit": [],
+  "remove": [],
+  "recruited_at_end": [],
+  "recruit_note": "Apply as the game's own AddAvailableNPCByTemplate(slot, template): the slot's AVAILNPC<slot> creature in the save is built from the template (templates.bif, Override or the named module)",
+  "calls": [
+   {
+    "call": "RemoveAvailableNPC(2)",
+    "script": "k_punk_carthrem",
+    "module": "unk_m41aa",
+    "from": [
+     "unk41_carth E23 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "RemoveAvailableNPC(8)",
+    "script": "k_punk_zaalrem",
+    "module": "unk_m41aa",
+    "from": [
+     "unk41_mission E2 script",
+     "unk41_mission E5 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "RemoveAvailableNPC(6)",
+    "script": "k_punk_zaalrem",
+    "module": "unk_m41aa",
+    "from": [
+     "unk41_mission E2 script",
+     "unk41_mission E5 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "RemoveAvailableNPC(6)",
+    "script": "k_punk_misrem",
+    "module": "unk_m41aa",
+    "from": [
+     "unk41_mission E6 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "AddPartyMember(4, GetObjectByTag(\"jolee\", 0))",
+    "script": "k_punk_pretempl2",
+    "module": "unk_m41ad",
+    "from": [
+     "unk41_guide_dlg R33 script"
+    ],
+    "branch": "if DAN_JUHANI_PLOT == 2",
+    "critical": false
+   },
+   {
+    "call": "AddPartyMember(4, GetObjectByTag(\"jolee\", 0))",
+    "script": "k_punk_pretempl2",
+    "module": "unk_m41ad",
+    "from": [
+     "unk41_guide_dlg R33 script"
+    ],
+    "branch": "if DAN_JUHANI_PLOT != 2",
+    "critical": false
+   },
+   {
+    "call": "AddPartyMember(5, GetObjectByTag(\"juhani\", 0))",
+    "script": "k_punk_pretempl2",
+    "module": "unk_m41ad",
+    "from": [
+     "unk41_guide_dlg R33 script"
+    ],
+    "branch": "if DAN_JUHANI_PLOT != 2",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(4)",
+    "script": "k_punk_bast_ud2",
+    "module": "unk_m44ac",
+    "from": [
+     "unk44_evilbast.utc ScriptUserDefine (Bastilae)"
+    ],
+    "branch": "if user-defined event is 1006; (GetMaxHitPoints(OBJECT_SELF) - GetCurrentHitPoints(OBJECT_SELF)) at least 151",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(5)",
+    "script": "k_punk_bast_ud2",
+    "module": "unk_m44ac",
+    "from": [
+     "unk44_evilbast.utc ScriptUserDefine (Bastilae)"
+    ],
+    "branch": "if user-defined event is 1006; (GetMaxHitPoints(OBJECT_SELF) - GetCurrentHitPoints(OBJECT_SELF)) at least 151",
+    "critical": false
+   },
+   {
+    "call": "AddPartyMember(5, GetObjectByTag(\"juhani\", 0))",
+    "script": "k_punk_bastatt05",
+    "module": "unk_m44ac",
+    "from": [
+     "unk44_evilbast E29 script",
+     "unk44_evilbast E75 script",
+     "unk44_evilbast E104 script"
+    ],
+    "branch": "if not GetIsObjectValid(GetObjectByTag(\"jolee\", 0)); GetIsObjectValid(GetObjectByTag(\"juhani\", 0))",
+    "critical": false
+   },
+   {
+    "call": "AddPartyMember(4, GetObjectByTag(\"jolee\", 0))",
+    "script": "k_punk_bastatt05",
+    "module": "unk_m44ac",
+    "from": [
+     "unk44_evilbast E29 script",
+     "unk44_evilbast E75 script",
+     "unk44_evilbast E104 script"
+    ],
+    "branch": "if GetIsObjectValid(GetObjectByTag(\"jolee\", 0)); not GetIsObjectValid(GetObjectByTag(\"juhani\", 0))",
+    "critical": false
+   },
+   {
+    "call": "AddPartyMember(4, GetObjectByTag(\"jolee\", 0))",
+    "script": "k_punk_bastatt05",
+    "module": "unk_m44ac",
+    "from": [
+     "unk44_evilbast E29 script",
+     "unk44_evilbast E75 script",
+     "unk44_evilbast E104 script"
+    ],
+    "branch": "if GetIsObjectValid(GetObjectByTag(\"jolee\", 0)); GetIsObjectValid(GetObjectByTag(\"juhani\", 0))",
+    "critical": false
+   },
+   {
+    "call": "AddPartyMember(5, GetObjectByTag(\"juhani\", 0))",
+    "script": "k_punk_bastatt05",
+    "module": "unk_m44ac",
+    "from": [
+     "unk44_evilbast E29 script",
+     "unk44_evilbast E75 script",
+     "unk44_evilbast E104 script"
+    ],
+    "branch": "if GetIsObjectValid(GetObjectByTag(\"jolee\", 0)); GetIsObjectValid(GetObjectByTag(\"juhani\", 0))",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(4)",
+    "script": "k_punk_bastjoin",
+    "module": "unk_m44ac",
+    "from": [
+     "unk44_evilbast E63 script",
+     "unk44_evilbast E138 script",
+     "unk44_evilbast2 E63 script"
+    ],
+    "branch": "if ((GetLevelByPosition(1, OBJECT_SELF) + GetLevelByPosition(2, OBJECT_SELF)) + GetLevelByPosition(3, OBJEC...",
+    "critical": false
+   },
+   {
+    "call": "RemoveAvailableNPC(4)",
+    "script": "k_punk_bastjoin",
+    "module": "unk_m44ac",
+    "from": [
+     "unk44_evilbast E63 script",
+     "unk44_evilbast E138 script",
+     "unk44_evilbast2 E63 script"
+    ],
+    "branch": "if ((GetLevelByPosition(1, OBJECT_SELF) + GetLevelByPosition(2, OBJECT_SELF)) + GetLevelByPosition(3, OBJEC...",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(5)",
+    "script": "k_punk_bastjoin",
+    "module": "unk_m44ac",
+    "from": [
+     "unk44_evilbast E63 script",
+     "unk44_evilbast E138 script",
+     "unk44_evilbast2 E63 script"
+    ],
+    "branch": "if ((GetLevelByPosition(1, OBJECT_SELF) + GetLevelByPosition(2, OBJECT_SELF)) + GetLevelByPosition(3, OBJEC...",
+    "critical": false
+   },
+   {
+    "call": "RemoveAvailableNPC(5)",
+    "script": "k_punk_bastjoin",
+    "module": "unk_m44ac",
+    "from": [
+     "unk44_evilbast E63 script",
+     "unk44_evilbast E138 script",
+     "unk44_evilbast2 E63 script"
+    ],
+    "branch": "if ((GetLevelByPosition(1, OBJECT_SELF) + GetLevelByPosition(2, OBJECT_SELF)) + GetLevelByPosition(3, OBJEC...",
+    "critical": false
+   },
+   {
+    "call": "AddAvailableNPCByTemplate(0, \"p_bastilla006\")",
+    "script": "k_punk_bastjoin",
+    "module": "unk_m44ac",
+    "from": [
+     "unk44_evilbast E63 script",
+     "unk44_evilbast E138 script",
+     "unk44_evilbast2 E63 script"
+    ],
+    "branch": "if ((GetLevelByPosition(1, OBJECT_SELF) + GetLevelByPosition(2, OBJECT_SELF)) + GetLevelByPosition(3, OBJEC...",
+    "critical": false
+   },
+   {
+    "call": "AddAvailableNPCByTemplate(0, \"p_bastilla005\")",
+    "script": "k_punk_bastjoin",
+    "module": "unk_m44ac",
+    "from": [
+     "unk44_evilbast E63 script",
+     "unk44_evilbast E138 script",
+     "unk44_evilbast2 E63 script"
+    ],
+    "branch": "if ((GetLevelByPosition(1, OBJECT_SELF) + GetLevelByPosition(2, OBJECT_SELF)) + GetLevelByPosition(3, OBJEC...",
+    "critical": false
+   },
+   {
+    "call": "AddAvailableNPCByTemplate(0, \"p_bastilla004\")",
+    "script": "k_punk_bastjoin",
+    "module": "unk_m44ac",
+    "from": [
+     "unk44_evilbast E63 script",
+     "unk44_evilbast E138 script",
+     "unk44_evilbast2 E63 script"
+    ],
+    "branch": "if ((GetLevelByPosition(1, OBJECT_SELF) + GetLevelByPosition(2, OBJECT_SELF)) + GetLevelByPosition(3, OBJEC...",
+    "critical": false
+   },
+   {
+    "call": "AddAvailableNPCByTemplate(0, \"p_bastilla003\")",
+    "script": "k_punk_bastjoin",
+    "module": "unk_m44ac",
+    "from": [
+     "unk44_evilbast E63 script",
+     "unk44_evilbast E138 script",
+     "unk44_evilbast2 E63 script"
+    ],
+    "branch": "if ((GetLevelByPosition(1, OBJECT_SELF) + GetLevelByPosition(2, OBJECT_SELF)) + GetLevelByPosition(3, OBJEC...",
+    "critical": false
+   },
+   {
+    "call": "AddAvailableNPCByTemplate(0, \"p_bastilla002\")",
+    "script": "k_punk_bastjoin",
+    "module": "unk_m44ac",
+    "from": [
+     "unk44_evilbast E63 script",
+     "unk44_evilbast E138 script",
+     "unk44_evilbast2 E63 script"
+    ],
+    "branch": "if ((GetLevelByPosition(1, OBJECT_SELF) + GetLevelByPosition(2, OBJECT_SELF)) + GetLevelByPosition(3, OBJEC...",
+    "critical": false
+   },
+   {
+    "call": "AddAvailableNPCByTemplate(0, \"p_bastilla001\")",
+    "script": "k_punk_bastjoin",
+    "module": "unk_m44ac",
+    "from": [
+     "unk44_evilbast E63 script",
+     "unk44_evilbast E138 script",
+     "unk44_evilbast2 E63 script"
+    ],
+    "branch": "if ((GetLevelByPosition(1, OBJECT_SELF) + GetLevelByPosition(2, OBJECT_SELF)) + GetLevelByPosition(3, OBJEC...",
+    "critical": false
+   },
+   {
+    "call": "AddPartyMember(0, GetObjectByTag(\"bastila\", 0))",
+    "script": "k_punk_bastjoin2",
+    "module": "unk_m44ac",
+    "from": [
+     "unk44_evilbast R73 script",
+     "unk44_evilbast R162 script",
+     "unk44_evilbast2 R73 script"
+    ],
+    "critical": false
+   }
+  ],
+  "slots": []
+ },
+ "next_chapter": {
+  "module": "ebo_m41aa",
+  "waypoint": "",
+  "chain": [
+   {
+    "module": "ebo_m41aa",
+    "waypoint": "",
+    "movies": [],
+    "by": "k_punk_finale04",
+    "in": "unk_m41aa"
+   }
+  ],
+  "entry": {
+   "area": "m12aa",
+   "x": 46.533,
+   "y": 42.3719,
+   "z": 1.8,
+   "dir_x": 0,
+   "dir_y": 1.0,
+   "note": "the waypoint is empty, so the game puts the party at the module's entry point from module.ifo"
+  },
+  "on_module_load": "k_pebn_pophawk"
+ },
+ "critical_path": [
+  {
+   "module": "unk_m44ac",
+   "source": "k_punk_disfldoff",
+   "what": "the temple summit: UNK_DISRUPT_OFF, journal unk_trapped"
+  },
+  {
+   "module": "unk_m44ac",
+   "source": "k_punk_bastesc",
+   "what": "light side: G_FinalChoice 2"
+  },
+  {
+   "module": "unk_m41aa",
+   "source": "k_punk_fincs_en",
+   "what": "back at the ship: K_KOTOR_MASTER 50"
+  },
+  {
+   "module": "unk_m41aa",
+   "source": "k_punk_finale04",
+   "what": "StartNewModule ebo_m41aa"
+  }
+ ],
+ "critical_path_note": "Curated in tools/questdb/chapters.py; the order is inferred, not played. Writers marked critical = true belong to these scripts.",
+ "uncertain": [
+  "script k_def_interact in unk_m41aa was too large to follow completely; some of its effects may be missing",
+  "script k_punk_gizka03 in unk_m41aa was too large to follow completely; some of its effects may be missing",
+  "script k_punk_crakspn in unk_m41aa was too large to follow completely; some of its effects may be missing",
+  "script k_def_grenrak in unk_m41aa was too large to follow completely; some of its effects may be missing",
+  "script k_bant_trig in unk_m41aa was too large to follow completely; some of its effects may be missing",
+  "script k_def_spawn01 in unk_m41aa was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in unk_m41aa was too large to follow completely; some of its effects may be missing",
+  "script k_def_interact in unk_m41ab was too large to follow completely; some of its effects may be missing",
+  "script k_def_ambmob in unk_m41ab was too large to follow completely; some of its effects may be missing",
+  "script k_def_spawn01 in unk_m41ab was too large to follow completely; some of its effects may be missing",
+  "script k_bant_trig in unk_m41ab was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in unk_m41ab was too large to follow completely; some of its effects may be missing",
+  "script k_punk_41ac_en in unk_m41ac was too large to follow completely; some of its effects may be missing",
+  "script k_def_interact in unk_m41ac was too large to follow completely; some of its effects may be missing",
+  "script k_bant_trig in unk_m41ac was too large to follow completely; some of its effects may be missing",
+  "script k_punk_rakatk7 in unk_m41ac was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in unk_m41ac was too large to follow completely; some of its effects may be missing",
+  "script k_punk_rancspn in unk_m41ac was too large to follow completely; some of its effects may be missing",
+  "script k_punk_rancspn2 in unk_m41ac was too large to follow completely; some of its effects may be missing",
+  "script k_punk_41ad_en in unk_m41ad was too large to follow completely; some of its effects may be missing",
+  "script k_def_gizka in unk_m41ad was too large to follow completely; some of its effects may be missing",
+  "script k_def_ambmob in unk_m41ad was too large to follow completely; some of its effects may be missing",
+  "script k_def_spawn01 in unk_m41ad was too large to follow completely; some of its effects may be missing",
+  "script cp_unk41_mandhos in unk_m41ad was too large to follow completely; some of its effects may be missing",
+  "script k_punk_guide04b in unk_m41ad was too large to follow completely; some of its effects may be missing",
+  "script k_punk_guide04 in unk_m41ad was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in unk_m41ad was too large to follow completely; some of its effects may be missing",
+  "script k_punk_mand01 in unk_m41ad was too large to follow completely; some of its effects may be missing",
+  "script k_punk_42aa_en in unk_m42aa was too large to follow completely; some of its effects may be missing",
+  "script k_def_spawn01 in unk_m42aa was too large to follow completely; some of its effects may be missing",
+  "script k_punk_redwor_sp in unk_m42aa was too large to follow completely; some of its effects may be missing",
+  "script k_def_ambmob in unk_m42aa was too large to follow completely; some of its effects may be missing",
+  "script k_def_rspawn01 in unk_m42aa was too large to follow completely; some of its effects may be missing",
+  "script k_def_rspawn02 in unk_m42aa was too large to follow completely; some of its effects may be missing",
+  "script k_def_elddrd01 in unk_m42aa was too large to follow completely; some of its effects may be missing",
+  "script k_def_elddrd02 in unk_m42aa was too large to follow completely; some of its effects may be missing",
+  "script k_def_elddrd03 in unk_m42aa was too large to follow completely; some of its effects may be missing",
+  "script k_def_elddrd04 in unk_m42aa was too large to follow completely; some of its effects may be missing",
+  "script k_act_walkways2 in unk_m42aa was too large to follow completely; some of its effects may be missing",
+  "script k_punk_redvill99 in unk_m42aa was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in unk_m42aa was too large to follow completely; some of its effects may be missing",
+  "script k_punk_43aa_en in unk_m43aa was too large to follow completely; some of its effects may be missing",
+  "script k_punk_one_sp in unk_m43aa was too large to follow completely; some of its effects may be missing",
+  "script k_def_ambmob in unk_m43aa was too large to follow completely; some of its effects may be missing",
+  "script k_def_spawn01 in unk_m43aa was too large to follow completely; some of its effects may be missing",
+  "script k_punk_prisloop in unk_m43aa was too large to follow completely; some of its effects may be missing",
+  "script k_punk_battle03 in unk_m43aa was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in unk_m43aa was too large to follow completely; some of its effects may be missing",
+  "script k_punk_patrol_sp in unk_m44aa was too large to follow completely; some of its effects may be missing",
+  "script k_def_rependd in unk_m44aa was too large to follow completely; some of its effects may be missing",
+  "script k_def_repairsp in unk_m44aa was too large to follow completely; some of its effects may be missing",
+  "script k_def_jedibuff in unk_m44aa was too large to follow completely; some of its effects may be missing",
+  "script k_def_spawn01 in unk_m44aa was too large to follow completely; some of its effects may be missing",
+  "script k_punk_master in unk_m44aa was too large to follow completely; some of its effects may be missing",
+  "script k_punk_rakdrd_sp in unk_m44aa was too large to follow completely; some of its effects may be missing",
+  "script k_act_walkways2 in unk_m44aa was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in unk_m44aa was too large to follow completely; some of its effects may be missing",
+  "script k_unk_spawn02 in unk_m44ab was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in unk_m44ab was too large to follow completely; some of its effects may be missing",
+  "script k_punk_bast_sp in unk_m44ac was too large to follow completely; some of its effects may be missing",
+  "script k_punk_bastatt in unk_m44ac was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in unk_m44ac was too large to follow completely; some of its effects may be missing",
+  "global G_FinalChoice = 2: light side (k_punk_bastesc); the dark side sets 1 and changes the party (k_punk_bastjoin)",
+  "global UNK_SHIELD_OFF = true: k_punk_shieldoff",
+  "unk_m41ab: placeable barrier1 is destroyed by unk41_holo03, which is not on the curated critical path; it may belong to a side quest",
+  "unk_m41ab: placeable barrier2 is destroyed by unk41_holo03, which is not on the curated critical path; it may belong to a side quest",
+  "unk_m41ab: placeable barrier3 is destroyed by unk41_holo03, which is not on the curated critical path; it may belong to a side quest",
+  "unk_m41ab: placeable barrier4 is destroyed by unk41_holo03, which is not on the curated critical path; it may belong to a side quest",
+  "unk_m41ab: placeable barrier5 is destroyed by unk41_holo03, which is not on the curated critical path; it may belong to a side quest",
+  "unk_m41ab: local boolean index 29 on m41ab = true is not certain (set to more than one value)",
+  "unk_m41ab: local boolean index 41 on m41ab = true is not certain (set to more than one value)",
+  "unk_m41ab: local number index 0 on m41ab = 1 is not certain (also set to values that are not constant: GetLocalNumber(OBJECT_SELF, 0), (GetLocalNumber(OBJECT_SELF, 0) + 1), (GetLocalNumber(OBJECT_SELF, 0) + -1))",
+  "unk_m41ac: local boolean index 29 on m41ac = true is not certain (set to more than one value)",
+  "unk_m41ac: local boolean index 41 on m41ac = true is not certain (set to more than one value)",
+  "unk_m41ac: local number index 0 on m41ac = 1 is not certain (also set to values that are not constant: GetLocalNumber(OBJECT_SELF, 0), (GetLocalNumber(OBJECT_SELF, 0) + 1), (GetLocalNumber(OBJECT_SELF, 0) + -1))",
+  "unk_m41ad: door unk41_tplshield is destroyed by k_punk_temple03, which is not on the curated critical path; it may belong to a side quest",
+  "unk_m42aa: placeable cage1f is destroyed by unk42_cage01, which is not on the curated critical path; it may belong to a side quest",
+  "unk_m42aa: placeable cage2f is destroyed by unk42_cage02, which is not on the curated critical path; it may belong to a side quest",
+  "unk_m42aa: placeable cage3f is destroyed by unk42_cage03, which is not on the curated critical path; it may belong to a side quest",
+  "unk_m42aa: local boolean index 29 on m42aa = true is not certain (set to more than one value)",
+  "unk_m42aa: local boolean index 41 on m42aa = true is not certain (set to more than one value)",
+  "unk_m42aa: local number index 0 on m42aa = 1 is not certain (also set to values that are not constant: GetLocalNumber(OBJECT_SELF, 0), (GetLocalNumber(OBJECT_SELF, 0) + 1), (GetLocalNumber(OBJECT_SELF, 0) + -1))",
+  "unk_m42aa: local boolean index 0 on gong = true is not certain (set to more than one value)",
+  "unk_m43aa: local boolean index 29 on m43aa = true is not certain (set to more than one value)",
+  "unk_m43aa: local boolean index 41 on m43aa = true is not certain (set to more than one value)",
+  "unk_m43aa: local number index 0 on m43aa = 1 is not certain (also set to values that are not constant: GetLocalNumber(OBJECT_SELF, 0), (GetLocalNumber(OBJECT_SELF, 0) + 1), (GetLocalNumber(OBJECT_SELF, 0) + -1))",
+  "unk_m44ab: door rakatadoor1 is locked (plot door) and no script here opens it; left as it is",
+  "unk_m44ab: door tempdoor2 is locked (plot door) and no script here opens it; left as it is",
+  "unk_m44ab: door unk44_massdoor is locked (needs a key) and no script here opens it; left as it is",
+  "unk_m44ab: local boolean index 10 on floorpanel01 = true is not certain (set to more than one value)",
+  "unk_m44ab: local boolean index 10 on floorpanel02 = true is not certain (set to more than one value)",
+  "unk_m44ab: local boolean index 10 on floorpanel03 = true is not certain (set to more than one value)",
+  "unk_m44ab: local boolean index 10 on floorpanel04 = true is not certain (set to more than one value)",
+  "unk_m44ab: local boolean index 10 on floorpanel05 = true is not certain (set to more than one value)",
+  "unk_m44ab: local boolean index 10 on floorpanel06 = true is not certain (set to more than one value)",
+  "unk_m44ab: local boolean index 10 on floorpanel07 = true is not certain (set to more than one value)",
+  "unk_m44ab: local boolean index 10 on floorpanel08 = true is not certain (set to more than one value)",
+  "unk_m44ac: placed creature bastilae (template unk44_evilbast) is hostile but its template cannot die (Plot or Min1HP); left in place"
+ ],
+ "dark": {
+  "note": "the dark-side run joins slot 0 at the temple summit (k_punk_bastjoin): slots 4 and 5 are lost there, and back at the ship slot 2 leaves (k_punk_carthrem) and slot 6 is lost (k_punk_misrem, the usual dark choice)",
+  "journal": [
+   {
+    "tag": "unk_trapped",
+    "stage": 98,
+    "set_by": "dialog unk44_evilbast R74 / R163 (unk_m44ac): the dark-side ending"
+   },
+   {
+    "tag": "k_starforge",
+    "stage": 70,
+    "set_by": "k_punk_disfldoff (unk_m44ac): the dark-side stage"
+   },
+   {
+    "tag": "k_swg_bastilatalk",
+    "stage": 4,
+    "set_by": "dialog unk44_evilbast R74 / R163 (unk_m44ac)"
+   }
+  ],
+  "globals": [
+   {
+    "name": "G_FinalChoice",
+    "value": 1,
+    "certain": true,
+    "note": "k_punk_bastjoin; the Star Forge plays the dark-side ending"
+   }
+  ],
+  "party": {
+   "recruit": [
+    {
+     "slot": 0,
+     "constant": "NPC_BASTILA",
+     "template": "p_bastilla004",
+     "script": "k_punk_bastjoin",
+     "module": "unk_m44ac",
+     "certain": true,
+     "note": "the template by the temple slot 0's level sum (unk44_evilbast: level 18 gives p_bastilla004)"
+    }
+   ],
+   "not_recruited": [],
+   "remove": [
+    {
+     "slot": 4,
+     "constant": "NPC_JOLEE",
+     "script": "k_punk_bastjoin",
+     "module": "unk_m44ac",
+     "certain": true,
+     "note": "RemoveAvailableNPC(4) at the summit"
+    },
+    {
+     "slot": 5,
+     "constant": "NPC_JUHANI",
+     "script": "k_punk_bastjoin",
+     "module": "unk_m44ac",
+     "certain": true,
+     "note": "RemoveAvailableNPC(5) at the summit"
+    },
+    {
+     "slot": 2,
+     "constant": "NPC_CARTH",
+     "script": "k_punk_carthrem",
+     "module": "unk_m41aa",
+     "certain": true,
+     "note": "dialog unk41_carth E23: slot 2 leaves"
+    },
+    {
+     "slot": 6,
+     "constant": "NPC_MISSION",
+     "script": "k_punk_misrem",
+     "module": "unk_m41aa",
+     "certain": false,
+     "note": "dialog unk41_mission E6: slot 6 is lost; k_punk_zaalrem (E2) would lose slot 8 as well"
+    }
+   ]
+  }
+ },
+ "cleared": [
+  {
+   "module": "unk_m41aa",
+   "area": "m41aa",
+   "returnable": false,
+   "remove": [
+    {
+     "tag": "unk41_blk2",
+     "template": "unk41_blk002",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag unk41_blk2, faction 2 (friendly_1), level 8; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "unk41_blk4",
+     "template": "unk41_blk004",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag unk41_blk4, faction 2 (friendly_1), level 8; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "unk41_blk5",
+     "template": "unk41_blk005",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag unk41_blk5, faction 2 (friendly_1), level 8; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "unk41_blk1",
+     "template": "unk41_blk1",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag unk41_blk1, faction 2 (friendly_1), level 8; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "unk41_blk3",
+     "template": "unk41_blk3",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag unk41_blk3, faction 2 (friendly_1), level 8; a script moves its tag to a hostile faction"
+    }
+   ],
+   "spawned_and_killed": [
+    {
+     "template": "g_brakatan01",
+     "tag": "g_brakatan01"
+    },
+    {
+     "template": "g_brakatan03",
+     "tag": "g_brakatan03"
+    },
+    {
+     "template": "g_brakatan06",
+     "tag": "g_brakatan06"
+    },
+    {
+     "template": "g_brakatan07",
+     "tag": "g_brakatan07"
+    },
+    {
+     "template": "unk41_blk6",
+     "tag": "unk41_blk6"
+    }
+   ],
+   "doors": [],
+   "containers_looted": [
+    "FootLker"
+   ],
+   "locals": [
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_bant_trig"
+     ],
+     "tag": "banter",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_punk_newfight"
+     ],
+     "tag": "newfight",
+     "set_by": {
+      "1": [
+       "k_punk_newfight"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_punk_fincs_en"
+     ],
+     "tag": "unk41_fincs",
+     "set_by": {
+      "1": [
+       "k_punk_fincs_en"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_punk_gizka"
+     ],
+     "tag": "wraid",
+     "set_by": {
+      "1": [
+       "k_punk_gizka"
+      ]
+     }
+    }
+   ],
+   "uncertain": []
+  },
+  {
+   "module": "unk_m41ab",
+   "area": "m41ab",
+   "returnable": false,
+   "remove": [
+    {
+     "tag": "g_rancor02",
+     "template": "g_rancor003",
+     "count": 2,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "barrier1",
+     "template": "barrier1",
+     "kind": "placeable",
+     "why": "destroyed by script",
+     "scripts": [
+      "unk41_holo03"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "barrier2",
+     "template": "barrier2",
+     "kind": "placeable",
+     "why": "destroyed by script",
+     "scripts": [
+      "unk41_holo03"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "barrier3",
+     "template": "barrier3",
+     "kind": "placeable",
+     "why": "destroyed by script",
+     "scripts": [
+      "unk41_holo03"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "barrier4",
+     "template": "barrier4",
+     "kind": "placeable",
+     "why": "destroyed by script",
+     "scripts": [
+      "unk41_holo03"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "barrier5",
+     "template": "barrier5",
+     "kind": "placeable",
+     "why": "destroyed by script",
+     "scripts": [
+      "unk41_holo03"
+     ],
+     "certain": false
+    }
+   ],
+   "spawned_and_killed": [
+    {
+     "template": "g_rakatan02",
+     "tag": "g_rakatan02"
+    },
+    {
+     "template": "g_rakatan03",
+     "tag": "g_rakatan03"
+    },
+    {
+     "template": "g_rakatan04",
+     "tag": "g_rakatan04"
+    },
+    {
+     "template": "g_rakatan05",
+     "tag": "g_rakatan05"
+    },
+    {
+     "template": "g_rancor02",
+     "tag": "g_rancor02"
+    }
+   ],
+   "doors": [
+    {
+     "tag": "rakatadoor2",
+     "template": "sw_door_rakat001",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    }
+   ],
+   "containers_looted": [],
+   "locals": [
+    {
+     "object": "area",
+     "index": 29,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ab_en"
+     ],
+     "area": "m41ab",
+     "set_by": {
+      "0": [
+       "k_punk_41ab_en"
+      ],
+      "1": [
+       "k_punk_41ab_en"
+      ]
+     }
+    },
+    {
+     "object": "area",
+     "index": 34,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ab_en"
+     ],
+     "area": "m41ab",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 35,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ab_en"
+     ],
+     "area": "m41ab",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 37,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ab_en"
+     ],
+     "area": "m41ab",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 38,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ab_en"
+     ],
+     "area": "m41ab",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 39,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ab_en"
+     ],
+     "area": "m41ab",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 41,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ab_en"
+     ],
+     "area": "m41ab",
+     "set_by": {
+      "0": [
+       "k_punk_41ab_en"
+      ],
+      "1": [
+       "k_punk_41ab_en"
+      ]
+     }
+    },
+    {
+     "object": "area",
+     "index": 42,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_punk_41ab_en"
+     ],
+     "area": "m41ab",
+     "set_by": {
+      "1": [
+       "k_punk_41ab_en"
+      ]
+     }
+    },
+    {
+     "object": "area",
+     "index": 46,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ab_en"
+     ],
+     "area": "m41ab",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 47,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ab_en"
+     ],
+     "area": "m41ab",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 60,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ab_en"
+     ],
+     "area": "m41ab",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 61,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ab_en"
+     ],
+     "area": "m41ab",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 62,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ab_en"
+     ],
+     "area": "m41ab",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 64,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ab_en"
+     ],
+     "area": "m41ab",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 65,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_punk_41ab_en"
+     ],
+     "area": "m41ab",
+     "set_by": {
+      "1": [
+       "k_punk_41ab_en"
+      ]
+     }
+    },
+    {
+     "object": "area",
+     "index": 67,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_punk_41ab_en"
+     ],
+     "area": "m41ab",
+     "set_by": {
+      "1": [
+       "k_punk_41ab_en"
+      ]
+     }
+    },
+    {
+     "object": "area",
+     "index": 70,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ab_en"
+     ],
+     "area": "m41ab",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 0,
+     "type": "number",
+     "value": 1,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ab_en"
+     ],
+     "area": "m41ab",
+     "set_by": {
+      "(GetLocalNumber(OBJECT_SELF, 0) + -1)": [
+       "k_punk_41ab_en"
+      ],
+      "(GetLocalNumber(OBJECT_SELF, 0) + 1)": [
+       "k_punk_41ab_en"
+      ],
+      "(Random(GetLocalNumber(OBJECT_SELF, 1)) + 1)": [
+       "k_punk_41ab_en"
+      ],
+      "1": [
+       "k_punk_41ab_en"
+      ],
+      "GetLocalNumber(OBJECT_SELF, 0)": [
+       "k_punk_41ab_en"
+      ]
+     },
+     "note": "also set to values that are not constant: GetLocalNumber(OBJECT_SELF, 0), (GetLocalNumber(OBJECT_SELF, 0) + 1), (GetLocalNumber(OBJECT_SELF, 0) + -1)"
+    },
+    {
+     "object": "area",
+     "index": 1,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ab_en"
+     ],
+     "area": "m41ab",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 2,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ab_en"
+     ],
+     "area": "m41ab",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 3,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ab_en"
+     ],
+     "area": "m41ab",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 4,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ab_en"
+     ],
+     "area": "m41ab",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_bant_trig"
+     ],
+     "tag": "banter",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    }
+   ],
+   "uncertain": [
+    "unk_m41ab: placeable barrier1 is destroyed by unk41_holo03, which is not on the curated critical path; it may belong to a side quest",
+    "unk_m41ab: placeable barrier2 is destroyed by unk41_holo03, which is not on the curated critical path; it may belong to a side quest",
+    "unk_m41ab: placeable barrier3 is destroyed by unk41_holo03, which is not on the curated critical path; it may belong to a side quest",
+    "unk_m41ab: placeable barrier4 is destroyed by unk41_holo03, which is not on the curated critical path; it may belong to a side quest",
+    "unk_m41ab: placeable barrier5 is destroyed by unk41_holo03, which is not on the curated critical path; it may belong to a side quest",
+    "unk_m41ab: local boolean index 29 on m41ab = true is not certain (set to more than one value)",
+    "unk_m41ab: local boolean index 41 on m41ab = true is not certain (set to more than one value)",
+    "unk_m41ab: local number index 0 on m41ab = 1 is not certain (also set to values that are not constant: GetLocalNumber(OBJECT_SELF, 0), (GetLocalNumber(OBJECT_SELF, 0) + 1), (GetLocalNumber(OBJECT_SELF, 0) + -1))"
+   ]
+  },
+  {
+   "module": "unk_m41ac",
+   "area": "m41ac",
+   "returnable": false,
+   "remove": [],
+   "spawned_and_killed": [],
+   "doors": [
+    {
+     "tag": "rakatadoor2",
+     "template": "sw_door_rakat001",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "unk41_blkdoor",
+     "template": "unk41_blkdoor",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    }
+   ],
+   "containers_looted": [],
+   "locals": [
+    {
+     "object": "area",
+     "index": 29,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ac_en"
+     ],
+     "area": "m41ac",
+     "set_by": {
+      "0": [
+       "k_punk_41ac_en"
+      ],
+      "1": [
+       "k_punk_41ac_en"
+      ]
+     }
+    },
+    {
+     "object": "area",
+     "index": 34,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ac_en"
+     ],
+     "area": "m41ac",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 35,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ac_en"
+     ],
+     "area": "m41ac",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 37,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ac_en"
+     ],
+     "area": "m41ac",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 38,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ac_en"
+     ],
+     "area": "m41ac",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 39,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ac_en"
+     ],
+     "area": "m41ac",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 41,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ac_en"
+     ],
+     "area": "m41ac",
+     "set_by": {
+      "0": [
+       "k_punk_41ac_en"
+      ],
+      "1": [
+       "k_punk_41ac_en"
+      ]
+     }
+    },
+    {
+     "object": "area",
+     "index": 42,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_punk_41ac_en"
+     ],
+     "area": "m41ac",
+     "set_by": {
+      "1": [
+       "k_punk_41ac_en"
+      ]
+     }
+    },
+    {
+     "object": "area",
+     "index": 46,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ac_en"
+     ],
+     "area": "m41ac",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 47,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ac_en"
+     ],
+     "area": "m41ac",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 60,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ac_en"
+     ],
+     "area": "m41ac",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 61,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ac_en"
+     ],
+     "area": "m41ac",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 62,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ac_en"
+     ],
+     "area": "m41ac",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 64,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ac_en"
+     ],
+     "area": "m41ac",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 65,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_punk_41ac_en"
+     ],
+     "area": "m41ac",
+     "set_by": {
+      "1": [
+       "k_punk_41ac_en"
+      ]
+     }
+    },
+    {
+     "object": "area",
+     "index": 67,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_punk_41ac_en"
+     ],
+     "area": "m41ac",
+     "set_by": {
+      "1": [
+       "k_punk_41ac_en"
+      ]
+     }
+    },
+    {
+     "object": "area",
+     "index": 70,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ac_en"
+     ],
+     "area": "m41ac",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 0,
+     "type": "number",
+     "value": 1,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ac_en"
+     ],
+     "area": "m41ac",
+     "set_by": {
+      "(GetLocalNumber(OBJECT_SELF, 0) + -1)": [
+       "k_punk_41ac_en"
+      ],
+      "(GetLocalNumber(OBJECT_SELF, 0) + 1)": [
+       "k_punk_41ac_en"
+      ],
+      "(Random(GetLocalNumber(OBJECT_SELF, 1)) + 1)": [
+       "k_punk_41ac_en"
+      ],
+      "1": [
+       "k_punk_41ac_en"
+      ],
+      "GetLocalNumber(OBJECT_SELF, 0)": [
+       "k_punk_41ac_en"
+      ]
+     },
+     "note": "also set to values that are not constant: GetLocalNumber(OBJECT_SELF, 0), (GetLocalNumber(OBJECT_SELF, 0) + 1), (GetLocalNumber(OBJECT_SELF, 0) + -1)"
+    },
+    {
+     "object": "area",
+     "index": 1,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ac_en"
+     ],
+     "area": "m41ac",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 2,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ac_en"
+     ],
+     "area": "m41ac",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 3,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ac_en"
+     ],
+     "area": "m41ac",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 4,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_41ac_en"
+     ],
+     "area": "m41ac",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_bant_trig"
+     ],
+     "tag": "banter",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_punk_move"
+     ],
+     "tag": "entering",
+     "set_by": {
+      "1": [
+       "k_punk_move"
+      ]
+     }
+    }
+   ],
+   "uncertain": [
+    "unk_m41ac: local boolean index 29 on m41ac = true is not certain (set to more than one value)",
+    "unk_m41ac: local boolean index 41 on m41ac = true is not certain (set to more than one value)",
+    "unk_m41ac: local number index 0 on m41ac = 1 is not certain (also set to values that are not constant: GetLocalNumber(OBJECT_SELF, 0), (GetLocalNumber(OBJECT_SELF, 0) + 1), (GetLocalNumber(OBJECT_SELF, 0) + -1))"
+   ]
+  },
+  {
+   "module": "unk_m41ad",
+   "area": "m41ad",
+   "returnable": false,
+   "remove": [
+    {
+     "tag": "g_brakatan02",
+     "template": "g_brakatan02",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "g_brakatan04",
+     "template": "g_brakatan04",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "g_brakatan05",
+     "template": "g_brakatan05",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "g_brakatan07",
+     "template": "g_brakatan07",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "g_rancor02",
+     "template": "g_rancor003",
+     "count": 4,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "g_rancor04",
+     "template": "g_rancor04",
+     "count": 2,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "unk41_tplshield",
+     "template": "unk41_tplshield1",
+     "kind": "door",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_punk_temple03"
+     ],
+     "certain": false
+    }
+   ],
+   "spawned_and_killed": [
+    {
+     "template": "g_mandalor002",
+     "tag": "g_mandalor01"
+    },
+    {
+     "template": "g_mandalor003",
+     "tag": "g_mandalor02"
+    },
+    {
+     "template": "g_mandalor004",
+     "tag": "g_mandalor03"
+    },
+    {
+     "template": "g_rancor02",
+     "tag": "g_rancor02"
+    },
+    {
+     "template": "g_rancor03",
+     "tag": "g_rancor03"
+    }
+   ],
+   "doors": [
+    {
+     "tag": "rakatadoor1",
+     "template": "sw_door_rakat001",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "unk41_tplshield",
+     "template": "unk41_tplshield1",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    }
+   ],
+   "containers_looted": [],
+   "locals": [
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_punk_mand02"
+     ],
+     "tag": "ambtrig",
+     "set_by": {
+      "1": [
+       "k_punk_mand02"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_punk_templecs"
+     ],
+     "tag": "unk41_templecs",
+     "set_by": {
+      "1": [
+       "k_punk_templecs"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger02",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    }
+   ],
+   "uncertain": [
+    "unk_m41ad: door unk41_tplshield is destroyed by k_punk_temple03, which is not on the curated critical path; it may belong to a side quest"
+   ]
+  },
+  {
+   "module": "unk_m42aa",
+   "area": "m42aa",
+   "returnable": false,
+   "remove": [
+    {
+     "tag": "unk42_scholar",
+     "template": "n_rakata005",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag unk42_scholar, faction 5 (neutral), level 7; its own or its dialog's script changes faction: k_punk_redvill99"
+    },
+    {
+     "tag": "unk42_breed01",
+     "template": "unk42_breed01",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag unk42_breed01, faction 5 (neutral), level 8; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "unk42_breed02",
+     "template": "unk42_breed02",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag unk42_breed02, faction 5 (neutral), level 8; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "unk42_breed03",
+     "template": "unk42_breed03",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag unk42_breed03, faction 5 (neutral), level 8; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "unk42_redelder3",
+     "template": "unk42_redelde001",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag unk42_redelder3, faction 5 (neutral), level 14; its own or its dialog's script changes faction: k_punk_redvill99"
+    },
+    {
+     "tag": "unk42_redelder2",
+     "template": "unk42_redelde002",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag unk42_redelder2, faction 5 (neutral), level 8; its own or its dialog's script changes faction: k_punk_redvill99"
+    },
+    {
+     "tag": "unk42_redelder",
+     "template": "unk42_redelder",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag unk42_redelder, faction 5 (neutral), level 14; its own or its dialog's script changes faction: k_punk_redvill99"
+    },
+    {
+     "tag": "cage1f",
+     "template": "cagelgb001",
+     "kind": "placeable",
+     "why": "destroyed by script",
+     "scripts": [
+      "unk42_cage01"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "cage2f",
+     "template": "cagelgb002",
+     "kind": "placeable",
+     "why": "destroyed by script",
+     "scripts": [
+      "unk42_cage02"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "cage3f",
+     "template": "cagelgb003",
+     "kind": "placeable",
+     "why": "destroyed by script",
+     "scripts": [
+      "unk42_cage03"
+     ],
+     "certain": false
+    }
+   ],
+   "spawned_and_killed": [
+    {
+     "template": "g_rakatan01",
+     "tag": "g_rakatan01"
+    },
+    {
+     "template": "g_rakatan02",
+     "tag": "g_rakatan02"
+    },
+    {
+     "template": "g_rakatan04",
+     "tag": "g_rakatan04"
+    },
+    {
+     "template": "g_rakatan05",
+     "tag": "g_rakatan05"
+    }
+   ],
+   "doors": [
+    {
+     "tag": "rakatadoor2",
+     "template": "sw_door_rakat001",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "unk42_compdoor",
+     "template": "unk42_compdoor",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    }
+   ],
+   "containers_looted": [
+    "MetalBox",
+    "PlstcCrt"
+   ],
+   "locals": [
+    {
+     "object": "area",
+     "index": 29,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "k_punk_42aa_en"
+     ],
+     "area": "m42aa",
+     "set_by": {
+      "0": [
+       "k_punk_42aa_en"
+      ],
+      "1": [
+       "k_punk_42aa_en"
+      ]
+     }
+    },
+    {
+     "object": "area",
+     "index": 34,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_42aa_en"
+     ],
+     "area": "m42aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 35,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_42aa_en"
+     ],
+     "area": "m42aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 37,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_42aa_en"
+     ],
+     "area": "m42aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 38,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_42aa_en"
+     ],
+     "area": "m42aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 39,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_42aa_en"
+     ],
+     "area": "m42aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 41,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "k_punk_42aa_en"
+     ],
+     "area": "m42aa",
+     "set_by": {
+      "0": [
+       "k_punk_42aa_en"
+      ],
+      "1": [
+       "k_punk_42aa_en"
+      ]
+     }
+    },
+    {
+     "object": "area",
+     "index": 42,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_punk_42aa_en"
+     ],
+     "area": "m42aa",
+     "set_by": {
+      "1": [
+       "k_punk_42aa_en"
+      ]
+     }
+    },
+    {
+     "object": "area",
+     "index": 46,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_42aa_en"
+     ],
+     "area": "m42aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 47,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_42aa_en"
+     ],
+     "area": "m42aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 60,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_42aa_en"
+     ],
+     "area": "m42aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 61,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_42aa_en"
+     ],
+     "area": "m42aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 62,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_42aa_en"
+     ],
+     "area": "m42aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 64,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_42aa_en"
+     ],
+     "area": "m42aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 65,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_punk_42aa_en"
+     ],
+     "area": "m42aa",
+     "set_by": {
+      "1": [
+       "k_punk_42aa_en"
+      ]
+     }
+    },
+    {
+     "object": "area",
+     "index": 67,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_punk_42aa_en"
+     ],
+     "area": "m42aa",
+     "set_by": {
+      "1": [
+       "k_punk_42aa_en"
+      ]
+     }
+    },
+    {
+     "object": "area",
+     "index": 70,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_42aa_en"
+     ],
+     "area": "m42aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 0,
+     "type": "number",
+     "value": 1,
+     "certain": false,
+     "read_by": [
+      "k_punk_42aa_en"
+     ],
+     "area": "m42aa",
+     "set_by": {
+      "(GetLocalNumber(OBJECT_SELF, 0) + -1)": [
+       "k_punk_42aa_en"
+      ],
+      "(GetLocalNumber(OBJECT_SELF, 0) + 1)": [
+       "k_punk_42aa_en"
+      ],
+      "(Random(GetLocalNumber(OBJECT_SELF, 1)) + 1)": [
+       "k_punk_42aa_en"
+      ],
+      "1": [
+       "k_punk_42aa_en"
+      ],
+      "GetLocalNumber(OBJECT_SELF, 0)": [
+       "k_punk_42aa_en"
+      ]
+     },
+     "note": "also set to values that are not constant: GetLocalNumber(OBJECT_SELF, 0), (GetLocalNumber(OBJECT_SELF, 0) + 1), (GetLocalNumber(OBJECT_SELF, 0) + -1)"
+    },
+    {
+     "object": "area",
+     "index": 1,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_42aa_en"
+     ],
+     "area": "m42aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 2,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_42aa_en"
+     ],
+     "area": "m42aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 3,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_42aa_en"
+     ],
+     "area": "m42aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 4,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_42aa_en"
+     ],
+     "area": "m42aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "placeable",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "gonging"
+     ],
+     "tag": "gong",
+     "set_by": {
+      "0": [
+       "gonging"
+      ],
+      "1": [
+       "gonging"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresrakat"
+     ],
+     "tag": "tresrakatbin",
+     "set_by": {
+      "1": [
+       "k_plc_tresrakat"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresrakat"
+     ],
+     "tag": "tresrakatlock",
+     "set_by": {
+      "1": [
+       "k_plc_tresrakat"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_punk_eldspk"
+     ],
+     "tag": "unk42_eldspk",
+     "set_by": {
+      "1": [
+       "k_punk_eldspk"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_punk_eldspk2"
+     ],
+     "tag": "unk42_eldspk2",
+     "set_by": {
+      "1": [
+       "k_punk_eldspk2"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger01",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger02",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger03",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger04",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger05",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger06",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    }
+   ],
+   "uncertain": [
+    "unk_m42aa: placeable cage1f is destroyed by unk42_cage01, which is not on the curated critical path; it may belong to a side quest",
+    "unk_m42aa: placeable cage2f is destroyed by unk42_cage02, which is not on the curated critical path; it may belong to a side quest",
+    "unk_m42aa: placeable cage3f is destroyed by unk42_cage03, which is not on the curated critical path; it may belong to a side quest",
+    "unk_m42aa: local boolean index 29 on m42aa = true is not certain (set to more than one value)",
+    "unk_m42aa: local boolean index 41 on m42aa = true is not certain (set to more than one value)",
+    "unk_m42aa: local number index 0 on m42aa = 1 is not certain (also set to values that are not constant: GetLocalNumber(OBJECT_SELF, 0), (GetLocalNumber(OBJECT_SELF, 0) + 1), (GetLocalNumber(OBJECT_SELF, 0) + -1))",
+    "unk_m42aa: local boolean index 0 on gong = true is not certain (set to more than one value)"
+   ]
+  },
+  {
+   "module": "unk_m43aa",
+   "area": "m43aa",
+   "returnable": false,
+   "remove": [
+    {
+     "tag": "unk43_theone",
+     "template": "unk43_theone",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag unk43_theone, faction 5 (neutral), level 15; its own or its dialog's script changes faction: k_punk_battle03"
+    }
+   ],
+   "spawned_and_killed": [],
+   "doors": [
+    {
+     "tag": "rakatadoor2",
+     "template": "sw_door_rakat001",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "unk43_cagegate",
+     "template": "unk43_cagegate",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open it",
+     "scripts": [
+      "k_punk_opencages"
+     ],
+     "certain": false
+    }
+   ],
+   "containers_looted": [
+    "RakatBin",
+    "RakatBn2",
+    "unk43_treas0"
+   ],
+   "locals": [
+    {
+     "object": "area",
+     "index": 29,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "k_punk_43aa_en"
+     ],
+     "area": "m43aa",
+     "set_by": {
+      "0": [
+       "k_punk_43aa_en"
+      ],
+      "1": [
+       "k_punk_43aa_en"
+      ]
+     }
+    },
+    {
+     "object": "area",
+     "index": 34,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_43aa_en"
+     ],
+     "area": "m43aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 35,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_43aa_en"
+     ],
+     "area": "m43aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 37,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_43aa_en"
+     ],
+     "area": "m43aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 38,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_43aa_en"
+     ],
+     "area": "m43aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 39,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_43aa_en"
+     ],
+     "area": "m43aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 41,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "k_punk_43aa_en"
+     ],
+     "area": "m43aa",
+     "set_by": {
+      "0": [
+       "k_punk_43aa_en"
+      ],
+      "1": [
+       "k_punk_43aa_en"
+      ]
+     }
+    },
+    {
+     "object": "area",
+     "index": 42,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_punk_43aa_en"
+     ],
+     "area": "m43aa",
+     "set_by": {
+      "1": [
+       "k_punk_43aa_en"
+      ]
+     }
+    },
+    {
+     "object": "area",
+     "index": 46,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_43aa_en"
+     ],
+     "area": "m43aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 47,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_43aa_en"
+     ],
+     "area": "m43aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 60,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_43aa_en"
+     ],
+     "area": "m43aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 61,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_43aa_en"
+     ],
+     "area": "m43aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 62,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_43aa_en"
+     ],
+     "area": "m43aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 64,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_43aa_en"
+     ],
+     "area": "m43aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 65,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_punk_43aa_en"
+     ],
+     "area": "m43aa",
+     "set_by": {
+      "1": [
+       "k_punk_43aa_en"
+      ]
+     }
+    },
+    {
+     "object": "area",
+     "index": 67,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_punk_43aa_en"
+     ],
+     "area": "m43aa",
+     "set_by": {
+      "1": [
+       "k_punk_43aa_en"
+      ]
+     }
+    },
+    {
+     "object": "area",
+     "index": 70,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_43aa_en"
+     ],
+     "area": "m43aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 0,
+     "type": "number",
+     "value": 1,
+     "certain": false,
+     "read_by": [
+      "k_punk_43aa_en"
+     ],
+     "area": "m43aa",
+     "set_by": {
+      "(GetLocalNumber(OBJECT_SELF, 0) + -1)": [
+       "k_punk_43aa_en"
+      ],
+      "(GetLocalNumber(OBJECT_SELF, 0) + 1)": [
+       "k_punk_43aa_en"
+      ],
+      "(Random(GetLocalNumber(OBJECT_SELF, 1)) + 1)": [
+       "k_punk_43aa_en"
+      ],
+      "1": [
+       "k_punk_43aa_en"
+      ],
+      "GetLocalNumber(OBJECT_SELF, 0)": [
+       "k_punk_43aa_en"
+      ]
+     },
+     "note": "also set to values that are not constant: GetLocalNumber(OBJECT_SELF, 0), (GetLocalNumber(OBJECT_SELF, 0) + 1), (GetLocalNumber(OBJECT_SELF, 0) + -1)"
+    },
+    {
+     "object": "area",
+     "index": 1,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_43aa_en"
+     ],
+     "area": "m43aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 2,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_43aa_en"
+     ],
+     "area": "m43aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 3,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_43aa_en"
+     ],
+     "area": "m43aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 4,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_43aa_en"
+     ],
+     "area": "m43aa",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresrakat"
+     ],
+     "tag": "tresrakatbin",
+     "set_by": {
+      "1": [
+       "k_plc_tresrakat"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresrakat"
+     ],
+     "tag": "tresrakatlock",
+     "set_by": {
+      "1": [
+       "k_plc_tresrakat"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_punk_oneatk_en"
+     ],
+     "tag": "unk43_oneatk",
+     "set_by": {
+      "1": [
+       "k_punk_oneatk_en"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_punk_onespk_en"
+     ],
+     "tag": "unk43_onespk",
+     "set_by": {
+      "1": [
+       "k_punk_onespk_en"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger01",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger02",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger03",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger04",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger05",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger06",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger07",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger08",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    }
+   ],
+   "uncertain": [
+    "unk_m43aa: local boolean index 29 on m43aa = true is not certain (set to more than one value)",
+    "unk_m43aa: local boolean index 41 on m43aa = true is not certain (set to more than one value)",
+    "unk_m43aa: local number index 0 on m43aa = 1 is not certain (also set to values that are not constant: GetLocalNumber(OBJECT_SELF, 0), (GetLocalNumber(OBJECT_SELF, 0) + 1), (GetLocalNumber(OBJECT_SELF, 0) + -1))"
+   ]
+  },
+  {
+   "module": "unk_m44aa",
+   "area": "m44aa",
+   "returnable": false,
+   "remove": [
+    {
+     "tag": "drdmktwo",
+     "template": "c_drdmktwo001",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "drdmktwo",
+     "template": "c_drdmktwo002",
+     "count": 3,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "westroom",
+     "template": "c_drdmktwo003",
+     "count": 2,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "unk44_turret",
+     "template": "g_turretbl009",
+     "count": 4,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "unk44_turret2",
+     "template": "g_turretbl010",
+     "count": 2,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "darkjedim",
+     "template": "n_darkjedim001",
+     "count": 4,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "darkjedim",
+     "template": "n_darkjedim002",
+     "count": 4,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "darkjedi441",
+     "template": "unk44_darkjed441",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag darkjedi441, faction 5 (neutral), level 15; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "darkjedi442",
+     "template": "unk44_darkjed442",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag darkjedi442, faction 5 (neutral), level 15; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "darkjedi443",
+     "template": "unk44_darkjed443",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag darkjedi443, faction 5 (neutral), level 18; its own or its dialog's script changes faction: k_act_atkonend2"
+    },
+    {
+     "tag": "unk44_shielddrd",
+     "template": "unk44_shielddrd",
+     "count": 2,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "unk44_sithptla",
+     "template": "unk44_sithptla",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "unk44_sithptlb",
+     "template": "unk44_sithptlb",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "unk44_sithptlc",
+     "template": "unk44_sithptlc",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "unk44_sithptld",
+     "template": "unk44_sithptld",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    }
+   ],
+   "spawned_and_killed": [],
+   "doors": [
+    {
+     "tag": "unk44_armorydoor",
+     "template": "unk44_armorydoor",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_punk_comp26"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "unk44_basedoor",
+     "template": "unk44_basedoor",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "unk44_exitdoor",
+     "template": "unk44_exitdoor",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_punk_44enter"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "unk44_lockdoor",
+     "template": "unk44_lockdoor",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "cp_unk44_djd_dth"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "unk44_stardoor",
+     "template": "unk44_templed001",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_punk_44enter"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "unk44_templedoor",
+     "template": "unk44_templedoor",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    }
+   ],
+   "containers_looted": [
+    "FootLker",
+    "LockerLg",
+    "MetalBox",
+    "PlstcCrt",
+    "RnePillr",
+    "unk44_strong"
+   ],
+   "locals": [
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_punk_enter"
+     ],
+     "tag": "entering",
+     "set_by": {
+      "1": [
+       "k_punk_enter"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresmilhig"
+     ],
+     "tag": "milhighfootlker",
+     "set_by": {
+      "1": [
+       "k_plc_tresmilhig"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresmillow"
+     ],
+     "tag": "millowfootlker",
+     "set_by": {
+      "1": [
+       "k_plc_tresmillow"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresmillow"
+     ],
+     "tag": "millowmetalbox",
+     "set_by": {
+      "1": [
+       "k_plc_tresmillow"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresmilmid"
+     ],
+     "tag": "milmidfootlker",
+     "set_by": {
+      "1": [
+       "k_plc_tresmilmid"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresmilmid"
+     ],
+     "tag": "milmidmetalbox",
+     "set_by": {
+      "1": [
+       "k_plc_tresmilmid"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 9,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_comptalk"
+     ],
+     "tag": "templecomp1",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "placeable",
+     "index": 9,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_comptalk3"
+     ],
+     "tag": "templecomp2",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "placeable",
+     "index": 9,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_comptalk2"
+     ],
+     "tag": "templecomp3",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_punk_drdatk_en"
+     ],
+     "tag": "unk44_drdatk",
+     "set_by": {
+      "1": [
+       "k_punk_drdatk_en"
+      ]
+     }
+    },
+    {
+     "object": "door",
+     "index": 9,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_punk_masktk_en"
+     ],
+     "tag": "unk44_lockdoor",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger01",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger02",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger03",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger04",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger05",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger06",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger07",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger08",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger09",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger10",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger11",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger12",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    }
+   ],
+   "uncertain": []
+  },
+  {
+   "module": "unk_m44ab",
+   "area": "m44ab",
+   "returnable": false,
+   "remove": [
+    {
+     "tag": "unk44guarddroid",
+     "template": "unk44_guarddroid",
+     "count": 2,
+     "why": "placed hostile",
+     "certain": true
+    }
+   ],
+   "spawned_and_killed": [],
+   "doors": [
+    {
+     "tag": "rakatadoor4",
+     "template": "sw_door_rakat004",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "tempdoor",
+     "template": "sw_door_rakat003",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_def_userdef02"
+     ],
+     "certain": false
+    }
+   ],
+   "containers_looted": [
+    "FootLker",
+    "RnePillr"
+   ],
+   "locals": [
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "k_punk_floor01",
+      "k_punk_floor02",
+      "k_punk_floor03",
+      "k_punk_floor04",
+      "k_punk_floor05",
+      "k_punk_floor06"
+     ],
+     "tag": "floorpanel01",
+     "set_by": {
+      "0": [
+       "k_punk_floor01",
+       "k_punk_floor02",
+       "k_punk_floor04",
+       "k_punk_reset"
+      ],
+      "1": [
+       "k_punk_floor01",
+       "k_punk_floor02",
+       "k_punk_floor04"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "k_punk_floor01",
+      "k_punk_floor02",
+      "k_punk_floor03",
+      "k_punk_floor04",
+      "k_punk_floor05",
+      "k_punk_floor06"
+     ],
+     "tag": "floorpanel02",
+     "set_by": {
+      "0": [
+       "k_punk_floor01",
+       "k_punk_floor02",
+       "k_punk_floor03",
+       "k_punk_floor05"
+      ],
+      "1": [
+       "k_punk_floor01",
+       "k_punk_floor02",
+       "k_punk_floor03",
+       "k_punk_floor05"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "k_punk_floor02",
+      "k_punk_floor03",
+      "k_punk_floor06"
+     ],
+     "tag": "floorpanel03",
+     "set_by": {
+      "0": [
+       "k_punk_floor03",
+       "k_punk_floor06"
+      ],
+      "1": [
+       "k_punk_floor02",
+       "k_punk_floor03",
+       "k_punk_floor06"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "k_punk_floor04",
+      "k_punk_floor05",
+      "k_punk_floor07"
+     ],
+     "tag": "floorpanel04",
+     "set_by": {
+      "0": [
+       "k_punk_floor04",
+       "k_punk_floor05",
+       "k_punk_floor07"
+      ],
+      "1": [
+       "k_punk_floor01",
+       "k_punk_floor04",
+       "k_punk_floor05",
+       "k_punk_floor07"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "k_punk_floor06",
+      "k_punk_floor08"
+     ],
+     "tag": "floorpanel05",
+     "set_by": {
+      "0": [
+       "k_punk_floor06",
+       "k_punk_floor08"
+      ],
+      "1": [
+       "k_punk_floor02",
+       "k_punk_floor04",
+       "k_punk_floor05",
+       "k_punk_floor06"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "k_punk_floor09"
+     ],
+     "tag": "floorpanel06",
+     "set_by": {
+      "0": [
+       "k_punk_floor09"
+      ],
+      "1": [
+       "k_punk_floor03",
+       "k_punk_floor05",
+       "k_punk_floor06",
+       "k_punk_floor09"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "k_punk_floor07",
+      "k_punk_floor08"
+     ],
+     "tag": "floorpanel07",
+     "set_by": {
+      "0": [
+       "k_punk_floor07",
+       "k_punk_floor08"
+      ],
+      "1": [
+       "k_punk_floor04",
+       "k_punk_floor07",
+       "k_punk_floor08"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "k_punk_floor09"
+     ],
+     "tag": "floorpanel08",
+     "set_by": {
+      "0": [
+       "k_punk_floor09"
+      ],
+      "1": [
+       "k_punk_floor07",
+       "k_punk_floor08",
+       "k_punk_floor09"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_punk_treasm2"
+     ],
+     "tag": "punk_treasm3",
+     "set_by": {
+      "1": [
+       "k_punk_treasm2"
+      ]
+     }
+    }
+   ],
+   "uncertain": [
+    "unk_m44ab: door rakatadoor1 is locked (plot door) and no script here opens it; left as it is",
+    "unk_m44ab: door tempdoor2 is locked (plot door) and no script here opens it; left as it is",
+    "unk_m44ab: door unk44_massdoor is locked (needs a key) and no script here opens it; left as it is",
+    "unk_m44ab: local boolean index 10 on floorpanel01 = true is not certain (set to more than one value)",
+    "unk_m44ab: local boolean index 10 on floorpanel02 = true is not certain (set to more than one value)",
+    "unk_m44ab: local boolean index 10 on floorpanel03 = true is not certain (set to more than one value)",
+    "unk_m44ab: local boolean index 10 on floorpanel04 = true is not certain (set to more than one value)",
+    "unk_m44ab: local boolean index 10 on floorpanel05 = true is not certain (set to more than one value)",
+    "unk_m44ab: local boolean index 10 on floorpanel06 = true is not certain (set to more than one value)",
+    "unk_m44ab: local boolean index 10 on floorpanel07 = true is not certain (set to more than one value)",
+    "unk_m44ab: local boolean index 10 on floorpanel08 = true is not certain (set to more than one value)"
+   ]
+  },
+  {
+   "module": "unk_m44ac",
+   "area": "m44ac",
+   "returnable": false,
+   "remove": [
+    {
+     "tag": "gwing",
+     "template": "gwing001",
+     "kind": "placeable",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_punk_bastesc"
+     ],
+     "certain": true
+    }
+   ],
+   "spawned_and_killed": [],
+   "doors": [
+    {
+     "tag": "unk44_tpldoor",
+     "template": "unk44_tpldoor",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "unk44_tpllckdoor",
+     "template": "unk44_tpllckdoor",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_punk_disfldoff",
+      "k_punk_shieldoff"
+     ],
+     "certain": true
+    }
+   ],
+   "containers_looted": [],
+   "locals": [
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresmilhig"
+     ],
+     "tag": "milhighplstccylin",
+     "set_by": {
+      "1": [
+       "k_plc_tresmilhig"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresmillow"
+     ],
+     "tag": "millowplstccylin",
+     "set_by": {
+      "1": [
+       "k_plc_tresmillow"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresmilmid"
+     ],
+     "tag": "milmidplstccylin",
+     "set_by": {
+      "1": [
+       "k_plc_tresmilmid"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_punk_bastcs_en"
+     ],
+     "tag": "unk44_bastcs",
+     "set_by": {
+      "1": [
+       "k_punk_bastcs_en"
+      ]
+     }
+    }
+   ],
+   "uncertain": [
+    "unk_m44ac: placed creature bastilae (template unk44_evilbast) is hostile but its template cannot die (Plot or Min1HP); left in place"
+   ]
+  }
+ ],
+ "cleared_note": "How each module looks after a full run, for an editor that stores the area as played: remove (tag, template), doors (tag: open, unlocked), containers_looted (container tags the rewards file empties), locals (the area's, the module's and placed objects' local variables their own scripts read to tell a first visit from a return, with the value a played area holds; index = the engine's local slot). returnable = false: the player never comes back to the module. See tools/questdb/cleared.py.",
+ "returnable_note": "after the temple the galaxy map offers only the Star Forge"
+}

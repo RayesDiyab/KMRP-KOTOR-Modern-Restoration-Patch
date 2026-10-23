@@ -1,0 +1,18 @@
+{
+ "game": "K1",
+ "what": "A full Yavin Station run: kills (hostile creatures and active encounters of each module), then the quest XP met in that module, in module order. Written by tools/xp/make_path.py; read by tools/xp/calc.py --scenario.",
+ "checked": false,
+ "assumptions": [
+  "Every creature data/xp/k1-enemies.json marks hostile is killed; creatures a script may turn hostile (hostile = maybe) are left out; creatures whose template cannot die (Plot, Min1HP) are left out.",
+  "Active encounters spawn as calc.py replays the engine's spawn list for a party of three (mean of 200 seeded runs); encounters that respawn are counted once.",
+  "Only the chapter's own quests (build.py PLANETS tag_prefix) count; a quest of another chapter that this chapter's files also set is counted by its own chapter.",
+  "Each quest follows one route to one ending (the lowest ending stage the quest database reaches unless make_path.py ENDINGS names another); a stage gives its journal XP and the largest XP of one of its steps.",
+  "Not counted: plot XP on dialog lines that set no journal stage, level-scaled computer and repair XP, stealth XP."
+ ],
+ "modules": [
+  {
+   "module": "liv_m99aa",
+   "steps": []
+  }
+ ]
+}

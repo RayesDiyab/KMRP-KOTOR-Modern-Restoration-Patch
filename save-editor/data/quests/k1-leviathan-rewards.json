@@ -1,0 +1,1024 @@
+{
+  "game": "K1",
+  "planet": "Leviathan",
+  "generated_by": "tools/questdb/rewards.py",
+  "checked": false,
+  "xp_at_end": 161890,
+  "xp_chapter": 25610,
+  "xp_start": 156320,
+  "xp_note": "full-run scenario data/xp/k1-leviathan-path.json from the Korriban rewards' xp_at_end, 156320 XP: lev_m40aa 156940, lev_m40ab 159605, lev_m40ac 161615, lev_m40ad 161890",
+  "xp_chapter_note": "the same scenario from a new character's 0 XP: 25610",
+  "enemies_killed": 65,
+  "drops": [
+    {
+      "resref": "g_i_datapad002",
+      "count": 1,
+      "from": [
+        "g_sithcomm003"
+      ]
+    },
+    {
+      "resref": "lev09_starcellke",
+      "count": 1,
+      "from": [
+        "starguard"
+      ]
+    }
+  ],
+  "templates_missing": [],
+  "containers": [
+    {
+      "module": "lev_m40aa",
+      "area": "m40aa",
+      "container": "lev40_drdupgrades",
+      "template": "lev40_drdupgrade",
+      "position": [
+        58.95,
+        90.8
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdltplat003",
+          "count": 3
+        },
+        {
+          "resref": "g_i_drdmdplat003",
+          "count": 1
+        },
+        {
+          "resref": "g_i_drdmtnsen003",
+          "count": 1
+        },
+        {
+          "resref": "g_i_drdshld002",
+          "count": 1
+        },
+        {
+          "resref": "g_i_drdutldev002",
+          "count": 1
+        },
+        {
+          "resref": "g_i_parts01",
+          "count": 5
+        },
+        {
+          "resref": "g_i_drdutldev007",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "lev_m40aa",
+      "area": "m40aa",
+      "container": "lev40_bpack",
+      "template": "lev40_bpack",
+      "position": [
+        7.86,
+        72.5
+      ],
+      "items": [
+        {
+          "resref": "g_i_progspike01",
+          "count": 5
+        },
+        {
+          "resref": "g_i_secspike02",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "lev_m40aa",
+      "area": "m40aa",
+      "container": "lev40_bandoleer",
+      "template": "lev40_bandoleer",
+      "position": [
+        9.04,
+        76.34
+      ],
+      "items": [
+        {
+          "resref": "g_w_blstrrfl003",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "lev_m40aa",
+      "area": "m40aa",
+      "container": "lev40_locker",
+      "template": "lev40_locker",
+      "position": [
+        10.38,
+        69.69
+      ],
+      "items": [
+        {
+          "resref": "g_i_credits011",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "lev_m40aa",
+      "area": "m40aa",
+      "container": "medlock2",
+      "template": "lockerlg002",
+      "position": [
+        60.39,
+        54.49
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 3
+        },
+        {
+          "resref": "g_i_medeqpmnt03",
+          "count": 1
+        },
+        {
+          "resref": "g_i_medeqpmnt02",
+          "count": 1
+        },
+        {
+          "resref": "g_i_implant203",
+          "count": 1
+        },
+        {
+          "resref": "g_i_implant202",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "lev_m40aa",
+      "area": "m40aa",
+      "container": "medlock",
+      "template": "lockerlg001",
+      "position": [
+        60.36,
+        55.2
+      ],
+      "items": [
+        {
+          "resref": "g_i_adrnaline002",
+          "count": 1
+        },
+        {
+          "resref": "g_i_adrnaline003",
+          "count": 1
+        },
+        {
+          "resref": "g_i_adrnaline001",
+          "count": 1
+        },
+        {
+          "resref": "g_i_medeqpmnt04",
+          "count": 2
+        },
+        {
+          "resref": "g_i_cmbtshot001",
+          "count": 1
+        },
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "lev_m40aa",
+      "area": "m40aa",
+      "container": "droidlock",
+      "template": "footlker001",
+      "position": [
+        58.49,
+        102.5
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdmtnsen002",
+          "count": 1
+        },
+        {
+          "resref": "g_i_drdmdplat002",
+          "count": 1
+        },
+        {
+          "resref": "g_i_drdutldev006",
+          "count": 1
+        },
+        {
+          "resref": "g_i_secspike01",
+          "count": 2
+        },
+        {
+          "resref": "g_i_parts01",
+          "count": 6
+        },
+        {
+          "resref": "g_i_drdrepeqp003",
+          "count": 5
+        },
+        {
+          "resref": "g_i_drdutldev001",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "lev_m40aa",
+      "area": "m40aa",
+      "container": "CivilFootLker2",
+      "template": "g_trescivil003",
+      "position": [
+        98.42,
+        20.14
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "lev_m40aa",
+      "area": "m40aa",
+      "container": "CivilFootLker2",
+      "template": "g_trescivil003",
+      "position": [
+        98.39,
+        20.73
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "lev_m40aa",
+      "area": "m40aa",
+      "container": "CivilFootLker2",
+      "template": "g_trescivil003",
+      "position": [
+        98.39,
+        21.29
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "lev_m40aa",
+      "area": "m40aa",
+      "container": "PlstcCrt",
+      "template": "plstccrt001",
+      "position": [
+        90.56,
+        68.26
+      ],
+      "items": [
+        {
+          "resref": "g_i_parts01",
+          "count": 4
+        },
+        {
+          "resref": "g_i_progspike01",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "module": "lev_m40aa",
+      "area": "m40aa",
+      "container": "lev09_contriband",
+      "template": "lev09_contriband",
+      "position": [
+        99.06,
+        46.56
+      ],
+      "items": [
+        {
+          "resref": "g_i_belt010",
+          "count": 1
+        },
+        {
+          "resref": "g_i_pazdeck",
+          "count": 1
+        },
+        {
+          "resref": "g_w_shortswrd01",
+          "count": 1
+        },
+        {
+          "resref": "g_i_pazcard_018",
+          "count": 1
+        },
+        {
+          "resref": "g_i_upgrade004",
+          "count": 1
+        },
+        {
+          "resref": "g_i_pazcard_001",
+          "count": 1
+        },
+        {
+          "resref": "g_i_pazcard_002",
+          "count": 1
+        },
+        {
+          "resref": "g_i_progspike01",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "module": "lev_m40aa",
+      "area": "m40aa",
+      "container": "lev40_riotlocker",
+      "template": "lev40_riotlocker",
+      "position": [
+        98.72,
+        44.44
+      ],
+      "items": [
+        {
+          "resref": "g_w_stunbaton01",
+          "count": 1
+        },
+        {
+          "resref": "g_w_blstrpstl001",
+          "count": 2
+        },
+        {
+          "resref": "g_a_class4001",
+          "count": 1
+        },
+        {
+          "resref": "g_w_lngswrd01",
+          "count": 1
+        },
+        {
+          "resref": "g_w_shortswrd01",
+          "count": 1
+        },
+        {
+          "resref": "g_i_medeqpmnt02",
+          "count": 1
+        },
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "lev_m40aa",
+      "area": "m40aa",
+      "container": "lev40_barlocker",
+      "template": "lev40_barlocker",
+      "position": [
+        104.01,
+        19.8
+      ],
+      "items": [
+        {
+          "resref": "lev40_detcard",
+          "count": 1
+        },
+        {
+          "resref": "g_i_progspike01",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ab",
+      "area": "m40ab",
+      "container": "lev40_gren0",
+      "template": "lev40_gren0",
+      "position": [
+        88.02,
+        38.91
+      ],
+      "items": [
+        {
+          "resref": "g_w_stungren01",
+          "count": 6
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ab",
+      "area": "m40ab",
+      "container": "lev40_gren0",
+      "template": "lev40_gren001",
+      "position": [
+        88.9,
+        38.24
+      ],
+      "items": [
+        {
+          "resref": "g_w_sonicgren01",
+          "count": 6
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ab",
+      "area": "m40ab",
+      "container": "lev40_gren0",
+      "template": "lev40_gren002",
+      "position": [
+        88.98,
+        37.3
+      ],
+      "items": [
+        {
+          "resref": "g_w_thermldet01",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ab",
+      "area": "m40ab",
+      "container": "lev40_gunlock0",
+      "template": "lev40_gunlock0",
+      "position": [
+        88.58,
+        31.37
+      ],
+      "items": [
+        {
+          "resref": "g_w_blstrrfl001",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ab",
+      "area": "m40ab",
+      "container": "lev40_gunlock0",
+      "template": "lev40_gunlock001",
+      "position": [
+        89.25,
+        31.38
+      ],
+      "items": [
+        {
+          "resref": "g_w_blstrcrbn002",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ab",
+      "area": "m40ab",
+      "container": "lev40_gunlock0",
+      "template": "lev40_gunlock002",
+      "position": [
+        89.94,
+        31.37
+      ],
+      "items": [
+        {
+          "resref": "g_w_dsrptrfl001",
+          "count": 1
+        },
+        {
+          "resref": "g_w_rptnblstr01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ab",
+      "area": "m40ab",
+      "container": "lev40_armlock0",
+      "template": "lev40_armlock0",
+      "position": [
+        92.82,
+        31.33
+      ],
+      "items": [
+        {
+          "resref": "g_a_class7003",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ab",
+      "area": "m40ab",
+      "container": "lev40_armlock0",
+      "template": "lev40_armlock001",
+      "position": [
+        92.16,
+        31.33
+      ],
+      "items": [
+        {
+          "resref": "g_a_class8001",
+          "count": 2
+        },
+        {
+          "resref": "g_a_class9002",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ab",
+      "area": "m40ab",
+      "container": "lev40_drdupgrades",
+      "template": "lev40_drdupgrade",
+      "position": [
+        47.04,
+        29.82
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdhvplat003",
+          "count": 1
+        },
+        {
+          "resref": "g_i_drdutldev007",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ab",
+      "area": "m40ab",
+      "container": "lev40_secequip",
+      "template": "footlker001",
+      "position": [
+        82.5,
+        43.23
+      ],
+      "items": [
+        {
+          "resref": "g_i_secspike02",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ab",
+      "area": "m40ab",
+      "container": "MilMidLockerLg",
+      "template": "g_tresmilmid006",
+      "position": [
+        68.68,
+        80.82
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt02",
+          "count": 1
+        },
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ab",
+      "area": "m40ab",
+      "container": "droidlock1",
+      "template": "footlker002",
+      "position": [
+        57.48,
+        29.42
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdrepeqp002",
+          "count": 1
+        },
+        {
+          "resref": "g_i_drdshld002",
+          "count": 1
+        },
+        {
+          "resref": "g_i_drdrepeqp001",
+          "count": 2
+        },
+        {
+          "resref": "g_i_parts01",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ab",
+      "area": "m40ab",
+      "container": "droidlock2",
+      "template": "footlker003",
+      "position": [
+        58.8,
+        29.35
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdtrgcom003",
+          "count": 1
+        },
+        {
+          "resref": "g_i_secspike02",
+          "count": 1
+        },
+        {
+          "resref": "g_i_secspike01",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ab",
+      "area": "m40ab",
+      "container": "Medlock",
+      "template": "lockerlg001",
+      "position": [
+        98.72,
+        79.37
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt02",
+          "count": 1
+        },
+        {
+          "resref": "g_i_implant304",
+          "count": 1
+        },
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ab",
+      "area": "m40ab",
+      "container": "Medlock2",
+      "template": "lockerlg002",
+      "position": [
+        98.72,
+        78.61
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 2
+        },
+        {
+          "resref": "g_i_adrnaline005",
+          "count": 1
+        },
+        {
+          "resref": "g_i_adrnaline006",
+          "count": 1
+        },
+        {
+          "resref": "g_i_cmbtshot002",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ab",
+      "area": "m40ab",
+      "container": "Millock1",
+      "template": "g_tresmillow006",
+      "position": [
+        127.14,
+        67.93
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ab",
+      "area": "m40ab",
+      "container": "FootLker1",
+      "template": "footlker004",
+      "position": [
+        124.7,
+        70.03
+      ],
+      "items": [
+        {
+          "resref": "g_i_progspike01",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ab",
+      "area": "m40ab",
+      "container": "FootLker2",
+      "template": "footlker005",
+      "position": [
+        124.68,
+        65.98
+      ],
+      "items": [
+        {
+          "resref": "g_i_parts01",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ac",
+      "area": "m40ac",
+      "container": "plev_consm0",
+      "template": "plev_consm0",
+      "position": [
+        34.23,
+        175.9
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ac",
+      "area": "m40ac",
+      "container": "plev_consm0",
+      "template": "plev_consm0",
+      "position": [
+        34.2,
+        175.13
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ac",
+      "area": "m40ac",
+      "container": "plev_consm0",
+      "template": "plev_consm0",
+      "position": [
+        47.22,
+        175.95
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ac",
+      "area": "m40ac",
+      "container": "MilMidLockerLg",
+      "template": "g_tresmilmid006",
+      "position": [
+        32.21,
+        146.73
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt02",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ac",
+      "area": "m40ac",
+      "container": "plev_consm0",
+      "template": "plev_consm0",
+      "position": [
+        114.89,
+        145.8
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ac",
+      "area": "m40ac",
+      "container": "plev_consm0",
+      "template": "plev_consm0",
+      "position": [
+        112.56,
+        147.29
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ac",
+      "area": "m40ac",
+      "container": "plev_contsm3",
+      "template": "plev_contsm003",
+      "position": [
+        136.61,
+        146.11
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt02",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ac",
+      "area": "m40ac",
+      "container": "plev_contsm3",
+      "template": "plev_contsm003",
+      "position": [
+        114.0,
+        146.46
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt02",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ad",
+      "area": "m40ad",
+      "container": "PartPile1",
+      "template": "partpile001",
+      "position": [
+        114.42,
+        84.87
+      ],
+      "items": [
+        {
+          "resref": "g_i_parts01",
+          "count": 2
+        },
+        {
+          "resref": "g_i_progspike01",
+          "count": 2
+        },
+        {
+          "resref": "g_i_drdutldev003",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ad",
+      "area": "m40ad",
+      "container": "MilLowMetalBox",
+      "template": "g_tresmillow006",
+      "position": [
+        114.3,
+        88.52
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ad",
+      "area": "m40ad",
+      "container": "MilLowMetalBox",
+      "template": "g_tresmillow006",
+      "position": [
+        115.12,
+        89.18
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ad",
+      "area": "m40ad",
+      "container": "MilMidPlstcCylin",
+      "template": "g_tresmilmid006",
+      "position": [
+        115.48,
+        90.02
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt02",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ad",
+      "area": "m40ad",
+      "container": "MilHighLockerLg",
+      "template": "g_tresmilhig006",
+      "position": [
+        170.32,
+        50.19
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt02",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ad",
+      "area": "m40ad",
+      "container": "MilLowLockerLg",
+      "template": "g_tresmillow007",
+      "position": [
+        170.86,
+        50.2
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "lev_m40ad",
+      "area": "m40ad",
+      "container": "MilLowLockerLg",
+      "template": "g_tresmillow007",
+      "position": [
+        171.39,
+        50.2
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        }
+      ]
+    }
+  ],
+  "credits": {
+    "light": {
+      "credits": 0,
+      "light_points": 3,
+      "dark_points": 0
+    },
+    "dark": {
+      "credits": 0,
+      "light_points": 0,
+      "dark_points": 3
+    },
+    "sources": [
+      {
+        "dialog": "lev40_saul402",
+        "module": "lev_m40ad",
+        "light": {
+          "credits": 0,
+          "light_points": 3,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      }
+    ],
+    "note": "tools/questdb/credits.py: the credits and alignment points a full run of the chapter picks up from its conversations and scripts, for a light-side and a dark-side player (gambling left out). Worked out from the files, not played"
+  }
+}

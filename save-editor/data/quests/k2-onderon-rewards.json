@@ -1,0 +1,521 @@
+{
+  "game": "K2",
+  "planet": "Onderon",
+  "generated_by": "tools/questdb/rewards.py",
+  "checked": false,
+  "xp_at_end": 145010,
+  "xp_chapter": 34400,
+  "xp_start": 112560,
+  "xp_note": "full-run scenario data/xp/k2-onderon-path.json from the Dxun rewards' xp_at_end, 112560 XP: 501ond 112810, 502ond 116460, 512ond 118535, 503ond 119535, 510ond 119535, 410dxn 130010, 411dxn 138010, 511ond 138210, 504ond 140010, 505ond 140010, 506ond 145010",
+  "xp_chapter_note": "the same scenario from a new character's 0 XP: 34400",
+  "enemies_killed": 13,
+  "drops": [],
+  "templates_missing": [],
+  "containers": [
+    {
+      "module": "504ond",
+      "area": "504ond",
+      "container": "locker_barrack",
+      "template": "locker_barrack",
+      "position": [
+        -1.65,
+        -39.51
+      ],
+      "items": [
+        {
+          "resref": "g_a_armrdfsuit",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "506ond",
+      "area": "506ond",
+      "container": "locker_armory",
+      "template": "locker_armory",
+      "position": [
+        -38.12,
+        136.7
+      ],
+      "items": [
+        {
+          "resref": "w_brifle_13",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "506ond",
+      "area": "506ond",
+      "container": "MilMidMetalBox",
+      "template": "g_tresmilmid006",
+      "position": [
+        -59.02,
+        138.63
+      ],
+      "items": [
+        {
+          "resref": "u_l_colo_04",
+          "count": 1
+        },
+        {
+          "resref": "u_l_colo_07",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "512ond",
+      "area": "512ond",
+      "container": "CivilBagStrap",
+      "template": "g_trescivil004",
+      "position": [
+        -115.29,
+        56.31
+      ],
+      "items": [
+        {
+          "resref": "chem_00001",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "module": "512ond",
+      "area": "512ond",
+      "container": "TresSndPplPouch",
+      "template": "g_tressndppl004",
+      "position": [
+        -115.59,
+        60.33
+      ],
+      "items": [
+        {
+          "resref": "chem_00001",
+          "count": 7
+        }
+      ]
+    }
+  ],
+  "credits": {
+    "light": {
+      "credits": 37475,
+      "light_points": 45,
+      "dark_points": 0,
+      "influence": {
+        "0": 8,
+        "1": 8,
+        "3": 8,
+        "4": 24,
+        "5": 8,
+        "6": 8,
+        "7": 8,
+        "8": 8,
+        "9": 8
+      }
+    },
+    "dark": {
+      "credits": 42475,
+      "light_points": 0,
+      "dark_points": 45,
+      "influence": {
+        "2": 8,
+        "3": 8,
+        "4": 8,
+        "5": 16,
+        "6": 16,
+        "7": 8,
+        "8": 8,
+        "9": 8
+      }
+    },
+    "sources": [
+      {
+        "dialog": "beastrdr",
+        "module": "501ond",
+        "light": {
+          "credits": 1000,
+          "light_points": 3,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 1000,
+          "light_points": 0,
+          "dark_points": 0
+        }
+      },
+      {
+        "dialog": "cp_guard",
+        "module": "501ond",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "6": 8
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "6": 8
+          }
+        }
+      },
+      {
+        "dialog": "al_poli",
+        "module": "502ond",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "9": 8
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "9": 8
+          }
+        }
+      },
+      {
+        "dialog": "bostuco",
+        "module": "502ond",
+        "light": {
+          "credits": 0,
+          "light_points": 3,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        }
+      },
+      {
+        "dialog": "cp_terly",
+        "module": "502ond",
+        "light": {
+          "credits": 0,
+          "light_points": 12,
+          "dark_points": 0,
+          "influence": {
+            "4": 8
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "cp_tolas",
+        "module": "502ond",
+        "light": {
+          "credits": 3000,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 3000,
+          "light_points": 0,
+          "dark_points": 0
+        }
+      },
+      {
+        "dialog": "intgate",
+        "module": "502ond",
+        "light": {
+          "credits": 0,
+          "light_points": 8,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 6
+        }
+      },
+      {
+        "dialog": "mp_anda",
+        "module": "502ond",
+        "light": {
+          "credits": 7500,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "7": 8
+          }
+        },
+        "dark": {
+          "credits": 7500,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "7": 8
+          }
+        }
+      },
+      {
+        "dialog": "mp_ponla",
+        "module": "502ond",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "4": 8,
+            "5": 8
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "4": 8,
+            "5": 8
+          }
+        }
+      },
+      {
+        "dialog": "sec_term",
+        "module": "502ond",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 6
+        }
+      },
+      {
+        "dialog": "gormo",
+        "module": "503ond",
+        "light": {
+          "credits": 500,
+          "light_points": 7,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 500,
+          "light_points": 0,
+          "dark_points": 0
+        }
+      },
+      {
+        "dialog": "kavar",
+        "module": "503ond",
+        "light": {
+          "credits": 0,
+          "light_points": 3,
+          "dark_points": 0,
+          "influence": {
+            "4": 8
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 4,
+          "influence": {
+            "5": 8
+          }
+        }
+      },
+      {
+        "dialog": "panar",
+        "module": "503ond",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "8": 8
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "8": 8
+          }
+        }
+      },
+      {
+        "dialog": "qimtiq",
+        "module": "503ond",
+        "light": {
+          "credits": 10500,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 10500,
+          "light_points": 0,
+          "dark_points": 0
+        }
+      },
+      {
+        "dialog": "sakarie",
+        "module": "503ond",
+        "light": {
+          "credits": 5000,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "0": 8
+          }
+        },
+        "dark": {
+          "credits": 10000,
+          "light_points": 0,
+          "dark_points": 4
+        }
+      },
+      {
+        "dialog": "xaart",
+        "module": "503ond",
+        "light": {
+          "credits": 0,
+          "light_points": 6,
+          "dark_points": 0,
+          "influence": {
+            "1": 8
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        }
+      },
+      {
+        "dialog": "ro_trp3",
+        "module": "504ond",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 10
+        }
+      },
+      {
+        "dialog": "talia",
+        "module": "506ond",
+        "light": {
+          "credits": 10000,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        }
+      },
+      {
+        "dialog": "vaklu",
+        "module": "506ond",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 10000,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "2": 8,
+            "6": 8
+          }
+        }
+      },
+      {
+        "dialog": "bounty1",
+        "module": "512ond",
+        "light": {
+          "credits": 0,
+          "light_points": 3,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "mp_128",
+        "module": "512ond",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "3": 8
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "3": 8
+          }
+        }
+      },
+      {
+        "dialog": "ri_end",
+        "module": "512ond",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 6
+        }
+      },
+      {
+        "dialog": "riiken",
+        "module": "512ond",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      }
+    ],
+    "note": "tools/questdb/credits.py: the credits and alignment points a full run of the chapter picks up from its conversations and scripts, for a light-side and a dark-side player (gambling left out). Worked out from the files, not played",
+    "fixed": [
+      {
+        "credits": -25,
+        "note": "the part bought from the vendor droid in 512ond (dialog mp_128 E23, a_alibi_s0d3: TakeGoldFromCreature 25 on every path); docalibi 70 and 80 need it"
+      }
+    ]
+  }
+}

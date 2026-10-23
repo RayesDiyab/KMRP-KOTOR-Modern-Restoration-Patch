@@ -1,0 +1,2920 @@
+{
+ "game": "K2",
+ "planet": "Korriban",
+ "order": 7,
+ "chapter_title": "Korriban: the abandoned academy and the hidden tomb",
+ "generated_by": "tools/questdb/build.py --milestone",
+ "checked": false,
+ "about": "Story state every completed run of the chapter ends with, for a skip-to-the-end feature. Curated in tools/questdb/chapters.py; values marked certain = false were worked out by reading the scripts or seen in one real save, not proven for every run.",
+ "journal": [
+  {
+   "tag": "trapped",
+   "stage": 99,
+   "set_by": "dialog sion E0 (702kor): escaped from the academy"
+  },
+  {
+   "tag": "hidden_power",
+   "stage": 99,
+   "set_by": "dialog kreia_tm E0 (711kor): the tomb's trials passed"
+  },
+  {
+   "tag": "jedi_tomb",
+   "stage": 90,
+   "set_by": "a_jedi_jrnl_fin (711kor, container jedi_cont closed): the bonus quest in the tomb"
+  }
+ ],
+ "journal_remove": [],
+ "globals": [
+  {
+   "name": "003EBO_BACKGROUND",
+   "type": "Number",
+   "value": 6,
+   "certain": true,
+   "note": "tr_ehawk_custom (701kor) when boarding the ship",
+   "read_after_planet": [
+    {
+     "where": "modules/003ebo_s.rim",
+     "script": "a_dxun_cs"
+    },
+    {
+     "where": "modules/003ebo_s.rim",
+     "script": "a_galaxymap"
+    },
+    {
+     "where": "modules/003ebo_s.rim",
+     "script": "a_holoworld"
+    },
+    {
+     "where": "modules/003ebo_s.rim",
+     "script": "k_003ebo_enter"
+    },
+    {
+     "where": "modules/003ebo_s.rim",
+     "script": "k_003start"
+    },
+    {
+     "where": "modules/004ebo_s.rim",
+     "script": "k_003ebo_enter"
+    },
+    {
+     "where": "modules/005ebo_s.rim",
+     "script": "k_005_enter"
+    }
+   ],
+   "writers": [
+    {
+     "set": 6,
+     "script": "tr_ehawk_custom",
+     "module": "701kor",
+     "from": [
+      "newgeneric016.utt ScriptOnEnter (to_ebonhawk_custom)"
+     ],
+     "branch": "if (GetEnteringObject() == GetPartyLeader())",
+     "critical": false
+    }
+   ]
+  },
+  {
+   "name": "003EBO_G0T0_BAO_2",
+   "type": "Number",
+   "value": 1,
+   "certain": false,
+   "note": "the table sets 1 with CUT_BAO_G0T0_1; the next entry raises it to 2 and plays CUT_BAO_G0T0_2 (dialog bao_g0_2: a_adj_dex|1 on slot 3), left to the game because the editor cannot raise slot 3's dexterity",
+   "read_after_planet": [
+    {
+     "where": "modules/003ebo_s.rim",
+     "script": "k_003ebo_enter"
+    }
+   ],
+   "writers": []
+  },
+  {
+   "name": "003EBO_G0t0_Remote",
+   "type": "Number",
+   "value": 1,
+   "certain": true,
+   "note": "dialog g0t0rem1 E3 (003ebo); CUT_G0T0_REMOTE_2 (000_Jedi_Found above 2) is left to the game",
+   "read_after_planet": [],
+   "writers": []
+  },
+  {
+   "name": "003EBO_RETURN_DEST",
+   "type": "Number",
+   "value": 6,
+   "certain": true,
+   "note": "tr_ehawk_custom (701kor) when boarding the ship",
+   "read_after_planet": [
+    {
+     "where": "modules/003ebo_s.rim",
+     "script": "a_galaxymap"
+    },
+    {
+     "where": "modules/003ebo_s.rim",
+     "script": "check_party_gui"
+    },
+    {
+     "where": "modules/003ebo_s.rim",
+     "script": "tr_leave_ehawk"
+    },
+    {
+     "where": "modules/004ebo_s.rim",
+     "script": "tr_leave_ehawk"
+    }
+   ],
+   "writers": [
+    {
+     "set": 6,
+     "script": "tr_ehawk_custom",
+     "module": "701kor",
+     "from": [
+      "newgeneric016.utt ScriptOnEnter (to_ebonhawk_custom)"
+     ],
+     "branch": "if (GetEnteringObject() == GetPartyLeader())",
+     "critical": false
+    }
+   ]
+  },
+  {
+   "name": "701_FIRST_ENTER",
+   "type": "Boolean",
+   "value": true,
+   "certain": true,
+   "note": "tr_intro (701kor) on the first landing",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "set": true,
+     "script": "tr_intro",
+     "module": "701kor",
+     "from": [
+      "tr_intro.utt ScriptOnEnter (tr_intro)"
+     ],
+     "branch": "if 701_FIRST_ENTER is FALSE",
+     "critical": false
+    }
+   ]
+  },
+  {
+   "name": "702KOR_Sion",
+   "type": "Number",
+   "value": 3,
+   "certain": true,
+   "note": "dialog sion R0 (702kor), the flight from the academy; 1 and 2 are earlier meetings (sion R35, kreia_si E0)",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "set": 2,
+     "script": "a_global_set|2,0,0,0,0,702kor_sion",
+     "module": "702kor",
+     "from": [
+      "kreia_si E0 script",
+      "sion R9 script"
+     ],
+     "resolves_to": "chitin:scripts.bif",
+     "critical": false
+    },
+    {
+     "set": 3,
+     "script": "a_global_set|3,0,0,0,0,702kor_sion",
+     "module": "702kor",
+     "from": [
+      "sion R0 script"
+     ],
+     "resolves_to": "chitin:scripts.bif",
+     "critical": false
+    },
+    {
+     "set": 1,
+     "script": "a_global_set|1,0,0,0,0,702kor_sion",
+     "module": "702kor",
+     "from": [
+      "sion R35 script"
+     ],
+     "resolves_to": "chitin:scripts.bif",
+     "critical": false
+    }
+   ]
+  },
+  {
+   "name": "702KOR_Vash",
+   "type": "Number",
+   "value": 1,
+   "certain": true,
+   "note": "tr_vash (702kor) when the dead master is found",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "set": 1,
+     "script": "tr_vash",
+     "module": "702kor",
+     "from": [
+      "tr_vash.utt ScriptOnEnter (tr_vash)"
+     ],
+     "branch": "if GetIsPartyLeader(GetEnteringObject()); GetIsObjectValid(GetObjectByTag(\"vash_container\", 0)); not GetLoc...",
+     "critical": true
+    }
+   ]
+  },
+  {
+   "name": "711KOR_Vision_Track",
+   "type": "Number",
+   "value": 9,
+   "certain": true,
+   "note": "tr_last_vision (711kor): the last of the tomb's visions",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "set": 3,
+     "script": "tr_pc_god",
+     "module": "711kor",
+     "from": [
+      "711_2nd_door.utd OnOpen (711_2nd_door)"
+     ],
+     "branch": "if not GetLocalBoolean(OBJECT_SELF, 57); a helper function's result",
+     "critical": false
+    },
+    {
+     "set": 3,
+     "script": "tr_pc_god",
+     "module": "711kor",
+     "from": [
+      "711_2nd_door.utd OnOpen (711_2nd_door)"
+     ],
+     "branch": "if not GetLocalBoolean(OBJECT_SELF, 57); not a helper function's result",
+     "critical": false
+    },
+    {
+     "set": 1,
+     "script": "tr_1st_vision",
+     "module": "711kor",
+     "from": [
+      "newgeneric002.utt ScriptOnEnter (tr_1st_vision)"
+     ],
+     "branch": "if GetIsPartyLeader(GetEnteringObject()); not GetLocalBoolean(OBJECT_SELF, 55); not GetIsObjectValid(GetObj...",
+     "critical": false
+    },
+    {
+     "set": 1,
+     "script": "tr_1st_vision",
+     "module": "711kor",
+     "from": [
+      "newgeneric002.utt ScriptOnEnter (tr_1st_vision)"
+     ],
+     "branch": "if GetIsPartyLeader(GetEnteringObject()); not GetLocalBoolean(OBJECT_SELF, 55); GetIsObjectValid(GetObjectB...",
+     "critical": false
+    },
+    {
+     "set": 5,
+     "script": "tr_evil_kreia",
+     "module": "711kor",
+     "from": [
+      "newgeneric004.utt ScriptOnEnter (tr_evil_kreia)"
+     ],
+     "branch": "if GetIsPartyLeader(GetEnteringObject()); not GetLocalBoolean(OBJECT_SELF, 55); not GetIsObjectValid(GetObj...",
+     "critical": false
+    },
+    {
+     "set": 5,
+     "script": "tr_evil_kreia",
+     "module": "711kor",
+     "from": [
+      "newgeneric004.utt ScriptOnEnter (tr_evil_kreia)"
+     ],
+     "branch": "if GetIsPartyLeader(GetEnteringObject()); not GetLocalBoolean(OBJECT_SELF, 55); GetIsObjectValid(GetObjectB...",
+     "critical": false
+    },
+    {
+     "set": 9,
+     "script": "tr_last_vision",
+     "module": "711kor",
+     "from": [
+      "newgeneric006.utt ScriptOnEnter (tr_last_vision)"
+     ],
+     "branch": "if 711KOR_Vision_Track > 5",
+     "critical": true
+    },
+    {
+     "set": 1,
+     "script": "a_1st_act|1,0,0,0,0,",
+     "module": "711kor",
+     "from": [
+      "malak E2 script"
+     ],
+     "branch": "if a helper function's result",
+     "critical": false
+    },
+    {
+     "set": 1,
+     "script": "a_1st_act|1,0,0,0,0,",
+     "module": "711kor",
+     "from": [
+      "malak E2 script"
+     ],
+     "branch": "if not a helper function's result",
+     "critical": false
+    }
+   ]
+  },
+  {
+   "name": "CUT_BAO_G0T0_1",
+   "type": "Boolean",
+   "value": true,
+   "certain": true,
+   "note": "slots 1 and 3 available: on the same entry as g0t0rem1 or the next",
+   "read_after_planet": [
+    {
+     "where": "modules/003ebo_s.rim",
+     "script": "a_next_scene"
+    },
+    {
+     "where": "modules/003ebo_s.rim",
+     "script": "k_003ebo_enter"
+    }
+   ],
+   "writers": []
+  },
+  {
+   "name": "CUT_G0T0_REMOTE_1",
+   "type": "Boolean",
+   "value": true,
+   "certain": true,
+   "note": "slots 3 and 1 available and 003EBO_G0t0_Remote 0: the first entry after slot 3 joins; dialog g0t0rem1 E3 sets 003EBO_G0t0_Remote 1",
+   "read_after_planet": [
+    {
+     "where": "modules/003ebo_s.rim",
+     "script": "a_next_scene"
+    },
+    {
+     "where": "modules/003ebo_s.rim",
+     "script": "k_003ebo_enter"
+    }
+   ],
+   "writers": []
+  },
+  {
+   "name": "000_Atton_Hanharr",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_atton_hanharr",
+     "module": "711kor",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Atton_ID_Reveal",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "writers_total": 5,
+   "writers": [
+    {
+     "script": "a_global_set|5,0,0,0,0,000_atton_id_reveal",
+     "module": "711kor",
+     "set": 5
+    },
+    {
+     "script": "a_global_set|6,0,0,0,0,000_atton_id_reveal",
+     "module": "711kor",
+     "set": 6
+    },
+    {
+     "script": "a_global_set|4,0,0,0,0,000_atton_id_reveal",
+     "module": "711kor",
+     "set": 4
+    }
+   ]
+  },
+  {
+   "name": "000_Atton_Pazaak",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    2
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|2,0,0,0,0,000_atton_pazaak",
+     "module": "711kor",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "000_Jedi_Found",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "tr_vash",
+     "module": "702kor",
+     "add": 1,
+     "branch": "if GetIsPartyLeader(GetEnteringObject()); GetIsObjectValid(GetObjectByTag(\"vash_container\", 0)); not GetLoc..."
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/003ebo_s.rim",
+     "script": "c_kelborn_mes"
+    },
+    {
+     "where": "modules/262tel_s.rim",
+     "script": "a_setup_ebo"
+    },
+    {
+     "where": "modules/262tel_s.rim",
+     "script": "k_262_enter"
+    },
+    {
+     "where": "modules/262tel_s.rim",
+     "script": "tr_atrend3"
+    },
+    {
+     "where": "modules/403dxn_s.rim",
+     "script": "a_set_return"
+    },
+    {
+     "where": "modules/605dan_s.rim",
+     "script": "k_enter_605"
+    }
+   ]
+  },
+  {
+   "name": "000_Mira_Atton_Angry",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_mira_atton_angry",
+     "module": "711kor",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_RareItemChance",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    0
+   ],
+   "writers_total": 22,
+   "writers": [
+    {
+     "script": "k_plc_trescormid",
+     "module": "701kor",
+     "set": 0,
+     "branch": "if G_PC_LEVEL != 1; G_PC_LEVEL >= 4"
+    },
+    {
+     "script": "k_plc_trescormid",
+     "module": "701kor",
+     "set": 0,
+     "branch": "if G_PC_LEVEL != 1; G_PC_LEVEL < 4"
+    },
+    {
+     "script": "k_plc_tresmillow",
+     "module": "702kor",
+     "set": 0,
+     "branch": "if G_PC_LEVEL != 1; G_PC_LEVEL >= 4"
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_def_ambmobtrea"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_def_grenspn"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_def_repairsptr"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_def_spawn01"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_def_spn_t_drd"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_def_spn_t_jedi"
+    }
+   ],
+   "read_after_planet_total": 166
+  },
+  {
+   "name": "003EBO_Atton_End",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,003ebo_atton_end",
+     "module": "711kor",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "262TEL_Atton_Echani",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    2
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|2,0,0,0,0,262tel_atton_echani",
+     "module": "711kor",
+     "set": 2
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/262tel_s.rim",
+     "script": "c_chkattonechani"
+    }
+   ]
+  },
+  {
+   "name": "262TEL_Atton_Inter",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,262tel_atton_inter",
+     "module": "711kor",
+     "set": 1
+    },
+    {
+     "script": "a_global_set|2,0,0,0,0,262tel_atton_inter",
+     "module": "711kor",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "262TEL_Atton_Mind",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|2,0,0,0,0,262tel_atton_mind",
+     "module": "711kor",
+     "set": 2
+    },
+    {
+     "script": "a_global_set|1,0,0,0,0,262tel_atton_mind",
+     "module": "711kor",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "701KOR_Hssiss",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "corpse_tr_hssiss",
+     "module": "701kor",
+     "set": 1,
+     "branch": "if 701KOR_Hssiss == 0"
+    },
+    {
+     "script": "a_global_set|2,0,0,0,0,701kor_hssiss",
+     "module": "701kor",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "711KOR_Party_Count",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    -1,
+    0,
+    1
+   ],
+   "writers_total": 6,
+   "writers": [
+    {
+     "script": "tr_evil_kreia",
+     "module": "711kor",
+     "set": -1,
+     "branch": "if GetIsPartyLeader(GetEnteringObject()); not GetLocalBoolean(OBJECT_SELF, 55); not GetIsObjectValid(GetObj..."
+    },
+    {
+     "script": "tr_evil_kreia",
+     "module": "711kor",
+     "set": 0,
+     "branch": "if GetIsPartyLeader(GetEnteringObject()); not GetLocalBoolean(OBJECT_SELF, 55); not GetIsObjectValid(GetObj..."
+    },
+    {
+     "script": "tr_evil_kreia",
+     "module": "711kor",
+     "set": 1,
+     "branch": "if GetIsPartyLeader(GetEnteringObject()); not GetLocalBoolean(OBJECT_SELF, 55); not GetIsObjectValid(GetObj..."
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_oei_userdef"
+    }
+   ]
+  },
+  {
+   "name": "711KOR_Party_Dead",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 8,
+   "writers": [
+    {
+     "script": "k_oei_userdef",
+     "module": "702kor",
+     "add": 1,
+     "branch": "if GetIsObjectValid(OBJECT_SELF); not (GetTag(OBJECT_SELF) == \"atton\"); not (GetTag(OBJECT_SELF) == \"baodur..."
+    },
+    {
+     "script": "k_oei_userdef",
+     "module": "702kor",
+     "add": 1,
+     "branch": "if GetIsObjectValid(OBJECT_SELF); not (GetTag(OBJECT_SELF) == \"atton\"); (GetTag(OBJECT_SELF) == \"baodur\"); ..."
+    },
+    {
+     "script": "k_oei_userdef",
+     "module": "702kor",
+     "add": 1,
+     "branch": "if GetIsObjectValid(OBJECT_SELF); (GetTag(OBJECT_SELF) == \"atton\"); (GetModuleName() == \"711KOR\"); not ((Ge..."
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_oei_userdef"
+    }
+   ]
+  }
+ ],
+ "globals_never_set": [
+  "701_FIRST_SCENE",
+  "701_INTRO_SCENE",
+  "711KOR_Mand_Dead"
+ ],
+ "items": {
+  "held_at_end": [],
+  "held_note": "Given by scripts on the critical path (tools/questdb/chapters.py).",
+  "other_script_gifts": [
+   {
+    "item": "",
+    "count": 1,
+    "script": "a_open_vash_cage",
+    "module": "702kor",
+    "branch": "if journal LightsaberQuest < 40"
+   },
+   {
+    "item": "",
+    "count": 1,
+    "script": "a_give_quest_ls|0,0,0,0,0,",
+    "module": "711kor",
+    "branch": "if journal LightsaberQuest < 40"
+   }
+  ],
+  "taken_optional": [
+   {
+    "item": "pl_thorium",
+    "script": "a_mdoor_boom|0,0,0,0,0,",
+    "module": "702kor",
+    "from": [
+     "mal_door R1 script"
+    ]
+   }
+  ],
+  "container_loot_optional": [
+   {
+    "module": "702kor",
+    "area": "702kor",
+    "container": "twilek_body",
+    "template": "twilek_body",
+    "position": [
+     31.73,
+     72.99
+    ],
+    "items": [
+     {
+      "resref": "twilek_datapad",
+      "count": 1
+     },
+     {
+      "resref": "g_w_thermldet01",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "702kor",
+    "area": "702kor",
+    "container": "mil_locker",
+    "template": "mil_locker",
+    "position": [
+     88.14,
+     136.21
+    ],
+    "items": [
+     {
+      "resref": "pl_thorium",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "702kor",
+    "area": "702kor",
+    "container": "Bag_datapad",
+    "template": "bag005",
+    "position": [
+     89.41,
+     137.05
+    ],
+    "items": [
+     {
+      "resref": "datapad_thorium",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "702kor",
+    "area": "702kor",
+    "container": "footlocker_ll",
+    "template": "footlocker_ll",
+    "position": [
+     61.62,
+     55.22
+    ],
+    "items": [
+     {
+      "resref": "u_l_colo_08",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "702kor",
+    "area": "702kor",
+    "container": "footlocker_comp",
+    "template": "footlocker_comp",
+    "position": [
+     56.96,
+     31.58
+    ],
+    "items": [
+     {
+      "resref": "datapad_recruits",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "702kor",
+    "area": "702kor",
+    "container": "Bag_datapad2",
+    "template": "bag_datapad2",
+    "position": [
+     79.12,
+     74.57
+    ],
+    "items": [
+     {
+      "resref": "datapad_tukata",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "702kor",
+    "area": "702kor",
+    "container": "vash_container",
+    "template": "vash_container",
+    "position": [
+     181.92,
+     92.2
+    ],
+    "items": [
+     {
+      "resref": "datapad_vash",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "710kor",
+    "area": "710kor",
+    "container": "corpse_tukata",
+    "template": "corpse_tukata",
+    "position": [
+     18.16,
+     155.42
+    ],
+    "items": [
+     {
+      "resref": "datapad_tukata",
+      "count": 1
+     },
+     {
+      "resref": "w_melee_03",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "711kor",
+    "area": "711kor",
+    "container": "SevrdArm",
+    "template": "sevrdarm001",
+    "position": [
+     -48.73,
+     -65.1
+    ],
+    "items": [
+     {
+      "resref": "pad_shyrak",
+      "count": 1
+     },
+     {
+      "resref": "a_belt_14",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "711kor",
+    "area": "711kor",
+    "container": "jedi_cont",
+    "template": "jedi_cont",
+    "position": [
+     144.55,
+     -53.14
+    ],
+    "items": [
+     {
+      "resref": "pad_nebel",
+      "count": 1
+     },
+     {
+      "resref": "u_l_cell_07",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "711kor",
+    "area": "711kor",
+    "container": "sith_mummy",
+    "template": "sith_mummy",
+    "position": [
+     180.76,
+     22.3
+    ],
+    "items": [
+     {
+      "resref": "a_band_x03",
+      "count": 1
+     },
+     {
+      "resref": "w_melee_x12",
+      "count": 1
+     }
+    ]
+   }
+  ],
+  "random_loot": "creature drops rolled by the generic treasure scripts at death are random and not listed"
+ },
+ "party": {
+  "recruit": [],
+  "remove": [],
+  "recruited_at_end": [],
+  "recruit_note": "Apply as the game's own AddAvailableNPCByTemplate(slot, template): the slot's AVAILNPC<slot> creature in the save is built from the template (templates.bif, Override or the named module)",
+  "calls": [],
+  "slots": []
+ },
+ "next_chapter": {
+  "module": "003ebo",
+  "waypoint": "WP_from_outside",
+  "chain": [
+   {
+    "module": "003ebo",
+    "waypoint": "WP_from_outside",
+    "movies": [],
+    "by": "tr_ehawk_custom",
+    "in": "701kor"
+   }
+  ],
+  "note": "boarding the ship in the valley (trigger to_ebonhawk_custom); the ship (003ebo) is the Ebon Hawk chapter's between-planets module. Slot 6 cannot be picked for the party on Korriban (k_701area_enter: SetNPCSelectability 6 FALSE)"
+ },
+ "critical_path": [
+  {
+   "module": "701kor",
+   "source": "dialog kreia_cv E2",
+   "what": "on landing: journal hidden_power 10"
+  },
+  {
+   "module": "702kor",
+   "source": "dialog sion E32",
+   "what": "the academy's door shuts: journal trapped 10"
+  },
+  {
+   "module": "702kor",
+   "source": "tr_vash",
+   "what": "the dead master: 000_Jedi_Found + 1, 702KOR_Vash 1"
+  },
+  {
+   "module": "702kor",
+   "source": "dialog vash E0",
+   "what": "journal lostjedi 60"
+  },
+  {
+   "module": "702kor",
+   "source": "dialog sion E0",
+   "what": "the flight from the academy: journal trapped 99, a_sion_end"
+  },
+  {
+   "module": "702kor",
+   "source": "dialog sion R0",
+   "what": "702KOR_Sion 3"
+  },
+  {
+   "module": "702kor",
+   "source": "dialog sion R8",
+   "what": "a_to_701kor: StartNewModule 701kor (From_702Kor)"
+  },
+  {
+   "module": "710kor",
+   "source": "dialog sec_tomb E22",
+   "what": "a_tomb 3: StartNewModule 711KOR (From_710KOR)"
+  },
+  {
+   "module": "711kor",
+   "source": "tr_last_vision",
+   "what": "the last vision: 711KOR_Vision_Track 9"
+  },
+  {
+   "module": "711kor",
+   "source": "dialog kreia_tm E0",
+   "what": "the tomb's trials passed: journal hidden_power 99"
+  }
+ ],
+ "critical_path_note": "Curated in tools/questdb/chapters.py; the order is inferred, not played. Writers marked critical = true belong to these scripts.",
+ "uncertain": [
+  "script k_plc_trescormid in 701kor was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in 701kor was too large to follow completely; some of its effects may be missing",
+  "script k_fab_sith_si in 701kor was too large to follow completely; some of its effects may be missing",
+  "script k_plc_tresmillow in 702kor was too large to follow completely; some of its effects may be missing",
+  "script k_plc_tresmilmid in 702kor was too large to follow completely; some of its effects may be missing",
+  "script k_plc_it_eq_belt in 702kor was too large to follow completely; some of its effects may be missing",
+  "script a_open_vash_cage in 702kor was too large to follow completely; some of its effects may be missing",
+  "script k_plc_tresmilhig in 702kor was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in 702kor was too large to follow completely; some of its effects may be missing",
+  "script k_hen_kreiadlg in 702kor was too large to follow completely; some of its effects may be missing",
+  "script k_oei_spawn in 702kor was too large to follow completely; some of its effects may be missing",
+  "script k_oei_userdef in 702kor was too large to follow completely; some of its effects may be missing",
+  "script k_fab_sith_si in 702kor was too large to follow completely; some of its effects may be missing",
+  "script a_force_combat in 702kor was too large to follow completely; some of its effects may be missing",
+  "script k_def_spawn01 in 710kor was too large to follow completely; some of its effects may be missing",
+  "script k_fab_sith_si in 710kor was too large to follow completely; some of its effects may be missing",
+  "script k_plc_trescorlow in 710kor was too large to follow completely; some of its effects may be missing",
+  "script k_plc_tresmillow in 710kor was too large to follow completely; some of its effects may be missing",
+  "script tr_tukata_attack in 710kor was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in 710kor was too large to follow completely; some of its effects may be missing",
+  "script k_hen_kreiadlg in 711kor was too large to follow completely; some of its effects may be missing",
+  "script k_fab_sith_si in 711kor was too large to follow completely; some of its effects may be missing",
+  "script k_plc_tresrakat in 711kor was too large to follow completely; some of its effects may be missing",
+  "script k_plc_tresshalow in 711kor was too large to follow completely; some of its effects may be missing",
+  "script k_plc_tresshamid in 711kor was too large to follow completely; some of its effects may be missing",
+  "script a_atkonend|0,0,0,0,0, in 711kor was too large to follow completely; some of its effects may be missing",
+  "script a_give_quest_ls|0,0,0,0,0, in 711kor was too large to follow completely; some of its effects may be missing",
+  "script a_mala_act|3,0,0,0,0, in 711kor was too large to follow completely; some of its effects may be missing",
+  "script a_revan_act|1,0,0,0,0, in 711kor was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in 711kor was too large to follow completely; some of its effects may be missing",
+  "script k_hen_attondlg in 711kor was too large to follow completely; some of its effects may be missing",
+  "script k_oei_spawn in 711kor was too large to follow completely; some of its effects may be missing",
+  "script k_oei_userdef in 711kor was too large to follow completely; some of its effects may be missing",
+  "script k_hen_baodurdlg in 711kor was too large to follow completely; some of its effects may be missing",
+  "script k_hen_t3m4dlg in 711kor was too large to follow completely; some of its effects may be missing",
+  "script k_mand_fade_ud in 711kor was too large to follow completely; some of its effects may be missing",
+  "global 003EBO_G0T0_BAO_2 = 1: the table sets 1 with CUT_BAO_G0T0_1; the next entry raises it to 2 and plays CUT_BAO_G0T0_2 (dialog bao_g0_2: a_adj_dex|1 on slot 3), left to the game because the editor cannot raise slot 3's dexterity",
+  "701kor: door korribantempledoor is locked (needs a key) and no script here opens it; left as it is",
+  "702kor: placed creature darthsion (template n_darthsion001) is hostile but its template cannot die (Plot or Min1HP); left in place",
+  "702kor: placeable mil_locker is destroyed by a_locker_boom, which is not on the curated critical path; it may belong to a side quest",
+  "702kor: placeable bag_datapad is destroyed by a_locker_boom, which is not on the curated critical path; it may belong to a side quest",
+  "702kor: creature darthsion is destroyed by a_sion|4,0,0,0,0,, which is not on the curated critical path; it may belong to a side quest",
+  "702kor: door door_locked is locked (Security or force) and no script here opens it; left as it is",
+  "702kor: door door_locked_dif is locked (Security or force) and no script here opens it; left as it is",
+  "702kor: local boolean index 41 on tr_enter = true is not certain (set to more than one value)",
+  "702kor: local boolean index 40 on tr_gas_trap = true is not certain (set to more than one value)",
+  "702kor: local boolean index 41 on tr_gas_trap = true is not certain (set to more than one value)",
+  "710kor: door sealeddoor is locked (needs a key) and no script here opens it; left as it is",
+  "710kor: local number index 4 on tr_tukata_attack = 0 is not certain (also set to values that are not constant: (GetLocalNumber(OBJECT_SELF, 4) + 1))",
+  "711kor: placed creature kreiaevil (template p_kreia_evil001) is hostile but its template cannot die (Plot or Min1HP); left in place",
+  "711kor: placed creature revan_fake (template revan_fake) is hostile but its template cannot die (Plot or Min1HP); left in place",
+  "711kor: creature kreiaevil is destroyed by 711kor_ud, k_fab_fade2_ud, k_fab_fade_ud, which is not on the curated critical path; it may belong to a side quest",
+  "711kor: creature revan_fake is destroyed by a_revan_act|2,0,0,0,0,, which is not on the curated critical path; it may belong to a side quest",
+  "711kor: placeable sithflag is destroyed by a_revan_act|2,0,0,0,0,, which is not on the curated critical path; it may belong to a side quest",
+  "711kor: door 711_lock_door is locked (Security or force) and no script here opens it; left as it is",
+  "711kor: local boolean index 40 on check_mines = true is not certain (set to more than one value)"
+ ],
+ "master_met": [
+  {
+   "global": "702KOR_Vash"
+  }
+ ],
+ "increments": [
+  {
+   "name": "000_Jedi_Found",
+   "add": 1,
+   "note": "the masters' count four planets share: tr_vash (702kor) raises it when the dead master is found; see MASTERS_RULE in chapters_k2/dantooine.py"
+  }
+ ],
+ "cleared": [
+  {
+   "module": "701kor",
+   "area": "701kor",
+   "returnable": true,
+   "remove": [
+    {
+     "tag": "g_tukata02",
+     "template": "g_tukata003",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "g_tukata01",
+     "template": "g_tukata01",
+     "count": 3,
+     "why": "placed hostile",
+     "certain": true
+    }
+   ],
+   "spawned_and_killed": [
+    {
+     "template": "g_shyrack",
+     "tag": "g_shyrack"
+    }
+   ],
+   "doors": [
+    {
+     "tag": "korriban door 1",
+     "template": "sw_door_kban1",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "korribandoor3",
+     "template": "sw_door_kban004",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    }
+   ],
+   "containers_looted": [],
+   "locals": [
+    {
+     "object": "placeable",
+     "index": 40,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "corpse_tr_hssiss"
+     ],
+     "tag": "corpse_tr_hss001",
+     "set_by": {
+      "1": [
+       "corpse_tr_hssiss"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 57,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_trescormid"
+     ],
+     "tag": "corpse_tr_hss001",
+     "set_by": {
+      "1": [
+       "k_plc_trescormid"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 40,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "corpse_tr_hssiss"
+     ],
+     "tag": "corpse_tr_hss002",
+     "set_by": {
+      "1": [
+       "corpse_tr_hssiss"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 57,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_trescormid"
+     ],
+     "tag": "corpse_tr_hss002",
+     "set_by": {
+      "1": [
+       "k_plc_trescormid"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 40,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "corpse_tr_hssiss"
+     ],
+     "tag": "corpse_tr_hss003",
+     "set_by": {
+      "1": [
+       "corpse_tr_hssiss"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 57,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_trescormid"
+     ],
+     "tag": "corpse_tr_hss003",
+     "set_by": {
+      "1": [
+       "k_plc_trescormid"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 40,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "corpse_tr_hssiss"
+     ],
+     "tag": "corpse_tr_hss004",
+     "set_by": {
+      "1": [
+       "corpse_tr_hssiss"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 57,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_trescormid"
+     ],
+     "tag": "corpse_tr_hss004",
+     "set_by": {
+      "1": [
+       "k_plc_trescormid"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 40,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "corpse_tr_hssiss"
+     ],
+     "tag": "corpse_tr_hss005",
+     "set_by": {
+      "1": [
+       "corpse_tr_hssiss"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 57,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_trescormid"
+     ],
+     "tag": "corpse_tr_hss005",
+     "set_by": {
+      "1": [
+       "k_plc_trescormid"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 40,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "corpse_tr_hssiss"
+     ],
+     "tag": "corpse_tr_hss006",
+     "set_by": {
+      "1": [
+       "corpse_tr_hssiss"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 57,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_trescormid"
+     ],
+     "tag": "corpse_tr_hss006",
+     "set_by": {
+      "1": [
+       "k_plc_trescormid"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 40,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "corpse_tr_hssiss"
+     ],
+     "tag": "corpse_tr_hssiss",
+     "set_by": {
+      "1": [
+       "corpse_tr_hssiss"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 57,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_trescormid"
+     ],
+     "tag": "corpse_tr_hssiss",
+     "set_by": {
+      "1": [
+       "k_plc_trescormid"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 18,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "tr_hist_excav",
+      "tr_hist_hord",
+      "tr_hist_pall",
+      "tr_hist_ragnos",
+      "tr_hist_sadow"
+     ],
+     "tag": "kreia_invis",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "placeable",
+     "index": 20,
+     "type": "number",
+     "value": 1,
+     "certain": true,
+     "read_by": [
+      "tr_intro"
+     ],
+     "tag": "kreia_invis",
+     "set_by": {
+      "1": [
+       "tr_intro"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 21,
+     "type": "number",
+     "value": 1,
+     "certain": true,
+     "read_by": [
+      "tr_hist_ragnos"
+     ],
+     "tag": "kreia_invis",
+     "set_by": {
+      "1": [
+       "tr_hist_ragnos"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 22,
+     "type": "number",
+     "value": 1,
+     "certain": true,
+     "read_by": [
+      "tr_hist_pall"
+     ],
+     "tag": "kreia_invis",
+     "set_by": {
+      "1": [
+       "tr_hist_pall"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 23,
+     "type": "number",
+     "value": 1,
+     "certain": true,
+     "read_by": [
+      "tr_hist_sadow"
+     ],
+     "tag": "kreia_invis",
+     "set_by": {
+      "1": [
+       "tr_hist_sadow"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 24,
+     "type": "number",
+     "value": 1,
+     "certain": true,
+     "read_by": [
+      "tr_hist_hord"
+     ],
+     "tag": "kreia_invis",
+     "set_by": {
+      "1": [
+       "tr_hist_hord"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 25,
+     "type": "number",
+     "value": 1,
+     "certain": true,
+     "read_by": [
+      "tr_hist_excav"
+     ],
+     "tag": "kreia_invis",
+     "set_by": {
+      "1": [
+       "tr_hist_excav"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 26,
+     "type": "number",
+     "value": 1,
+     "certain": true,
+     "read_by": [
+      "corpse_warn"
+     ],
+     "tag": "kreia_invis",
+     "set_by": {
+      "1": [
+       "corpse_warn"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 20,
+     "type": "number",
+     "value": 1,
+     "certain": true,
+     "read_by": [
+      "tr_acad_banter"
+     ],
+     "tag": "tr_acad_banter",
+     "set_by": {
+      "1": [
+       "tr_acad_banter"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 20,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "tr_cave_banter"
+     ],
+     "tag": "tr_cave_banter",
+     "set_by": {
+      "1": [
+       "tr_cave_banter"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 34,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "tr_exit702_end"
+     ],
+     "tag": "tr_exit702_end",
+     "set_by": {
+      "1": [
+       "tr_exit702_end"
+      ]
+     }
+    }
+   ],
+   "uncertain": [
+    "701kor: door korribantempledoor is locked (needs a key) and no script here opens it; left as it is"
+   ]
+  },
+  {
+   "module": "702kor",
+   "area": "702kor",
+   "returnable": true,
+   "remove": [
+    {
+     "tag": "tukata",
+     "template": "c_tukata",
+     "count": 5,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "caged_tukata",
+     "template": "caged_tukata",
+     "count": 5,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag caged_tukata, faction 5 (neutral), level 1; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "g_tukata02",
+     "template": "g_tukata003",
+     "count": 6,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "sithassassin",
+     "template": "sithassassin",
+     "count": 2,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag sithassassin, faction 5 (neutral), level 1; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "mil_locker",
+     "template": "mil_locker",
+     "kind": "placeable",
+     "why": "destroyed by script",
+     "scripts": [
+      "a_locker_boom"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "bag_datapad",
+     "template": "bag005",
+     "kind": "placeable",
+     "why": "destroyed by script",
+     "scripts": [
+      "a_locker_boom"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "darthsion",
+     "template": "n_darthsion001",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "a_sion|4,0,0,0,0,"
+     ],
+     "certain": false
+    }
+   ],
+   "spawned_and_killed": [],
+   "doors": [
+    {
+     "tag": "door_ass",
+     "template": "door_ass",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "door_enter",
+     "template": "door_enter",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open/unlock it",
+     "scripts": [
+      "a_open_door_ente|0,0,0,0,0,",
+      "a_open_frontdoor|0,0,0,0,0,",
+      "a_sion|0,0,0,0,0,"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "door_library",
+     "template": "door_library",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open it",
+     "scripts": [
+      "a_open_door|0,0,0,0,0,door_library"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "door_thorium",
+     "template": "door_thorium",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open/unlock it",
+     "scripts": [
+      "a_mdoor_boom|1,0,0,0,0,"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "door_torture",
+     "template": "door_torture",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open it",
+     "scripts": [
+      "a_open_door|0,0,0,0,0,door_torture"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "door_training",
+     "template": "door_training",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open it",
+     "scripts": [
+      "a_open_door|0,0,0,0,0,door_training"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "korriban door 1",
+     "template": "sw_door_kban1",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    }
+   ],
+   "containers_looted": [
+    "Bag_datapad",
+    "Bag_datapad2",
+    "footlocker_comp",
+    "footlocker_ll",
+    "mil_locker",
+    "twilek_body",
+    "vash_container"
+   ],
+   "locals": [
+    {
+     "object": "placeable",
+     "index": 57,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_it_eq_belt"
+     ],
+     "tag": "bag_datapad2",
+     "set_by": {
+      "1": [
+       "k_plc_it_eq_belt"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 40,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "a_open_vash_cage"
+     ],
+     "tag": "cage_jedi",
+     "set_by": {
+      "1": [
+       "a_open_vash_cage"
+      ]
+     }
+    },
+    {
+     "object": "tagged object",
+     "index": 40,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_getitem"
+     ],
+     "tag": "datapad_recruits",
+     "set_by": {
+      "1": [
+       "k_getitem"
+      ]
+     }
+    },
+    {
+     "object": "tagged object",
+     "index": 40,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_getitem"
+     ],
+     "tag": "datapad_vash",
+     "set_by": {
+      "1": [
+       "k_getitem"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 57,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresmilmid"
+     ],
+     "tag": "footlocker_comp",
+     "set_by": {
+      "1": [
+       "k_plc_tresmilmid"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 57,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresmillow"
+     ],
+     "tag": "footlocker_ll",
+     "set_by": {
+      "1": [
+       "k_plc_tresmillow"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 57,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresmillow"
+     ],
+     "tag": "footlocker_llt",
+     "set_by": {
+      "1": [
+       "k_plc_tresmillow"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 57,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresmilmid"
+     ],
+     "tag": "footlocker_mlt",
+     "set_by": {
+      "1": [
+       "k_plc_tresmilmid"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 57,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresmilhig"
+     ],
+     "tag": "milhighfootlker",
+     "set_by": {
+      "1": [
+       "k_plc_tresmilhig"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 40,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "tr_enter"
+     ],
+     "tag": "tr_enter",
+     "set_by": {
+      "1": [
+       "tr_enter"
+      ]
+     }
+    },
+    {
+     "object": "tagged object",
+     "index": 41,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "tr_exit"
+     ],
+     "tag": "tr_enter",
+     "set_by": {
+      "0": [
+       "tr_exit"
+      ],
+      "1": [
+       "a_open_door_ente|0,0,0,0,0,",
+       "a_open_frontdoor|0,0,0,0,0,"
+      ]
+     }
+    },
+    {
+     "object": "tagged object",
+     "index": 40,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "tr_gas_trap",
+      "tr_gas_trap_off"
+     ],
+     "tag": "tr_gas_trap",
+     "set_by": {
+      "0": [
+       "tr_gas_trap_off"
+      ],
+      "1": [
+       "tr_gas_trap"
+      ]
+     }
+    },
+    {
+     "object": "tagged object",
+     "index": 41,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "tr_gas_trap",
+      "tr_gas_trap_off"
+     ],
+     "tag": "tr_gas_trap",
+     "set_by": {
+      "0": [
+       "tr_gas_trap"
+      ],
+      "1": [
+       "tr_gas_trap_off"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 50,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "tr_sion_fight"
+     ],
+     "tag": "tr_sion_fight",
+     "set_by": {
+      "1": [
+       "tr_sion_fight"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 55,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "tr_sion_fight"
+     ],
+     "tag": "tr_sion_fight",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 40,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "tr_sith_ass"
+     ],
+     "tag": "tr_sith_ass_bed",
+     "set_by": {
+      "1": [
+       "tr_sith_ass"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 40,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "tr_sith_ass"
+     ],
+     "tag": "tr_sith_ass_end",
+     "set_by": {
+      "1": [
+       "tr_sith_ass"
+      ]
+     }
+    },
+    {
+     "object": "tagged object",
+     "index": 40,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "tr_sith_ass"
+     ],
+     "tag": "tr_sith_ass_end",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 40,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "tr_sith_ass"
+     ],
+     "tag": "tr_sith_ass_end2",
+     "set_by": {
+      "1": [
+       "tr_sith_ass"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 40,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "tr_sith_ass"
+     ],
+     "tag": "tr_sith_ass_lib",
+     "set_by": {
+      "1": [
+       "tr_sith_ass"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 40,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "tr_sith_ass"
+     ],
+     "tag": "tr_sith_ass_rm",
+     "set_by": {
+      "1": [
+       "tr_sith_ass"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 40,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "tr_sith_ass"
+     ],
+     "tag": "tr_sith_ass_sth",
+     "set_by": {
+      "1": [
+       "tr_sith_ass"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 40,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "tr_sith_ass"
+     ],
+     "tag": "tr_sith_ass_tr",
+     "set_by": {
+      "1": [
+       "tr_sith_ass"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 40,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "tr_vash"
+     ],
+     "tag": "vash_container",
+     "set_by": {
+      "1": [
+       "tr_vash"
+      ]
+     }
+    }
+   ],
+   "uncertain": [
+    "702kor: placed creature darthsion (template n_darthsion001) is hostile but its template cannot die (Plot or Min1HP); left in place",
+    "702kor: placeable mil_locker is destroyed by a_locker_boom, which is not on the curated critical path; it may belong to a side quest",
+    "702kor: placeable bag_datapad is destroyed by a_locker_boom, which is not on the curated critical path; it may belong to a side quest",
+    "702kor: creature darthsion is destroyed by a_sion|4,0,0,0,0,, which is not on the curated critical path; it may belong to a side quest",
+    "702kor: door door_locked is locked (Security or force) and no script here opens it; left as it is",
+    "702kor: door door_locked_dif is locked (Security or force) and no script here opens it; left as it is",
+    "702kor: local boolean index 41 on tr_enter = true is not certain (set to more than one value)",
+    "702kor: local boolean index 40 on tr_gas_trap = true is not certain (set to more than one value)",
+    "702kor: local boolean index 41 on tr_gas_trap = true is not certain (set to more than one value)"
+   ]
+  },
+  {
+   "module": "710kor",
+   "area": "710kor",
+   "returnable": true,
+   "remove": [
+    {
+     "tag": "g_veerkal02",
+     "template": "g_veerkal02",
+     "count": 10,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "g_veerkal04",
+     "template": "g_veerkal04",
+     "count": 12,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "hssiss",
+     "template": "hssiss",
+     "count": 2,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag hssiss, faction 5 (neutral), level 1; its own or its dialog's script changes faction: k_fab_sith_si"
+    }
+   ],
+   "spawned_and_killed": [],
+   "doors": [
+    {
+     "tag": "korribandoor09",
+     "template": "door_kor09",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    }
+   ],
+   "containers_looted": [
+    "corpse_tukata"
+   ],
+   "locals": [
+    {
+     "object": "placeable",
+     "index": 57,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresmillow"
+     ],
+     "tag": "ceramicjar",
+     "set_by": {
+      "1": [
+       "k_plc_tresmillow"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 55,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_from_711",
+      "tr_secret_tomb"
+     ],
+     "tag": "kreia_invis",
+     "set_by": {
+      "1": [
+       "a_tomb|3,0,0,0,0,"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 56,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_from_711"
+     ],
+     "tag": "kreia_invis",
+     "set_by": {
+      "1": [
+       "k_from_711"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 57,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_trescorlow"
+     ],
+     "tag": "skullcorpse",
+     "set_by": {
+      "1": [
+       "k_plc_trescorlow"
+      ]
+     }
+    },
+    {
+     "object": "tagged object",
+     "index": 40,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "a_sith_att"
+     ],
+     "tag": "tr_sith_ass",
+     "set_by": {
+      "1": [
+       "a_sith_att"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 40,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "tr_tukata_attack"
+     ],
+     "tag": "tr_tukata_attack",
+     "set_by": {
+      "1": [
+       "tr_tukata_attack"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 84,
+     "type": "boolean",
+     "value": false,
+     "certain": true,
+     "read_by": [
+      "tr_tukata_attack"
+     ],
+     "tag": "tr_tukata_attack",
+     "set_by": {
+      "0": [
+       "tr_tukata_attack"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 85,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "tr_tukata_attack"
+     ],
+     "tag": "tr_tukata_attack",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 86,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "tr_tukata_attack"
+     ],
+     "tag": "tr_tukata_attack",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 87,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "tr_tukata_attack"
+     ],
+     "tag": "tr_tukata_attack",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 89,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "tr_tukata_attack"
+     ],
+     "tag": "tr_tukata_attack",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 90,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "tr_tukata_attack"
+     ],
+     "tag": "tr_tukata_attack",
+     "set_by": {
+      "1": [
+       "tr_tukata_attack"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 92,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "tr_tukata_attack"
+     ],
+     "tag": "tr_tukata_attack",
+     "set_by": {
+      "1": [
+       "tr_tukata_attack"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 95,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "tr_tukata_attack"
+     ],
+     "tag": "tr_tukata_attack",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 106,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "tr_tukata_attack"
+     ],
+     "tag": "tr_tukata_attack",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "tr_tukata_attack"
+     ],
+     "tag": "tr_tukata_attack",
+     "set_by": {
+      "(GetLocalNumber(OBJECT_SELF, 0) + 1)": [
+       "tr_tukata_attack"
+      ]
+     },
+     "note": "also set to values that are not constant: (GetLocalNumber(OBJECT_SELF, 0) + 1)"
+    },
+    {
+     "object": "trigger",
+     "index": 3,
+     "type": "number",
+     "value": 0,
+     "certain": true,
+     "read_by": [
+      "tr_tukata_attack"
+     ],
+     "tag": "tr_tukata_attack",
+     "set_by": {
+      "0": [
+       "tr_tukata_attack"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 4,
+     "type": "number",
+     "value": 0,
+     "certain": false,
+     "read_by": [
+      "tr_tukata_attack"
+     ],
+     "tag": "tr_tukata_attack",
+     "set_by": {
+      "(GetLocalNumber(OBJECT_SELF, 4) + 1)": [
+       "tr_tukata_attack"
+      ],
+      "0": [
+       "tr_tukata_attack"
+      ]
+     },
+     "note": "also set to values that are not constant: (GetLocalNumber(OBJECT_SELF, 4) + 1)"
+    },
+    {
+     "object": "trigger",
+     "index": 8,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "tr_tukata_attack"
+     ],
+     "tag": "tr_tukata_attack",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 15,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "tr_tukata_attack"
+     ],
+     "tag": "tr_tukata_attack",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    }
+   ],
+   "uncertain": [
+    "710kor: door sealeddoor is locked (needs a key) and no script here opens it; left as it is",
+    "710kor: local number index 4 on tr_tukata_attack = 0 is not certain (also set to values that are not constant: (GetLocalNumber(OBJECT_SELF, 4) + 1))"
+   ]
+  },
+  {
+   "module": "711kor",
+   "area": "711kor",
+   "returnable": true,
+   "remove": [
+    {
+     "tag": "g_repsold_capt",
+     "template": "g_repsold_capt",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag g_repsold_capt, faction 5 (neutral), level 1; its own or its dialog's script changes faction: a_manatk_cs"
+    },
+    {
+     "tag": "hssiss",
+     "template": "hssiss",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag hssiss, faction 5 (neutral), level 1; its own or its dialog's script changes faction: k_fab_sith_si"
+    },
+    {
+     "tag": "jedicounm",
+     "template": "n_jedicounm002",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag jedicounm, faction 5 (neutral), level 1; its own or its dialog's script changes faction: a_atkonend"
+    },
+    {
+     "tag": "npc_v_malak",
+     "template": "npc_v_malak",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag npc_v_malak, faction 5 (neutral), level 1; its own or its dialog's script changes faction: a_atkonend, a_mala_act"
+    },
+    {
+     "tag": "shyrack_brood",
+     "template": "shyrack_brood",
+     "count": 10,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "shyrack_wyrm",
+     "template": "shyrack_wyrm",
+     "count": 12,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "kreiaevil",
+     "template": "p_kreia_evil001",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "711kor_ud",
+      "k_fab_fade2_ud",
+      "k_fab_fade_ud",
+      "k_fab_malak_ud"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "revan_fake",
+     "template": "revan_fake",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "a_revan_act|2,0,0,0,0,"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "sithflag",
+     "template": "plc_sithflag",
+     "kind": "placeable",
+     "why": "destroyed by script",
+     "scripts": [
+      "a_revan_act|2,0,0,0,0,"
+     ],
+     "certain": false
+    }
+   ],
+   "spawned_and_killed": [],
+   "doors": [
+    {
+     "tag": "711_1st_door",
+     "template": "711_1st_door",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open it",
+     "scripts": [
+      "a_entrance_cs|1,0,0,0,0,"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "711_2nd_door",
+     "template": "711_2nd_door",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open/unlock it",
+     "scripts": [
+      "711kor_ud",
+      "a_2nd_act|3,0,0,0,0,",
+      "k_fab_fade2_ud",
+      "k_fab_fade_ud"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "711_last_door",
+     "template": "711_last_door",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "711kor_ud",
+      "k_fab_fade2_ud",
+      "k_fab_fade_ud",
+      "k_fab_malak_ud"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "711_norm_door",
+     "template": "711_norm_door",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "711kor_ud",
+      "k_fab_fade2_ud",
+      "k_fab_fade_ud",
+      "k_fab_malak_ud"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "crypt_door",
+     "template": "crypt_door",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "711kor_ud",
+      "k_fab_fade2_ud",
+      "k_fab_fade_ud",
+      "k_fab_malak_ud"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "korribandoor09",
+     "template": "door_kor09",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "sarc_door",
+     "template": "sarc_door",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    }
+   ],
+   "containers_looted": [
+    "SevrdArm",
+    "jedi_cont",
+    "sith_mummy"
+   ],
+   "locals": [
+    {
+     "object": "door",
+     "index": 57,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "tr_pc_god"
+     ],
+     "tag": "711_2nd_door",
+     "set_by": {
+      "1": [
+       "tr_pc_god"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 40,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "k_hb_check_mines"
+     ],
+     "tag": "check_mines",
+     "set_by": {
+      "0": [
+       "a_local_reset|40,0,0,0,0,check_mines",
+       "k_hb_check_mines"
+      ],
+      "1": [
+       "a_local_set|40,0,0,0,0,check_mines",
+       "k_hb_check_mines"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 33,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "a_mine_killnpc"
+     ],
+     "tag": "g_t_trap005",
+     "set_by": {
+      "1": [
+       "a_mine_killnpc"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 20,
+     "type": "number",
+     "value": 1,
+     "certain": true,
+     "read_by": [
+      "tr_kreia_tm"
+     ],
+     "tag": "kreia_invis",
+     "set_by": {
+      "1": [
+       "tr_kreia_tm"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 57,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresshalow"
+     ],
+     "tag": "lowshdlndrubble",
+     "set_by": {
+      "1": [
+       "k_plc_tresshalow"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 57,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresshamid"
+     ],
+     "tag": "midshdlndrubble",
+     "set_by": {
+      "1": [
+       "k_plc_tresshamid"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 55,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "tr_1st_vision"
+     ],
+     "tag": "tr_1st_vision",
+     "set_by": {
+      "1": [
+       "tr_1st_vision"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 55,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "tr_evil_kreia"
+     ],
+     "tag": "tr_evil_kreia",
+     "set_by": {
+      "1": [
+       "tr_evil_kreia"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 34,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "tr_first_enter"
+     ],
+     "tag": "tr_first_enter",
+     "set_by": {
+      "1": [
+       "tr_first_enter"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 34,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "tr_last_vision"
+     ],
+     "tag": "tr_last_vision",
+     "set_by": {
+      "1": [
+       "tr_last_vision"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 40,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "tr_revan_appears"
+     ],
+     "tag": "tr_revan_appears",
+     "set_by": {
+      "1": [
+       "tr_revan_appears"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_plc_tresrakat"
+     ],
+     "tag": "tresrakatbin",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "placeable",
+     "index": 57,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresrakat"
+     ],
+     "tag": "tresrakatbin",
+     "set_by": {
+      "1": [
+       "k_plc_tresrakat"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_plc_tresrakat"
+     ],
+     "tag": "tresrakatlock",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "placeable",
+     "index": 57,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresrakat"
+     ],
+     "tag": "tresrakatlock",
+     "set_by": {
+      "1": [
+       "k_plc_tresrakat"
+      ]
+     }
+    },
+    {
+     "object": "tagged object",
+     "index": 55,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "a_mine_setoff"
+     ],
+     "tag": "wp_2nd_charge",
+     "set_by": {
+      "1": [
+       "a_2nd_act|1,0,0,0,0,",
+       "a_mine_setoff"
+      ]
+     }
+    },
+    {
+     "object": "tagged object",
+     "index": 15,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "a_mine_setoff"
+     ],
+     "tag": "wp_2nd_charge",
+     "set_by": {
+      "(GetLocalNumber(GetObjectByTag(\"wp_2nd_charge\", 0), 15) + 1)": [
+       "a_mine_setoff"
+      ]
+     },
+     "note": "also set to values that are not constant: (GetLocalNumber(GetObjectByTag(\"wp_2nd_charge\", 0), 15) + 1)"
+    }
+   ],
+   "uncertain": [
+    "711kor: placed creature kreiaevil (template p_kreia_evil001) is hostile but its template cannot die (Plot or Min1HP); left in place",
+    "711kor: placed creature revan_fake (template revan_fake) is hostile but its template cannot die (Plot or Min1HP); left in place",
+    "711kor: creature kreiaevil is destroyed by 711kor_ud, k_fab_fade2_ud, k_fab_fade_ud, which is not on the curated critical path; it may belong to a side quest",
+    "711kor: creature revan_fake is destroyed by a_revan_act|2,0,0,0,0,, which is not on the curated critical path; it may belong to a side quest",
+    "711kor: placeable sithflag is destroyed by a_revan_act|2,0,0,0,0,, which is not on the curated critical path; it may belong to a side quest",
+    "711kor: door 711_lock_door is locked (Security or force) and no script here opens it; left as it is",
+    "711kor: local boolean index 40 on check_mines = true is not certain (set to more than one value)"
+   ]
+  }
+ ],
+ "cleared_note": "How each module looks after a full run, for an editor that stores the area as played: remove (tag, template), doors (tag: open, unlocked), containers_looted (container tags the rewards file empties), locals (the area's, the module's and placed objects' local variables their own scripts read to tell a first visit from a return, with the value a played area holds; index = the engine's local slot). returnable = false: the player never comes back to the module. See tools/questdb/cleared.py.",
+ "returnable_note": "the ship can fly back to Korriban while the four free planets are open; the valley, the academy and the cave stay reachable"
+}

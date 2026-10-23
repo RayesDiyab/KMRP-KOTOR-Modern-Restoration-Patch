@@ -1,0 +1,539 @@
+{
+ "game": "K2",
+ "planet": "Ravager",
+ "generated_by": "tools/questdb/build.py",
+ "checked": false,
+ "quests": [
+  {
+   "tag": "DefeatDarthNihilus",
+   "stages": [
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "851nih",
+       "via": {
+        "dialog": "851mand",
+        "node": 0,
+        "speaker": "SithSoldier",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "DefeatDarthNihilus",
+          10
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 99,
+     "end": true,
+     "steps": [
+      {
+       "module": "852nih",
+       "via": {
+        "script": "k_nihilus_ud"
+       },
+       "needs": [
+        {
+         "stage": [
+          "destroyravager",
+          59
+         ],
+         "op": "<="
+        }
+       ],
+       "does": [
+        {
+         "local": [
+          "DarthNihilus",
+          "bool",
+          87,
+          1
+         ]
+        },
+        {
+         "local": [
+          "DarthNihilus",
+          "bool",
+          52,
+          1
+         ]
+        },
+        {
+         "journal": [
+          "DefeatDarthNihilus",
+          99
+         ]
+        },
+        {
+         "other": "changes the faction of DarthNihilus to STANDARD_FACTION_NEUTRAL"
+        },
+        {
+         "other": "runs script a_start_ending (its effects branch or could not be read)"
+        }
+       ],
+       "branch": "if journal destroyravager <= 59"
+      },
+      {
+       "module": "852nih",
+       "via": {
+        "script": "k_nihilus_ud"
+       },
+       "needs": [
+        {
+         "stage": [
+          "destroyravager",
+          59
+         ],
+         "op": ">"
+        }
+       ],
+       "does": [
+        {
+         "local": [
+          "DarthNihilus",
+          "bool",
+          87,
+          1
+         ]
+        },
+        {
+         "local": [
+          "DarthNihilus",
+          "bool",
+          52,
+          1
+         ]
+        },
+        {
+         "journal": [
+          "destroyravager",
+          70
+         ]
+        },
+        {
+         "journal": [
+          "DefeatDarthNihilus",
+          99
+         ]
+        },
+        {
+         "other": "changes the faction of DarthNihilus to STANDARD_FACTION_NEUTRAL"
+        },
+        {
+         "other": "runs script a_start_ending (its effects branch or could not be read)"
+        }
+       ],
+       "branch": "if journal destroyravager > 59"
+      }
+     ],
+     "journal_xp": 1000
+    }
+   ],
+   "notes": "stage 10: dialog 851mand is used by several objects in 851nih: RavagerIntro, SithSoldier stage 99: k_nihilus_ud (stage 99) also depends on: (user-defined event == 1006); (GetCurrentHitPoints(OBJECT_SELF) < 10); GetLocalBoolean(OBJECT_SELF, 51); not GetLocalBoolean(OBJECT_SELF, 52)",
+   "own": true,
+   "run_ending": 99
+  },
+  {
+   "tag": "DestroyRavager",
+   "stages": [
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "851nih",
+       "via": {
+        "dialog": "851mand",
+        "node": 0,
+        "speaker": "SithSoldier",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "DestroyRavager",
+          10
+         ]
+        },
+        {
+         "other": "spawns n_sithcmndo001"
+        },
+        {
+         "other": "spawns n_sithcmndo001"
+        },
+        {
+         "other": "spawns n_sithcmndo001"
+        },
+        {
+         "other": "spawns n_sithcmndo001"
+        },
+        {
+         "other": "spawns n_sithcmndo001"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 20,
+     "end": false,
+     "steps": [
+      {
+       "module": "851nih",
+       "via": {
+        "dialog": "851dem",
+        "node": 4,
+        "speaker": "Zuka",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "DestroyRavager",
+          20
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 250
+    },
+    {
+     "stage": 30,
+     "end": false,
+     "steps": [
+      {
+       "module": "851nih",
+       "via": {
+        "dialog": "851dem",
+        "node": 6,
+        "speaker": "Zuka",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "DestroyRavager",
+          30
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 250
+    },
+    {
+     "stage": 40,
+     "end": false,
+     "steps": [
+      {
+       "module": "851nih",
+       "via": {
+        "dialog": "851dem",
+        "node": 7,
+        "speaker": "Zuka",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "DestroyRavager",
+          40
+         ]
+        },
+        {
+         "set_global_number": [
+          "851NIH_Bomb_Ravager",
+          1
+         ]
+        },
+        {
+         "other": "spawns g_mandalor003"
+        },
+        {
+         "other": "starts conversation \"851exp\""
+        }
+       ],
+       "branch": "way 1: Zuka, dialog 851dem E7 in 851nih"
+      },
+      {
+       "module": "851nih",
+       "via": {
+        "dialog": "851exp",
+        "node": 0,
+        "speaker": "Zuka",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "DestroyRavager",
+          40
+         ]
+        }
+       ],
+       "branch": "way 2: Zuka, dialog 851exp E0 in 851nih"
+      },
+      {
+       "module": "851nih",
+       "via": {
+        "dialog": "851exp",
+        "node": 3,
+        "speaker": "g_mandalor01",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "DestroyRavager",
+          40
+         ]
+        },
+        {
+         "other": "spawns n_sithcmndo003"
+        }
+       ],
+       "branch": "way 3: g_mandalor01, dialog 851exp E3 in 851nih"
+      }
+     ],
+     "journal_xp": 250
+    },
+    {
+     "stage": 50,
+     "end": false,
+     "steps": [],
+     "journal_xp": 100
+    },
+    {
+     "stage": 55,
+     "end": false,
+     "steps": [
+      {
+       "module": "851nih",
+       "via": {
+        "dialog": "851mis",
+        "node": 0,
+        "speaker": "851mis",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "DestroyRavager",
+          55
+         ]
+        }
+       ],
+       "branch": "way 1: 851mis, dialog 851mis E0 in 851nih"
+      },
+      {
+       "module": "851nih",
+       "via": {
+        "dialog": "851mis",
+        "node": 3,
+        "speaker": "851mis",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "DestroyRavager",
+          55
+         ]
+        }
+       ],
+       "branch": "way 2: 851mis, dialog 851mis E3 in 851nih"
+      }
+     ]
+    },
+    {
+     "stage": 57,
+     "end": false,
+     "steps": [
+      {
+       "module": "851nih",
+       "via": {
+        "dialog": "851mis",
+        "node": 3,
+        "speaker": "851mis",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "DestroyRavager",
+          57
+         ]
+        },
+        {
+         "set_global_number": [
+          "851NIH_Missile_Bay",
+          2
+         ]
+        },
+        {
+         "set_global_number": [
+          "851NIH_Bomb_Ravager",
+          2
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 60,
+     "end": false,
+     "steps": [
+      {
+       "module": "851nih",
+       "via": {
+        "dialog": "851dem",
+        "node": 10,
+        "speaker": "Zuka",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "DestroyRavager",
+          60
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 250
+    },
+    {
+     "stage": 70,
+     "end": false,
+     "steps": [
+      {
+       "module": "851nih",
+       "via": {
+        "dialog": "851dem",
+        "node": 9,
+        "speaker": "Zuka",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "set_global_number": [
+          "",
+          1
+         ]
+        },
+        {
+         "journal": [
+          "DestroyRavager",
+          70
+         ]
+        }
+       ],
+       "branch": "way 1: Zuka, dialog 851dem E9 in 851nih"
+      },
+      {
+       "module": "852nih",
+       "via": {
+        "script": "k_nihilus_ud"
+       },
+       "needs": [
+        {
+         "stage": [
+          "destroyravager",
+          59
+         ],
+         "op": ">"
+        }
+       ],
+       "does": [
+        {
+         "local": [
+          "DarthNihilus",
+          "bool",
+          87,
+          1
+         ]
+        },
+        {
+         "local": [
+          "DarthNihilus",
+          "bool",
+          52,
+          1
+         ]
+        },
+        {
+         "journal": [
+          "destroyravager",
+          70
+         ]
+        },
+        {
+         "journal": [
+          "DefeatDarthNihilus",
+          99
+         ]
+        },
+        {
+         "other": "changes the faction of DarthNihilus to STANDARD_FACTION_NEUTRAL"
+        },
+        {
+         "other": "runs script a_start_ending (its effects branch or could not be read)"
+        }
+       ],
+       "branch": "way 2: script k_nihilus_ud in 852nih"
+      }
+     ]
+    },
+    {
+     "stage": 99,
+     "end": true,
+     "steps": [
+      {
+       "module": "851nih",
+       "via": {
+        "dialog": "222tel",
+        "node": 3,
+        "speaker": "",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "DestroyRavager",
+          99
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "notes": "stage 10: dialog 851mand is used by several objects in 851nih: RavagerIntro, SithSoldier stage 40 can be reached in 3 ways; each step's branch starts with its way stage 55 can be reached in 2 ways; each step's branch starts with its way stage 60: 851dem E10 can be reached from 3 places; needs follow the shortest path stage 70: 851dem E9 can be reached from 3 places; needs follow the shortest path stage 70: k_nihilus_ud (stage 70) also depends on: (user-defined event == 1006); (GetCurrentHitPoints(OBJECT_SELF) < 10); GetLocalBoolean(OBJECT_SELF, 51); not GetLocalBoolean(OBJECT_SELF, 52) stage 70 can be reached in 2 ways; each step's branch starts with its way UNCERTAIN: stage 20: no creature, placeable or door template in 851nih names dialog 851dem, so its speaker is unknown; scripts that name it: tr_851dem, tr_851demfour, tr_851demone, tr_851demthree UNCERTAIN: stage 30: the condition script c_local_set|30,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 30: no creature, placeable or door template in 851nih names dialog 851dem, so its speaker is unknown; scripts that name it: tr_851dem, tr_851demfour, tr_851demone, tr_851demthree UNCERTAIN: stage 40: the condition script c_local_set|31,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 40: no creature, placeable or door template in 851nih names dialog 851dem, so its speaker is unknown; scripts that name it: tr_851dem, tr_851demfour, tr_851demone, tr_851demthree UNCERTAIN: stage 50 has no setter in the Ravager files (no dialog node or script sets it) UNCERTAIN: stage 55: the condition script c_global_eq|0,0,0,0,0,851NIH_Bomb_Ravager on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 57: the condition script c_global_eq|1,0,0,0,0,851NIH_Missile_Bay on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 60: the condition script c_local_set|32,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 60: the condition script c_global_eq|0,0,0,0,0,852NIH_Nihilus_Dead on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 60: no creature, placeable or door template in 851nih names dialog 851dem, so its speaker is unknown; scripts that name it: tr_851dem, tr_851demfour, tr_851demone, tr_851demthree UNCERTAIN: stage 70: the condition script c_local_set|32,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 70: the condition script c_global_eq|1,0,0,0,0,852NIH_Nihilus_Dead on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 70: no creature, placeable or door template in 851nih names dialog 851dem, so its speaker is unknown; scripts that name it: tr_851dem, tr_851demfour, tr_851demone, tr_851demthree UNCERTAIN: stage 99: the condition script c_global_eq|1,0,0,0,0,852NIH_Nihilus_Dead;c_global_gt|2,0,0,0,0,851NIH_Bomb_Ravager on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 99: no creature, placeable or door template in 851nih names dialog 222tel, so its speaker is unknown; scripts that name it: tr_222esc UNCERTAIN: globals not listed in globalcat.2da: ",
+   "own": true,
+   "run_ending": 99
+  }
+ ]
+}

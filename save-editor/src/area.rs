@@ -228,7 +228,7 @@ pub fn creature_from_template(template: &Struct, like: Option<&Struct>) -> Struc
         ("CreatnScrptFird", Value::Byte(0)),
         ("PM_IsDisguised", Value::Byte(0)),
         ("Listening", Value::Byte(0)),
-        ("JoiningXP", Value::Dword(0)),
+        ("JoiningXP", Value::Int(0)),
         ("Commandable", Value::Byte(1)),
         ("AIState", Value::Int(0)),
         ("MovementRate", Value::Byte(4)),

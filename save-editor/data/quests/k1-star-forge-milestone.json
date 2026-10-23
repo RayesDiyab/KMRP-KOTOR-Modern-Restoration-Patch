@@ -1,0 +1,4063 @@
+{
+ "game": "K1",
+ "planet": "Star Forge",
+ "order": 10,
+ "chapter_title": "The Star Forge: the end of the game",
+ "generated_by": "tools/questdb/build.py --milestone",
+ "checked": false,
+ "about": "Story state every completed run of the chapter ends with, for a skip-to-the-end feature. Curated in tools/questdb/chapters.py; values marked certain = false were worked out by reading the scripts or seen in one real save, not proven for every run.",
+ "journal": [
+  {
+   "tag": "sta_confront",
+   "stage": 99,
+   "set_by": "the light-side ending (no setter found in the files; the ending cutscenes)"
+  }
+ ],
+ "journal_remove": [],
+ "globals": [
+  {
+   "name": "G_FinalChoice",
+   "type": "Number",
+   "value": 2,
+   "certain": false,
+   "note": "light side; 1 plays the dark-side ending (STUNT_54a)",
+   "read_after_planet": [
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_leavhawk"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebo_upgrade"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_pebo_carthtlk"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_punk_evilpc"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_punk_goodpc"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_punk_landcs_en"
+    },
+    {
+     "where": "modules/unk_m41aa.mod",
+     "script": "k_def_gizka02"
+    },
+    {
+     "where": "modules/unk_m41aa.mod",
+     "script": "k_punk_41aa_en"
+    },
+    {
+     "where": "modules/unk_m41aa.mod",
+     "script": "k_punk_evilpc"
+    },
+    {
+     "where": "modules/unk_m41aa.mod",
+     "script": "k_punk_finale02"
+    },
+    {
+     "where": "modules/unk_m41aa.mod",
+     "script": "k_punk_fincs_en"
+    },
+    {
+     "where": "modules/unk_m41aa.mod",
+     "script": "k_punk_goodpc"
+    }
+   ],
+   "read_after_planet_total": 37,
+   "writers": []
+  },
+  {
+   "name": "STA_MALAK_DEAD",
+   "type": "Boolean",
+   "value": true,
+   "certain": true,
+   "note": "k_psta_ud_malak / k_psta_mlkend",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "set": true,
+     "script": "k_psta_ud_mal7",
+     "module": "sta_m45ad",
+     "from": [
+      "sta_45darthmalak.utc ScriptUserDefine (sta_45darthMalak)"
+     ],
+     "branch": "if user-defined event is 1007",
+     "critical": false
+    },
+    {
+     "set": true,
+     "script": "k_psta_mlkend",
+     "module": "sta_m45ad",
+     "from": [
+      "k_sta_darthmalak R34 script",
+      "sta_firstjedi_co R26 script"
+     ],
+     "branch": "if G_FinalChoice != 1",
+     "critical": false
+    },
+    {
+     "set": true,
+     "script": "k_psta_mlkend",
+     "module": "sta_m45ad",
+     "from": [
+      "k_sta_darthmalak R34 script",
+      "sta_firstjedi_co R26 script"
+     ],
+     "branch": "if G_FinalChoice == 1",
+     "critical": false
+    },
+    {
+     "set": true,
+     "script": "k_psta_mlkend",
+     "module": "sta_m45ad",
+     "from": [
+      "k_sta_darthmalak R34 script",
+      "sta_firstjedi_co R26 script"
+     ],
+     "branch": "if G_FinalChoice == 1; K_SWG_CARTH != 16",
+     "critical": false
+    }
+   ]
+  },
+  {
+   "name": "CARTH_ROM_END",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    2
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_psta_carthrom2",
+     "module": "sta_m45aa",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "G_Sta_Bastila_Leave",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_psta_initbas2x",
+     "module": "sta_m45ac",
+     "set": true,
+     "branch": "if STA_SITH_DEAD >= 3"
+    }
+   ]
+  },
+  {
+   "name": "K_END_JEDI_LEFT",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    8
+   ],
+   "writers_total": 27,
+   "writers": [
+    {
+     "script": "k_psta_areaenter",
+     "module": "sta_m45ad",
+     "set": 8,
+     "branch": "if GetIsPC(GetEnteringObject()); not GetLoadFromSaveGame()"
+    },
+    {
+     "script": "k_psta_castat",
+     "module": "sta_m45ad",
+     "add": -1,
+     "branch": "if GetFactionEqual(OBJECT_SELF, GetObjectByTag(\"sta_invis_camera\", 0)); a helper function's result; not (1 ..."
+    },
+    {
+     "script": "k_psta_castat",
+     "module": "sta_m45ad",
+     "add": -1,
+     "branch": "if GetFactionEqual(OBJECT_SELF, GetObjectByTag(\"sta_invis_camera\", 0)); a helper function's result; GetIsOb..."
+    }
+   ]
+  },
+  {
+   "name": "K_END_MALAK_JEDI_USED",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 20,
+   "writers": [
+    {
+     "script": "k_psta_malcast3",
+     "module": "sta_m45ad",
+     "add": 1,
+     "branch": "if not (StringToInt(GetName(GetNearestObjectByTag(\"sta_malak_drain\", GetObjectByTag(\"sta_45darthMalak\", 0),..."
+    },
+    {
+     "script": "k_psta_malcast3",
+     "module": "sta_m45ad",
+     "add": 1,
+     "branch": "if not (1 && GetIsObjectValid(GetObjectByTag(\"sta_plc_captive7\", 0))); StringToInt(GetName(GetNearestObject..."
+    },
+    {
+     "script": "k_psta_malcast3",
+     "module": "sta_m45ad",
+     "add": 1,
+     "branch": "if GetIsObjectValid(GetObjectByTag(\"sta_plc_captive7\", 0)); StringToInt(GetName(GetNearestObjectByTag(\"sta_..."
+    }
+   ]
+  },
+  {
+   "name": "K_PSTA_BASTSAVE",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "k_psta_bastsave",
+     "module": "sta_m45ac",
+     "set": true
+    },
+    {
+     "script": "k_psta_bastopen",
+     "module": "sta_m45ac",
+     "set": true,
+     "branch": "if not a helper function's result; not (1 && GetIsObjectValid(OBJECT_SELF))"
+    },
+    {
+     "script": "k_psta_bastopen",
+     "module": "sta_m45ac",
+     "set": true,
+     "branch": "if not a helper function's result; GetIsObjectValid(OBJECT_SELF)"
+    }
+   ]
+  },
+  {
+   "name": "K_PSTA_SAIDLOVE",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_psta_saidlove",
+     "module": "sta_m45ac",
+     "set": true
+    },
+    {
+     "script": "k_sta_believe",
+     "module": "sta_m45ac",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "K_STA_HORDE",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    0,
+    5
+   ],
+   "writers_total": 7,
+   "writers": [
+    {
+     "script": "k_psta_spawnhb",
+     "module": "sta_m45ab",
+     "add": 1,
+     "branch": "if K_STA_SPAWNER is TRUE; K_STA_HORDE < 9"
+    },
+    {
+     "script": "k_sta_spawnreset",
+     "module": "sta_m45ab",
+     "set": 0,
+     "branch": "if (GetEnteringObject() == GetPartyMemberByIndex(0)); not a helper function's result"
+    },
+    {
+     "script": "k_sta_spawnstart",
+     "module": "sta_m45ab",
+     "set": 0,
+     "branch": "if (GetEnteringObject() == GetPartyMemberByIndex(0)); not a helper function's result"
+    }
+   ]
+  },
+  {
+   "name": "K_STA_SPAWNER",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    false,
+    true
+   ],
+   "writers_total": 4,
+   "writers": [
+    {
+     "script": "k_sta_spawnstart",
+     "module": "sta_m45ab",
+     "set": true,
+     "branch": "if (GetEnteringObject() == GetPartyMemberByIndex(0)); not a helper function's result"
+    },
+    {
+     "script": "k_sta_spawnstop",
+     "module": "sta_m45ab",
+     "set": false,
+     "branch": "if (GetEnteringObject() == GetPartyMemberByIndex(0)); not a helper function's result"
+    },
+    {
+     "script": "k_sta_spawnstart",
+     "module": "sta_m45ac",
+     "set": true,
+     "branch": "if (GetEnteringObject() == GetPartyMemberByIndex(0)); not a helper function's result"
+    }
+   ]
+  },
+  {
+   "name": "K_SWG_BASTILA",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    99
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_psta_baststop",
+     "module": "sta_m45ac",
+     "set": 99
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pla_actmap"
+    },
+    {
+     "where": "Override",
+     "script": "k_trg_partyinit"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_ebn_bast3"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_ebn_bast5"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_basttalk"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_basttalk2"
+    }
+   ],
+   "read_after_planet_total": 16
+  },
+  {
+   "name": "STA_ASSASSIN_DROID",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_psta_genstart",
+     "module": "sta_m45ac",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "Sta_BastConversion",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 5,
+   "writers": [
+    {
+     "script": "k_sta_bastcon+20",
+     "module": "sta_m45ac",
+     "add": 2
+    },
+    {
+     "script": "k_sta_bastcon+30",
+     "module": "sta_m45ac",
+     "add": 3
+    },
+    {
+     "script": "k_sta_bastcon+10",
+     "module": "sta_m45ac",
+     "add": 1
+    }
+   ]
+  },
+  {
+   "name": "STA_BASTILA_DEAD",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 5,
+   "writers": [
+    {
+     "script": "k_sta_bastexe",
+     "module": "sta_m45ac",
+     "set": true,
+     "branch": "if not GetIsObjectValid(GetItemInSlot(4, player)); not (GetBaseItemType(GetItemInSlot(4, player)) == 9)"
+    },
+    {
+     "script": "k_sta_bastexe",
+     "module": "sta_m45ac",
+     "set": true,
+     "branch": "if not GetIsObjectValid(GetItemInSlot(4, player)); GetBaseItemType(GetItemInSlot(4, player)) is 9"
+    },
+    {
+     "script": "k_sta_bastexe",
+     "module": "sta_m45ac",
+     "set": true,
+     "branch": "if GetIsObjectValid(GetItemInSlot(4, player)); not ((GetItemInSlot(4, player) != OBJECT_INVALID) && (GetIte..."
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/stunt_57.mod",
+     "script": "k_scene_start"
+    }
+   ]
+  },
+  {
+   "name": "STA_BASTILA_STUNT",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_psta_bastopen",
+     "module": "sta_m45ac",
+     "set": true,
+     "branch": "if not a helper function's result; not (1 && GetIsObjectValid(OBJECT_SELF))"
+    },
+    {
+     "script": "k_psta_bastopen",
+     "module": "sta_m45ac",
+     "set": true,
+     "branch": "if not a helper function's result; GetIsObjectValid(OBJECT_SELF)"
+    }
+   ]
+  },
+  {
+   "name": "STA_BASTSITH",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_psta_areaenter",
+     "module": "sta_m45ac",
+     "set": true,
+     "branch": "if G_FinalChoice == 1; STA_BASTSITH is FALSE"
+    },
+    {
+     "script": "k_psta_areaenter",
+     "module": "sta_m45ac",
+     "set": true,
+     "branch": "if G_FinalChoice == 2; STA_BASTSITH is FALSE"
+    }
+   ]
+  },
+  {
+   "name": "Sta_BastTalk",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "k_sta_basttalk+1",
+     "module": "sta_m45ac",
+     "add": 1
+    },
+    {
+     "script": "k_sta_bastxxxxxx",
+     "module": "sta_m45ac",
+     "add": 1
+    },
+    {
+     "script": "k_sta_basttalk_1",
+     "module": "sta_m45ac",
+     "add": 1
+    }
+   ]
+  },
+  {
+   "name": "STA_DOOR45A",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_psta_fail_elev",
+     "module": "sta_m45aa",
+     "set": 2
+    },
+    {
+     "script": "k_psta_fail_loc2",
+     "module": "sta_m45aa",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "STA_DOOR45B",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_psta_faillock2",
+     "module": "sta_m45ab",
+     "set": 2
+    },
+    {
+     "script": "k_psta_fail_lock",
+     "module": "sta_m45ab",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "STA_DOOR45C",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_psta_fail_elev",
+     "module": "sta_m45ac",
+     "set": 2
+    },
+    {
+     "script": "k_psta_fail_bast",
+     "module": "sta_m45ac",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "STA_DOOR45D",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_psta_fail_end",
+     "module": "sta_m45ad",
+     "set": 2
+    },
+    {
+     "script": "k_psta_fail_elev",
+     "module": "sta_m45ad",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "STA_DROID_STAND",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    false,
+    true
+   ],
+   "writers_total": 4,
+   "writers": [
+    {
+     "script": "k_psta_startcomp",
+     "module": "sta_m45ac",
+     "set": true
+    },
+    {
+     "script": "k_psta_genreset",
+     "module": "sta_m45ac",
+     "set": false
+    },
+    {
+     "script": "k_psta_gendeath",
+     "module": "sta_m45ac",
+     "set": false,
+     "branch": "if not (1 && GetIsObjectValid(OBJECT_SELF)); (GetGlobalNumber(\"STA_GENERATORS\") + 1) at most 5"
+    }
+   ]
+  },
+  {
+   "name": "STA_GEN_OFF",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_psta_genoff",
+     "module": "sta_m45ac",
+     "set": true,
+     "branch": "if not (1 && GetIsObjectValid(OBJECT_SELF))"
+    },
+    {
+     "script": "k_psta_genoff",
+     "module": "sta_m45ac",
+     "set": true,
+     "branch": "if GetIsObjectValid(OBJECT_SELF)"
+    }
+   ]
+  },
+  {
+   "name": "STA_GENERATORS",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    6
+   ],
+   "writers_total": 8,
+   "writers": [
+    {
+     "script": "k_psta_genoff",
+     "module": "sta_m45ac",
+     "set": 6,
+     "branch": "if not (1 && GetIsObjectValid(OBJECT_SELF))"
+    },
+    {
+     "script": "k_psta_genoff",
+     "module": "sta_m45ac",
+     "set": 6,
+     "branch": "if GetIsObjectValid(OBJECT_SELF)"
+    },
+    {
+     "script": "k_psta_gennewdrd",
+     "module": "sta_m45ac",
+     "add": 1,
+     "branch": "if (GetGlobalNumber(\"STA_GENERATORS\") + 1) at most 5"
+    }
+   ]
+  },
+  {
+   "name": "STA_JEDI_ATTACK",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    4
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_psta_sith_neut",
+     "module": "sta_m45aa",
+     "set": 4
+    }
+   ]
+  },
+  {
+   "name": "STA_MALAK_DRAIN",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    false,
+    true
+   ],
+   "writers_total": 7,
+   "writers": [
+    {
+     "script": "k_psta_ud_mal7",
+     "module": "sta_m45ad",
+     "set": true,
+     "branch": "if GetIsObjectValid(GetNearestObjectByTag(\"sta_malak_drain\", OBJECT_SELF, 1)); not (GetDistanceToObject(Get..."
+    },
+    {
+     "script": "k_psta_ud_mal7",
+     "module": "sta_m45ad",
+     "set": true,
+     "branch": "if STA_MALAK_JEDI != 0"
+    },
+    {
+     "script": "k_psta_ud_mal7",
+     "module": "sta_m45ad",
+     "set": true,
+     "branch": "if STA_MALAK_JEDI == 0"
+    }
+   ]
+  },
+  {
+   "name": "STA_MALAK_JEDI",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 15,
+   "writers": [
+    {
+     "script": "k_psta_malcast3",
+     "module": "sta_m45ad",
+     "set": 1,
+     "branch": "if not (StringToInt(GetName(GetNearestObjectByTag(\"sta_malak_drain\", GetObjectByTag(\"sta_45darthMalak\", 0),..."
+    },
+    {
+     "script": "k_psta_malcast3",
+     "module": "sta_m45ad",
+     "set": 1,
+     "branch": "if not (1 && GetIsObjectValid(GetObjectByTag(\"sta_plc_captive7\", 0))); StringToInt(GetName(GetNearestObject..."
+    },
+    {
+     "script": "k_psta_malcast3",
+     "module": "sta_m45ad",
+     "set": 1,
+     "branch": "if GetIsObjectValid(GetObjectByTag(\"sta_plc_captive7\", 0)); StringToInt(GetName(GetNearestObjectByTag(\"sta_..."
+    }
+   ]
+  },
+  {
+   "name": "STA_MALAK_START",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    false,
+    true
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "k_psta_genstart",
+     "module": "sta_m45ac",
+     "set": true
+    },
+    {
+     "script": "k_psta_genoff",
+     "module": "sta_m45ac",
+     "set": false,
+     "branch": "if not (1 && GetIsObjectValid(OBJECT_SELF))"
+    },
+    {
+     "script": "k_psta_genoff",
+     "module": "sta_m45ac",
+     "set": false,
+     "branch": "if GetIsObjectValid(OBJECT_SELF)"
+    }
+   ]
+  },
+  {
+   "name": "STA_MALAK_TALK",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "k_psta_malakset",
+     "module": "sta_m45ad",
+     "add": 1
+    },
+    {
+     "script": "k_psta_malaksxx",
+     "module": "sta_m45ad",
+     "add": 1
+    },
+    {
+     "script": "k_psta_malakset2",
+     "module": "sta_m45ad",
+     "add": 1
+    }
+   ]
+  },
+  {
+   "name": "STA_MARK2_DROID",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_psta_genstart",
+     "module": "sta_m45ac",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "STA_MARK4_DROID",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_psta_genstart",
+     "module": "sta_m45ac",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "STA_PROBE_DROID",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_psta_genstart",
+     "module": "sta_m45ac",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "STA_SITH_DEAD",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_psta_ud_sith",
+     "module": "sta_m45ac",
+     "add": 1,
+     "branch": "if (GetGlobalNumber(\"STA_SITH_DEAD\") + 1) at most 2; user-defined event is 1007"
+    },
+    {
+     "script": "k_psta_ud_sith",
+     "module": "sta_m45ac",
+     "add": 1,
+     "branch": "if user-defined event is 1007; (GetGlobalNumber(\"STA_SITH_DEAD\") + 1) at least 3"
+    }
+   ]
+  },
+  {
+   "name": "STA_SITH_RUN",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_psta_sith_host",
+     "module": "sta_m45aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "STA_SPYDER_DROID",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_psta_genstart",
+     "module": "sta_m45ac",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "STA_WAR_DROID",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_psta_genstart",
+     "module": "sta_m45ac",
+     "set": 1
+    }
+   ]
+  }
+ ],
+ "globals_never_set": [
+  "STA_BASTILA_LEAVE",
+  "STA_BAST_MOVIE",
+  "STA_GEN_BLASTER",
+  "STA_GEN_DESTROYED",
+  "STA_GEN_EXPLOSIVE",
+  "STA_GEN_FRIEND",
+  "STA_GEN_NEW"
+ ],
+ "items": {
+  "held_at_end": [],
+  "held_note": "Given by scripts on the critical path (tools/questdb/chapters.py).",
+  "other_script_gifts": [
+   {
+    "item": "sta_temp_saber2",
+    "count": 1,
+    "script": "k_psta_doorend",
+    "module": "sta_m45aa",
+    "branch": "if G_FinalChoice == 1"
+   },
+   {
+    "item": "sta_temp_saber",
+    "count": 1,
+    "script": "k_psta_saber",
+    "module": "sta_m45ac",
+    "branch": "if not GetIsObjectValid(GetItemInSlot(5, player)); not GetIsObjectValid(GetItemInSlot(4, player)); not GetI..."
+   },
+   {
+    "item": "sta_temp_saber",
+    "count": 1,
+    "script": "k_psta_saber",
+    "module": "sta_m45ac",
+    "branch": "if not GetIsObjectValid(GetItemInSlot(5, player)); not GetIsObjectValid(GetItemInSlot(4, player)); GetIsObj..."
+   },
+   {
+    "item": "sta_temp_saber",
+    "count": 1,
+    "script": "k_psta_saber",
+    "module": "sta_m45ac",
+    "branch": "if not GetIsObjectValid(GetItemInSlot(5, player)); GetIsObjectValid(GetItemInSlot(4, player)); (GetBaseItem..."
+   },
+   {
+    "item": "sta_temp_saber",
+    "count": 1,
+    "script": "k_psta_saber",
+    "module": "sta_m45ac",
+    "branch": "if GetIsObjectValid(GetItemInSlot(5, player)); not GetIsObjectValid(GetItemInSlot(4, player)); not GetIsObj..."
+   },
+   {
+    "item": "sta_temp_saber",
+    "count": 1,
+    "script": "k_psta_saber",
+    "module": "sta_m45ac",
+    "branch": "if GetIsObjectValid(GetItemInSlot(5, player)); not GetIsObjectValid(GetItemInSlot(4, player)); GetIsObjectV..."
+   }
+  ],
+  "taken_optional": [
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_act_comp01",
+    "module": "sta_m45ab",
+    "from": [
+     "sta45_turretcomp E5 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_psta_com35x",
+    "module": "sta_m45ab",
+    "from": [
+     "sta45_turretcomp E6 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_psta_com32",
+    "module": "sta_m45ab",
+    "from": [
+     "sta45_turretcomp E10 script",
+     "sta45_turretcomp E12 script",
+     "sta45_turretcomp E14 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_psta_turretoff",
+    "module": "sta_m45ab",
+    "from": [
+     "sta45_turretcomp E19 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "sta_temp_saber",
+    "script": "k_sta_bastexe",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_bastila E3 script",
+     "k_sta_bastlast E3 script"
+    ],
+    "branch": "if not GetIsObjectValid(GetItemInSlot(4, player)); not (GetBaseItemType(GetItemInSlot(4, player)) == 9)"
+   },
+   {
+    "item": "sta_temp_saber",
+    "script": "k_sta_bastexe",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_bastila E3 script",
+     "k_sta_bastlast E3 script"
+    ],
+    "branch": "if not GetIsObjectValid(GetItemInSlot(4, player)); GetBaseItemType(GetItemInSlot(4, player)) is 9"
+   },
+   {
+    "item": "sta_temp_saber",
+    "script": "k_sta_bastexe",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_bastila E3 script",
+     "k_sta_bastlast E3 script"
+    ],
+    "branch": "if GetIsObjectValid(GetItemInSlot(4, player)); not ((GetItemInSlot(4, player) != OBJECT_INVALID) && (GetIte..."
+   },
+   {
+    "item": "sta_temp_saber",
+    "script": "k_sta_bastexe",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_bastila E3 script",
+     "k_sta_bastlast E3 script"
+    ],
+    "branch": "if GetIsObjectValid(GetItemInSlot(4, player)); GetIsObjectValid(GetItemInSlot(5, player))"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_psta_actcom37",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_doorcomp E4 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_psta_actcom36",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_gen_assass E4 script",
+     "k_sta_gen_mk2 E4 script",
+     "k_sta_gen_mk4 E4 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_psta_actcom35",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_gen_assass E7 script",
+     "k_sta_gen_mk2 E7 script",
+     "k_sta_gen_mk4 E7 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   }
+  ],
+  "container_loot_optional": [
+   {
+    "module": "sta_m45ab",
+    "area": "m45ab",
+    "container": "sta45b_medium4",
+    "template": "sta45b_medium4",
+    "position": [
+     -27.48,
+     -227.42
+    ],
+    "items": [
+     {
+      "resref": "g_i_gauntlet03",
+      "count": 1
+     },
+     {
+      "resref": "g_i_progspike01",
+      "count": 3
+     },
+     {
+      "resref": "g_i_medeqpmnt04",
+      "count": 2
+     },
+     {
+      "resref": "g_w_firegren001",
+      "count": 5
+     }
+    ]
+   },
+   {
+    "module": "sta_m45ab",
+    "area": "m45ab",
+    "container": "sta_armor_container",
+    "template": "g_tresmilhig006",
+    "position": [
+     148.83,
+     -183.14
+    ],
+    "items": [],
+    "created_by_script": [
+     {
+      "resref": "g_a_mstrrobe07",
+      "script": "k_psta_replicat5",
+      "when": []
+     },
+     {
+      "resref": "g_a_mstrrobe06",
+      "script": "k_psta_replicat4",
+      "when": []
+     },
+     {
+      "resref": "g_a_class9002",
+      "script": "k_psta_replicat3",
+      "when": []
+     },
+     {
+      "resref": "g_a_class9001",
+      "script": "k_psta_replicat2",
+      "when": []
+     },
+     {
+      "resref": "g_a_class7001",
+      "script": "k_psta_replicate",
+      "when": []
+     }
+    ]
+   },
+   {
+    "module": "sta_m45ac",
+    "area": "m45ac",
+    "container": "sta45c_medium1",
+    "template": "sta45c_medium1",
+    "position": [
+     167.94,
+     -219.46
+    ],
+    "items": [
+     {
+      "resref": "g_i_adrnaline004",
+      "count": 1
+     },
+     {
+      "resref": "g_i_progspike01",
+      "count": 5
+     },
+     {
+      "resref": "g_i_medeqpmnt03",
+      "count": 1
+     },
+     {
+      "resref": "g_i_medeqpmnt04",
+      "count": 4
+     }
+    ]
+   }
+  ],
+  "random_loot": "creature drops rolled by the generic treasure scripts at death are random and not listed"
+ },
+ "party": {
+  "recruit": [],
+  "remove": [],
+  "recruited_at_end": [],
+  "recruit_note": "Apply as the game's own AddAvailableNPCByTemplate(slot, template): the slot's AVAILNPC<slot> creature in the save is built from the template (templates.bif, Override or the named module)",
+  "calls": [
+   {
+    "call": "RemovePartyMember(8)",
+    "script": "k_psta_init_zaal",
+    "module": "sta_m45aa",
+    "from": [
+     "k45_init_zaalbar.utt ScriptOnEnter (k45_init_zaalbar)"
+    ],
+    "branch": "if Unk_ZaalbarInsane is TRUE",
+    "critical": false
+   },
+   {
+    "call": "RemoveAvailableNPC(8)",
+    "script": "k_psta_init_zaal",
+    "module": "sta_m45aa",
+    "from": [
+     "k45_init_zaalbar.utt ScriptOnEnter (k45_init_zaalbar)"
+    ],
+    "branch": "if Unk_ZaalbarInsane is TRUE",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(8)",
+    "script": "k_sta_jedi002",
+    "module": "sta_m45aa",
+    "from": [
+     "k_sta_jedi001 R5 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(0)",
+    "script": "k_psta_door",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_bastila E70 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(1)",
+    "script": "k_psta_door",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_bastila E70 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(2)",
+    "script": "k_psta_door",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_bastila E70 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(3)",
+    "script": "k_psta_door",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_bastila E70 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(4)",
+    "script": "k_psta_door",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_bastila E70 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(5)",
+    "script": "k_psta_door",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_bastila E70 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(6)",
+    "script": "k_psta_door",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_bastila E70 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(7)",
+    "script": "k_psta_door",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_bastila E70 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(8)",
+    "script": "k_psta_door",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_bastila E70 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(0)",
+    "script": "k_psta_pc_j",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_bastila E72 script"
+    ],
+    "branch": "if not GetIsObjectValid(GetObjectByTag(\"HK47\", 0)); not GetIsObjectValid(GetObjectByTag(\"Juhani\", 0)); not ...",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(7)",
+    "script": "k_psta_pc_j",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_bastila E72 script"
+    ],
+    "branch": "if not GetIsObjectValid(GetObjectByTag(\"HK47\", 0)); not GetIsObjectValid(GetObjectByTag(\"Juhani\", 0)); not ...",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(6)",
+    "script": "k_psta_pc_j",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_bastila E72 script"
+    ],
+    "branch": "if not GetIsObjectValid(GetObjectByTag(\"HK47\", 0)); not GetIsObjectValid(GetObjectByTag(\"Juhani\", 0)); not ...",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(8)",
+    "script": "k_psta_pc_j",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_bastila E72 script"
+    ],
+    "branch": "if not GetIsObjectValid(GetObjectByTag(\"HK47\", 0)); not GetIsObjectValid(GetObjectByTag(\"Juhani\", 0)); not ...",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(1)",
+    "script": "k_psta_pc_j",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_bastila E72 script"
+    ],
+    "branch": "if not GetIsObjectValid(GetObjectByTag(\"HK47\", 0)); not GetIsObjectValid(GetObjectByTag(\"Juhani\", 0)); not ...",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(4)",
+    "script": "k_psta_pc_j",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_bastila E72 script"
+    ],
+    "branch": "if not GetIsObjectValid(GetObjectByTag(\"HK47\", 0)); not GetIsObjectValid(GetObjectByTag(\"Juhani\", 0)); GetI...",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(0)",
+    "script": "k_psta_pc_j",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_bastila E72 script"
+    ],
+    "branch": "if not GetIsObjectValid(GetObjectByTag(\"HK47\", 0)); not GetIsObjectValid(GetObjectByTag(\"Juhani\", 0)); GetI...",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(5)",
+    "script": "k_psta_pc_j",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_bastila E72 script"
+    ],
+    "branch": "if not GetIsObjectValid(GetObjectByTag(\"HK47\", 0)); GetIsObjectValid(GetObjectByTag(\"Juhani\", 0))",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(0)",
+    "script": "k_psta_pc_j",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_bastila E72 script"
+    ],
+    "branch": "if not GetIsObjectValid(GetObjectByTag(\"HK47\", 0)); GetIsObjectValid(GetObjectByTag(\"Juhani\", 0))",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(3)",
+    "script": "k_psta_pc_j",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_bastila E72 script"
+    ],
+    "branch": "if GetIsObjectValid(GetObjectByTag(\"HK47\", 0))",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(0)",
+    "script": "k_psta_pc_j",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_bastila E72 script"
+    ],
+    "branch": "if GetIsObjectValid(GetObjectByTag(\"HK47\", 0))",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(0)",
+    "script": "k_psta_mlkparty",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_darthmalak E13 script"
+    ],
+    "branch": "if not GetIsImmune(GetPartyMemberByIndex(1), 6, OBJECT_INVALID)",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(1)",
+    "script": "k_psta_mlkparty",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_darthmalak E13 script"
+    ],
+    "branch": "if not GetIsImmune(GetPartyMemberByIndex(1), 6, OBJECT_INVALID)",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(2)",
+    "script": "k_psta_mlkparty",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_darthmalak E13 script"
+    ],
+    "branch": "if not GetIsImmune(GetPartyMemberByIndex(1), 6, OBJECT_INVALID)",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(3)",
+    "script": "k_psta_mlkparty",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_darthmalak E13 script"
+    ],
+    "branch": "if not GetIsImmune(GetPartyMemberByIndex(1), 6, OBJECT_INVALID)",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(4)",
+    "script": "k_psta_mlkparty",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_darthmalak E13 script"
+    ],
+    "branch": "if not GetIsImmune(GetPartyMemberByIndex(1), 6, OBJECT_INVALID)",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(5)",
+    "script": "k_psta_mlkparty",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_darthmalak E13 script"
+    ],
+    "branch": "if not GetIsImmune(GetPartyMemberByIndex(1), 6, OBJECT_INVALID)",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(6)",
+    "script": "k_psta_mlkparty",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_darthmalak E13 script"
+    ],
+    "branch": "if not GetIsImmune(GetPartyMemberByIndex(1), 6, OBJECT_INVALID)",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(7)",
+    "script": "k_psta_mlkparty",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_darthmalak E13 script"
+    ],
+    "branch": "if not GetIsImmune(GetPartyMemberByIndex(1), 6, OBJECT_INVALID)",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(8)",
+    "script": "k_psta_mlkparty",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_darthmalak E13 script"
+    ],
+    "branch": "if not GetIsImmune(GetPartyMemberByIndex(1), 6, OBJECT_INVALID)",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(0)",
+    "script": "k_psta_mlkparty",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_darthmalak E13 script"
+    ],
+    "branch": "if GetIsImmune(GetPartyMemberByIndex(1), 6, OBJECT_INVALID)",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(1)",
+    "script": "k_psta_mlkparty",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_darthmalak E13 script"
+    ],
+    "branch": "if GetIsImmune(GetPartyMemberByIndex(1), 6, OBJECT_INVALID)",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(2)",
+    "script": "k_psta_mlkparty",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_darthmalak E13 script"
+    ],
+    "branch": "if GetIsImmune(GetPartyMemberByIndex(1), 6, OBJECT_INVALID)",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(3)",
+    "script": "k_psta_mlkparty",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_darthmalak E13 script"
+    ],
+    "branch": "if GetIsImmune(GetPartyMemberByIndex(1), 6, OBJECT_INVALID)",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(4)",
+    "script": "k_psta_mlkparty",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_darthmalak E13 script"
+    ],
+    "branch": "if GetIsImmune(GetPartyMemberByIndex(1), 6, OBJECT_INVALID)",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(5)",
+    "script": "k_psta_mlkparty",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_darthmalak E13 script"
+    ],
+    "branch": "if GetIsImmune(GetPartyMemberByIndex(1), 6, OBJECT_INVALID)",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(6)",
+    "script": "k_psta_mlkparty",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_darthmalak E13 script"
+    ],
+    "branch": "if GetIsImmune(GetPartyMemberByIndex(1), 6, OBJECT_INVALID)",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(7)",
+    "script": "k_psta_mlkparty",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_darthmalak E13 script"
+    ],
+    "branch": "if GetIsImmune(GetPartyMemberByIndex(1), 6, OBJECT_INVALID)",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(8)",
+    "script": "k_psta_mlkparty",
+    "module": "sta_m45ac",
+    "from": [
+     "k_sta_darthmalak E13 script"
+    ],
+    "branch": "if GetIsImmune(GetPartyMemberByIndex(1), 6, OBJECT_INVALID)",
+    "critical": false
+   }
+  ],
+  "slots": []
+ },
+ "next_chapter": {
+  "module": "stunt_57",
+  "waypoint": "",
+  "chain": [
+   {
+    "module": "stunt_56a",
+    "waypoint": "",
+    "movies": [
+     "56"
+    ],
+    "by": "k_psta_bastleav2",
+    "in": "sta_m45aa",
+    "dialogs": [
+     {
+      "dialog": "m01aa_c05",
+      "started_by": [
+       "k_scene_start"
+      ]
+     }
+    ],
+    "leaves_by": {
+     "script": "k_pstu_modend",
+     "when": []
+    }
+   },
+   {
+    "module": "stunt_57",
+    "waypoint": "",
+    "movies": [
+     "56b"
+    ],
+    "by": "k_pstu_modend",
+    "in": "stunt_56a",
+    "dialogs": [
+     {
+      "dialog": "m41ad_c01",
+      "started_by": [
+       "k_scene_start"
+      ]
+     }
+    ],
+    "leaves_by": {
+     "script": "k_swg_bastmovie",
+     "when": [
+      "STA_BAST_MOVIE is FALSE"
+     ]
+    }
+   }
+  ],
+  "note": "the light-side ending: STUNT_56a with movie 56, then the ceremony (stunt_57); the game ends there"
+ },
+ "critical_path": [
+  {
+   "module": "sta_m45ad",
+   "source": "k_psta_ud_malak",
+   "what": "the last fight: STA_MALAK_DEAD"
+  },
+  {
+   "module": "sta_m45aa",
+   "source": "k_psta_bastleav2",
+   "what": "light side (G_FinalChoice 2): StartNewModule STUNT_56a with movie 56"
+  }
+ ],
+ "critical_path_note": "Curated in tools/questdb/chapters.py; the order is inferred, not played. Writers marked critical = true belong to these scripts.",
+ "uncertain": [
+  "script k_psta_spn_jedi in sta_m45aa was too large to follow completely; some of its effects may be missing",
+  "script k_def_spawn01 in sta_m45aa was too large to follow completely; some of its effects may be missing",
+  "script k_psta_spn_dark in sta_m45aa was too large to follow completely; some of its effects may be missing",
+  "script k_psta_ud_sithvc in sta_m45aa was too large to follow completely; some of its effects may be missing",
+  "script k_psta_spn_jedi1 in sta_m45aa was too large to follow completely; some of its effects may be missing",
+  "script k_psta_doorend in sta_m45aa was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in sta_m45aa was too large to follow completely; some of its effects may be missing",
+  "script k_psta_spn_deatx in sta_m45aa was too large to follow completely; some of its effects may be missing",
+  "script k_sta_spawntur in sta_m45ab was too large to follow completely; some of its effects may be missing",
+  "script k_def_spawn01 in sta_m45ab was too large to follow completely; some of its effects may be missing",
+  "script k_psta_spn_heabb in sta_m45ab was too large to follow completely; some of its effects may be missing",
+  "script k_psta_spn_heart in sta_m45ab was too large to follow completely; some of its effects may be missing",
+  "script k_psta_ud_encoun in sta_m45ab was too large to follow completely; some of its effects may be missing",
+  "script k_psta_spn_heaxx in sta_m45ab was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in sta_m45ab was too large to follow completely; some of its effects may be missing",
+  "script k_def_spawn01 in sta_m45ac was too large to follow completely; some of its effects may be missing",
+  "script k_psta_spn_death in sta_m45ac was too large to follow completely; some of its effects may be missing",
+  "script k_psta_spn_hearx in sta_m45ac was too large to follow completely; some of its effects may be missing",
+  "script k_psta_spn_hearv in sta_m45ac was too large to follow completely; some of its effects may be missing",
+  "script k_boss_freeze in sta_m45ac was too large to follow completely; some of its effects may be missing",
+  "script k_psta_door in sta_m45ac was too large to follow completely; some of its effects may be missing",
+  "script k_psta_saber in sta_m45ac was too large to follow completely; some of its effects may be missing",
+  "script k_psta_spn_deatx in sta_m45ac was too large to follow completely; some of its effects may be missing",
+  "script k_psta_spndthdm2 in sta_m45ac was too large to follow completely; some of its effects may be missing",
+  "script k_psta_spn_heart in sta_m45ac was too large to follow completely; some of its effects may be missing",
+  "script k_psta_spn_heaxx in sta_m45ac was too large to follow completely; some of its effects may be missing",
+  "script k_psta_spn_hboss in sta_m45ac was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in sta_m45ac was too large to follow completely; some of its effects may be missing",
+  "script k_psta_spnhrtdth in sta_m45ac was too large to follow completely; some of its effects may be missing",
+  "script k_psta_spndthdmg in sta_m45ad was too large to follow completely; some of its effects may be missing",
+  "script k_psta_malakfght in sta_m45ad was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in sta_m45ad was too large to follow completely; some of its effects may be missing",
+  "script k_def_spawn01 in sta_m45ad was too large to follow completely; some of its effects may be missing",
+  "critical script k_psta_ud_malak does not run in sta_m45ad by any placed object, dialog or script the generator could find",
+  "global G_FinalChoice = 2: light side; 1 plays the dark-side ending (STUNT_54a)",
+  "sta_m45aa: placed creature k_sta_darkjedi1 (template k_sta_darkjedi1) is hostile but its template cannot die (Plot or Min1HP); left in place",
+  "sta_m45aa: placed creature k_sta_darkjedi2 (template k_sta_darkjedi2) is hostile but its template cannot die (Plot or Min1HP); left in place",
+  "sta_m45aa: placed creature k_sta_darkjedi3 (template k_sta_darkjedi3) is hostile but its template cannot die (Plot or Min1HP); left in place",
+  "sta_m45aa: placed creature sta45a_sith01 (template sta45a_sith01) is hostile but its template cannot die (Plot or Min1HP); left in place",
+  "sta_m45aa: placed creature sta45a_sith02 (template sta45a_sith02) is hostile but its template cannot die (Plot or Min1HP); left in place",
+  "sta_m45aa: placed creature sta45a_sith03 (template sta45a_sith03) is hostile but its template cannot die (Plot or Min1HP); left in place",
+  "sta_m45aa: placed creature sta45a_sith04 (template sta45a_sith04) is hostile but its template cannot die (Plot or Min1HP); left in place",
+  "sta_m45aa: placed creature sta_jedi001 (template sta_jedi001) is hostile but its template cannot die (Plot or Min1HP); left in place",
+  "sta_m45aa: creature sta45a_sith04 is destroyed by k_psta_areaenter, k_psta_sith_kill, which is not on the curated critical path; it may belong to a side quest",
+  "sta_m45aa: creature sta45a_sith03 is destroyed by k_psta_areaenter, k_psta_sith_kill, which is not on the curated critical path; it may belong to a side quest",
+  "sta_m45aa: creature sta45a_sith02 is destroyed by k_psta_areaenter, k_psta_sith_kill, which is not on the curated critical path; it may belong to a side quest",
+  "sta_m45aa: creature sta45a_sith01 is destroyed by k_psta_areaenter, k_psta_sith_kill, which is not on the curated critical path; it may belong to a side quest",
+  "sta_m45aa: creature sta_jedi004 is destroyed by k_psta_actwait3, k_psta_areaenter, which is not on the curated critical path; it may belong to a side quest",
+  "sta_m45aa: creature sta_jedi003 is destroyed by k_psta_actwait3, k_psta_areaenter, which is not on the curated critical path; it may belong to a side quest",
+  "sta_m45aa: creature sta_jedi002 is destroyed by k_psta_actwait3, k_psta_areaenter, which is not on the curated critical path; it may belong to a side quest",
+  "sta_m45aa: creature sta_jedi001 is destroyed by k_psta_actwait3, k_psta_areaenter, which is not on the curated critical path; it may belong to a side quest",
+  "sta_m45aa: door sta_door_explode1 is destroyed by k_psta_explode1, which is not on the curated critical path; it may belong to a side quest",
+  "sta_m45aa: door sta_door_x1 is destroyed by k_psta_doorx1, which is not on the curated critical path; it may belong to a side quest",
+  "sta_m45aa: door sta_door_x2 is destroyed by k_psta_doorx2, which is not on the curated critical path; it may belong to a side quest",
+  "sta_m45aa: creature sta45a_malak is destroyed by k_psta_destall, which is not on the curated critical path; it may belong to a side quest",
+  "sta_m45aa: creature sithmaster is destroyed by k_psta_destall, which is not on the curated critical path; it may belong to a side quest",
+  "sta_m45aa: creature sta45a_assault is destroyed by k_psta_destall, which is not on the curated critical path; it may belong to a side quest",
+  "sta_m45aa: local boolean index 29 on sta_trg_hostcut2 = true is not certain (set to more than one value)",
+  "sta_m45aa: local boolean index 41 on sta_trg_hostcut2 = true is not certain (set to more than one value)",
+  "sta_m45aa: local number index 0 on sta_trg_hostcut2 = 1 is not certain (also set to values that are not constant: GetLocalNumber(OBJECT_SELF, 0), (GetLocalNumber(OBJECT_SELF, 0) + 1), (GetLocalNumber(OBJECT_SELF, 0) + -1))",
+  "sta_m45aa: local boolean index 29 on sta_trg_hostcut3 = true is not certain (set to more than one value)",
+  "sta_m45aa: local boolean index 41 on sta_trg_hostcut3 = true is not certain (set to more than one value)",
+  "sta_m45aa: local number index 0 on sta_trg_hostcut3 = 1 is not certain (also set to values that are not constant: GetLocalNumber(OBJECT_SELF, 0), (GetLocalNumber(OBJECT_SELF, 0) + 1), (GetLocalNumber(OBJECT_SELF, 0) + -1))",
+  "sta_m45ab: creature sta45b_malak is destroyed by k_psta_destall, which is not on the curated critical path; it may belong to a side quest",
+  "sta_m45ab: creature sithmaster is destroyed by k_psta_destall, which is not on the curated critical path; it may belong to a side quest",
+  "sta_m45ac: creature sta45c_malak is destroyed by k_psta_destmala2, k_psta_destmalak, which is not on the curated critical path; it may belong to a side quest",
+  "sta_m45ac: creature sta_45darthmalak is destroyed by k_psta_malakleav, which is not on the curated critical path; it may belong to a side quest",
+  "sta_m45ac: door sta_door_freeze is locked (needs a key) and no script here opens it; left as it is",
+  "sta_m45ac: door sta_door_static is locked (needs a key) and no script here opens it; left as it is",
+  "sta_m45ad: placed creature sta_45darthmalak (template sta_45darthmalak) is hostile but its template cannot die (Plot or Min1HP); left in place",
+  "sta_m45ad: placeable sta_malak_drain is destroyed by k_psta_atkplace, k_psta_castat, k_psta_jediend, which is not on the curated critical path; it may belong to a side quest",
+  "sta_m45ad: placeable sta_jedi_conv is destroyed by k_psta_jediend2, which is not on the curated critical path; it may belong to a side quest",
+  "sta_m45ad: local boolean index 10 on sta_plc_captive1 = true is not certain (set to more than one value)",
+  "sta_m45ad: local boolean index 10 on sta_plc_captive2 = true is not certain (set to more than one value)",
+  "sta_m45ad: local boolean index 10 on sta_plc_captive3 = true is not certain (set to more than one value)",
+  "sta_m45ad: local boolean index 10 on sta_plc_captive4 = true is not certain (set to more than one value)",
+  "sta_m45ad: local boolean index 10 on sta_plc_captive5 = true is not certain (set to more than one value)",
+  "sta_m45ad: local boolean index 10 on sta_plc_captive6 = true is not certain (set to more than one value)",
+  "sta_m45ad: local boolean index 10 on sta_plc_captive7 = true is not certain (set to more than one value)",
+  "sta_m45ad: local boolean index 10 on sta_plc_captive8 = true is not certain (set to more than one value)"
+ ],
+ "dark": {
+  "note": "the dark-side ending: after the last fight k_psta_mlkend (sta_m45ad, G_FinalChoice 1) moves on to STUNT_54a with movie 51",
+  "journal": [],
+  "globals": [
+   {
+    "name": "G_FinalChoice",
+    "value": 1,
+    "certain": true,
+    "note": "set at the Unknown World's summit by the dark-side choice"
+   }
+  ],
+  "party": {
+   "recruit": [],
+   "not_recruited": [],
+   "remove": []
+  },
+  "next_chapter": {
+   "module": "stunt_55a",
+   "waypoint": "",
+   "chain": [
+    {
+     "module": "stunt_54a",
+     "waypoint": "",
+     "movies": [
+      "51"
+     ],
+     "by": "k_psta_mlkend",
+     "in": "sta_m45ad",
+     "dialogs": [
+      {
+       "dialog": "m01aa_c04",
+       "started_by": [
+        "k_scene_start"
+       ]
+      }
+     ],
+     "leaves_by": {
+      "script": "k_pstu_modend",
+      "when": []
+     }
+    },
+    {
+     "module": "stunt_55a",
+     "waypoint": "",
+     "movies": [
+      "54b"
+     ],
+     "by": "k_pstu_modend",
+     "in": "stunt_54a",
+     "dialogs": [
+      {
+       "dialog": "end_55a",
+       "started_by": [
+        "k_scene_start"
+       ]
+      }
+     ]
+    }
+   ],
+   "entry": {
+    "area": "stunt_unktemp",
+    "x": 79.3281,
+    "y": 69.4553,
+    "z": 13.7506,
+    "dir_x": 0,
+    "dir_y": 1.0,
+    "note": "the waypoint is empty, so the game puts the party at the module's entry point from module.ifo"
+   }
+  }
+ },
+ "cleared": [
+  {
+   "module": "sta_m45aa",
+   "area": "m45aa",
+   "returnable": false,
+   "remove": [
+    {
+     "tag": "sta45a_assault3",
+     "template": "sta45a_assaul002",
+     "count": 4,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag sta45a_assault3, faction 5 (neutral), level 14; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "sta45_droid_cut1",
+     "template": "sta45a_assaul003",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag sta45_droid_cut1, faction 5 (neutral), level 12; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "sta45_droid_cut2",
+     "template": "sta45a_assaul004",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag sta45_droid_cut2, faction 5 (neutral), level 12; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "sta45_droid_cut3",
+     "template": "sta45a_assaul005",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag sta45_droid_cut3, faction 5 (neutral), level 12; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "sta45_droid_cut4",
+     "template": "sta45a_assaul006",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag sta45_droid_cut4, faction 5 (neutral), level 12; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "sta45a_sith04",
+     "template": "sta45a_sith04",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_psta_areaenter",
+      "k_psta_sith_kill"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "sta45a_sith03",
+     "template": "sta45a_sith03",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_psta_areaenter",
+      "k_psta_sith_kill"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "sta45a_sith02",
+     "template": "sta45a_sith02",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_psta_areaenter",
+      "k_psta_sith_kill"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "sta45a_sith01",
+     "template": "sta45a_sith01",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_psta_areaenter",
+      "k_psta_sith_kill"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "sta_jedi004",
+     "template": "sta_jedi004",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_psta_actwait3",
+      "k_psta_areaenter"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "sta_jedi003",
+     "template": "sta_jedi003",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_psta_actwait3",
+      "k_psta_areaenter"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "sta_jedi002",
+     "template": "sta_jedi002",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_psta_actwait3",
+      "k_psta_areaenter"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "sta_jedi001",
+     "template": "sta_jedi001",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_psta_actwait3",
+      "k_psta_areaenter"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "sta_door_explode1",
+     "template": "sta_door_unlock",
+     "kind": "door",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_psta_explode1"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "sta_door_x1",
+     "template": "sta_door_dest1",
+     "kind": "door",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_psta_doorx1"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "sta_door_x2",
+     "template": "sta_door_dest2",
+     "kind": "door",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_psta_doorx2"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "sta45a_malak",
+     "template": "sta45a_malak",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_psta_destall"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "sithmaster",
+     "template": "n_sithappren001",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_psta_destall"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "sta45a_assault",
+     "template": "sta45a_assault",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_psta_destall"
+     ],
+     "certain": false
+    }
+   ],
+   "spawned_and_killed": [
+    {
+     "template": "a_sta_darkjed001",
+     "tag": "k_sta_dark1"
+    }
+   ],
+   "doors": [
+    {
+     "tag": "sta45a_east_45b",
+     "template": "sta45a_east_45b",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "sta45a_sta45d",
+     "template": "sta45a_sta45d",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open/unlock it",
+     "scripts": [
+      "k_psta_areaenter",
+      "k_psta_doorend",
+      "k_psta_joinsith"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "sta45a_west_45b",
+     "template": "sta45a_west_45b",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "sta_door_end45a",
+     "template": "sta_door_end45a",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "sta_door_explode1",
+     "template": "sta_door_unlock",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "sta_door_statica",
+     "template": "sta_door_statica",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "sta_door_unlock",
+     "template": "sta_door_unlock",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "sta_door_unlock1",
+     "template": "sta_door_unlo001",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "sta_door_x1",
+     "template": "sta_door_dest1",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "sta_door_x2",
+     "template": "sta_door_dest2",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "sta_dor_lockeast",
+     "template": "sta_dor_lockeast",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "sta_dor_lockwest",
+     "template": "sta_dor_lockwest",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    }
+   ],
+   "containers_looted": [],
+   "locals": [
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_init_cart"
+     ],
+     "tag": "k45_init_carth",
+     "set_by": {
+      "1": [
+       "k_psta_init_cart"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_init_jedi"
+     ],
+     "tag": "k45_init_jedi",
+     "set_by": {
+      "1": [
+       "k_psta_init_jedi"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_init_zaal"
+     ],
+     "tag": "k45_init_zaalbar",
+     "set_by": {
+      "1": [
+       "k_psta_init_zaal"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 29,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn2"
+     ],
+     "tag": "sta_trg_hostcut2",
+     "set_by": {
+      "0": [
+       "k_psta_hostscn2"
+      ],
+      "1": [
+       "k_psta_hostscn2"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 34,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn2"
+     ],
+     "tag": "sta_trg_hostcut2",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 35,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn2"
+     ],
+     "tag": "sta_trg_hostcut2",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 37,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn2"
+     ],
+     "tag": "sta_trg_hostcut2",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 38,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn2"
+     ],
+     "tag": "sta_trg_hostcut2",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 39,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn2"
+     ],
+     "tag": "sta_trg_hostcut2",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 41,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn2"
+     ],
+     "tag": "sta_trg_hostcut2",
+     "set_by": {
+      "0": [
+       "k_psta_hostscn2"
+      ],
+      "1": [
+       "k_psta_hostscn2"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 42,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_hostscn2"
+     ],
+     "tag": "sta_trg_hostcut2",
+     "set_by": {
+      "1": [
+       "k_psta_hostscn2"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 46,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn2"
+     ],
+     "tag": "sta_trg_hostcut2",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 47,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn2"
+     ],
+     "tag": "sta_trg_hostcut2",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 60,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn2"
+     ],
+     "tag": "sta_trg_hostcut2",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 61,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn2"
+     ],
+     "tag": "sta_trg_hostcut2",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 62,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn2"
+     ],
+     "tag": "sta_trg_hostcut2",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 64,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn2"
+     ],
+     "tag": "sta_trg_hostcut2",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 65,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_hostscn2"
+     ],
+     "tag": "sta_trg_hostcut2",
+     "set_by": {
+      "1": [
+       "k_psta_hostscn2"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 67,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_hostscn2"
+     ],
+     "tag": "sta_trg_hostcut2",
+     "set_by": {
+      "1": [
+       "k_psta_hostscn2"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 70,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn2"
+     ],
+     "tag": "sta_trg_hostcut2",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "number",
+     "value": 1,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn2"
+     ],
+     "tag": "sta_trg_hostcut2",
+     "set_by": {
+      "(GetLocalNumber(OBJECT_SELF, 0) + -1)": [
+       "k_psta_hostscn2"
+      ],
+      "(GetLocalNumber(OBJECT_SELF, 0) + 1)": [
+       "k_psta_hostscn2"
+      ],
+      "(Random(GetLocalNumber(OBJECT_SELF, 1)) + 1)": [
+       "k_psta_hostscn2"
+      ],
+      "1": [
+       "k_psta_hostscn2"
+      ],
+      "GetLocalNumber(OBJECT_SELF, 0)": [
+       "k_psta_hostscn2"
+      ]
+     },
+     "note": "also set to values that are not constant: GetLocalNumber(OBJECT_SELF, 0), (GetLocalNumber(OBJECT_SELF, 0) + 1), (GetLocalNumber(OBJECT_SELF, 0) + -1)"
+    },
+    {
+     "object": "trigger",
+     "index": 1,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn2"
+     ],
+     "tag": "sta_trg_hostcut2",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 2,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn2"
+     ],
+     "tag": "sta_trg_hostcut2",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 3,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn2"
+     ],
+     "tag": "sta_trg_hostcut2",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 4,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn2"
+     ],
+     "tag": "sta_trg_hostcut2",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 29,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn3"
+     ],
+     "tag": "sta_trg_hostcut3",
+     "set_by": {
+      "0": [
+       "k_psta_hostscn3"
+      ],
+      "1": [
+       "k_psta_hostscn3"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 34,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn3"
+     ],
+     "tag": "sta_trg_hostcut3",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 35,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn3"
+     ],
+     "tag": "sta_trg_hostcut3",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 37,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn3"
+     ],
+     "tag": "sta_trg_hostcut3",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 38,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn3"
+     ],
+     "tag": "sta_trg_hostcut3",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 39,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn3"
+     ],
+     "tag": "sta_trg_hostcut3",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 41,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn3"
+     ],
+     "tag": "sta_trg_hostcut3",
+     "set_by": {
+      "0": [
+       "k_psta_hostscn3"
+      ],
+      "1": [
+       "k_psta_hostscn3"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 42,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_hostscn3"
+     ],
+     "tag": "sta_trg_hostcut3",
+     "set_by": {
+      "1": [
+       "k_psta_hostscn3"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 46,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn3"
+     ],
+     "tag": "sta_trg_hostcut3",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 47,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn3"
+     ],
+     "tag": "sta_trg_hostcut3",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 60,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn3"
+     ],
+     "tag": "sta_trg_hostcut3",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 61,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn3"
+     ],
+     "tag": "sta_trg_hostcut3",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 62,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn3"
+     ],
+     "tag": "sta_trg_hostcut3",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 64,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn3"
+     ],
+     "tag": "sta_trg_hostcut3",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 65,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_hostscn3"
+     ],
+     "tag": "sta_trg_hostcut3",
+     "set_by": {
+      "1": [
+       "k_psta_hostscn3"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 67,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_hostscn3"
+     ],
+     "tag": "sta_trg_hostcut3",
+     "set_by": {
+      "1": [
+       "k_psta_hostscn3"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 70,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn3"
+     ],
+     "tag": "sta_trg_hostcut3",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "number",
+     "value": 1,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn3"
+     ],
+     "tag": "sta_trg_hostcut3",
+     "set_by": {
+      "(GetLocalNumber(OBJECT_SELF, 0) + -1)": [
+       "k_psta_hostscn3"
+      ],
+      "(GetLocalNumber(OBJECT_SELF, 0) + 1)": [
+       "k_psta_hostscn3"
+      ],
+      "(Random(GetLocalNumber(OBJECT_SELF, 1)) + 1)": [
+       "k_psta_hostscn3"
+      ],
+      "1": [
+       "k_psta_hostscn3"
+      ],
+      "GetLocalNumber(OBJECT_SELF, 0)": [
+       "k_psta_hostscn3"
+      ]
+     },
+     "note": "also set to values that are not constant: GetLocalNumber(OBJECT_SELF, 0), (GetLocalNumber(OBJECT_SELF, 0) + 1), (GetLocalNumber(OBJECT_SELF, 0) + -1)"
+    },
+    {
+     "object": "trigger",
+     "index": 1,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn3"
+     ],
+     "tag": "sta_trg_hostcut3",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 2,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn3"
+     ],
+     "tag": "sta_trg_hostcut3",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 3,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn3"
+     ],
+     "tag": "sta_trg_hostcut3",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 4,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_hostscn3"
+     ],
+     "tag": "sta_trg_hostcut3",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "tagged object",
+     "index": 0,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_lockwest"
+     ],
+     "tag": "sta_trg_lockeast",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_lockeast"
+     ],
+     "tag": "sta_trg_lockeast",
+     "set_by": {
+      "1": [
+       "k_psta_lockeast"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_lockwest"
+     ],
+     "tag": "sta_trg_lockwest",
+     "set_by": {
+      "1": [
+       "k_psta_lockwest"
+      ]
+     }
+    },
+    {
+     "object": "tagged object",
+     "index": 0,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_lockeast"
+     ],
+     "tag": "sta_trg_lockwest",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_cutscene1"
+     ],
+     "tag": "sta_trgcutscene1",
+     "set_by": {
+      "1": [
+       "k_psta_cutscene1"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_cutscene2"
+     ],
+     "tag": "sta_trgcutscene2",
+     "set_by": {
+      "1": [
+       "k_psta_cutscene2"
+      ]
+     }
+    },
+    {
+     "object": "tagged object",
+     "index": 0,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_cutscene3"
+     ],
+     "tag": "sta_trgcutscene2",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "tagged object",
+     "index": 0,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_cutscene2"
+     ],
+     "tag": "sta_trgcutscene3",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_cutscene3"
+     ],
+     "tag": "sta_trgcutscene3",
+     "set_by": {
+      "1": [
+       "k_psta_cutscene3"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger01",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger02",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    }
+   ],
+   "uncertain": [
+    "sta_m45aa: placed creature k_sta_darkjedi1 (template k_sta_darkjedi1) is hostile but its template cannot die (Plot or Min1HP); left in place",
+    "sta_m45aa: placed creature k_sta_darkjedi2 (template k_sta_darkjedi2) is hostile but its template cannot die (Plot or Min1HP); left in place",
+    "sta_m45aa: placed creature k_sta_darkjedi3 (template k_sta_darkjedi3) is hostile but its template cannot die (Plot or Min1HP); left in place",
+    "sta_m45aa: placed creature sta45a_sith01 (template sta45a_sith01) is hostile but its template cannot die (Plot or Min1HP); left in place",
+    "sta_m45aa: placed creature sta45a_sith02 (template sta45a_sith02) is hostile but its template cannot die (Plot or Min1HP); left in place",
+    "sta_m45aa: placed creature sta45a_sith03 (template sta45a_sith03) is hostile but its template cannot die (Plot or Min1HP); left in place",
+    "sta_m45aa: placed creature sta45a_sith04 (template sta45a_sith04) is hostile but its template cannot die (Plot or Min1HP); left in place",
+    "sta_m45aa: placed creature sta_jedi001 (template sta_jedi001) is hostile but its template cannot die (Plot or Min1HP); left in place",
+    "sta_m45aa: creature sta45a_sith04 is destroyed by k_psta_areaenter, k_psta_sith_kill, which is not on the curated critical path; it may belong to a side quest",
+    "sta_m45aa: creature sta45a_sith03 is destroyed by k_psta_areaenter, k_psta_sith_kill, which is not on the curated critical path; it may belong to a side quest",
+    "sta_m45aa: creature sta45a_sith02 is destroyed by k_psta_areaenter, k_psta_sith_kill, which is not on the curated critical path; it may belong to a side quest",
+    "sta_m45aa: creature sta45a_sith01 is destroyed by k_psta_areaenter, k_psta_sith_kill, which is not on the curated critical path; it may belong to a side quest",
+    "sta_m45aa: creature sta_jedi004 is destroyed by k_psta_actwait3, k_psta_areaenter, which is not on the curated critical path; it may belong to a side quest",
+    "sta_m45aa: creature sta_jedi003 is destroyed by k_psta_actwait3, k_psta_areaenter, which is not on the curated critical path; it may belong to a side quest",
+    "sta_m45aa: creature sta_jedi002 is destroyed by k_psta_actwait3, k_psta_areaenter, which is not on the curated critical path; it may belong to a side quest",
+    "sta_m45aa: creature sta_jedi001 is destroyed by k_psta_actwait3, k_psta_areaenter, which is not on the curated critical path; it may belong to a side quest",
+    "sta_m45aa: door sta_door_explode1 is destroyed by k_psta_explode1, which is not on the curated critical path; it may belong to a side quest",
+    "sta_m45aa: door sta_door_x1 is destroyed by k_psta_doorx1, which is not on the curated critical path; it may belong to a side quest",
+    "sta_m45aa: door sta_door_x2 is destroyed by k_psta_doorx2, which is not on the curated critical path; it may belong to a side quest",
+    "sta_m45aa: creature sta45a_malak is destroyed by k_psta_destall, which is not on the curated critical path; it may belong to a side quest",
+    "sta_m45aa: creature sithmaster is destroyed by k_psta_destall, which is not on the curated critical path; it may belong to a side quest",
+    "sta_m45aa: creature sta45a_assault is destroyed by k_psta_destall, which is not on the curated critical path; it may belong to a side quest",
+    "sta_m45aa: local boolean index 29 on sta_trg_hostcut2 = true is not certain (set to more than one value)",
+    "sta_m45aa: local boolean index 41 on sta_trg_hostcut2 = true is not certain (set to more than one value)",
+    "sta_m45aa: local number index 0 on sta_trg_hostcut2 = 1 is not certain (also set to values that are not constant: GetLocalNumber(OBJECT_SELF, 0), (GetLocalNumber(OBJECT_SELF, 0) + 1), (GetLocalNumber(OBJECT_SELF, 0) + -1))",
+    "sta_m45aa: local boolean index 29 on sta_trg_hostcut3 = true is not certain (set to more than one value)",
+    "sta_m45aa: local boolean index 41 on sta_trg_hostcut3 = true is not certain (set to more than one value)",
+    "sta_m45aa: local number index 0 on sta_trg_hostcut3 = 1 is not certain (also set to values that are not constant: GetLocalNumber(OBJECT_SELF, 0), (GetLocalNumber(OBJECT_SELF, 0) + 1), (GetLocalNumber(OBJECT_SELF, 0) + -1))"
+   ]
+  },
+  {
+   "module": "sta_m45ab",
+   "area": "m45ab",
+   "returnable": false,
+   "remove": [
+    {
+     "tag": "sta_turret1",
+     "template": "sta_turret1",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "sta_turret12",
+     "template": "sta_turret12",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "sta_turret13",
+     "template": "sta_turret13",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "sta_turret14",
+     "template": "sta_turret14",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "sta_turret15",
+     "template": "sta_turret15",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "sta_turret16",
+     "template": "sta_turret16",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "sta_turret2",
+     "template": "sta_turret2",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "sta_turret3",
+     "template": "sta_turret3",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "sta_turret6",
+     "template": "sta_turret6",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "sta_turret8",
+     "template": "sta_turret8",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "sta45b_malak",
+     "template": "sta45b_malak",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_psta_destall"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "sithmaster",
+     "template": "n_sithappren001",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_psta_destall"
+     ],
+     "certain": false
+    }
+   ],
+   "spawned_and_killed": [
+    {
+     "template": "k_sta_sithtrpenc",
+     "tag": "k_sta_sithtrpenc"
+    },
+    {
+     "template": "sta45b_appren001",
+     "tag": "sta45b_apprentic"
+    },
+    {
+     "template": "sta45b_appren002",
+     "tag": "sta45b_apprentic"
+    },
+    {
+     "template": "sta45b_troope001",
+     "tag": "sta45b_trooper"
+    },
+    {
+     "template": "sta45b_trooper",
+     "tag": "sta45b_trooper"
+    }
+   ],
+   "doors": [
+    {
+     "tag": "sta45b_east_45a",
+     "template": "sta45b_east_45a",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "sta45b_sta45c",
+     "template": "sta45b_sta45c",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "sta45b_west_45a",
+     "template": "sta45b_west_45a",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "sta_door_locked",
+     "template": "sta_door_locked",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "sta_door_static",
+     "template": "sta_door_static",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "sta_door_unlock",
+     "template": "sta_door_unlock",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "sta_turret_door",
+     "template": "k45_door_bast003",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_psta_turretoff"
+     ],
+     "certain": false
+    }
+   ],
+   "containers_looted": [
+    "sta45b_medium4",
+    "sta_armor_container"
+   ],
+   "locals": [
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_sta_spawnreset"
+     ],
+     "tag": "k_spawn_reset",
+     "set_by": {
+      "1": [
+       "k_sta_spawnreset"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_sta_spawnreseh"
+     ],
+     "tag": "k_spawn_reseth",
+     "set_by": {
+      "1": [
+       "k_sta_spawnreseh"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_sta_spawnstart"
+     ],
+     "tag": "k_spawn_start",
+     "set_by": {
+      "1": [
+       "k_sta_spawnstart"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_sta_spawnstop"
+     ],
+     "tag": "k_spawn_stop",
+     "set_by": {
+      "1": [
+       "k_sta_spawnstop"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_cutscene1"
+     ],
+     "tag": "sta_trg_cutscne1",
+     "set_by": {
+      "1": [
+       "k_psta_cutscene1"
+      ]
+     }
+    },
+    {
+     "object": "tagged object",
+     "index": 0,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_cutscene2"
+     ],
+     "tag": "sta_trg_cutscne1",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "tagged object",
+     "index": 0,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_cutscene1"
+     ],
+     "tag": "sta_trg_cutscne2",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_cutscene2"
+     ],
+     "tag": "sta_trg_cutscne2",
+     "set_by": {
+      "1": [
+       "k_psta_cutscene2"
+      ]
+     }
+    },
+    {
+     "object": "tagged object",
+     "index": 0,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_lockwest"
+     ],
+     "tag": "sta_trg_lockeast",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_lockeast"
+     ],
+     "tag": "sta_trg_lockeast",
+     "set_by": {
+      "1": [
+       "k_psta_lockeast"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_lockwest"
+     ],
+     "tag": "sta_trg_lockwest",
+     "set_by": {
+      "1": [
+       "k_psta_lockwest"
+      ]
+     }
+    },
+    {
+     "object": "tagged object",
+     "index": 0,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_psta_lockeast"
+     ],
+     "tag": "sta_trg_lockwest",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    }
+   ],
+   "uncertain": [
+    "sta_m45ab: creature sta45b_malak is destroyed by k_psta_destall, which is not on the curated critical path; it may belong to a side quest",
+    "sta_m45ab: creature sithmaster is destroyed by k_psta_destall, which is not on the curated critical path; it may belong to a side quest"
+   ]
+  },
+  {
+   "module": "sta_m45ac",
+   "area": "m45ac",
+   "returnable": false,
+   "remove": [
+    {
+     "tag": "k_sta_sithfreeze2",
+     "template": "k_sta_sithfre001",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag k_sta_sithfreeze2, faction 5 (neutral), level 14; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "k_sta_sithfreeze3",
+     "template": "k_sta_sithfre002",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag k_sta_sithfreeze3, faction 5 (neutral), level 14; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "k_sta_sithfreeze",
+     "template": "k_sta_sithfreeze",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag k_sta_sithfreeze, faction 5 (neutral), level 14; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "k_sta_trooperenc",
+     "template": "k_sta_trooper001",
+     "count": 2,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "k_sta_trooperenc",
+     "template": "k_sta_trooper002",
+     "count": 2,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "sta45c_malak",
+     "template": "sta45c_malak",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_psta_destmala2",
+      "k_psta_destmalak"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "sta_45darthmalak",
+     "template": "sta_45darthmalak",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_psta_malakleav"
+     ],
+     "certain": false
+    }
+   ],
+   "spawned_and_killed": [
+    {
+     "template": "k45_gen_assdroid",
+     "tag": "k45_gen_assdroid"
+    },
+    {
+     "template": "k45_gen_mk2droid",
+     "tag": "k45_gen_mk2droid"
+    },
+    {
+     "template": "k45_gen_mk4droid",
+     "tag": "k45_gen_mk4droid"
+    },
+    {
+     "template": "k45_gen_prbdroid",
+     "tag": "k45_gen_prbdroid"
+    },
+    {
+     "template": "k45_gen_spydroid",
+     "tag": "k45_gen_spydroid"
+    },
+    {
+     "template": "k45_gen_wardroid",
+     "tag": "k45_gen_wardroid"
+    },
+    {
+     "template": "sta45c_trooper",
+     "tag": "sta45c_trooper"
+    }
+   ],
+   "doors": [
+    {
+     "tag": "k45_door_bast1",
+     "template": "k45_door_bast1",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_psta_ud_bastil"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "k45_door_bast2",
+     "template": "k45_door_bast2",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_psta_bastopen",
+      "k_psta_ud_bastil",
+      "k_psta_ud_sith",
+      "k_sta_bastexe"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "k45_door_malak",
+     "template": "k45_door_malak",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open/unlock it",
+     "scripts": [
+      "k_psta_gendeath",
+      "k_psta_gennewdrd",
+      "k_psta_malakdoor"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "sta45c_sta45b",
+     "template": "sta45c_sta45b",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "sta45c_sta45d",
+     "template": "sta45c_sta45d",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_psta_genoff"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "sta_door_unlock",
+     "template": "sta_door_unlock",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    }
+   ],
+   "containers_looted": [
+    "sta45c_medium1"
+   ],
+   "locals": [
+    {
+     "object": "door",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_initbas2x"
+     ],
+     "tag": "k45_door_bast2",
+     "set_by": {
+      "1": [
+       "k_psta_initbas2x"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_init_bast"
+     ],
+     "tag": "k45_init_bastila",
+     "set_by": {
+      "1": [
+       "k_psta_init_bast"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_init_sith"
+     ],
+     "tag": "k45_init_sith",
+     "set_by": {
+      "1": [
+       "k_psta_init_sith"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_genassdrd"
+     ],
+     "tag": "k45_plc_assdroid",
+     "set_by": {
+      "1": [
+       "k_psta_genassdrd"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_genspydrd"
+     ],
+     "tag": "k45_plc_excharge",
+     "set_by": {
+      "1": [
+       "k_psta_genspydrd"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_genmk2drd"
+     ],
+     "tag": "k45_plc_mk2droid",
+     "set_by": {
+      "1": [
+       "k_psta_genmk2drd"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_genmk4drd"
+     ],
+     "tag": "k45_plc_mk4droid",
+     "set_by": {
+      "1": [
+       "k_psta_genmk4drd"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_genprbdrd"
+     ],
+     "tag": "k45_plc_prbdroid",
+     "set_by": {
+      "1": [
+       "k_psta_genprbdrd"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_genwardrd"
+     ],
+     "tag": "k45_plc_wardroid",
+     "set_by": {
+      "1": [
+       "k_psta_genwardrd"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_strtmalak"
+     ],
+     "tag": "k45_strt_malak",
+     "set_by": {
+      "1": [
+       "k_psta_strtmalak"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_sta_spawnreset"
+     ],
+     "tag": "k_spawn_reset",
+     "set_by": {
+      "1": [
+       "k_sta_spawnreset"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_sta_spawnstart"
+     ],
+     "tag": "k_spawn_start",
+     "set_by": {
+      "1": [
+       "k_sta_spawnstart"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_sta_spawnstop"
+     ],
+     "tag": "k_spawn_stop",
+     "set_by": {
+      "1": [
+       "k_sta_spawnstop"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_cutscene1"
+     ],
+     "tag": "sta_trg_cutscne1",
+     "set_by": {
+      "1": [
+       "k_psta_cutscene1"
+      ]
+     }
+    }
+   ],
+   "uncertain": [
+    "sta_m45ac: creature sta45c_malak is destroyed by k_psta_destmala2, k_psta_destmalak, which is not on the curated critical path; it may belong to a side quest",
+    "sta_m45ac: creature sta_45darthmalak is destroyed by k_psta_malakleav, which is not on the curated critical path; it may belong to a side quest",
+    "sta_m45ac: door sta_door_freeze is locked (needs a key) and no script here opens it; left as it is",
+    "sta_m45ac: door sta_door_static is locked (needs a key) and no script here opens it; left as it is"
+   ]
+  },
+  {
+   "module": "sta_m45ad",
+   "area": "m45ad",
+   "returnable": false,
+   "remove": [
+    {
+     "tag": "sta_malak_drain",
+     "template": "invisible003",
+     "kind": "placeable",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_psta_atkplace",
+      "k_psta_castat",
+      "k_psta_jediend",
+      "k_psta_jediend2"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "sta_jedi_conv",
+     "template": "sta_jedi_conv",
+     "kind": "placeable",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_psta_jediend2"
+     ],
+     "certain": false
+    }
+   ],
+   "spawned_and_killed": [],
+   "doors": [
+    {
+     "tag": "k45_door_end",
+     "template": "k45_door_end",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_psta_malakend",
+      "k_psta_ud_mal7"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "k45_door_malak",
+     "template": "k45_door_malak",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_psta_ud_mal7"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "sta45d_sta45c",
+     "template": "sta45d_sta45c",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    }
+   ],
+   "containers_looted": [],
+   "locals": [
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psta_init_mala"
+     ],
+     "tag": "k45_init_malak",
+     "set_by": {
+      "1": [
+       "k_psta_init_mala"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "sta_cap_onuse"
+     ],
+     "tag": "sta_plc_captive1",
+     "set_by": {
+      "0": [
+       "k_psta_castat"
+      ],
+      "1": [
+       "sta_cap_onuse"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "sta_cap_onuse"
+     ],
+     "tag": "sta_plc_captive2",
+     "set_by": {
+      "0": [
+       "k_psta_castat"
+      ],
+      "1": [
+       "sta_cap_onuse"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "sta_cap_onuse"
+     ],
+     "tag": "sta_plc_captive3",
+     "set_by": {
+      "0": [
+       "k_psta_castat"
+      ],
+      "1": [
+       "sta_cap_onuse"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "sta_cap_onuse"
+     ],
+     "tag": "sta_plc_captive4",
+     "set_by": {
+      "0": [
+       "k_psta_castat"
+      ],
+      "1": [
+       "sta_cap_onuse"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "sta_cap_onuse"
+     ],
+     "tag": "sta_plc_captive5",
+     "set_by": {
+      "0": [
+       "k_psta_castat"
+      ],
+      "1": [
+       "sta_cap_onuse"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "sta_cap_onuse"
+     ],
+     "tag": "sta_plc_captive6",
+     "set_by": {
+      "0": [
+       "k_psta_castat"
+      ],
+      "1": [
+       "sta_cap_onuse"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "sta_cap_onuse"
+     ],
+     "tag": "sta_plc_captive7",
+     "set_by": {
+      "0": [
+       "k_psta_castat"
+      ],
+      "1": [
+       "sta_cap_onuse"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "sta_cap_onuse"
+     ],
+     "tag": "sta_plc_captive8",
+     "set_by": {
+      "0": [
+       "k_psta_castat"
+      ],
+      "1": [
+       "sta_cap_onuse"
+      ]
+     }
+    }
+   ],
+   "uncertain": [
+    "sta_m45ad: placed creature sta_45darthmalak (template sta_45darthmalak) is hostile but its template cannot die (Plot or Min1HP); left in place",
+    "sta_m45ad: placeable sta_malak_drain is destroyed by k_psta_atkplace, k_psta_castat, k_psta_jediend, which is not on the curated critical path; it may belong to a side quest",
+    "sta_m45ad: placeable sta_jedi_conv is destroyed by k_psta_jediend2, which is not on the curated critical path; it may belong to a side quest",
+    "sta_m45ad: local boolean index 10 on sta_plc_captive1 = true is not certain (set to more than one value)",
+    "sta_m45ad: local boolean index 10 on sta_plc_captive2 = true is not certain (set to more than one value)",
+    "sta_m45ad: local boolean index 10 on sta_plc_captive3 = true is not certain (set to more than one value)",
+    "sta_m45ad: local boolean index 10 on sta_plc_captive4 = true is not certain (set to more than one value)",
+    "sta_m45ad: local boolean index 10 on sta_plc_captive5 = true is not certain (set to more than one value)",
+    "sta_m45ad: local boolean index 10 on sta_plc_captive6 = true is not certain (set to more than one value)",
+    "sta_m45ad: local boolean index 10 on sta_plc_captive7 = true is not certain (set to more than one value)",
+    "sta_m45ad: local boolean index 10 on sta_plc_captive8 = true is not certain (set to more than one value)"
+   ]
+  }
+ ],
+ "cleared_note": "How each module looks after a full run, for an editor that stores the area as played: remove (tag, template), doors (tag: open, unlocked), containers_looted (container tags the rewards file empties), locals (the area's, the module's and placed objects' local variables their own scripts read to tell a first visit from a return, with the value a played area holds; index = the engine's local slot). returnable = false: the player never comes back to the module. See tools/questdb/cleared.py.",
+ "returnable_note": "the game ends"
+}

@@ -1,0 +1,466 @@
+{
+ "game": "K2",
+ "what": "A full Telos run: kills (hostile creatures and active encounters of each module), then the quest XP met in that module, in module order. Written by tools/xp/make_path.py; read by tools/xp/calc.py --scenario.",
+ "checked": false,
+ "assumptions": [
+  "Every creature data/xp/k2-enemies.json marks hostile is killed; creatures a script may turn hostile (hostile = maybe) are left out; creatures whose template cannot die (Plot, Min1HP) are left out.",
+  "Active encounters spawn as calc.py replays the engine's spawn list for a party of three (mean of 200 seeded runs); encounters that respawn are counted once.",
+  "Only the chapter's own quests (build.py PLANETS tag_prefix) count; a quest of another chapter that this chapter's files also set is counted by its own chapter.",
+  "Each quest follows one route to one ending (the lowest ending stage the quest database reaches unless make_path.py ENDINGS names another); a stage gives its journal XP and the largest XP of one of its steps.",
+  "Not counted: plot XP on dialog lines that set no journal stage, level-scaled computer and repair XP, stealth XP.",
+  "KotOR 2's kill XP follows swkotor2.exe 1.0.2 (calc.py use_game): its own tables, and a creature with an autobalance row (MultiplierSet) counted at the player's level when it spawns plus the row's crmod: a placed creature at the player's level on entering the module, a script's at the level of the kill. Encounter creatures are counted at their rating."
+ ],
+ "modules": [
+  {
+   "module": "201tel",
+   "steps": [
+    {
+     "do": "plot_xp",
+     "xp": 1000,
+     "what": "ehind stage 10, step 1000"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 500,
+     "what": "restdroid stage 20: journal 500"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "smuggling stage 35: journal 50"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "batono stage 20: journal 50"
+    }
+   ]
+  },
+  {
+   "module": "202tel",
+   "steps": [
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "ehind stage 30: journal 50"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "smuggling stage 20: journal 50"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "smuggling stage 40: journal 100"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "smuggling stage 60: journal 100"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 250,
+     "what": "smuggling stage 80: journal 250"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "smuggling_tsf stage 20: journal 50"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "smuggling_tsf stage 30: journal 50"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "smuggling_tsf stage 40: journal 50"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "smuggling_tsf stage 50: journal 50"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 150,
+     "what": "smuggling_tsf stage 60: journal 150"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 200,
+     "what": "batono stage 70: journal 200"
+    }
+   ]
+  },
+  {
+   "module": "203tel",
+   "steps": [
+    {
+     "do": "plot_xp",
+     "xp": 500,
+     "what": "exch_meeting stage 30: journal 500"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "czerkamain stage 20: journal 100"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "czerkamain stage 30: journal 100"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "high_stakes stage 30: journal 50"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "ithdip stage 12: journal 50"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "exchange stage 15: journal 50"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 200,
+     "what": "batono stage 50: journal 200"
+    }
+   ]
+  },
+  {
+   "module": "204tel",
+   "steps": [
+    {
+     "do": "plot_xp",
+     "xp": 300,
+     "what": "czerkamain stage 40: journal 300"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 500,
+     "what": "czerkamain stage 50: journal 500"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 700,
+     "what": "ithdip stage 40: journal 700"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 150,
+     "what": "czerka_attack stage 20: journal 150"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 500,
+     "what": "czerka_attack stage 30: journal 500"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 500,
+     "what": "restdroid stage 30: journal 500"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "smuggling stage 15: journal 50"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "smuggling stage 55: journal 100"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "caller stage 40: journal 100"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 150,
+     "what": "batono stage 40: journal 150"
+    }
+   ]
+  },
+  {
+   "module": "205tel",
+   "steps": []
+  },
+  {
+   "module": "207tel",
+   "steps": [
+    {
+     "do": "plot_xp",
+     "xp": 250,
+     "what": "exch_meeting stage 40: journal 250"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "falt stage 30: journal 50"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "high_stakes stage 20: journal 50"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "high_stakes stage 40: journal 50"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 250,
+     "what": "high_stakes stage 50: journal 250"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 500,
+     "what": "opo_chano stage 30: journal 500"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "exchange stage 20: journal 50"
+    }
+   ]
+  },
+  {
+   "module": "211tel",
+   "steps": []
+  },
+  {
+   "module": "208tel",
+   "steps": [
+    {
+     "do": "plot_xp",
+     "xp": 300,
+     "what": "ithdip stage 20: journal 300"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 250,
+     "what": "luxa stage 60: journal 250"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 150,
+     "what": "exchange stage 50: journal 150"
+    }
+   ]
+  },
+  {
+   "module": "209tel",
+   "steps": [
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "falt stage 20: journal 50"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "falt stage 40: journal 100"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "czerkacall stage 40: journal 100"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "merc_attack stage 20: journal 100"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 150,
+     "what": "exchange stage 60: journal 150"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "batono stage 30: journal 100"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "batono stage 60: journal 100"
+    }
+   ]
+  },
+  {
+   "module": "231tel",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 2,
+     "what": "231tel c_cannok01 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 9,
+     "what": "231tel c_cannok1 (placed)",
+     "multiplier_set": 3,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 4,
+     "what": "231tel g_mandalor002 (placed)",
+     "multiplier_set": 1,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 2,
+     "what": "231tel g_mandalor004 (placed)",
+     "multiplier_set": 1,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 1,
+     "what": "231tel g_mandalor007 (placed)",
+     "multiplier_set": 3,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 1,
+     "what": "231tel g_mandalor008 (placed)",
+     "multiplier_set": 3,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 2,
+     "what": "231tel g_turretbl006 (placed)",
+     "multiplier_set": 3,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 1,
+     "what": "231tel merc_rep1 (placed)",
+     "multiplier_set": 1,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 1,
+     "what": "231tel merc_rep2 (placed)",
+     "multiplier_set": 1,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 1,
+     "what": "231tel merc_rep3 (placed)",
+     "multiplier_set": 1,
+     "spawned_on_entry": true
+    }
+   ]
+  },
+  {
+   "module": "233tel",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 1,
+     "what": "233tel c_231drds003 (placed)",
+     "multiplier_set": 3,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 2,
+     "what": "233tel g_turretbl006 (placed)",
+     "multiplier_set": 3,
+     "spawned_on_entry": true
+    }
+   ]
+  },
+  {
+   "module": "232tel",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 6,
+     "what": "232tel g_drdtelmil001 (placed)",
+     "multiplier_set": 3,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 4,
+     "what": "232tel g_drdtelmil002 (placed)",
+     "multiplier_set": 3,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 6,
+     "what": "232tel g_drdtelmil003 (placed)",
+     "multiplier_set": 3,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 2,
+     "what": "232tel g_drdtelmil005 (placed)",
+     "multiplier_set": 3,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 4,
+     "what": "232tel g_trttel002 (placed)",
+     "multiplier_set": 3,
+     "spawned_on_entry": true
+    }
+   ]
+  },
+  {
+   "module": "261tel",
+   "steps": []
+  },
+  {
+   "module": "262tel",
+   "steps": [
+    {
+     "do": "plot_xp",
+     "xp": 200,
+     "what": "Yima stage 20: journal 200"
+    }
+   ]
+  }
+ ]
+}

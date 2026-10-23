@@ -1113,6 +1113,8 @@ fn fill_party(ui: &AppWindow, st: &mut State) {
 struct Chapter {
     index: i32,
     order: i64,
+    // A side chapter (the ship's own quests, a trader's station) comes only when picked itself.
+    side: bool,
     planet: String,
     title: String,
     summary: String,
@@ -1163,16 +1165,37 @@ fn skip_chapters(st: &State) -> Vec<Chapter> {
             if items > 0 {
                 parts.push("the loot of a full run".to_string());
             }
+            let credits = |side: &str| rewards.as_ref().and_then(|r| r.get("credits")).and_then(|c| c.get(side)).and_then(|c| c.get("credits")).and_then(|v| v.as_i64());
+            match (credits("light"), credits("dark")) {
+                (Some(l), Some(d)) if l == d && l != 0 => parts.push(format!("{} credits", l)),
+                (Some(l), Some(d)) if l != d => parts.push(format!("{} credits on the light side, {} on the dark", l, d)),
+                _ => {}
+            }
             let summary = format!(
                 "The save becomes as if {} was played to its end: {}. Then, when the save loads, the game takes you on to {} the way the story does, with its cutscenes.",
                 planet,
                 parts.join(", "),
                 place
             );
-            Chapter { index: i as i32, order, planet: planet.clone(), title, summary, played }
+            let side = m.get("side_chapter").and_then(|v| v.as_bool()).unwrap_or(false);
+            Chapter { index: i as i32, order, side, planet: planet.clone(), title, summary, played }
         })
         .collect();
     out.sort_by_key(|c| c.order);
+    out
+}
+
+/// The chapters a skip to chapter `index` applies, in story order: every main chapter
+/// before it this save has not played, then it. The side chapters (the Ebon Hawk, Yavin
+/// Station) come only when picked themselves.
+fn skip_path(chapters: &[Chapter], index: i32) -> Vec<i32> {
+    let Some(target) = chapters.iter().find(|c| c.index == index) else { return Vec::new() };
+    let mut out: Vec<i32> = chapters
+        .iter()
+        .filter(|c| c.index != index && !c.played && !c.side && c.order < target.order)
+        .map(|c| c.index)
+        .collect();
+    out.push(index);
     out
 }
 
@@ -3317,19 +3340,61 @@ fn main() {
     on!(ui, state, on_ask_skip, |u, st, i: i32| {
         let chapters = skip_chapters(st);
         let Some(c) = chapters.iter().find(|c| c.index == i) else { return };
+        let path = skip_path(&chapters, i);
+        let all = kse_core::questdb::milestones(st.game);
+        let jedi = path.iter().any(|k| all.get(*k as usize).map_or(false, |(_, m)| m.get("jedi_class").is_some()));
+        let picked: Vec<serde_json::Value> = path.iter().filter_map(|k| all.get(*k as usize).map(|(_, m)| m.clone())).collect();
+        let side = kse_core::questdb::side_matters(st.game, &picked);
+        // The side the player leans to now comes first.
+        let leans_dark = st.save.as_ref().and_then(|s| s.player()).map_or(false, |p| kse_core::creature::alignment(p) < 50);
+        let mut summary = c.summary.clone();
+        if path.len() > 1 {
+            let names: Vec<String> = path.iter().filter_map(|k| chapters.iter().find(|x| x.index == *k)).map(|x| x.planet.clone()).collect();
+            summary.push_str(&format!("\n\nEvery chapter before it that this save has not played comes first, in story order: {}.", names.join(", ")));
+        }
         let app = u.global::<App>();
         app.set_skip_asked(i);
         app.set_skip_title(s(format!("Skip to: {}", c.title)));
-        app.set_skip_summary(s(&c.summary));
+        app.set_skip_summary(s(summary));
+        app.set_skip_jedi(jedi);
+        app.set_skip_side(side);
+        app.set_skip_dark(leans_dark as i32);
+        // KotOR 2: the prestige class Kreia offers from level 15, by the XP the skip ends with;
+        // the one matching the base class first (Guardian, Sentinel, Consular)
+        let end_xp = picked.last().and_then(|m| m.get("planet")).and_then(|p| p.as_str()).and_then(|p| kse_core::questdb::rewards_of(st.game, p)).and_then(|r| r.get("xp_at_end").and_then(|v| v.as_i64()));
+        let prestige = match (st.save.as_ref(), st.data(), end_xp) {
+            (Some(save), Some(data), Some(xp)) => kse_core::questdb::prestige_due(save, &data, xp.max(save.player().map(kse_core::creature::experience).unwrap_or(0))),
+            _ => false,
+        };
+        let base = st.save.as_ref().and_then(|s| s.player()).and_then(|p| kse_core::creature::classes(p).first().map(|c| c.0));
+        app.set_skip_prestige(prestige);
+        // KotOR 2: offered once the skip reaches the masters' meeting, by which point a full
+        // run can have finished the companions' conversation chains
+        let train = st.game == kse_core::games::Game::K2 && picked.iter().any(|m| m.get("order").and_then(|v| v.as_i64()).map_or(false, |o| o >= 8));
+        app.set_skip_train(train);
+        app.set_skip_train_pick(0);
+        app.set_skip_prestige_pick(match base { Some(3) => 0, Some(5) => 1, Some(4) => 2, _ => 3 });
         app.set_overlay(10);
     });
     on!(ui, state, on_do_skip, |u, st| {
-        let i = u.global::<App>().get_skip_asked();
-        let Some((planet, m)) = kse_core::questdb::milestones(st.game).into_iter().nth(i.max(0) as usize) else { return };
+        let app = u.global::<App>();
+        let i = app.get_skip_asked();
+        let class = app.get_skip_jedi().then(|| app.get_skip_class().clamp(0, 2) as usize);
+        let dark = app.get_skip_side() && app.get_skip_dark() == 1;
+        let train = app.get_skip_train() && app.get_skip_train_pick() == 0;
+        let prestige = app.get_skip_prestige().then(|| app.get_skip_prestige_pick()).filter(|k| (0..3).contains(k)).map(|k| {
+            let row = if dark { kse_core::questdb::PRESTIGE_DARK } else { kse_core::questdb::PRESTIGE_LIGHT };
+            row[k as usize]
+        });
+        let chapters = skip_chapters(st);
+        let path = skip_path(&chapters, i);
+        let all = kse_core::questdb::milestones(st.game);
+        let milestones: Vec<serde_json::Value> = path.iter().filter_map(|k| all.get(*k as usize).map(|(_, m)| m.clone())).collect();
+        let title = chapters.iter().find(|c| c.index == i).map(|c| c.title.clone()).unwrap_or_default();
         let Some(data) = st.data() else { return };
-        u.global::<App>().set_overlay(0);
+        app.set_overlay(0);
         let result = match st.save.as_mut() {
-            Some(save) => kse_core::questdb::skip_to(save, &data, &m),
+            Some(save) => kse_core::questdb::skip_through_with(save, &data, &milestones, class, dark, prestige, train),
             None => return,
         };
         refresh_after_edit(&u, st);
@@ -3340,7 +3405,7 @@ fn main() {
                     body.push_str("\n\nWorth knowing:\n");
                     body.push_str(&notes.join("\n"));
                 }
-                message(&u, &format!("Skipped: {}", planet), &body);
+                message(&u, &format!("Skipped to: {}", title), &body);
             }
             Err(e) => message(&u, "Could not skip ahead", &e),
         }

@@ -1,0 +1,8006 @@
+{
+ "game": "K1",
+ "planet": "Korriban",
+ "order": 7,
+ "chapter_title": "Korriban: the academy and the star map",
+ "generated_by": "tools/questdb/build.py --milestone",
+ "checked": false,
+ "about": "Story state every completed run of the chapter ends with, for a skip-to-the-end feature. Curated in tools/questdb/chapters.py; values marked certain = false were worked out by reading the scripts or seen in one real save, not proven for every run.",
+ "journal": [
+  {
+   "tag": "kor33_findstarmap",
+   "stage": 40,
+   "set_by": "k_pla_actmap2 / K1CP cp_k39_strmap_ps (korr_m39aa)"
+  },
+  {
+   "tag": "kor33_enteracademy",
+   "stage": 50,
+   "set_by": "dialog kor33_yuthura E16 (korr_m33aa)"
+  },
+  {
+   "tag": "kor35_waysith",
+   "stage": 60,
+   "set_by": "dialog kor39_yuthura R66 (korr_m39aa): the light-side ending"
+  },
+  {
+   "tag": "k_starforge",
+   "stage": 10,
+   "set_by": "the star map (UT_SetStarmapJournal)"
+  }
+ ],
+ "journal_remove": [],
+ "globals": [
+  {
+   "name": "K_STAR_MAP",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "a counter: see star_map (STAR_MAP_RULE)",
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pla_actmap",
+     "named_outside_planet": 2,
+     "named_by_examples": [
+      "kas_m25aa",
+      "stunt_12"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_ren_turret",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "m12ab"
+     ]
+    },
+    {
+     "where": "Override",
+     "script": "k_trg_partyinit",
+     "named_outside_planet": 3,
+     "named_by_examples": [
+      "danm13",
+      "manm26ad",
+      "tar_m02ab"
+     ]
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_basttalk"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_basttalk2"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_kashy"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_korrib"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_manaan"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_sashatrig"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_tatoo"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_pebn_basttalk"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_pebn_kashy"
+    }
+   ],
+   "read_after_planet_total": 39,
+   "writers": [
+    {
+     "add": 10,
+     "script": "cp_k39_strmap_ps",
+     "module": "korr_m39aa",
+     "from": [
+      "kor39_starspeak E0 script"
+     ],
+     "critical": false
+    }
+   ]
+  },
+  {
+   "name": "K_STAR_MAP_KORRIBAN",
+   "type": "Boolean",
+   "value": true,
+   "certain": true,
+   "note": "k_pkor_star_map / k_pla_actmap2 / cp_k39_strmap_ps",
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pla_actmap",
+     "named_outside_planet": 2,
+     "named_by_examples": [
+      "kas_m25aa",
+      "stunt_12"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_ren_leavlev",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "ebo_m40ad"
+     ]
+    },
+    {
+     "where": "modules/manm28ad.mod",
+     "script": "k_pman_starmap06"
+    }
+   ],
+   "writers": [
+    {
+     "set": true,
+     "script": "cp_k39_strmap_ps",
+     "module": "korr_m39aa",
+     "from": [
+      "kor39_starspeak E0 script"
+     ],
+     "critical": false
+    }
+   ]
+  },
+  {
+   "name": "EBO_LURZE_CODE",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pebo_lurze02",
+     "module": "korr_m33aa",
+     "set": true
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_spice"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_pebn_spice"
+    }
+   ]
+  },
+  {
+   "name": "EBO_MYSTERY_BOX",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    5
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pebo_lurze07",
+     "module": "korr_m33aa",
+     "set": 5
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_pophawk"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebo_active"
+    },
+    {
+     "where": "modules/ebo_m40aa.mod",
+     "script": "k_pebn_pophawk"
+    },
+    {
+     "where": "modules/ebo_m40ad.mod",
+     "script": "k_pebn_pophawk"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_pebn_pophawk"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_pebo_active"
+    }
+   ],
+   "read_after_planet_total": 9
+  },
+  {
+   "name": "G_JUHANI_PLOT",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "k_hjuh_s03",
+     "module": "korr_m33aa",
+     "set": 3
+    },
+    {
+     "script": "k_hjuh_s02",
+     "module": "korr_m33aa",
+     "set": 2
+    },
+    {
+     "script": "k_hjuh_s01",
+     "module": "korr_m33aa",
+     "set": 1
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid01"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid02"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid03"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid04"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid05"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_rapid02"
+    }
+   ],
+   "read_after_planet_total": 15
+  },
+  {
+   "name": "G_NPC_Talk",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 120,
+   "writers": [
+    {
+     "script": "k_trg_partyinit",
+     "module": "korr_m33aa",
+     "set": true,
+     "branch": "if K_SWG_CARTH <= 5; K_SWG_CARTH <= 4"
+    },
+    {
+     "script": "k_trg_partyinit",
+     "module": "korr_m33aa",
+     "set": true,
+     "branch": "if K_SWG_CARTH <= 5; K_SWG_CARTH <= 2"
+    },
+    {
+     "script": "k_trg_partyinit",
+     "module": "korr_m33aa",
+     "set": true,
+     "branch": "if K_SWG_CARTH <= 5; DAN_PLANET_PLOT >= 2"
+    }
+   ]
+  },
+  {
+   "name": "G_Paz_JustPlayed",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    false,
+    true
+   ],
+   "writers_total": 5,
+   "writers": [
+    {
+     "script": "k_ptar_paznikdec",
+     "module": "korr_m33aa",
+     "set": false
+    },
+    {
+     "script": "k_ptar_paznikinc",
+     "module": "korr_m33aa",
+     "set": false
+    },
+    {
+     "script": "k_ptar_pazup",
+     "module": "korr_m33aa",
+     "set": true
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_pazaak08"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_pazaak09"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_pazaak10"
+    },
+    {
+     "where": "modules/danm13.mod",
+     "script": "k_pdan_sol09"
+    },
+    {
+     "where": "modules/liv_m99aa.mod",
+     "script": "yav47_suvam18"
+    },
+    {
+     "where": "modules/liv_m99aa.mod",
+     "script": "yav47_suvam19"
+    }
+   ],
+   "read_after_planet_total": 21
+  },
+  {
+   "name": "G_Terentanek_Dead",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_pkor_ud_tarant",
+     "module": "korr_m34aa",
+     "set": true,
+     "branch": "if user-defined event is 1007"
+    },
+    {
+     "script": "k_pkor_ud_terent",
+     "module": "korr_m39aa",
+     "set": true,
+     "branch": "if user-defined event is 1007"
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/danm13.mod",
+     "script": "k_pdan_deesra06"
+    }
+   ]
+  },
+  {
+   "name": "K1CP_XOR_SPAWNED",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_kas_xorattack",
+     "module": "korr_m33aa",
+     "set": true,
+     "branch": "if K_XOR_AMBUSH == 1; K1CP_XOR_SPAWNED is FALSE"
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/kas_m22aa.mod",
+     "script": "k_kas_xorattack"
+    },
+    {
+     "where": "modules/manm26ad.mod",
+     "script": "k_kas_xorattack"
+    },
+    {
+     "where": "modules/tat_m17ab.mod",
+     "script": "k_kas_xorattack"
+    }
+   ]
+  },
+  {
+   "name": "K_CAPTURED_LEV",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    5
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "cp_k39_strmap_ps",
+     "module": "korr_m39aa",
+     "set": 5
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_ebn12_leviath"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_ebn12_travel"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_kashy"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_korrib"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_manaan"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_tatoo"
+    }
+   ],
+   "read_after_planet_total": 13
+  },
+  {
+   "name": "k_Exchange_Store",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    10
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pkor_exch10x",
+     "module": "korr_m33aa",
+     "set": 10
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid01"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid02"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid03"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid04"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid05"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_rapid02"
+    }
+   ],
+   "read_after_planet_total": 15
+  },
+  {
+   "name": "k_genoharadan",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    99
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_swg_senni1",
+     "module": "korr_m33aa",
+     "set": 1
+    },
+    {
+     "script": "k_swg_senni2",
+     "module": "korr_m33aa",
+     "set": 99
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/kas_m22ab.mod",
+     "script": "k_psennispawn"
+    },
+    {
+     "where": "modules/manm26ae.mod",
+     "script": "k_pman_hulas14"
+    },
+    {
+     "where": "modules/manm26ae.mod",
+     "script": "k_pman_hulas15"
+    },
+    {
+     "where": "modules/manm26ae.mod",
+     "script": "k_pman_hulas27"
+    },
+    {
+     "where": "modules/manm26ae.mod",
+     "script": "k_pman_hulas28"
+    },
+    {
+     "where": "modules/manm26ae.mod",
+     "script": "k_pman_hulas29"
+    }
+   ],
+   "read_after_planet_total": 17
+  },
+  {
+   "name": "K_KALO_BANDON",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    20,
+    40
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_pkor_ambush",
+     "module": "korr_m36aa",
+     "set": 40,
+     "branch": "if K_KALO_BANDON == 30"
+    },
+    {
+     "script": "k_pkor_ambush",
+     "module": "korr_m36aa",
+     "set": 20,
+     "branch": "if K_KALO_BANDON == 10"
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_def_calodef"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_trg_calonord"
+    },
+    {
+     "where": "modules/kas_m22ab.mod",
+     "script": "k_psennispawn"
+    },
+    {
+     "where": "modules/kas_m24aa.mod",
+     "script": "k_pkas_ambush"
+    },
+    {
+     "where": "modules/manm28aa.mod",
+     "script": "k_pdan_28a_area"
+    },
+    {
+     "where": "modules/manm28aa.mod",
+     "script": "k_pman_enemy01"
+    }
+   ],
+   "read_after_planet_total": 12
+  },
+  {
+   "name": "K_KOR_PORT_FEE",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k33_prt_opendoor",
+     "module": "korr_m33aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "K_KOR_SWOOP_POINT_02",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_kor_swoop_02",
+     "module": "korr_m33ab",
+     "set": true,
+     "branch": "if K_KOR_SWOOP_POINT_02 is FALSE"
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_ebn12_ckorr02"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_ckorr02"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_nodest"
+    },
+    {
+     "where": "modules/ebo_m40ad.mod",
+     "script": "k_ebn12_ckorr02"
+    },
+    {
+     "where": "modules/ebo_m40ad.mod",
+     "script": "k_pebn_ckorr02"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_ebn12_ckorr02"
+    }
+   ],
+   "read_after_planet_total": 10
+  },
+  {
+   "name": "K_KOR_SWOOP_POINT_03",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_kor_swoop_03",
+     "module": "korr_m34aa",
+     "set": true,
+     "branch": "if K_KOR_SWOOP_POINT_03 is FALSE"
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_ebn12_ckorr03"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_ckorr03"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_nodest"
+    },
+    {
+     "where": "modules/ebo_m40ad.mod",
+     "script": "k_ebn12_ckorr03"
+    },
+    {
+     "where": "modules/ebo_m40ad.mod",
+     "script": "k_pebn_ckorr03"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_ebn12_ckorr03"
+    }
+   ],
+   "read_after_planet_total": 10
+  },
+  {
+   "name": "K_KOR_SWOOP_POINT_04",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_kor_swoop_04",
+     "module": "korr_m36aa",
+     "set": true,
+     "branch": "if K_KOR_SWOOP_POINT_04 is FALSE"
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_ebn12_ckorr04"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_ckorr04"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_nodest"
+    },
+    {
+     "where": "modules/ebo_m40ad.mod",
+     "script": "k_ebn12_ckorr04"
+    },
+    {
+     "where": "modules/ebo_m40ad.mod",
+     "script": "k_pebn_ckorr04"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_ebn12_ckorr04"
+    }
+   ],
+   "read_after_planet_total": 10
+  },
+  {
+   "name": "K_KOTOR_MASTER",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    30
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "cp_k39_strmap_ps",
+     "module": "korr_m39aa",
+     "set": 30
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid01"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid02"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid03"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid04"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid05"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pebn_galaxy"
+    }
+   ],
+   "read_after_planet_total": 47
+  },
+  {
+   "name": "K_MESS_CANDEROUS",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 9,
+   "writers": [
+    {
+     "script": "k_kor_swoop_01",
+     "module": "korr_m33aa",
+     "set": true,
+     "branch": "if K_CURRENT_PLANET != 20; K_XOR_AMBUSH != 0; K_KOTOR_MASTER < 20; K_MESS_CANDEROUS is FALSE; K_CURRENT_PLA..."
+    },
+    {
+     "script": "k_kor_swoop_01",
+     "module": "korr_m33aa",
+     "set": true,
+     "branch": "if K_CURRENT_PLANET != 20; K_XOR_AMBUSH != 0; K_KOTOR_MASTER < 20; K_MESS_JUHANI is FALSE; G_JUHANIH_STATE ..."
+    },
+    {
+     "script": "k_kor_swoop_01",
+     "module": "korr_m33aa",
+     "set": true,
+     "branch": "if K_CURRENT_PLANET != 20; K_XOR_AMBUSH != 0; K_KOTOR_MASTER < 20; K_MESS_JOLEE is FALSE; K_MESS_CANDEROUS ..."
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid01"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid02"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid03"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid04"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid05"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_rapid02"
+    }
+   ],
+   "read_after_planet_total": 16
+  },
+  {
+   "name": "K_MESS_CARTH",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_kor_swoop_01",
+     "module": "korr_m33aa",
+     "set": true,
+     "branch": "if K_CURRENT_PLANET != 20; K_XOR_AMBUSH != 0; K_KOTOR_MASTER < 20; KOR_END_HOSTILE is FALSE; K_MESS_CARTH i..."
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid01"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid02"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid03"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid04"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid05"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_rapid02"
+    }
+   ],
+   "read_after_planet_total": 15
+  },
+  {
+   "name": "K_MESS_JOLEE",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "k_kor_swoop_01",
+     "module": "korr_m33aa",
+     "set": true,
+     "branch": "if K_CURRENT_PLANET != 20; K_XOR_AMBUSH != 0; K_KOTOR_MASTER < 20; K_MESS_JOLEE is FALSE; K_CURRENT_PLANET ..."
+    },
+    {
+     "script": "k_kor_swoop_01",
+     "module": "korr_m33aa",
+     "set": true,
+     "branch": "if K_CURRENT_PLANET != 20; K_XOR_AMBUSH != 0; K_KOTOR_MASTER < 20; KOR_END_HOSTILE is FALSE; K_MESS_JOLEE i..."
+    },
+    {
+     "script": "k_kor_swoop_01",
+     "module": "korr_m33aa",
+     "set": true,
+     "branch": "if K_CURRENT_PLANET != 20; K_XOR_AMBUSH != 0; K_KOTOR_MASTER < 20; KOR_END_HOSTILE is FALSE; K_MESS_CARTH i..."
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid01"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid02"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid03"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid04"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid05"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_rapid02"
+    }
+   ],
+   "read_after_planet_total": 16
+  },
+  {
+   "name": "K_MESS_JUHANI",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 6,
+   "writers": [
+    {
+     "script": "k_kor_swoop_01",
+     "module": "korr_m33aa",
+     "set": true,
+     "branch": "if K_CURRENT_PLANET != 20; K_XOR_AMBUSH != 0; K_KOTOR_MASTER < 20; K_MESS_JUHANI is FALSE; G_JUHANIH_STATE ..."
+    },
+    {
+     "script": "k_kor_swoop_01",
+     "module": "korr_m33aa",
+     "set": true,
+     "branch": "if K_CURRENT_PLANET != 20; K_XOR_AMBUSH != 0; K_KOTOR_MASTER < 20; K_MESS_JOLEE is FALSE; K_MESS_JUHANI is ..."
+    },
+    {
+     "script": "k_kor_swoop_01",
+     "module": "korr_m33aa",
+     "set": true,
+     "branch": "if K_CURRENT_PLANET != 20; K_XOR_AMBUSH != 0; K_KOTOR_MASTER < 20; K_MESS_JOLEE is FALSE; K_CURRENT_PLANET ..."
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid01"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid02"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid03"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid04"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid05"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_rapid02"
+    }
+   ],
+   "read_after_planet_total": 19
+  },
+  {
+   "name": "K_MESS_MISSION",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 9,
+   "writers": [
+    {
+     "script": "k_kor_swoop_01",
+     "module": "korr_m33aa",
+     "set": true,
+     "branch": "if K_CURRENT_PLANET != 20; K_XOR_AMBUSH != 0; K_KOTOR_MASTER < 20; K_MESS_MISSION is FALSE; K_CURRENT_PLANE..."
+    },
+    {
+     "script": "k_kor_swoop_01",
+     "module": "korr_m33aa",
+     "set": true,
+     "branch": "if K_CURRENT_PLANET != 20; K_XOR_AMBUSH != 0; K_KOTOR_MASTER < 20; K_MESS_CANDEROUS is FALSE; K_CURRENT_PLA..."
+    },
+    {
+     "script": "k_kor_swoop_01",
+     "module": "korr_m33aa",
+     "set": true,
+     "branch": "if K_CURRENT_PLANET != 20; K_XOR_AMBUSH != 0; K_KOTOR_MASTER < 20; K_MESS_JUHANI is FALSE; G_JUHANIH_STATE ..."
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid01"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid02"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid03"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid04"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid05"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_rapid02"
+    }
+   ],
+   "read_after_planet_total": 15
+  },
+  {
+   "name": "K_MESSENGER_AVAILABLE",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    false
+   ],
+   "writers_total": 11,
+   "writers": [
+    {
+     "script": "k_kor_swoop_01",
+     "module": "korr_m33aa",
+     "set": false,
+     "branch": "if K_CURRENT_PLANET != 20; K_XOR_AMBUSH != 0; K_KOTOR_MASTER < 20; K_MESS_MISSION is FALSE; K_CURRENT_PLANE..."
+    },
+    {
+     "script": "k_kor_swoop_01",
+     "module": "korr_m33aa",
+     "set": false,
+     "branch": "if K_CURRENT_PLANET != 20; K_XOR_AMBUSH != 0; K_KOTOR_MASTER < 20; K_MESS_CANDEROUS is FALSE; K_CURRENT_PLA..."
+    },
+    {
+     "script": "k_kor_swoop_01",
+     "module": "korr_m33aa",
+     "set": false,
+     "branch": "if K_CURRENT_PLANET != 20; K_XOR_AMBUSH != 0; K_KOTOR_MASTER < 20; K_MESS_JUHANI is FALSE; G_JUHANIH_STATE ..."
+    }
+   ]
+  },
+  {
+   "name": "k_mika_czerka",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pkor_mikczerkx",
+     "module": "korr_m33aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "k_mIKA_HAWKTALK",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pkor_hawktlk",
+     "module": "korr_m33aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "k_mika_kolto",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pkor_mikkoltox",
+     "module": "korr_m33aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "K_Mika_Krayt",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pkor_mikkraytx",
+     "module": "korr_m33aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "k_mika_wookiee",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pkor_mikwookx",
+     "module": "korr_m33aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "K_STAR_MAP_KASHYYYK",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "cp_k39_strmap_ps",
+     "module": "korr_m39aa",
+     "set": true
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pla_actmap"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_ren_leavlev"
+    },
+    {
+     "where": "modules/kas_m22ab.mod",
+     "script": "k_psennispawn"
+    },
+    {
+     "where": "modules/manm28ad.mod",
+     "script": "k_pman_starmap06"
+    }
+   ]
+  },
+  {
+   "name": "K_STAR_MAP_MANAAN",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "cp_k39_strmap_ps",
+     "module": "korr_m39aa",
+     "set": true
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pla_actmap"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_ren_leavlev"
+    },
+    {
+     "where": "modules/manm28ad.mod",
+     "script": "k_pman_starmap06"
+    }
+   ]
+  },
+  {
+   "name": "K_STAR_MAP_TATOOINE",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "cp_k39_strmap_ps",
+     "module": "korr_m39aa",
+     "set": true
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pla_actmap"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_ren_leavlev"
+    },
+    {
+     "where": "modules/manm28ad.mod",
+     "script": "k_pman_starmap06"
+    },
+    {
+     "where": "modules/tat_m17aa.mod",
+     "script": "k_psennispawn"
+    }
+   ]
+  },
+  {
+   "name": "K_SWG_BASTILA",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    99
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "cp_k39_strmap_ps",
+     "module": "korr_m39aa",
+     "set": 99
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pla_actmap"
+    },
+    {
+     "where": "Override",
+     "script": "k_trg_partyinit"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_ebn_bast3"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_ebn_bast5"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_basttalk"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_basttalk2"
+    }
+   ],
+   "read_after_planet_total": 16
+  },
+  {
+   "name": "K_SWG_CARTH",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    99
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_swg_dustil99",
+     "module": "korr_m35aa",
+     "set": 99
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "Override",
+     "script": "k_trg_partyinit"
+    },
+    {
+     "where": "modules/ebo_m40ad.mod",
+     "script": "k_pebo_carthrom"
+    },
+    {
+     "where": "modules/ebo_m40ad.mod",
+     "script": "k_pebo_carthromn"
+    },
+    {
+     "where": "modules/ebo_m40ad.mod",
+     "script": "cp_ebo40ad_done"
+    },
+    {
+     "where": "modules/ebo_m40ad.mod",
+     "script": "cp_ebo40ad_rdone"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_punk_carthrom"
+    }
+   ],
+   "read_after_planet_total": 12
+  },
+  {
+   "name": "K_XOR_AMBUSH",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3
+   ],
+   "writers_total": 30,
+   "writers": [
+    {
+     "script": "k_hxor_state03",
+     "module": "korr_m33aa",
+     "set": 3,
+     "branch": "if K_XOR_AMBUSH == 2"
+    },
+    {
+     "script": "k_hxor_state02",
+     "module": "korr_m33aa",
+     "set": 2,
+     "branch": "if K_XOR_AMBUSH == 1"
+    },
+    {
+     "script": "k33b_openacademy",
+     "module": "korr_m33ab",
+     "set": 1,
+     "branch": "if KOR_SITHJOIN <= 0; KOR_END_HOSTILE is FALSE; K_MESS_JUHANI is TRUE; K_XOR_AMBUSH < 1"
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_hxor_state01"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_hxor_state02"
+    },
+    {
+     "where": "Override",
+     "script": "k_hxor_state03"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid01"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid02"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid03"
+    }
+   ],
+   "read_after_planet_total": 26
+  },
+  {
+   "name": "K_XOR_AMBUSH_FIX",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 29,
+   "writers": [
+    {
+     "script": "k_kas_xorattack",
+     "module": "korr_m33aa",
+     "set": true,
+     "branch": "if K_XOR_AMBUSH == 1; K1CP_XOR_SPAWNED is FALSE"
+    },
+    {
+     "script": "k33b_openacademy",
+     "module": "korr_m33ab",
+     "set": true,
+     "branch": "if KOR_SITHJOIN <= 0; KOR_END_HOSTILE is FALSE; K_MESS_JUHANI is TRUE; K_XOR_AMBUSH < 1"
+    },
+    {
+     "script": "k33b_openacademy",
+     "module": "korr_m33ab",
+     "set": true,
+     "branch": "if KOR_SITHJOIN <= 0; KOR_END_HOSTILE is FALSE; DAN_BELAYA_DEFECT is TRUE; K_MESS_JUHANI is TRUE; K_XOR_AMB..."
+    }
+   ]
+  },
+  {
+   "name": "KOR33_MEDALLION",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k33_acg_mdlknwn",
+     "module": "korr_m33ab",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "KOR33_MEKEL_REVEAL",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k33_mekel_reveal",
+     "module": "korr_m33ab",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "KOR33_SHAARDAN",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "writers_total": 9,
+   "writers": [
+    {
+     "script": "k33_sha_mercy",
+     "module": "korr_m33aa",
+     "set": 3
+    },
+    {
+     "script": "k33_sha_humiliat",
+     "module": "korr_m33aa",
+     "set": 2
+    },
+    {
+     "script": "k33_sha_mercy2",
+     "module": "korr_m33aa",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "KOR38A_REPAIRDICE",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k38a_drd_repairs",
+     "module": "korr_m38aa",
+     "add": 2
+    }
+   ]
+  },
+  {
+   "name": "KOR38B_MEKEL_TORTURE",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 4,
+   "writers": [
+    {
+     "script": "k38b_jor_riddley",
+     "module": "korr_m38ab",
+     "add": 1,
+     "branch": "if not GetIsObjectValid(a helper function's result); not ((GetGlobalNumber(\"KOR38B_MEKEL_TORTURE\") + 1) == 3)"
+    },
+    {
+     "script": "k38b_jor_riddley",
+     "module": "korr_m38ab",
+     "add": 1,
+     "branch": "if not GetIsObjectValid(a helper function's result); (GetGlobalNumber(\"KOR38B_MEKEL_TORTURE\") + 1) is 3"
+    },
+    {
+     "script": "k38b_jor_riddley",
+     "module": "korr_m38ab",
+     "add": 1,
+     "branch": "if GetIsObjectValid(a helper function's result); not ((GetGlobalNumber(\"KOR38B_MEKEL_TORTURE\") + 1) == 3)"
+    }
+   ]
+  },
+  {
+   "name": "KOR39_SITH_HOSTILE",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3,
+    6
+   ],
+   "writers_total": 22,
+   "writers": [
+    {
+     "script": "k39_uth_bothhost",
+     "module": "korr_m39aa",
+     "set": 3,
+     "branch": "if not GetIsObjectValid(GetItemPossessedBy(OBJECT_SELF, \"G_W_DBLSBR002\")); not GetIsObjectValid(GetItemPoss..."
+    },
+    {
+     "script": "k39_uth_bothhost",
+     "module": "korr_m39aa",
+     "set": 3,
+     "branch": "if not GetIsObjectValid(GetItemPossessedBy(OBJECT_SELF, \"G_W_DBLSBR002\")); GetIsObjectValid(GetItemPossesse..."
+    },
+    {
+     "script": "k39_uth_bothhost",
+     "module": "korr_m39aa",
+     "set": 3,
+     "branch": "if GetIsObjectValid(GetItemPossessedBy(OBJECT_SELF, \"G_W_DBLSBR002\")); GetIsObjectValid(GetItemInSlot(4, OB..."
+    }
+   ]
+  },
+  {
+   "name": "KOR_ASSASS_SFG",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pkor_safeguard",
+     "module": "korr_m38aa",
+     "add": 1,
+     "branch": "if (((d20(1) + GetSkillRank(5, player)) + GetAbilityModifier(3, player)) >= (7 + GetGlobalNumber(\"KOR_ASSAS..."
+    }
+   ]
+  },
+  {
+   "name": "KOR_BELAYA",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pkor_ud_belaya",
+     "module": "korr_m33ab",
+     "set": true,
+     "branch": "if user-defined event is 1007"
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/danm13.mod",
+     "script": "k_pdan_belaya05"
+    },
+    {
+     "where": "modules/danm13.mod",
+     "script": "k_pdan_belaya06"
+    },
+    {
+     "where": "modules/danm13.mod",
+     "script": "k_pdan_belaya07"
+    },
+    {
+     "where": "modules/danm13.mod",
+     "script": "k_pdan_vandar07"
+    }
+   ]
+  },
+  {
+   "name": "KOR_BETRAYAL",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "k_pkor_betray05",
+     "module": "korr_m35aa",
+     "set": 2
+    },
+    {
+     "script": "k_pkor_betray03",
+     "module": "korr_m35aa",
+     "set": 3
+    },
+    {
+     "script": "k_pkor_betray01",
+     "module": "korr_m35aa",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "KOR_CAVE_ACTIVE",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    false,
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_pkor_westset",
+     "module": "korr_m34aa",
+     "set": false,
+     "branch": "if (GetEnteringObject() == GetPartyMemberByIndex(0))"
+    },
+    {
+     "script": "k_pkor_eastset",
+     "module": "korr_m34aa",
+     "set": true,
+     "branch": "if (GetEnteringObject() == GetPartyMemberByIndex(0))"
+    }
+   ]
+  },
+  {
+   "name": "KOR_CEILING_DEATH",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pkor_udceiling",
+     "module": "korr_m39aa",
+     "set": true,
+     "branch": "if user-defined event is 139"
+    }
+   ]
+  },
+  {
+   "name": "KOR_DAK_LEAVE",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    false,
+    true
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "cp_kor_dakleave",
+     "module": "korr_m33aa",
+     "set": false
+    },
+    {
+     "script": "cp_kor_dakattack",
+     "module": "korr_m33aa",
+     "set": false
+    },
+    {
+     "script": "k_pkor_dakleave",
+     "module": "korr_m36aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "KOR_DANEL",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    3,
+    4,
+    5
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "k_swg_dustil99",
+     "module": "korr_m35aa",
+     "set": 5
+    },
+    {
+     "script": "k_swg_dustil05",
+     "module": "korr_m35aa",
+     "set": 3
+    },
+    {
+     "script": "k_swg_dustil06",
+     "module": "korr_m35aa",
+     "set": 4
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid01"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid02"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid03"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid04"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid05"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_rapid02"
+    }
+   ],
+   "read_after_planet_total": 15
+  },
+  {
+   "name": "KOR_DOOR33A",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_pkor_usesign",
+     "module": "korr_m33aa",
+     "set": 2
+    },
+    {
+     "script": "k_pkor_33drconv",
+     "module": "korr_m33aa",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "KOR_DOOR33B",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_pkor_33bdrfail",
+     "module": "korr_m33ab",
+     "set": 1,
+     "branch": "if KOR_END_HOSTILE is FALSE"
+    },
+    {
+     "script": "k_pkor_33bdrfail",
+     "module": "korr_m33ab",
+     "set": 2,
+     "branch": "if KOR_END_HOSTILE is TRUE"
+    }
+   ]
+  },
+  {
+   "name": "KOR_DOOR37",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_pkor_faildoor1",
+     "module": "korr_m37aa",
+     "set": 1
+    },
+    {
+     "script": "k_pkor_faildoor2",
+     "module": "korr_m37aa",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "KOR_DOOR38A",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pkor_faildoor1",
+     "module": "korr_m38aa",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "KOR_DOOR38B",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_pkor_faildoor2",
+     "module": "korr_m38ab",
+     "set": 2
+    },
+    {
+     "script": "k_pkor_faildoor1",
+     "module": "korr_m38ab",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "KOR_DOOR39",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_pkor_faildoor2",
+     "module": "korr_m39aa",
+     "set": 2
+    },
+    {
+     "script": "k_pkor_fail_vall",
+     "module": "korr_m39aa",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "KOR_DROID_HINT",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    0
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_pkor_droid7",
+     "module": "korr_m38aa",
+     "add": 1,
+     "branch": "if KOR_DROID_HINT != 6"
+    },
+    {
+     "script": "k_pkor_droid7",
+     "module": "korr_m38aa",
+     "set": 0,
+     "branch": "if KOR_DROID_HINT == 6"
+    }
+   ]
+  },
+  {
+   "name": "KOR_DUEL_NUM",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k35_duc_fight",
+     "module": "korr_m35aa",
+     "add": 1,
+     "branch": "if (GetGlobalNumber(\"KOR_DUEL_NUM\") + 1) at most 2"
+    },
+    {
+     "script": "k35_duc_fight",
+     "module": "korr_m35aa",
+     "add": 1,
+     "branch": "if (GetGlobalNumber(\"KOR_DUEL_NUM\") + 1) at least 3"
+    }
+   ]
+  },
+  {
+   "name": "KOR_END_DEAD",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_pkor_ud_endaca",
+     "module": "korr_m36aa",
+     "add": 1,
+     "branch": "if (GetGlobalNumber(\"KOR_END_DEAD\") + 1) at most 2; user-defined event is 1007"
+    },
+    {
+     "script": "k_pkor_ud_endaca",
+     "module": "korr_m36aa",
+     "add": 1,
+     "branch": "if user-defined event is 1007; (GetGlobalNumber(\"KOR_END_DEAD\") + 1) at least 3"
+    }
+   ]
+  },
+  {
+   "name": "KOR_END_HOSTILE",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pkor_end_host",
+     "module": "korr_m36aa",
+     "set": true
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid01"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid02"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid03"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid04"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid05"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_rapid02"
+    }
+   ],
+   "read_after_planet_total": 15
+  },
+  {
+   "name": "KOR_FINAL_TEST",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "writers_total": 26,
+   "writers": [
+    {
+     "script": "k_pkor_choice03",
+     "module": "korr_m39aa",
+     "set": 4
+    },
+    {
+     "script": "k_pkor_choice02",
+     "module": "korr_m39aa",
+     "set": 2
+    },
+    {
+     "script": "k_pkor_choice01",
+     "module": "korr_m39aa",
+     "set": 3
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_misc62"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_random30"
+    },
+    {
+     "where": "modules/danm13.mod",
+     "script": "k_pdan_com01"
+    },
+    {
+     "where": "modules/danm13.mod",
+     "script": "k_pdan_com06"
+    },
+    {
+     "where": "modules/danm14aa.mod",
+     "script": "k_pdan_14a_area"
+    },
+    {
+     "where": "modules/danm14aa.mod",
+     "script": "k_pdan_random30"
+    }
+   ],
+   "read_after_planet_total": 20
+  },
+  {
+   "name": "KOR_FREEDON_SWORD",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k35_uth_giveswrd",
+     "module": "korr_m35aa",
+     "set": true,
+     "branch": "if does not have item k37_itm_freedont"
+    },
+    {
+     "script": "k35_uth_giveswrd",
+     "module": "korr_m35aa",
+     "set": true,
+     "branch": "if has item k37_itm_freedont"
+    }
+   ]
+  },
+  {
+   "name": "KOR_FREIGHT_RAND",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "writers_total": 5,
+   "writers": [
+    {
+     "script": "k_pkor_randfr5",
+     "module": "korr_m33aa",
+     "set": 5
+    },
+    {
+     "script": "k_pkor_randfr1",
+     "module": "korr_m33aa",
+     "set": 1,
+     "branch": "if KOR_FREIGHT_RAND != 1"
+    },
+    {
+     "script": "k_pkor_randfr2",
+     "module": "korr_m33aa",
+     "set": 2,
+     "branch": "if KOR_FREIGHT_RAND != 2"
+    }
+   ]
+  },
+  {
+   "name": "KOR_HINT_COUNT",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_pkor_droid7",
+     "module": "korr_m38aa",
+     "add": 1,
+     "branch": "if KOR_DROID_HINT != 6"
+    },
+    {
+     "script": "k_pkor_droid7",
+     "module": "korr_m38aa",
+     "add": 1,
+     "branch": "if KOR_DROID_HINT == 6"
+    }
+   ]
+  },
+  {
+   "name": "KOR_JORAK_MEET",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k38b_jor_gastrap",
+     "module": "korr_m38ab",
+     "set": true,
+     "branch": "if not GetIsObjectValid(a helper function's result)"
+    },
+    {
+     "script": "k38b_jor_gastrap",
+     "module": "korr_m38ab",
+     "set": true,
+     "branch": "if GetIsObjectValid(a helper function's result)"
+    }
+   ]
+  },
+  {
+   "name": "KOR_KEL_DOUBT",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "writers_total": 6,
+   "writers": [
+    {
+     "script": "k_pkor_kel03",
+     "module": "korr_m35aa",
+     "set": 1
+    },
+    {
+     "script": "kor35_kelfight",
+     "module": "korr_m35aa",
+     "set": 5
+    },
+    {
+     "script": "k_pkor_keldoubt4",
+     "module": "korr_m35aa",
+     "set": 2
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/danm13.mod",
+     "script": "k_pdan_13_area"
+    }
+   ]
+  },
+  {
+   "name": "KOR_KNOW_ACADEMY",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pkor_tdacademy",
+     "module": "korr_m33aa",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "KOR_KNOW_DRUG",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pkor_kndrug",
+     "module": "korr_m35aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "KOR_KNOW_EXCAV",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pkor_tdexcav",
+     "module": "korr_m33aa",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "KOR_KNOW_FREEDON",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_pkor_tdfreed",
+     "module": "korr_m35aa",
+     "set": true
+    },
+    {
+     "script": "k_pkor_tdfreedon",
+     "module": "korr_m36aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "KOR_KNOW_JORAK",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pkor_knjorak",
+     "module": "korr_m35aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "KOR_KNOW_LASH",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pkor_knlashjob",
+     "module": "korr_m35aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "KOR_KNOW_UTHAR",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pkor_knuthar02",
+     "module": "korr_m35aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "KOR_KNOW_WEAPONS",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pkor_knweapons",
+     "module": "korr_m33aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "KOR_KNOW_YUTHURA",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_pkor_tdyuthura",
+     "module": "korr_m33aa",
+     "set": true
+    },
+    {
+     "script": "k_pkor_tdyuthura",
+     "module": "korr_m33ab",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "KOR_LASHOWE_HATE",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    false,
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k33_las_hostile",
+     "module": "korr_m33aa",
+     "set": true
+    },
+    {
+     "script": "k33_las_like",
+     "module": "korr_m33aa",
+     "set": false
+    }
+   ]
+  },
+  {
+   "name": "KOR_LASHOWE_PLOT",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "writers_total": 9,
+   "writers": [
+    {
+     "script": "k35_ud_lashowe",
+     "module": "korr_m35aa",
+     "set": 5,
+     "branch": "if user-defined event is 1007"
+    },
+    {
+     "script": "k_pkor_lasleave",
+     "module": "korr_m35aa",
+     "set": 2
+    },
+    {
+     "script": "k_pkor_lashdead2",
+     "module": "korr_m35aa",
+     "set": 6
+    }
+   ]
+  },
+  {
+   "name": "KOR_LASHOWE_TUK",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pkor_lashtukat",
+     "module": "korr_m36aa",
+     "set": true,
+     "branch": "if KOR_LASHOWE_TUK is FALSE"
+    }
+   ]
+  },
+  {
+   "name": "KOR_LASHOWE_VALLEY",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k36_ud_lashowe",
+     "module": "korr_m36aa",
+     "set": true,
+     "branch": "if user-defined event is 1007"
+    }
+   ]
+  },
+  {
+   "name": "KOR_MEKEL_KILLED",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 4,
+   "writers": [
+    {
+     "script": "k_pkor_uthmektld",
+     "module": "korr_m35aa",
+     "set": 2
+    },
+    {
+     "script": "k38b_ud_mekel",
+     "module": "korr_m38ab",
+     "set": 1,
+     "branch": "if user-defined event is 1007"
+    },
+    {
+     "script": "k38b_jor_riddley",
+     "module": "korr_m38ab",
+     "set": 1,
+     "branch": "if not GetIsObjectValid(a helper function's result); (GetGlobalNumber(\"KOR38B_MEKEL_TORTURE\") + 1) is 3"
+    }
+   ]
+  },
+  {
+   "name": "KOR_MEKEL_LIGHT",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k38b_mek_lv_acad",
+     "module": "korr_m38ab",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "KOR_MEKEL_SPARED",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k38b_mek_leave",
+     "module": "korr_m38ab",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "KOR_MURDER_DEAD",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 9,
+   "writers": [
+    {
+     "script": "k_pkor_33arenter",
+     "module": "korr_m33aa",
+     "set": true,
+     "branch": "if KOR_SITHJOIN <= 0; KOR_FINAL_TEST > 0; K_KOR_PORT_FEE is TRUE; KOR_DAK_LEAVE is FALSE"
+    },
+    {
+     "script": "k_pkor_33arenter",
+     "module": "korr_m33aa",
+     "set": true,
+     "branch": "if KOR_SITHJOIN <= 0; KOR_FINAL_TEST > 0; K_KOR_PORT_FEE is TRUE; KOR_DAK_LEAVE is TRUE"
+    },
+    {
+     "script": "k_pkor_33arenter",
+     "module": "korr_m33aa",
+     "set": true,
+     "branch": "if KOR_SITHJOIN <= 0; KOR_FINAL_TEST > 0; K_KOR_PORT_FEE is FALSE; KOR_DAK_LEAVE is FALSE"
+    }
+   ]
+  },
+  {
+   "name": "kor_PazUp",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    99
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_ptar_paznikdec",
+     "module": "korr_m33aa",
+     "set": 99
+    }
+   ]
+  },
+  {
+   "name": "KOR_PC_INTERROGATE",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pkor_pctorture",
+     "module": "korr_m35aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "KOR_PC_SITH",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 5,
+   "writers": [
+    {
+     "script": "k_pkor_setpcsith",
+     "module": "korr_m39aa",
+     "set": true,
+     "branch": "if player alignment at most 14"
+    },
+    {
+     "script": "k_pkor_setpcsith",
+     "module": "korr_m39aa",
+     "set": true,
+     "branch": "if player alignment from 15 to 39"
+    },
+    {
+     "script": "k_pkor_setpcsith",
+     "module": "korr_m39aa",
+     "set": true,
+     "branch": "if player alignment from 40 to 60"
+    }
+   ]
+  },
+  {
+   "name": "KOR_PILLAR_CHANCE",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pkor_reset1",
+     "module": "korr_m39aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "KOR_PILLAR_END",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pkor_pillarend",
+     "module": "korr_m39aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "KOR_PILLAR_START",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    false,
+    true
+   ],
+   "writers_total": 4,
+   "writers": [
+    {
+     "script": "k_pkor_pillar01",
+     "module": "korr_m39aa",
+     "set": true,
+     "branch": "if KOR_PILLAR_START is FALSE; KOR_PILLARL == 0; KOR_PILLARM == 0; KOR_PILLARR == 1"
+    },
+    {
+     "script": "k_pkor_reset",
+     "module": "korr_m39aa",
+     "set": false
+    },
+    {
+     "script": "k_pkor_reset1",
+     "module": "korr_m39aa",
+     "set": false
+    }
+   ]
+  },
+  {
+   "name": "KOR_PILLARL",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    24
+   ],
+   "writers_total": 17,
+   "writers": [
+    {
+     "script": "k_pkor_pillar01",
+     "module": "korr_m39aa",
+     "set": 24,
+     "branch": "if KOR_PILLAR_START is FALSE; KOR_PILLARL == 0; KOR_PILLARM == 0; KOR_PILLARR == 1"
+    },
+    {
+     "script": "k39_pil_r_fg_l",
+     "module": "korr_m39aa",
+     "add": 1
+    },
+    {
+     "script": "k39_pil_r_fc_l",
+     "module": "korr_m39aa",
+     "add": 3
+    }
+   ]
+  },
+  {
+   "name": "KOR_PILLARM",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    0
+   ],
+   "writers_total": 17,
+   "writers": [
+    {
+     "script": "k_pkor_pillar01",
+     "module": "korr_m39aa",
+     "set": 0,
+     "branch": "if KOR_PILLAR_START is FALSE; KOR_PILLARL == 0; KOR_PILLARM == 0; KOR_PILLARR == 1"
+    },
+    {
+     "script": "k39_pil_r_fg_m",
+     "module": "korr_m39aa",
+     "add": 1
+    },
+    {
+     "script": "k39_pil_r_fc_m",
+     "module": "korr_m39aa",
+     "add": 3
+    }
+   ]
+  },
+  {
+   "name": "KOR_PILLARR",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    0
+   ],
+   "writers_total": 17,
+   "writers": [
+    {
+     "script": "k_pkor_pillar01",
+     "module": "korr_m39aa",
+     "set": 0,
+     "branch": "if KOR_PILLAR_START is FALSE; KOR_PILLARL == 0; KOR_PILLARM == 0; KOR_PILLARR == 1"
+    },
+    {
+     "script": "k39_pil_r_fg_m",
+     "module": "korr_m39aa",
+     "add": -1
+    },
+    {
+     "script": "k39_pil_r_fg_l",
+     "module": "korr_m39aa",
+     "add": -1
+    }
+   ]
+  },
+  {
+   "name": "KOR_PORT_OPEN",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k33_prt_opendoor",
+     "module": "korr_m33aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "KOR_PRESTIGE_END",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 6,
+   "writers": [
+    {
+     "script": "k_pkor_nightcut",
+     "module": "korr_m35aa",
+     "set": true,
+     "branch": "if KOR_SHAARDAN_SWORD != 3; does not have item k37_itm_freedont"
+    },
+    {
+     "script": "k_pkor_nightcut",
+     "module": "korr_m35aa",
+     "set": true,
+     "branch": "if KOR_SHAARDAN_SWORD != 3; has item k37_itm_freedont"
+    },
+    {
+     "script": "k_pkor_nightcut",
+     "module": "korr_m35aa",
+     "set": true,
+     "branch": "if KOR_SHAARDAN_SWORD == 3; does not have item k37_itm_freedont"
+    }
+   ]
+  },
+  {
+   "name": "KOR_PRISONERS_FREE",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "kor35_enter",
+     "module": "korr_m35aa",
+     "set": true,
+     "branch": "if KOR_SHAARDAN_SWORD != 2; KOR33_SHAARDAN < 4; KOR_LASHOWE_PLOT < 5; KOR_MEKEL_KILLED < 1; KOR_MEKEL_LIGHT..."
+    },
+    {
+     "script": "k_pkor_release",
+     "module": "korr_m35aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "KOR_REBEL_SITH",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "k_pkor_reneg01",
+     "module": "korr_m34aa",
+     "set": 2
+    },
+    {
+     "script": "k_pkor_knrebel2",
+     "module": "korr_m35aa",
+     "set": 1
+    },
+    {
+     "script": "k_pkor_tdrebel",
+     "module": "korr_m35aa",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "KOR_REMOVE_PCS",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 15,
+   "writers": [
+    {
+     "script": "k_pkor_partyleav",
+     "module": "korr_m35aa",
+     "expr": "GetPartyMemberCount()",
+     "branch": "if GetPartyMemberCount() at most 0"
+    },
+    {
+     "script": "k_pkor_partyleav",
+     "module": "korr_m35aa",
+     "expr": "GetPartyMemberCount()",
+     "branch": "if not IsNPCPartyMember(0); not IsNPCPartyMember(1); GetPartyMemberCount() is 1"
+    },
+    {
+     "script": "k_pkor_partyleav",
+     "module": "korr_m35aa",
+     "expr": "GetPartyMemberCount()",
+     "branch": "if not IsNPCPartyMember(0); not IsNPCPartyMember(1); GetPartyMemberCount() at least 2"
+    }
+   ]
+  },
+  {
+   "name": "KOR_RENEGADE_DEAL",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3
+   ],
+   "writers_total": 5,
+   "writers": [
+    {
+     "script": "k_pkor_ud_34rebl",
+     "module": "korr_m34aa",
+     "set": 2,
+     "branch": "if user-defined event is 1007; (GetGlobalNumber(\"KOR_RENSITH_DEAD\") + 1) at least 3"
+    },
+    {
+     "script": "k_pkor_ud_34reb2",
+     "module": "korr_m34aa",
+     "set": 2,
+     "branch": "if user-defined event is 1007; (GetGlobalNumber(\"KOR_RENSITH_DEAD\") + 1) at least 3"
+    },
+    {
+     "script": "k35_ud_thalia",
+     "module": "korr_m34aa",
+     "set": 2,
+     "branch": "if user-defined event is 1007; (GetGlobalNumber(\"KOR_RENSITH_DEAD\") + 1) at least 3"
+    }
+   ]
+  },
+  {
+   "name": "KOR_RENSITH_DEAD",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 6,
+   "writers": [
+    {
+     "script": "k_pkor_ud_34rebl",
+     "module": "korr_m34aa",
+     "add": 1,
+     "branch": "if (GetGlobalNumber(\"KOR_RENSITH_DEAD\") + 1) at most 2; user-defined event is 1007"
+    },
+    {
+     "script": "k_pkor_ud_34rebl",
+     "module": "korr_m34aa",
+     "add": 1,
+     "branch": "if user-defined event is 1007; (GetGlobalNumber(\"KOR_RENSITH_DEAD\") + 1) at least 3"
+    },
+    {
+     "script": "k_pkor_ud_34reb2",
+     "module": "korr_m34aa",
+     "add": 1,
+     "branch": "if (GetGlobalNumber(\"KOR_RENSITH_DEAD\") + 1) at most 2; user-defined event is 1007"
+    }
+   ]
+  },
+  {
+   "name": "KOR_ROGUE_DROID",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3
+   ],
+   "writers_total": 12,
+   "writers": [
+    {
+     "script": "k35_uth_presdrd",
+     "module": "korr_m35aa",
+     "set": 3
+    },
+    {
+     "script": "k38a_ud_roguedrd",
+     "module": "korr_m38aa",
+     "set": 2,
+     "branch": "if user-defined event is 1007"
+    },
+    {
+     "script": "k38a_drd_fixed",
+     "module": "korr_m38aa",
+     "set": 1,
+     "branch": "if player alignment at most 14"
+    }
+   ]
+  },
+  {
+   "name": "KOR_SHAARDAN_SWORD",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3
+   ],
+   "writers_total": 7,
+   "writers": [
+    {
+     "script": "k35_uth_killshaa",
+     "module": "korr_m35aa",
+     "set": 3
+    },
+    {
+     "script": "k37_sha_fakeswr2",
+     "module": "korr_m37aa",
+     "set": 2,
+     "branch": "if does not have item k37_itm_freednf2"
+    },
+    {
+     "script": "k37_sha_fakeswr2",
+     "module": "korr_m37aa",
+     "set": 2,
+     "branch": "if has item k37_itm_freednf2"
+    }
+   ]
+  },
+  {
+   "name": "KOR_SITH_CODE",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k35_uth_prescode",
+     "module": "korr_m35aa",
+     "set": 2
+    },
+    {
+     "script": "cp_k35_yuthcode",
+     "module": "korr_m35aa",
+     "set": 1,
+     "branch": "if KOR_SITH_CODE == 0"
+    }
+   ]
+  },
+  {
+   "name": "KOR_SITH_PRESTIGE",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 8,
+   "writers": [
+    {
+     "script": "k35_uth_preslash",
+     "module": "korr_m35aa",
+     "add": 1
+    },
+    {
+     "script": "k35_uth_2prestig",
+     "module": "korr_m35aa",
+     "add": 2
+    },
+    {
+     "script": "k_pkor_1prestige",
+     "module": "korr_m35aa",
+     "add": 1
+    }
+   ]
+  },
+  {
+   "name": "KOR_SITHJOIN",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 6,
+   "writers": [
+    {
+     "script": "k_pkor_joinsith",
+     "module": "korr_m35aa",
+     "set": 1,
+     "branch": "if not GetIsObjectValid(GetPartyMemberByIndex(1)); not GetIsObjectValid(GetPartyMemberByIndex(2))"
+    },
+    {
+     "script": "k_pkor_joinsith",
+     "module": "korr_m35aa",
+     "set": 1,
+     "branch": "if not GetIsObjectValid(GetPartyMemberByIndex(1)); GetIsObjectValid(GetPartyMemberByIndex(2)); not (GetIsOb..."
+    },
+    {
+     "script": "k_pkor_joinsith",
+     "module": "korr_m35aa",
+     "set": 1,
+     "branch": "if not GetIsObjectValid(GetPartyMemberByIndex(1)); GetIsObjectValid(GetPartyMemberByIndex(2)); GetIsObjectV..."
+    }
+   ]
+  },
+  {
+   "name": "KOR_SITHTEST",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    10,
+    9
+   ],
+   "writers_total": 8,
+   "writers": [
+    {
+     "script": "k35_ud_yuthura",
+     "module": "korr_m35aa",
+     "set": 9,
+     "branch": "if KOR_SITH_HOSTILE == 4"
+    },
+    {
+     "script": "k35_ud_yuthura",
+     "module": "korr_m35aa",
+     "set": 10,
+     "branch": "if KOR_SITH_HOSTILE == 3"
+    },
+    {
+     "script": "k_pkor_joinsith",
+     "module": "korr_m35aa",
+     "set": 1,
+     "branch": "if not GetIsObjectValid(GetPartyMemberByIndex(1)); not GetIsObjectValid(GetPartyMemberByIndex(2))"
+    }
+   ]
+  },
+  {
+   "name": "KOR_START_FINAL",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3
+   ],
+   "writers_total": 22,
+   "writers": [
+    {
+     "script": "k35_uth_finaltmb",
+     "module": "korr_m35aa",
+     "set": 1
+    },
+    {
+     "script": "k39_mod_enter",
+     "module": "korr_m39aa",
+     "set": 2,
+     "branch": "if KOR_START_FINAL == 1"
+    },
+    {
+     "script": "k39_ud_yuthura",
+     "module": "korr_m39aa",
+     "set": 3,
+     "branch": "if KOR39_SITH_HOSTILE != 1; KOR39_SITH_HOSTILE != 3; KOR39_SITH_HOSTILE != 4; KOR_FINAL_TEST != 4"
+    }
+   ]
+  },
+  {
+   "name": "KOR_SWORD_PLACED",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pkor_swordplcd",
+     "module": "korr_m37aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "KOR_TALK_CZERKA",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_pkor_talkczer1",
+     "module": "korr_m33aa",
+     "set": 1,
+     "branch": "if KOR_TALK_CZERKA < 1"
+    },
+    {
+     "script": "k_pkor_talkczer3",
+     "module": "korr_m33aa",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "KOR_TALK_PILOT1",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pkor_talkpil1",
+     "module": "korr_m33aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "KOR_TALK_PILOT2",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pkor_talkpil3",
+     "module": "korr_m33aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "KOR_THRESHOLD",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    0
+   ],
+   "writers_total": 7,
+   "writers": [
+    {
+     "script": "k_pkor_painreset",
+     "module": "korr_m35aa",
+     "set": 0
+    },
+    {
+     "script": "k35_vic_torture1",
+     "module": "korr_m35aa",
+     "add": 1
+    },
+    {
+     "script": "k35_vic_heal1",
+     "module": "korr_m35aa",
+     "add": -1
+    }
+   ]
+  },
+  {
+   "name": "KOR_THUG_DEATH",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    4
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "k33b_thug_out",
+     "module": "korr_m33aa",
+     "set": 4
+    },
+    {
+     "script": "k_pkor_ud_thug",
+     "module": "korr_m33aa",
+     "add": 1,
+     "branch": "if (GetGlobalNumber(\"KOR_THUG_DEATH\") + 1) at most 3; user-defined event is 1007"
+    },
+    {
+     "script": "k_pkor_ud_thug",
+     "module": "korr_m33aa",
+     "add": 1,
+     "branch": "if user-defined event is 1007; (GetGlobalNumber(\"KOR_THUG_DEATH\") + 1) at least 4"
+    }
+   ]
+  },
+  {
+   "name": "KOR_THUG_TALK",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    false,
+    true
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "k_pkor_thugtalk",
+     "module": "korr_m33aa",
+     "set": true
+    },
+    {
+     "script": "k33b_thug_out",
+     "module": "korr_m33aa",
+     "set": false
+    },
+    {
+     "script": "k_pkor_ud_thug",
+     "module": "korr_m33aa",
+     "set": false,
+     "branch": "if user-defined event is 1007; (GetGlobalNumber(\"KOR_THUG_DEATH\") + 1) at least 4"
+    }
+   ]
+  },
+  {
+   "name": "KOR_TOLD_JORAK",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k35_uth_givetab",
+     "module": "korr_m35aa",
+     "set": true,
+     "branch": "if has item kor_itm_sithtabl"
+    },
+    {
+     "script": "k35_toldjorakmet",
+     "module": "korr_m35aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "KOR_TORT_END",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "writers_total": 6,
+   "writers": [
+    {
+     "script": "k_pkor_tort3",
+     "module": "korr_m35aa",
+     "set": 3
+    },
+    {
+     "script": "k_pkor_tort02",
+     "module": "korr_m35aa",
+     "set": 1
+    },
+    {
+     "script": "k_pkor_tort01",
+     "module": "korr_m35aa",
+     "set": 2,
+     "branch": "if not GetIsObjectValid(GetItemPossessedBy(OBJECT_SELF, \"G_W_DBLSBR002\"))"
+    }
+   ]
+  },
+  {
+   "name": "KOR_TORTURE_DRUG",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k35_vic_drugged",
+     "module": "korr_m35aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "KOR_TORTURE_TELL",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k35_vic_narc",
+     "module": "korr_m35aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "KOR_TUKATA_GONE",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "k36_ud_tukqueen",
+     "module": "korr_m36aa",
+     "set": true,
+     "branch": "if GetIsDead(GetObjectByTag(\"kor36_tukatahen1\", 0)); GetIsDead(GetObjectByTag(\"kor36_tukatahen2\", 0)); user..."
+    },
+    {
+     "script": "k36_ud_tukhen1",
+     "module": "korr_m36aa",
+     "set": true,
+     "branch": "if KOR_TUKATAQUEEN is TRUE"
+    },
+    {
+     "script": "k36_ud_tukhen2",
+     "module": "korr_m36aa",
+     "set": true,
+     "branch": "if KOR_TUKATAQUEEN is TRUE"
+    }
+   ]
+  },
+  {
+   "name": "KOR_TUKATAQUEEN",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "k36_ud_tukqueen",
+     "module": "korr_m36aa",
+     "set": true,
+     "branch": "if not GetIsDead(GetObjectByTag(\"kor36_tukatahen1\", 0)); user-defined event is 1007"
+    },
+    {
+     "script": "k36_ud_tukqueen",
+     "module": "korr_m36aa",
+     "set": true,
+     "branch": "if GetIsDead(GetObjectByTag(\"kor36_tukatahen1\", 0)); not (GetIsDead(GetObjectByTag(\"kor36_tukatahen1\", 0)) ..."
+    },
+    {
+     "script": "k36_ud_tukqueen",
+     "module": "korr_m36aa",
+     "set": true,
+     "branch": "if GetIsDead(GetObjectByTag(\"kor36_tukatahen1\", 0)); GetIsDead(GetObjectByTag(\"kor36_tukatahen2\", 0)); user..."
+    }
+   ]
+  },
+  {
+   "name": "KOR_UTHAR_POISON",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k35_cot_takedevc",
+     "module": "korr_m35aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "KOR_UTHAR_TALK",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    false,
+    true
+   ],
+   "writers_total": 19,
+   "writers": [
+    {
+     "script": "k_pkor_uth_talk",
+     "module": "korr_m35aa",
+     "set": true
+    },
+    {
+     "script": "k_pkor_sithjoin",
+     "module": "korr_m35aa",
+     "set": true
+    },
+    {
+     "script": "k_pkor_uthmedita",
+     "module": "korr_m35aa",
+     "set": false,
+     "branch": "if not (1 && GetIsObjectValid(OBJECT_SELF))"
+    }
+   ]
+  },
+  {
+   "name": "KOR_VICTIM_UNCON",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "k35_vic_drugged",
+     "module": "korr_m35aa",
+     "set": true
+    },
+    {
+     "script": "k35_vic_collapse",
+     "module": "korr_m35aa",
+     "set": true
+    },
+    {
+     "script": "k35_vic_narc",
+     "module": "korr_m35aa",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "KOR_WAR_DEAD",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_pkor_38auddrd",
+     "module": "korr_m38aa",
+     "add": 1,
+     "branch": "if (GetGlobalNumber(\"KOR_WAR_DEAD\") + 1) at most 16; user-defined event is 1007"
+    },
+    {
+     "script": "k_pkor_38auddrd",
+     "module": "korr_m38aa",
+     "add": 1,
+     "branch": "if user-defined event is 1007; (GetGlobalNumber(\"KOR_WAR_DEAD\") + 1) at least 17"
+    }
+   ]
+  },
+  {
+   "name": "KOR_WHO_DAK",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_pkor_dak02",
+     "module": "korr_m36aa",
+     "set": 1
+    },
+    {
+     "script": "k_pkor_dak03",
+     "module": "korr_m36aa",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "KOR_YUTH_POISON",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    false,
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "cp_k35_adr_datpd",
+     "module": "korr_m35aa",
+     "set": true
+    },
+    {
+     "script": "k_pkor_poison03",
+     "module": "korr_m35aa",
+     "set": false
+    }
+   ]
+  },
+  {
+   "name": "KOR_YUTH_YIELD",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k39_ud_yuthura",
+     "module": "korr_m39aa",
+     "set": true,
+     "branch": "if GetCurrentHitPoints(OBJECT_SELF) at most 10; GetMinOneHP(OBJECT_SELF) is 1; GetStandardFaction(OBJECT_SE..."
+    }
+   ]
+  },
+  {
+   "name": "KOR_YUTHURA1",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    2,
+    3
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "k_pkor_yuthlv2",
+     "module": "korr_m33aa",
+     "set": 2
+    },
+    {
+     "script": "k35_ud_yuthura",
+     "module": "korr_m35aa",
+     "set": 3,
+     "branch": "if KOR_SITH_HOSTILE == 3"
+    },
+    {
+     "script": "k35_init_uthar",
+     "module": "korr_m35aa",
+     "set": 2,
+     "branch": "if GetIsObjectValid(player); a helper function's result is 0"
+    }
+   ]
+  },
+  {
+   "name": "KOR_YUTHURA2",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "k_pkor_yuth05",
+     "module": "korr_m35aa",
+     "set": 3
+    },
+    {
+     "script": "k_pkor_yuth04",
+     "module": "korr_m35aa",
+     "set": 2
+    },
+    {
+     "script": "k_pkor_yuth01",
+     "module": "korr_m35aa",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "KOR_YUTHURA_REFUSE",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_pkor_yuthno",
+     "module": "korr_m33aa",
+     "set": true
+    }
+   ]
+  }
+ ],
+ "globals_never_set": [
+  "KOR33_YUTHURA",
+  "KOR35_UTHAR_TALK",
+  "KOR37_DROIDHOSTILE",
+  "KOR37_SARC_OPEN",
+  "KOR37_SHIELD1C",
+  "KOR37_SHIELD2E",
+  "KOR37_SHIELD3H",
+  "KOR37_SHIELD4H",
+  "KOR37_SHIELD5C",
+  "KOR37_WARDROID_DEAD",
+  "KOR38B_DROID_DEAD",
+  "KOR38B_TOMB_STATUE",
+  "KOR39_GONG1",
+  "KOR39_GONG2",
+  "KOR39_GONG3",
+  "KOR_ADD_PARTY",
+  "KOR_DROID_NOSTUN",
+  "KOR_DUSTIL_SPAWN",
+  "KOR_ENTER_ARMORY",
+  "KOR_KEL_TALK",
+  "KOR_KNDFCELL",
+  "KOR_KNOW_SHYRACK",
+  "KOR_MEKEL_DEAD",
+  "KOR_PAZTOLL",
+  "KOR_PILLAR_USE",
+  "KOR_PRESTIGE",
+  "KOR_REMOVE_PC0",
+  "KOR_REMOVE_PC1",
+  "KOR_REMOVE_PC2",
+  "KOR_RENEGADE_DEAD",
+  "KOR_RENEGADE_TALK",
+  "KOR_SITH_HOSTILE",
+  "KOR_SITH_TALK",
+  "KOR_TALK_MECH",
+  "KOR_TALK_PORT",
+  "KOR_TEREN_DEAD",
+  "KOR_TOMB_STATUE",
+  "KOR_TUKATA_DEAD"
+ ],
+ "items": {
+  "held_at_end": [],
+  "held_note": "Given by scripts on the critical path (tools/questdb/chapters.py).",
+  "other_script_gifts": [
+   {
+    "item": "geno_datapad",
+    "count": 1,
+    "script": "k_swg_senni1",
+    "module": "korr_m33aa"
+   },
+   {
+    "item": "g_i_pazcard_013",
+    "count": 1,
+    "script": "k_pkor_toll04",
+    "module": "korr_m33aa"
+   },
+   {
+    "item": "g_i_pazcard_014",
+    "count": 1,
+    "script": "k_pkor_toll04",
+    "module": "korr_m33aa"
+   },
+   {
+    "item": "k35_itm_sithdata",
+    "count": 1,
+    "script": "k_pkor_betray05",
+    "module": "korr_m35aa"
+   },
+   {
+    "item": "k35_itm_sithpass",
+    "count": 1,
+    "script": "k_pkor_joinsith",
+    "module": "korr_m35aa",
+    "branch": "if not GetIsObjectValid(GetPartyMemberByIndex(1)); not GetIsObjectValid(GetPartyMemberByIndex(2))"
+   },
+   {
+    "item": "k35_itm_sithpass",
+    "count": 1,
+    "script": "k_pkor_joinsith",
+    "module": "korr_m35aa",
+    "branch": "if not GetIsObjectValid(GetPartyMemberByIndex(1)); GetIsObjectValid(GetPartyMemberByIndex(2)); not (GetIsOb..."
+   },
+   {
+    "item": "k35_itm_sithpass",
+    "count": 1,
+    "script": "k_pkor_joinsith",
+    "module": "korr_m35aa",
+    "branch": "if not GetIsObjectValid(GetPartyMemberByIndex(1)); GetIsObjectValid(GetPartyMemberByIndex(2)); GetIsObjectV..."
+   },
+   {
+    "item": "k35_itm_sithpass",
+    "count": 1,
+    "script": "k_pkor_joinsith",
+    "module": "korr_m35aa",
+    "branch": "if GetIsObjectValid(GetPartyMemberByIndex(1)); not (GetIsObjectValid(GetPartyMemberByIndex(1)) && GetIsObje..."
+   },
+   {
+    "item": "k35_itm_sithpass",
+    "count": 1,
+    "script": "k_pkor_joinsith",
+    "module": "korr_m35aa",
+    "branch": "if GetIsObjectValid(GetPartyMemberByIndex(1)); GetIsObjectValid(GetObjectByTag(\"k35_way_pcroom1\", 0)); not ..."
+   },
+   {
+    "item": "k35_itm_sithpass",
+    "count": 1,
+    "script": "k_pkor_joinsith",
+    "module": "korr_m35aa",
+    "branch": "if GetIsObjectValid(GetPartyMemberByIndex(1)); GetIsObjectValid(GetObjectByTag(\"k35_way_pcroom1\", 0)); GetI..."
+   },
+   {
+    "item": "k35_itm_uthrpass",
+    "count": 1,
+    "script": "k_pkor_betray03",
+    "module": "korr_m35aa"
+   },
+   {
+    "item": "k35_itm_sithdevc",
+    "count": 1,
+    "script": "k_pkor_betray03",
+    "module": "korr_m35aa"
+   },
+   {
+    "item": "k37_itm_ajunta",
+    "count": 1,
+    "script": "k37_frd_giveswrd",
+    "module": "korr_m37aa"
+   },
+   {
+    "item": "g_i_drdutldev004",
+    "count": 1,
+    "script": "k38a_drd_fixed",
+    "module": "korr_m38aa",
+    "branch": "if player alignment at most 14"
+   },
+   {
+    "item": "g_i_drdutldev007",
+    "count": 1,
+    "script": "k38a_drd_fixed",
+    "module": "korr_m38aa",
+    "branch": "if player alignment at most 14"
+   },
+   {
+    "item": "g_i_drdutldev009",
+    "count": 1,
+    "script": "k38a_drd_fixed",
+    "module": "korr_m38aa",
+    "branch": "if player alignment at most 14"
+   },
+   {
+    "item": "g_i_drdhvplat003",
+    "count": 1,
+    "script": "k38a_drd_fixed",
+    "module": "korr_m38aa",
+    "branch": "if player alignment at most 14"
+   },
+   {
+    "item": "g_i_drdutldev004",
+    "count": 1,
+    "script": "k38a_drd_fixed",
+    "module": "korr_m38aa",
+    "branch": "if player alignment from 15 to 39"
+   },
+   {
+    "item": "g_i_drdutldev007",
+    "count": 1,
+    "script": "k38a_drd_fixed",
+    "module": "korr_m38aa",
+    "branch": "if player alignment from 15 to 39"
+   },
+   {
+    "item": "g_i_drdutldev009",
+    "count": 1,
+    "script": "k38a_drd_fixed",
+    "module": "korr_m38aa",
+    "branch": "if player alignment from 15 to 39"
+   },
+   {
+    "item": "g_i_drdhvplat003",
+    "count": 1,
+    "script": "k38a_drd_fixed",
+    "module": "korr_m38aa",
+    "branch": "if player alignment from 15 to 39"
+   },
+   {
+    "item": "g_i_drdutldev004",
+    "count": 1,
+    "script": "k38a_drd_fixed",
+    "module": "korr_m38aa",
+    "branch": "if player alignment from 40 to 60"
+   },
+   {
+    "item": "g_i_drdutldev007",
+    "count": 1,
+    "script": "k38a_drd_fixed",
+    "module": "korr_m38aa",
+    "branch": "if player alignment from 40 to 60"
+   },
+   {
+    "item": "g_i_drdutldev009",
+    "count": 1,
+    "script": "k38a_drd_fixed",
+    "module": "korr_m38aa",
+    "branch": "if player alignment from 40 to 60"
+   },
+   {
+    "item": "g_i_drdhvplat003",
+    "count": 1,
+    "script": "k38a_drd_fixed",
+    "module": "korr_m38aa",
+    "branch": "if player alignment from 40 to 60"
+   },
+   {
+    "item": "g_i_drdutldev004",
+    "count": 1,
+    "script": "k38a_drd_fixed",
+    "module": "korr_m38aa",
+    "branch": "if player alignment from 61 to 84"
+   },
+   {
+    "item": "g_i_drdutldev007",
+    "count": 1,
+    "script": "k38a_drd_fixed",
+    "module": "korr_m38aa",
+    "branch": "if player alignment from 61 to 84"
+   },
+   {
+    "item": "g_i_drdutldev009",
+    "count": 1,
+    "script": "k38a_drd_fixed",
+    "module": "korr_m38aa",
+    "branch": "if player alignment from 61 to 84"
+   },
+   {
+    "item": "g_i_drdhvplat003",
+    "count": 1,
+    "script": "k38a_drd_fixed",
+    "module": "korr_m38aa",
+    "branch": "if player alignment from 61 to 84"
+   },
+   {
+    "item": "g_i_drdutldev004",
+    "count": 1,
+    "script": "k38a_drd_fixed",
+    "module": "korr_m38aa",
+    "branch": "if player alignment at least 85"
+   },
+   {
+    "item": "g_i_drdutldev007",
+    "count": 1,
+    "script": "k38a_drd_fixed",
+    "module": "korr_m38aa",
+    "branch": "if player alignment at least 85"
+   },
+   {
+    "item": "g_i_drdutldev009",
+    "count": 1,
+    "script": "k38a_drd_fixed",
+    "module": "korr_m38aa",
+    "branch": "if player alignment at least 85"
+   },
+   {
+    "item": "g_i_drdhvplat003",
+    "count": 1,
+    "script": "k38a_drd_fixed",
+    "module": "korr_m38aa",
+    "branch": "if player alignment at least 85"
+   },
+   {
+    "item": "kor_starpad",
+    "count": 1,
+    "script": "k_pkor_givemap",
+    "module": "korr_m39aa",
+    "branch": "if does not have item kor_starpad"
+   }
+  ],
+  "taken_optional": [
+   {
+    "item": "k33_itm_sithmdln",
+    "script": "k33b_openacademy",
+    "module": "korr_m33ab",
+    "from": [
+     "m33ab.are OnEnter"
+    ],
+    "branch": "if KOR_SITHJOIN <= 0; KOR_END_HOSTILE is TRUE; has item k33_itm_sithmdln; K_MESS_JUHANI is FALSE"
+   },
+   {
+    "item": "k33_itm_sithmdln",
+    "script": "k33b_openacademy",
+    "module": "korr_m33ab",
+    "from": [
+     "m33ab.are OnEnter"
+    ],
+    "branch": "if KOR_SITHJOIN <= 0; KOR_END_HOSTILE is TRUE; has item k33_itm_sithmdln; K_MESS_JUHANI is TRUE; K_XOR_AMBU..."
+   },
+   {
+    "item": "k33_itm_sithmdln",
+    "script": "k33b_openacademy",
+    "module": "korr_m33ab",
+    "from": [
+     "m33ab.are OnEnter"
+    ],
+    "branch": "if KOR_SITHJOIN <= 0; KOR_END_HOSTILE is TRUE; has item k33_itm_sithmdln; DAN_BELAYA_DEFECT is TRUE; K_MESS..."
+   },
+   {
+    "item": "k33_itm_sithmdln",
+    "script": "k33b_openacademy",
+    "module": "korr_m33ab",
+    "from": [
+     "m33ab.are OnEnter"
+    ],
+    "branch": "if KOR_SITHJOIN <= 0; KOR_END_HOSTILE is TRUE; has item k33_itm_sithmdln; DAN_BELAYA_DEFECT is TRUE; DAN_JU..."
+   },
+   {
+    "item": "k33_itm_sithmdln",
+    "script": "k33b_openacademy",
+    "module": "korr_m33ab",
+    "from": [
+     "m33ab.are OnEnter"
+    ],
+    "branch": "if KOR_SITHJOIN <= 0; KOR_END_HOSTILE is TRUE; has item k33_itm_sithmdln; KOR_MURDER_DEAD is TRUE; K_MESS_J..."
+   },
+   {
+    "item": "k33_itm_sithmdln",
+    "script": "k33b_openacademy",
+    "module": "korr_m33ab",
+    "from": [
+     "m33ab.are OnEnter"
+    ],
+    "branch": "if KOR_SITHJOIN <= 0; KOR_END_HOSTILE is TRUE; has item k33_itm_sithmdln; KOR_MURDER_DEAD is TRUE; DAN_BELA..."
+   },
+   {
+    "item": "k33_itm_sithmdln",
+    "script": "k33b_openacademy",
+    "module": "korr_m33ab",
+    "from": [
+     "m33ab.are OnEnter"
+    ],
+    "branch": "if KOR_SITHJOIN > 0; KOR_END_HOSTILE is TRUE; has item k33_itm_sithmdln; K_MESS_JUHANI is FALSE"
+   },
+   {
+    "item": "k33_itm_sithmdln",
+    "script": "k33b_openacademy",
+    "module": "korr_m33ab",
+    "from": [
+     "m33ab.are OnEnter"
+    ],
+    "branch": "if KOR_SITHJOIN > 0; KOR_END_HOSTILE is TRUE; has item k33_itm_sithmdln; K_MESS_JUHANI is TRUE; K_XOR_AMBUS..."
+   },
+   {
+    "item": "k33_itm_sithmdln",
+    "script": "k33b_openacademy",
+    "module": "korr_m33ab",
+    "from": [
+     "m33ab.are OnEnter"
+    ],
+    "branch": "if KOR_SITHJOIN > 0; KOR_END_HOSTILE is TRUE; has item k33_itm_sithmdln; DAN_BELAYA_DEFECT is TRUE; K_MESS_..."
+   },
+   {
+    "item": "k33_itm_sithmdln",
+    "script": "k33b_openacademy",
+    "module": "korr_m33ab",
+    "from": [
+     "m33ab.are OnEnter"
+    ],
+    "branch": "if KOR_SITHJOIN > 0; KOR_END_HOSTILE is TRUE; has item k33_itm_sithmdln; DAN_BELAYA_DEFECT is TRUE; DAN_JUH..."
+   },
+   {
+    "item": "k33_itm_sithmdln",
+    "script": "k33b_openacademy",
+    "module": "korr_m33ab",
+    "from": [
+     "m33ab.are OnEnter"
+    ],
+    "branch": "if KOR_SITHJOIN > 0; KOR_END_HOSTILE is TRUE; has item k33_itm_sithmdln; KOR_MURDER_DEAD is TRUE; K_MESS_JU..."
+   },
+   {
+    "item": "k33_itm_sithmdln",
+    "script": "k33b_openacademy",
+    "module": "korr_m33ab",
+    "from": [
+     "m33ab.are OnEnter"
+    ],
+    "branch": "if KOR_SITHJOIN > 0; KOR_END_HOSTILE is TRUE; has item k33_itm_sithmdln; KOR_MURDER_DEAD is TRUE; DAN_BELAY..."
+   },
+   {
+    "item": "k35_itm_sithdata",
+    "script": "cp_k35_adr_exit",
+    "module": "korr_m35aa",
+    "from": [
+     "kor35_adrenas R12 script"
+    ],
+    "branch": "if has item k35_itm_sithdata"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_act_comp01",
+    "module": "korr_m35aa",
+    "from": [
+     "kor35_duelcomp E4 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_actq_take5",
+    "module": "korr_m35aa",
+    "from": [
+     "kor35_duelcomp E7 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_actq_take3",
+    "module": "korr_m35aa",
+    "from": [
+     "kor35_duelcomp E15 script",
+     "kor35_duelcomp E16 script",
+     "kor35_duelcomp E17 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "k35_itm_sithdevc",
+    "script": "k35_cot_takedevc",
+    "module": "korr_m35aa",
+    "from": [
+     "kor35_utharbed R2 script"
+    ]
+   },
+   {
+    "item": "k37_itm_freednf2",
+    "script": "k37_sta_takefak2",
+    "module": "korr_m37aa",
+    "from": [
+     "k37_statue R3 script"
+    ],
+    "branch": "if has item k37_itm_freednf2"
+   },
+   {
+    "item": "k37_itm_freednf1",
+    "script": "k37_sta_takefak1",
+    "module": "korr_m37aa",
+    "from": [
+     "k37_statue R5 script"
+    ],
+    "branch": "if has item k37_itm_freednf1"
+   },
+   {
+    "item": "k37_itm_freedont",
+    "script": "k37_sta_taketrue",
+    "module": "korr_m37aa",
+    "from": [
+     "k37_statue R7 script"
+    ],
+    "branch": "if has item k37_itm_freedont"
+   },
+   {
+    "item": "kor37_datapad02",
+    "script": "k_pkor_ther_dest",
+    "module": "korr_m37aa",
+    "from": [
+     "kor37_firescene E1 script"
+    ],
+    "branch": "if does not have item kor37_datapad01; has item kor37_datapad02"
+   },
+   {
+    "item": "kor37_datapad01",
+    "script": "k_pkor_ther_dest",
+    "module": "korr_m37aa",
+    "from": [
+     "kor37_firescene E1 script"
+    ],
+    "branch": "if has item kor37_datapad01; does not have item kor37_datapad02"
+   },
+   {
+    "item": "kor37_datapad01",
+    "script": "k_pkor_ther_dest",
+    "module": "korr_m37aa",
+    "from": [
+     "kor37_firescene E1 script"
+    ],
+    "branch": "if has item kor37_datapad01; has item kor37_datapad02"
+   },
+   {
+    "item": "kor37_datapad02",
+    "script": "k_pkor_ther_dest",
+    "module": "korr_m37aa",
+    "from": [
+     "kor37_firescene E1 script"
+    ],
+    "branch": "if has item kor37_datapad01; has item kor37_datapad02"
+   },
+   {
+    "item": "k37_itm_freednf2",
+    "script": "k37_sha_fakeswr2",
+    "module": "korr_m37aa",
+    "from": [
+     "kor37_shaardan R12 script"
+    ],
+    "branch": "if has item k37_itm_freednf2"
+   },
+   {
+    "item": "k37_itm_freednf1",
+    "script": "k37_sha_fakeswrd",
+    "module": "korr_m37aa",
+    "from": [
+     "kor37_shaardan R13 script"
+    ],
+    "branch": "if has item k37_itm_freednf1"
+   },
+   {
+    "item": "k37_itm_freedont",
+    "script": "k37_sha_goodswrd",
+    "module": "korr_m37aa",
+    "from": [
+     "kor37_shaardan R16 script"
+    ],
+    "branch": "if has item k37_itm_freedont"
+   },
+   {
+    "item": "K_REPAIR_PART",
+    "script": "k_com_compart",
+    "module": "korr_m38ab",
+    "from": [
+     "kor38b_droid1 E4 script"
+    ],
+    "branch": "if has item K_REPAIR_PART",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_REPAIR_PART",
+    "script": "k_act_com45",
+    "module": "korr_m38ab",
+    "from": [
+     "kor38b_droid1 E6 script"
+    ],
+    "branch": "if has item K_REPAIR_PART",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_REPAIR_PART",
+    "script": "k_act_com44",
+    "module": "korr_m38ab",
+    "from": [
+     "kor38b_droid1 E8 script"
+    ],
+    "branch": "if has item K_REPAIR_PART",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_REPAIR_PART",
+    "script": "k_act_com43",
+    "module": "korr_m38ab",
+    "from": [
+     "kor38b_droid1 E9 script"
+    ],
+    "branch": "if has item K_REPAIR_PART",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_REPAIR_PART",
+    "script": "k_act_com42",
+    "module": "korr_m38ab",
+    "from": [
+     "kor38b_droid1 E10 script"
+    ],
+    "branch": "if has item K_REPAIR_PART",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "k39_itm_coldgren",
+    "script": "k39_acd_takecold",
+    "module": "korr_m39aa",
+    "from": [
+     "k39_plc_acidpool E3 script"
+    ],
+    "branch": "if does not have item k39_itm_firegren; does not have item kor39_itm_datapd"
+   },
+   {
+    "item": "k39_itm_coldgren",
+    "script": "k39_acd_takecold",
+    "module": "korr_m39aa",
+    "from": [
+     "k39_plc_acidpool E3 script"
+    ],
+    "branch": "if does not have item k39_itm_firegren; has item kor39_itm_datapd"
+   },
+   {
+    "item": "kor39_itm_datapd",
+    "script": "k39_acd_takecold",
+    "module": "korr_m39aa",
+    "from": [
+     "k39_plc_acidpool E3 script"
+    ],
+    "branch": "if does not have item k39_itm_firegren; has item kor39_itm_datapd"
+   },
+   {
+    "item": "k39_itm_coldgren",
+    "script": "k39_acd_takecold",
+    "module": "korr_m39aa",
+    "from": [
+     "k39_plc_acidpool E3 script"
+    ],
+    "branch": "if has item k39_itm_firegren; does not have item kor39_itm_datapd"
+   },
+   {
+    "item": "k39_itm_firegren",
+    "script": "k39_acd_takecold",
+    "module": "korr_m39aa",
+    "from": [
+     "k39_plc_acidpool E3 script"
+    ],
+    "branch": "if has item k39_itm_firegren; does not have item kor39_itm_datapd"
+   },
+   {
+    "item": "k39_itm_coldgren",
+    "script": "k39_acd_takecold",
+    "module": "korr_m39aa",
+    "from": [
+     "k39_plc_acidpool E3 script"
+    ],
+    "branch": "if has item k39_itm_firegren; has item kor39_itm_datapd"
+   },
+   {
+    "item": "k39_itm_firegren",
+    "script": "k39_acd_takecold",
+    "module": "korr_m39aa",
+    "from": [
+     "k39_plc_acidpool E3 script"
+    ],
+    "branch": "if has item k39_itm_firegren; has item kor39_itm_datapd"
+   },
+   {
+    "item": "kor39_itm_datapd",
+    "script": "k39_acd_takecold",
+    "module": "korr_m39aa",
+    "from": [
+     "k39_plc_acidpool E3 script"
+    ],
+    "branch": "if has item k39_itm_firegren; has item kor39_itm_datapd"
+   },
+   {
+    "item": "k39_itm_firegren",
+    "script": "k39_acd_takefire",
+    "module": "korr_m39aa",
+    "from": [
+     "k39_plc_acidpool R8 script"
+    ],
+    "branch": "if not GetIsObjectValid(GetPartyMemberByIndex(0)); not GetIsObjectValid(GetPartyMemberByIndex(1)); not GetI..."
+   },
+   {
+    "item": "k39_itm_firegren",
+    "script": "k39_acd_takefire",
+    "module": "korr_m39aa",
+    "from": [
+     "k39_plc_acidpool R8 script"
+    ],
+    "branch": "if not GetIsObjectValid(GetPartyMemberByIndex(0)); not GetIsObjectValid(GetPartyMemberByIndex(1)); GetIsObj..."
+   },
+   {
+    "item": "k39_itm_firegren",
+    "script": "k39_acd_takefire",
+    "module": "korr_m39aa",
+    "from": [
+     "k39_plc_acidpool R8 script"
+    ],
+    "branch": "if not GetIsObjectValid(GetPartyMemberByIndex(0)); GetIsObjectValid(GetPartyMemberByIndex(1)); not GetIsObj..."
+   },
+   {
+    "item": "k39_itm_firegren",
+    "script": "k39_acd_takefire",
+    "module": "korr_m39aa",
+    "from": [
+     "k39_plc_acidpool R8 script"
+    ],
+    "branch": "if not GetIsObjectValid(GetPartyMemberByIndex(0)); GetIsObjectValid(GetPartyMemberByIndex(1)); GetIsObjectV..."
+   },
+   {
+    "item": "k39_itm_firegren",
+    "script": "k39_acd_takefire",
+    "module": "korr_m39aa",
+    "from": [
+     "k39_plc_acidpool R8 script"
+    ],
+    "branch": "if GetIsObjectValid(GetPartyMemberByIndex(0)); not GetIsObjectValid(GetPartyMemberByIndex(1)); not GetIsObj..."
+   },
+   {
+    "item": "k39_itm_firegren",
+    "script": "k39_acd_takefire",
+    "module": "korr_m39aa",
+    "from": [
+     "k39_plc_acidpool R8 script"
+    ],
+    "branch": "if GetIsObjectValid(GetPartyMemberByIndex(0)); not GetIsObjectValid(GetPartyMemberByIndex(1)); GetIsObjectV..."
+   },
+   {
+    "item": "k39_itm_firegren",
+    "script": "k39_acd_takefire",
+    "module": "korr_m39aa",
+    "from": [
+     "k39_plc_acidpool R8 script"
+    ],
+    "branch": "if GetIsObjectValid(GetPartyMemberByIndex(0)); GetIsObjectValid(GetPartyMemberByIndex(1)); not GetIsObjectV..."
+   },
+   {
+    "item": "k39_itm_firegren",
+    "script": "k39_acd_takefire",
+    "module": "korr_m39aa",
+    "from": [
+     "k39_plc_acidpool R8 script"
+    ],
+    "branch": "if GetIsObjectValid(GetPartyMemberByIndex(0)); GetIsObjectValid(GetPartyMemberByIndex(1)); GetIsObjectValid..."
+   }
+  ],
+  "container_loot_optional": [
+   {
+    "module": "korr_m33aa",
+    "area": "m33aa",
+    "container": "kor33a_small2",
+    "template": "kor33a_small2",
+    "position": [
+     251.3,
+     202.24
+    ],
+    "items": [
+     {
+      "resref": "kor33a_credit150",
+      "count": 1
+     },
+     {
+      "resref": "g_i_drdrepeqp001",
+      "count": 1
+     },
+     {
+      "resref": "g_i_parts01",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m33ab",
+    "area": "m33ab",
+    "container": "korr33b_large1",
+    "template": "korr33b_large1",
+    "position": [
+     31.24,
+     -4.53
+    ],
+    "items": [
+     {
+      "resref": "g_i_drdrepeqp001",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m33ab",
+    "area": "m33ab",
+    "container": "korr33b_large2",
+    "template": "korr33b_large2",
+    "position": [
+     23.06,
+     16.28
+    ],
+    "items": [
+     {
+      "resref": "g_i_progspike01",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m34aa",
+    "area": "m34aa",
+    "container": "k34_corpse1",
+    "template": "k34_corpse1",
+    "position": [
+     105.26,
+     96.61
+    ],
+    "items": [
+     {
+      "resref": "g_i_implant102",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m34aa",
+    "area": "m34aa",
+    "container": "kor34_medium1",
+    "template": "kor34_medium1",
+    "position": [
+     118.27,
+     193.82
+    ],
+    "items": [
+     {
+      "resref": "g_w_ionrfl02",
+      "count": 1
+     },
+     {
+      "resref": "g_w_firegren001",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m34aa",
+    "area": "m34aa",
+    "container": "kor34_medium2",
+    "template": "kor34_medium2",
+    "position": [
+     124.64,
+     138.53
+    ],
+    "items": [
+     {
+      "resref": "kor34_credits450",
+      "count": 1
+     },
+     {
+      "resref": "g_i_frarmbnds02",
+      "count": 1
+     },
+     {
+      "resref": "g_w_cryobgren001",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m34aa",
+    "area": "m34aa",
+    "container": "kor34_boss1",
+    "template": "kor34_boss1",
+    "position": [
+     230.71,
+     185.58
+    ],
+    "items": [
+     {
+      "resref": "kor34_credits900",
+      "count": 1
+     },
+     {
+      "resref": "g_a_class4005",
+      "count": 1
+     },
+     {
+      "resref": "g_w_cryobgren001",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m34aa",
+    "area": "m34aa",
+    "container": "k34_corpse4",
+    "template": "k34_corpse4",
+    "position": [
+     236.22,
+     184.06
+    ],
+    "items": [
+     {
+      "resref": "duronjournal",
+      "count": 1
+     },
+     {
+      "resref": "g_w_sbrcrstl16",
+      "count": 1
+     },
+     {
+      "resref": "g_a_jedirobe06",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m35aa",
+    "area": "m35aa",
+    "container": "kor35_large1",
+    "template": "kor35_large1",
+    "position": [
+     61.88,
+     35.6
+    ],
+    "items": [
+     {
+      "resref": "g_w_blstrrfl002",
+      "count": 1
+     },
+     {
+      "resref": "g_w_hldoblstr03",
+      "count": 1
+     },
+     {
+      "resref": "g_w_hvrptbltr01",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m35aa",
+    "area": "m35aa",
+    "container": "kor35_medium1",
+    "template": "kor35_medium1",
+    "position": [
+     20.56,
+     55.38
+    ],
+    "items": [
+     {
+      "resref": "kor35_credits450",
+      "count": 1
+     },
+     {
+      "resref": "g_i_mask14",
+      "count": 1
+     },
+     {
+      "resref": "g_a_mstrrobe01",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m35aa",
+    "area": "m35aa",
+    "container": "kor35_small1",
+    "template": "kor35_small1",
+    "position": [
+     39.25,
+     114.45
+    ],
+    "items": [
+     {
+      "resref": "kor35_credits150",
+      "count": 1
+     },
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 3
+     },
+     {
+      "resref": "g_a_kghtrobe02",
+      "count": 1
+     },
+     {
+      "resref": "g_i_medeqpmnt02",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m35aa",
+    "area": "m35aa",
+    "container": "kor35_medium2",
+    "template": "kor35_medium2",
+    "position": [
+     114.96,
+     138.85
+    ],
+    "items": [
+     {
+      "resref": "g_i_progspike01",
+      "count": 1
+     },
+     {
+      "resref": "g_i_drdrepeqp002",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m35aa",
+    "area": "m35aa",
+    "container": "kor35_medium3",
+    "template": "kor35_medium3",
+    "position": [
+     177.04,
+     89.88
+    ],
+    "items": [
+     {
+      "resref": "g_i_drdhvplat003",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m35aa",
+    "area": "m35aa",
+    "container": "kor35_medium4",
+    "template": "kor35_medium4",
+    "position": [
+     197.57,
+     42.02
+    ],
+    "items": [
+     {
+      "resref": "g_w_iongren01",
+      "count": 1
+     },
+     {
+      "resref": "g_i_progspike01",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m35aa",
+    "area": "m35aa",
+    "container": "kor35_large2",
+    "template": "kor35_large2",
+    "position": [
+     129.6,
+     152.5
+    ],
+    "items": [
+     {
+      "resref": "g_i_drdrepeqp003",
+      "count": 1
+     },
+     {
+      "resref": "g_i_medeqpmnt02",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m36aa",
+    "area": "m36aa",
+    "container": "kor36_medium1",
+    "template": "kor36_medium1",
+    "position": [
+     95.05,
+     165.69
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt03",
+      "count": 1
+     },
+     {
+      "resref": "g_i_adrnaline002",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m36aa",
+    "area": "m36aa",
+    "container": "kor36_medium2",
+    "template": "kor36_medium2",
+    "position": [
+     122.44,
+     176.77
+    ],
+    "items": [
+     {
+      "resref": "g_i_cmbtshot002",
+      "count": 1
+     },
+     {
+      "resref": "g_i_parts01",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m36aa",
+    "area": "m36aa",
+    "container": "kor36_medium4",
+    "template": "kor36_medium4",
+    "position": [
+     109.13,
+     251.9
+    ],
+    "items": [
+     {
+      "resref": "g_i_drdrepeqp001",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m36aa",
+    "area": "m36aa",
+    "container": "kor36_medium5",
+    "template": "kor36_medium5",
+    "position": [
+     42.12,
+     258.41
+    ],
+    "items": [
+     {
+      "resref": "g_i_belt004",
+      "count": 1
+     },
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m37aa",
+    "area": "m37aa",
+    "container": "kor37_medium1",
+    "template": "kor37_medium1",
+    "position": [
+     70.09,
+     10.07
+    ],
+    "items": [
+     {
+      "resref": "g_i_cmbtshot003",
+      "count": 1
+     },
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 1
+     },
+     {
+      "resref": "g_w_sonicgren01",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m37aa",
+    "area": "m37aa",
+    "container": "kor37_medium2",
+    "template": "kor37_medium2",
+    "position": [
+     144.34,
+     13.58
+    ],
+    "items": [
+     {
+      "resref": "kor37_credits450",
+      "count": 1
+     },
+     {
+      "resref": "g_i_implant202",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m37aa",
+    "area": "m37aa",
+    "container": "kor37_sithsarc",
+    "template": "kor37_sithsarc",
+    "position": [
+     144.31,
+     23.72
+    ],
+    "items": [
+     {
+      "resref": "k37_itm_freedont",
+      "count": 1
+     },
+     {
+      "resref": "k37_itm_freednf1",
+      "count": 1
+     },
+     {
+      "resref": "k37_itm_freednf2",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m37aa",
+    "area": "m37aa",
+    "container": "kor37_armdata",
+    "template": "kor37_armdata",
+    "position": [
+     70.35,
+     25.36
+    ],
+    "items": [
+     {
+      "resref": "kor37_datapad02",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m37aa",
+    "area": "m37aa",
+    "container": "kor37_corpse",
+    "template": "kor37_corpse",
+    "position": [
+     60.55,
+     16.04
+    ],
+    "items": [
+     {
+      "resref": "kor37_datapad01",
+      "count": 1
+     },
+     {
+      "resref": "g_i_parts01",
+      "count": 1
+     },
+     {
+      "resref": "g_i_mask17",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m38aa",
+    "area": "m38ab",
+    "container": "kor38a_corpse",
+    "template": "kor38a_corpse",
+    "position": [
+     37.43,
+     73.04
+    ],
+    "items": [
+     {
+      "resref": "g_i_belt006",
+      "count": 1
+     },
+     {
+      "resref": "kor38a_credit450",
+      "count": 1
+     },
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 1
+     },
+     {
+      "resref": "g_w_cryobgren001",
+      "count": 1
+     },
+     {
+      "resref": "k38a_itm_data",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m38aa",
+    "area": "m38ab",
+    "container": "k38a_sith_sarcoph",
+    "template": "k38a_sith_sarcop",
+    "position": [
+     149.34,
+     74.74
+    ],
+    "items": [
+     {
+      "resref": "kor38a_gauntlet",
+      "count": 1
+     },
+     {
+      "resref": "g_w_sbrcrstl12",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m38ab",
+    "area": "m38aa",
+    "container": "kor38b_medium1",
+    "template": "kor38b_medium1",
+    "position": [
+     149.32,
+     74.76
+    ],
+    "items": [
+     {
+      "resref": "kor38b_mask",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m38ab",
+    "area": "m38aa",
+    "container": "kor38b_medium2",
+    "template": "kor38b_medium2",
+    "position": [
+     57.92,
+     15.68
+    ],
+    "items": [
+     {
+      "resref": "g_i_drdcomspk001",
+      "count": 1
+     },
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 1
+     },
+     {
+      "resref": "kor38b_credit450",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m38ab",
+    "area": "m38aa",
+    "container": "kor38b_medium3",
+    "template": "kor38b_medium3",
+    "position": [
+     57.13,
+     76.8
+    ],
+    "items": [
+     {
+      "resref": "kor38b_credit450",
+      "count": 1
+     },
+     {
+      "resref": "g_i_medeqpmnt04",
+      "count": 1
+     },
+     {
+      "resref": "g_w_firegren001",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m38ab",
+    "area": "m38aa",
+    "container": "kor38b_large1",
+    "template": "kor38b_large1",
+    "position": [
+     96.92,
+     76.31
+    ],
+    "items": [
+     {
+      "resref": "g_a_class9003",
+      "count": 1
+     },
+     {
+      "resref": "g_w_ionblstr02",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m38ab",
+    "area": "m38aa",
+    "container": "kor38b_urn1",
+    "template": "kor38b_urn1",
+    "position": [
+     150.02,
+     89.07
+    ],
+    "items": [
+     {
+      "resref": "g_w_sbrcrstl17",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m38ab",
+    "area": "m38aa",
+    "container": "kor38b_urn2",
+    "template": "kor38b_urn2",
+    "position": [
+     164.2,
+     74.86
+    ],
+    "items": [
+     {
+      "resref": "g_w_sbrcrstl11",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m38ab",
+    "area": "m38aa",
+    "container": "kor38b_urn3",
+    "template": "kor38b_urn3",
+    "position": [
+     150.1,
+     61.08
+    ],
+    "items": [
+     {
+      "resref": "g_w_sbrcrstl10",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m39aa",
+    "area": "m39aa",
+    "container": "k39_sabersarc",
+    "template": "k39_sabersarc",
+    "position": [
+     135.68,
+     108.81
+    ],
+    "items": [
+     {
+      "resref": "k39_itm_cersaber",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m39aa",
+    "area": "m39aa",
+    "container": "kor39_sithcorpse",
+    "template": "kor39_sithcorpse",
+    "position": [
+     54.44,
+     64.05
+    ],
+    "items": [
+     {
+      "resref": "kor39_itm_datapd",
+      "count": 1
+     },
+     {
+      "resref": "kor39_credits450",
+      "count": 1
+     },
+     {
+      "resref": "g_w_ionrfl03",
+      "count": 1
+     },
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m39aa",
+    "area": "m39aa",
+    "container": "kor39_medium1",
+    "template": "kor39_medium1",
+    "position": [
+     55.83,
+     171.66
+    ],
+    "items": [
+     {
+      "resref": "g_w_blstrpstl004",
+      "count": 1
+     },
+     {
+      "resref": "g_w_sbrcrstl05",
+      "count": 1
+     },
+     {
+      "resref": "g_i_implant101",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m39aa",
+    "area": "m39aa",
+    "container": "k39_plc_firepill",
+    "template": "k39_plc_firepill",
+    "position": [
+     70.44,
+     17.58
+    ],
+    "items": [
+     {
+      "resref": "k39_itm_firegren",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m39aa",
+    "area": "m39aa",
+    "container": "kor39_large1",
+    "template": "kor39_large1",
+    "position": [
+     59.12,
+     206.68
+    ],
+    "items": [
+     {
+      "resref": "g_i_gauntlet02",
+      "count": 1
+     },
+     {
+      "resref": "g_w_blstrcrbn002",
+      "count": 1
+     },
+     {
+      "resref": "g_w_blstrcrbn003",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m39aa",
+    "area": "m39aa",
+    "container": "k39_plc_coldpill",
+    "template": "k39_plc_coldpill",
+    "position": [
+     70.33,
+     12.05
+    ],
+    "items": [
+     {
+      "resref": "k39_itm_coldgren",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m39aa",
+    "area": "m39aa",
+    "container": "k39_plc_monument",
+    "template": "k39_plc_monument",
+    "position": [
+     52.76,
+     201.38
+    ],
+    "items": [
+     {
+      "resref": "g_w_lngswrd03",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "korr_m39aa",
+    "area": "m39aa",
+    "container": "HmnSkel",
+    "template": "hmnskel001",
+    "position": [
+     65.86,
+     51.8
+    ],
+    "items": [
+     {
+      "resref": "shaelajournal",
+      "count": 1
+     },
+     {
+      "resref": "g_w_sbrcrstl19",
+      "count": 1
+     }
+    ]
+   }
+  ],
+  "random_loot": "creature drops rolled by the generic treasure scripts at death are random and not listed"
+ },
+ "party": {
+  "recruit": [],
+  "remove": [],
+  "recruited_at_end": [],
+  "recruit_note": "Apply as the game's own AddAvailableNPCByTemplate(slot, template): the slot's AVAILNPC<slot> creature in the save is built from the template (templates.bif, Override or the named module)",
+  "calls": [
+   {
+    "call": "RemovePartyMember(1)",
+    "script": "k_pkor_partyleav",
+    "module": "korr_m35aa",
+    "from": [
+     "kor35_utharwynn E93 script"
+    ],
+    "branch": "if not IsNPCPartyMember(0); IsNPCPartyMember(1); (IsNPCPartyMember(1) != -1); GetPartyMemberCount() is 1",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(1)",
+    "script": "k_pkor_partyleav",
+    "module": "korr_m35aa",
+    "from": [
+     "kor35_utharwynn E93 script"
+    ],
+    "branch": "if not IsNPCPartyMember(0); IsNPCPartyMember(1); (IsNPCPartyMember(1) != -1); GetPartyMemberCount() at least 2",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(1)",
+    "script": "k_pkor_partyleav",
+    "module": "korr_m35aa",
+    "from": [
+     "kor35_utharwynn E93 script"
+    ],
+    "branch": "if IsNPCPartyMember(1); (IsNPCPartyMember(1) != -1); GetPartyMemberCount() is 1; IsNPCPartyMember(0) is -1",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(1)",
+    "script": "k_pkor_partyleav",
+    "module": "korr_m35aa",
+    "from": [
+     "kor35_utharwynn E93 script"
+    ],
+    "branch": "if IsNPCPartyMember(1); (IsNPCPartyMember(1) != -1); IsNPCPartyMember(0) is -1; GetPartyMemberCount() at le...",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(0)",
+    "script": "k_pkor_partyleav",
+    "module": "korr_m35aa",
+    "from": [
+     "kor35_utharwynn E93 script"
+    ],
+    "branch": "if IsNPCPartyMember(0); (IsNPCPartyMember(0) != -1); GetPartyMemberCount() is 1",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(0)",
+    "script": "k_pkor_partyleav",
+    "module": "korr_m35aa",
+    "from": [
+     "kor35_utharwynn E93 script"
+    ],
+    "branch": "if IsNPCPartyMember(0); (IsNPCPartyMember(0) != -1); GetPartyMemberCount() at least 2",
+    "critical": false
+   }
+  ],
+  "slots": []
+ },
+ "next_chapter": {
+  "module": "ebo_m12aa",
+  "waypoint": "K_EBN_RAMP_ENTRANCE",
+  "chain": [
+   {
+    "module": "ebo_m12aa",
+    "waypoint": "K_EBN_RAMP_ENTRANCE",
+    "movies": [],
+    "by": "cp_go_hawk2",
+    "in": "korr_m33aa"
+   }
+  ],
+  "note": "boarding the ship at the landing pad; slot 0 cannot leave the ship on this planet (k_sup_galaxymap SetNPCSelectability)"
+ },
+ "critical_path": [
+  {
+   "module": "korr_m39aa",
+   "source": "k_pkor_star_map",
+   "what": "the star map in the tomb: K_STAR_MAP + 10, K_STAR_MAP_KORRIBAN"
+  }
+ ],
+ "critical_path_note": "Curated in tools/questdb/chapters.py; the order is inferred, not played. Writers marked critical = true belong to these scripts.",
+ "uncertain": [
+  "script k_pkor_33arenter in korr_m33aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_heart in korr_m33aa was too large to follow completely; some of its effects may be missing",
+  "script k_def_spawn01 in korr_m33aa was too large to follow completely; some of its effects may be missing",
+  "script k33_spn_shaardan in korr_m33aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_ambnt in korr_m33aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_commn in korr_m33aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_comwk in korr_m33aa was too large to follow completely; some of its effects may be missing",
+  "script k_bant_trig in korr_m33aa was too large to follow completely; some of its effects may be missing",
+  "script k_kor_swoop_01 in korr_m33aa was too large to follow completely; some of its effects may be missing",
+  "script k33b_thug_out in korr_m33aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_dak in korr_m33aa was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in korr_m33aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_thgld in korr_m33aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_ud_thug in korr_m33aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_adnpc in korr_m33aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_adgrn in korr_m33aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_zone in korr_m33aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_murdr in korr_m33aa was too large to follow completely; some of its effects may be missing",
+  "script k_kas_xor_def in korr_m33aa was too large to follow completely; some of its effects may be missing",
+  "script k_kas_xorthug_sp in korr_m33aa was too large to follow completely; some of its effects may be missing",
+  "script k_swg_xor_def in korr_m33aa was too large to follow completely; some of its effects may be missing",
+  "script k_def_spawn01 in korr_m33ab was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_heart in korr_m33ab was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_boss in korr_m33ab was too large to follow completely; some of its effects may be missing",
+  "script k_bant_trig in korr_m33ab was too large to follow completely; some of its effects may be missing",
+  "script k_act_walkways2 in korr_m33ab was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_belay in korr_m33ab was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in korr_m33ab was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_monst in korr_m34aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_adnpc in korr_m34aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_adbss in korr_m34aa was too large to follow completely; some of its effects may be missing",
+  "script k35_spn_thalia in korr_m34aa was too large to follow completely; some of its effects may be missing",
+  "script k_bant_trig in korr_m34aa was too large to follow completely; some of its effects may be missing",
+  "script k34_tha_waithost in korr_m34aa was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in korr_m34aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_twyrm in korr_m34aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_dynam in korr_m34aa was too large to follow completely; some of its effects may be missing",
+  "script kor35_enter in korr_m35aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_heart in korr_m35aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spwndeath in korr_m35aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_ambnt in korr_m35aa was too large to follow completely; some of its effects may be missing",
+  "script k_def_spawn01 in korr_m35aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spnambhrt in korr_m35aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spnhrtdth in korr_m35aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spnhrtbss in korr_m35aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_lasho in korr_m35aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_hrtbf in korr_m35aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_wandr in korr_m35aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_ahbff in korr_m35aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_finalleav in korr_m35aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_uthmedita in korr_m35aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_nightcut in korr_m35aa was too large to follow completely; some of its effects may be missing",
+  "script k35_uth_finaltmb in korr_m35aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_joinsith in korr_m35aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_uthshaend in korr_m35aa was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in korr_m35aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_heart in korr_m36aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_hrtbf in korr_m36aa was too large to follow completely; some of its effects may be missing",
+  "script k_def_spawn01 in korr_m36aa was too large to follow completely; some of its effects may be missing",
+  "script k_bant_trig in korr_m36aa was too large to follow completely; some of its effects may be missing",
+  "script k_act_bandatt in korr_m36aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_lasho in korr_m36aa was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in korr_m36aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spndthbss in korr_m36aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_dthbf in korr_m36aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_dy2x2 in korr_m36aa was too large to follow completely; some of its effects may be missing",
+  "script k_kor_bandspn2 in korr_m36aa was too large to follow completely; some of its effects may be missing",
+  "script k_kor_ambmobx in korr_m36aa was too large to follow completely; some of its effects may be missing",
+  "script k_kor_calospn in korr_m36aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_dynam in korr_m36aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_queen in korr_m36aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_zone in korr_m36aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spndrdhrt in korr_m37aa was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in korr_m37aa was too large to follow completely; some of its effects may be missing",
+  "script k37_spn_freedon in korr_m37aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_dbbff in korr_m37aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_dynam in korr_m37aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_buff in korr_m38aa was too large to follow completely; some of its effects may be missing",
+  "script k38a_spn_rguedrd in korr_m38aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_38aspndrd in korr_m38aa was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in korr_m38aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spnambbss in korr_m38ab was too large to follow completely; some of its effects may be missing",
+  "script k_def_rependd in korr_m38ab was too large to follow completely; some of its effects may be missing",
+  "script k_def_repairsp in korr_m38ab was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spndthbss in korr_m38ab was too large to follow completely; some of its effects may be missing",
+  "script k_act_walkways2 in korr_m38ab was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in korr_m38ab was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_dyana in korr_m38ab was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_teren in korr_m39aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_pillar01 in korr_m39aa was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in korr_m39aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spn_ddb in korr_m39aa was too large to follow completely; some of its effects may be missing",
+  "script k_pkor_spndthbss in korr_m39aa was too large to follow completely; some of its effects may be missing",
+  "korr_m33aa: creature kor33_lasfriend1 is destroyed by k_pkor_lashdstry, which is not on the curated critical path; it may belong to a side quest",
+  "korr_m33aa: creature kor33_lasfriend2 is destroyed by k_pkor_lashdstry, which is not on the curated critical path; it may belong to a side quest",
+  "korr_m33aa: creature k33_shastudent2 is destroyed by k_pkor_shamcydst, which is not on the curated critical path; it may belong to a side quest",
+  "korr_m33aa: creature k33_shastudent3 is destroyed by k_pkor_shamcydst, which is not on the curated critical path; it may belong to a side quest",
+  "korr_m33aa: creature k33_shastudent1 is destroyed by k_pkor_shamcydst, which is not on the curated critical path; it may belong to a side quest",
+  "korr_m33aa: door kor33a_locked is locked (needs a key) and no script here opens it; left as it is",
+  "korr_m33aa: local boolean index 10 on g_partyinit001 = true is not certain (set to more than one value)",
+  "korr_m33ab: placed creature k33_academyguard (template k33_academyguard) is hostile but its template cannot die (Plot or Min1HP); left in place",
+  "korr_m33ab: creature kor33_mekfight3 is destroyed by k33b_openacademy, which is not on the curated critical path; it may belong to a side quest",
+  "korr_m33ab: creature kor33_mekfight2 is destroyed by k33b_openacademy, which is not on the curated critical path; it may belong to a side quest",
+  "korr_m33ab: creature kor33_mekfight1 is destroyed by k33b_openacademy, which is not on the curated critical path; it may belong to a side quest",
+  "korr_m33ab: creature kor33_mekel is destroyed by k33b_openacademy, which is not on the curated critical path; it may belong to a side quest",
+  "korr_m35aa: placeable kor35_duelcomp is destroyed by kor35_enter, which is not on the curated critical path; it may belong to a side quest",
+  "korr_m35aa: creature kor35_sithduel is destroyed by k35_duc_fight, kor35_enter, which is not on the curated critical path; it may belong to a side quest",
+  "korr_m35aa: creature kor35_victim is destroyed by k_pkor_destvictm, kor35_enter, which is not on the curated critical path; it may belong to a side quest",
+  "korr_m35aa: creature kor35_captive9 is destroyed by kor35_enter, which is not on the curated critical path; it may belong to a side quest",
+  "korr_m35aa: creature kor35_captive7 is destroyed by k_pkor_release, which is not on the curated critical path; it may belong to a side quest",
+  "korr_m35aa: creature kor35_captive8 is destroyed by k_pkor_release, which is not on the curated critical path; it may belong to a side quest",
+  "korr_m35aa: creature kor35_captive3 is destroyed by k_pkor_release, which is not on the curated critical path; it may belong to a side quest",
+  "korr_m35aa: creature kor35_captive4 is destroyed by k_pkor_release, which is not on the curated critical path; it may belong to a side quest",
+  "korr_m35aa: creature kor35_sithlight is destroyed by k_pkor_release, which is not on the curated critical path; it may belong to a side quest",
+  "korr_m35aa: creature kor35_shaardan is destroyed by k_pkor_nightcut, which is not on the curated critical path; it may belong to a side quest",
+  "korr_m35aa: door k35_door_uthar is locked (plot door) and no script here opens it; left as it is",
+  "korr_m35aa: local boolean index 10 on g_partyinit001 = true is not certain (set to more than one value)",
+  "korr_m36aa: creature kor36_sithassass is destroyed by k36_pkor_enter, which is not on the curated critical path; it may belong to a side quest",
+  "korr_m36aa: door kor36_kor39 is locked (needs a key) and no script here opens it; left as it is",
+  "korr_m36aa: local boolean index 10 on g_partyinit001 = true is not certain (set to more than one value)",
+  "korr_m37aa: placeable k37_statue is destroyed by k37_sta_takefak1, k37_sta_takefak2, k37_sta_taketrue, which is not on the curated critical path; it may belong to a side quest",
+  "korr_m37aa: door k37_doorlocked is locked (Security or force) and no script here opens it; left as it is",
+  "korr_m37aa: local boolean index 0 on k37_trg_ajunta = true is not certain (set to more than one value)",
+  "korr_m38ab: door kor38b_door7stat is locked (Security or force) and no script here opens it; left as it is",
+  "korr_m39aa: placeable k39_plc_pillar1 is destroyed by k_pkor_blowup, which is not on the curated critical path; it may belong to a side quest",
+  "korr_m39aa: placeable k39_plc_pillar2 is destroyed by k_pkor_blowup, which is not on the curated critical path; it may belong to a side quest",
+  "korr_m39aa: placeable k39_plc_pillar is destroyed by k_pkor_blowup, which is not on the curated critical path; it may belong to a side quest"
+ ],
+ "star_map": {
+  "counter": "K_STAR_MAP",
+  "base": 10,
+  "base_note": "Dantooine's map sets K_STAR_MAP to 10 (k_pdan_starmap02, danm15)",
+  "per_planet": 10,
+  "planet_flags": [
+   "K_STAR_MAP_TATOOINE",
+   "K_STAR_MAP_KASHYYYK",
+   "K_STAR_MAP_MANAAN",
+   "K_STAR_MAP_KORRIBAN"
+  ],
+  "rule": "K_STAR_MAP = 10 + 10 for each planet flag that is TRUE after this milestone's own flag is set",
+  "on_count": [
+   {
+    "count": 30,
+    "set": [
+     {
+      "name": "K_SWG_BASTILA",
+      "value": 99,
+      "only_if_below": 3
+     }
+    ]
+   },
+   {
+    "count": 40,
+    "set": [
+     {
+      "name": "K_CAPTURED_LEV",
+      "value": 5
+     },
+     {
+      "name": "K_SWG_BASTILA",
+      "value": 99,
+      "only_if_below": 5
+     }
+    ],
+    "note": "K_CAPTURED_LEV 5 makes the next take-off from the galaxy map (k_sup_galaxymap: K_STAR_MAP == 40 and K_CAPTURED_LEV == 5) play the Leviathan capture"
+   },
+   {
+    "count": 50,
+    "set": [
+     {
+      "name": "K_KOTOR_MASTER",
+      "value": 30
+     }
+    ],
+    "journal": [
+     "k_starforge",
+     50
+    ],
+    "note": "K_KOTOR_MASTER 30 opens the Unknown World on the galaxy map"
+   }
+  ],
+  "journal_note": "each map also sets k_starforge to its own stage with bAllowOverrideHigher = TRUE (10 Korriban, 20 Tatooine, 30 Kashyyyk, 40 Manaan), so the game's stage is the last map found; the editor only raises a stage, which differs only in the journal text shown",
+  "source": "UT_StarMap1VariableSet and UT_SetStarmapJournal in k_inc_utility",
+  "planet_flag": "K_STAR_MAP_KORRIBAN",
+  "script": "k_pkor_star_map",
+  "module": "korr_m39aa",
+  "journal": [
+   "k_starforge",
+   10
+  ]
+ },
+ "cleared": [
+  {
+   "module": "korr_m33aa",
+   "area": "m33aa",
+   "returnable": true,
+   "remove": [
+    {
+     "tag": "lurze",
+     "template": "landyr",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag lurze, faction 5 (neutral), level 5; its own or its dialog's script changes faction: k_act_atkonend"
+    },
+    {
+     "tag": "kor33_lasfriend1",
+     "template": "kor33_lasfriend1",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_pkor_lashdstry"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "kor33_lasfriend2",
+     "template": "kor33_lasfriend2",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_pkor_lashdstry"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "k33_shastudent2",
+     "template": "k33_shastudent2",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_pkor_shamcydst"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "k33_shastudent3",
+     "template": "k33_shastudent3",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_pkor_shamcydst"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "k33_shastudent1",
+     "template": "k33_shastudent1",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_pkor_shamcydst"
+     ],
+     "certain": false
+    }
+   ],
+   "spawned_and_killed": [],
+   "doors": [
+    {
+     "tag": "k33a_dor_port",
+     "template": "k33a_dor_port",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open/unlock it",
+     "scripts": [
+      "k33_prt_opendoor"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "kor33_door_stat",
+     "template": "kor33_door_stat",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "kor33a_kor33b",
+     "template": "kor33a_kor33b",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    }
+   ],
+   "containers_looted": [
+    "kor33a_small2"
+   ],
+   "locals": [
+    {
+     "object": "area",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_33arenter"
+     ],
+     "area": "m33aa",
+     "set_by": {
+      "1": [
+       "k_pkor_33arenter"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_bant_trig"
+     ],
+     "tag": "banter",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k33b_murder_init"
+     ],
+     "tag": "cp_k33_murdtrig2",
+     "set_by": {
+      "1": [
+       "k33b_murder_init"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k33b_thug_init"
+     ],
+     "tag": "cp_k33_thugtrig2",
+     "set_by": {
+      "1": [
+       "k33b_thug_init"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "k_trg_partyinit"
+     ],
+     "tag": "g_partyinit001",
+     "set_by": {
+      "0": [
+       "k_trg_partyinit"
+      ],
+      "1": [
+       "k_trg_partyinit"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k33_las_initconv"
+     ],
+     "tag": "k33_las_initconv",
+     "set_by": {
+      "1": [
+       "k33_las_initconv"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k33_sha_initconv"
+     ],
+     "tag": "k33_sha_initconv",
+     "set_by": {
+      "1": [
+       "k33_sha_initconv"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k33b_murder_init"
+     ],
+     "tag": "k33b_trg_initmrd",
+     "set_by": {
+      "1": [
+       "k33b_murder_init"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k33b_thug_init"
+     ],
+     "tag": "k33b_trg_initthg",
+     "set_by": {
+      "1": [
+       "k33b_thug_init"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k33b_murder_spwn"
+     ],
+     "tag": "k33b_trg_spwnmrd",
+     "set_by": {
+      "1": [
+       "k33b_murder_spwn"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k33_thug_spawn"
+     ],
+     "tag": "k33b_trg_spwnthg",
+     "set_by": {
+      "1": [
+       "k33_thug_spawn"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_kas_xorattack"
+     ],
+     "tag": "kas_xor_enc",
+     "set_by": {
+      "1": [
+       "k_kas_xorattack"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_kas_xorattack"
+     ],
+     "tag": "kas_xor_enc",
+     "set_by": {
+      "1": [
+       "k_kas_xorattack"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_psennispawn"
+     ],
+     "tag": "sennitrigger",
+     "set_by": {
+      "1": [
+       "k_psennispawn"
+      ]
+     }
+    }
+   ],
+   "uncertain": [
+    "korr_m33aa: creature kor33_lasfriend1 is destroyed by k_pkor_lashdstry, which is not on the curated critical path; it may belong to a side quest",
+    "korr_m33aa: creature kor33_lasfriend2 is destroyed by k_pkor_lashdstry, which is not on the curated critical path; it may belong to a side quest",
+    "korr_m33aa: creature k33_shastudent2 is destroyed by k_pkor_shamcydst, which is not on the curated critical path; it may belong to a side quest",
+    "korr_m33aa: creature k33_shastudent3 is destroyed by k_pkor_shamcydst, which is not on the curated critical path; it may belong to a side quest",
+    "korr_m33aa: creature k33_shastudent1 is destroyed by k_pkor_shamcydst, which is not on the curated critical path; it may belong to a side quest",
+    "korr_m33aa: door kor33a_locked is locked (needs a key) and no script here opens it; left as it is",
+    "korr_m33aa: local boolean index 10 on g_partyinit001 = true is not certain (set to more than one value)"
+   ]
+  },
+  {
+   "module": "korr_m33ab",
+   "area": "m33ab",
+   "returnable": true,
+   "remove": [
+    {
+     "tag": "kor33_mekfight3",
+     "template": "kor33_mekfight3",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k33b_openacademy"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "kor33_mekfight2",
+     "template": "kor33_mekfight2",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k33b_openacademy"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "kor33_mekfight1",
+     "template": "kor33_mekfight1",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k33b_openacademy"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "kor33_mekel",
+     "template": "kor33_mekel",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k33b_openacademy"
+     ],
+     "certain": false
+    }
+   ],
+   "spawned_and_killed": [],
+   "doors": [
+    {
+     "tag": "k33b_dor_academy",
+     "template": "k33b_dor_academy",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k33b_openacademy"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "kor33_door_stata",
+     "template": "kor33_door_stata",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "kor33b_door_stat",
+     "template": "kor33b_door_stat",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "kor33b_kor33a",
+     "template": "kor33b_kor33a",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open it",
+     "scripts": [
+      "k33_mek_succeed",
+      "k33_mekel_reveal"
+     ],
+     "certain": false
+    }
+   ],
+   "containers_looted": [
+    "korr33b_large1",
+    "korr33b_large2"
+   ],
+   "locals": [
+    {
+     "object": "area",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k33b_openacademy"
+     ],
+     "area": "m33ab",
+     "set_by": {
+      "1": [
+       "k33b_openacademy"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_bant_trig"
+     ],
+     "tag": "banter",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_init_bela"
+     ],
+     "tag": "k33b_trg_initbel",
+     "set_by": {
+      "1": [
+       "k_pkor_init_bela"
+      ]
+     }
+    }
+   ],
+   "uncertain": [
+    "korr_m33ab: placed creature k33_academyguard (template k33_academyguard) is hostile but its template cannot die (Plot or Min1HP); left in place",
+    "korr_m33ab: creature kor33_mekfight3 is destroyed by k33b_openacademy, which is not on the curated critical path; it may belong to a side quest",
+    "korr_m33ab: creature kor33_mekfight2 is destroyed by k33b_openacademy, which is not on the curated critical path; it may belong to a side quest",
+    "korr_m33ab: creature kor33_mekfight1 is destroyed by k33b_openacademy, which is not on the curated critical path; it may belong to a side quest",
+    "korr_m33ab: creature kor33_mekel is destroyed by k33b_openacademy, which is not on the curated critical path; it may belong to a side quest"
+   ]
+  },
+  {
+   "module": "korr_m34aa",
+   "area": "m34aa",
+   "returnable": true,
+   "remove": [
+    {
+     "tag": "kor34_monster",
+     "template": "kor34_monster",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "kor34_sithrebel1",
+     "template": "kor34_sithrebel1",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag kor34_sithrebel1, faction 5 (neutral), level 4; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "kor34_sithrebel2",
+     "template": "kor34_sithrebel2",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag kor34_sithrebel2, faction 5 (neutral), level 4; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "kor34_thaliamay",
+     "template": "kor34_thaliamay",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag kor34_thaliamay, faction 5 (neutral), level 10; its own or its dialog's script changes faction: k34_tha_hostile, k34_tha_waithost"
+    }
+   ],
+   "spawned_and_killed": [
+    {
+     "template": "k34_enc_dire",
+     "tag": "k34_enc_dire"
+    },
+    {
+     "template": "k34_enc_shywyrm",
+     "tag": "k34_enc_shywyrm"
+    },
+    {
+     "template": "kor34_terenwyrm",
+     "tag": "kor34_terenwyrm"
+    }
+   ],
+   "doors": [],
+   "containers_looted": [
+    "k34_corpse1",
+    "k34_corpse4",
+    "kor34_boss1",
+    "kor34_medium1",
+    "kor34_medium2"
+   ],
+   "locals": [
+    {
+     "object": "area",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_areaenter"
+     ],
+     "area": "m34aa",
+     "set_by": {
+      "1": [
+       "k_pkor_areaenter"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_bant_trig"
+     ],
+     "tag": "banter",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_init_thal"
+     ],
+     "tag": "k34_init_thalia",
+     "set_by": {
+      "1": [
+       "k_pkor_init_thal"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_shywest1"
+     ],
+     "tag": "k34_trg_shywest1",
+     "set_by": {
+      "1": [
+       "k_pkor_shywest1"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_shywest2"
+     ],
+     "tag": "k34_trg_shywest2",
+     "set_by": {
+      "1": [
+       "k_pkor_shywest2"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_shywyrm1"
+     ],
+     "tag": "k34_trg_shywyrm1",
+     "set_by": {
+      "1": [
+       "k_pkor_shywyrm1"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_shywyrm2"
+     ],
+     "tag": "k34_trg_shywyrm2",
+     "set_by": {
+      "1": [
+       "k_pkor_shywyrm2"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_shywyrm3"
+     ],
+     "tag": "k34_trg_shywyrm3",
+     "set_by": {
+      "1": [
+       "k_pkor_shywyrm3"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_shywyrm4"
+     ],
+     "tag": "k34_trg_shywyrm4",
+     "set_by": {
+      "1": [
+       "k_pkor_shywyrm4"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_trg_teren"
+     ],
+     "tag": "k34_trg_terentan",
+     "set_by": {
+      "1": [
+       "k_pkor_trg_teren"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_tukdire1"
+     ],
+     "tag": "k34_trg_tukdire1",
+     "set_by": {
+      "1": [
+       "k_pkor_tukdire1"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloger06",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    }
+   ],
+   "uncertain": []
+  },
+  {
+   "module": "korr_m35aa",
+   "area": "m35aa",
+   "returnable": true,
+   "remove": [
+    {
+     "tag": "kor35_kelalgwinn",
+     "template": "kor35_kelalgwinn",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag kor35_kelalgwinn, faction 5 (neutral), level 8; its own or its dialog's script changes faction: kor35_kelfight"
+    },
+    {
+     "tag": "kor35_lashowe",
+     "template": "kor35_lashowe",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag kor35_lashowe, faction 5 (neutral), level 14; its own or its dialog's script changes faction: k_act_atkonend"
+    },
+    {
+     "tag": "kor35_torturer",
+     "template": "kor35_torturer",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag kor35_torturer, faction 5 (neutral), level 8; its own or its dialog's script changes faction: k_pkor_tort01"
+    },
+    {
+     "tag": "kor35_duelcomp",
+     "template": "kor35_duelcomp",
+     "kind": "placeable",
+     "why": "destroyed by script",
+     "scripts": [
+      "kor35_enter"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "kor35_sithduel",
+     "template": "kor35_sithduel",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k35_duc_fight",
+      "kor35_enter"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "kor35_victim",
+     "template": "kor35_victim",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_pkor_destvictm",
+      "kor35_enter"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "kor35_captive9",
+     "template": "kor35_captive9",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "kor35_enter"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "kor35_captive7",
+     "template": "kor35_captive7",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_pkor_release"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "kor35_captive8",
+     "template": "kor35_captive8",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_pkor_release"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "kor35_captive3",
+     "template": "kor35_captive3",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_pkor_release"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "kor35_captive4",
+     "template": "kor35_captive4",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_pkor_release"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "kor35_sithlight",
+     "template": "kor35_sithlight",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_pkor_release"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "kor35_shaardan",
+     "template": "kor35_shaardan",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_pkor_nightcut"
+     ],
+     "certain": false
+    }
+   ],
+   "spawned_and_killed": [],
+   "doors": [
+    {
+     "tag": "kor35_door2",
+     "template": "kor35_door003",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "kor35_door_stat",
+     "template": "kor35_door_stat",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "kor35_door_stat2",
+     "template": "kor35_door_stat2",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "kor35_kor33b",
+     "template": "kor35_kor33b",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "kor35_kor36",
+     "template": "kor35_kor36",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    }
+   ],
+   "containers_looted": [
+    "kor35_large1",
+    "kor35_large2",
+    "kor35_medium1",
+    "kor35_medium2",
+    "kor35_medium3",
+    "kor35_medium4",
+    "kor35_small1"
+   ],
+   "locals": [
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "k_trg_partyinit"
+     ],
+     "tag": "g_partyinit001",
+     "set_by": {
+      "0": [
+       "k_trg_partyinit"
+      ],
+      "1": [
+       "k_trg_partyinit"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k35_init_duel"
+     ],
+     "tag": "k35_init_duel",
+     "set_by": {
+      "1": [
+       "k35_init_duel"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_initduele"
+     ],
+     "tag": "k35_init_duelend",
+     "set_by": {
+      "1": [
+       "k_pkor_initduele"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k35_init_torture"
+     ],
+     "tag": "k35_init_torture",
+     "set_by": {
+      "1": [
+       "k35_init_torture"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k35_init_yuthura"
+     ],
+     "tag": "k35_init_yuthura",
+     "set_by": {
+      "1": [
+       "k35_init_yuthura"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k35_trg_shaakill"
+     ],
+     "tag": "k35_trg_shaakill",
+     "set_by": {
+      "1": [
+       "k35_trg_shaakill"
+      ]
+     }
+    },
+    {
+     "object": "creature",
+     "index": 10,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k35_init_uthar"
+     ],
+     "tag": "kor35_utharwynn",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    }
+   ],
+   "uncertain": [
+    "korr_m35aa: placeable kor35_duelcomp is destroyed by kor35_enter, which is not on the curated critical path; it may belong to a side quest",
+    "korr_m35aa: creature kor35_sithduel is destroyed by k35_duc_fight, kor35_enter, which is not on the curated critical path; it may belong to a side quest",
+    "korr_m35aa: creature kor35_victim is destroyed by k_pkor_destvictm, kor35_enter, which is not on the curated critical path; it may belong to a side quest",
+    "korr_m35aa: creature kor35_captive9 is destroyed by kor35_enter, which is not on the curated critical path; it may belong to a side quest",
+    "korr_m35aa: creature kor35_captive7 is destroyed by k_pkor_release, which is not on the curated critical path; it may belong to a side quest",
+    "korr_m35aa: creature kor35_captive8 is destroyed by k_pkor_release, which is not on the curated critical path; it may belong to a side quest",
+    "korr_m35aa: creature kor35_captive3 is destroyed by k_pkor_release, which is not on the curated critical path; it may belong to a side quest",
+    "korr_m35aa: creature kor35_captive4 is destroyed by k_pkor_release, which is not on the curated critical path; it may belong to a side quest",
+    "korr_m35aa: creature kor35_sithlight is destroyed by k_pkor_release, which is not on the curated critical path; it may belong to a side quest",
+    "korr_m35aa: creature kor35_shaardan is destroyed by k_pkor_nightcut, which is not on the curated critical path; it may belong to a side quest",
+    "korr_m35aa: door k35_door_uthar is locked (plot door) and no script here opens it; left as it is",
+    "korr_m35aa: local boolean index 10 on g_partyinit001 = true is not certain (set to more than one value)"
+   ]
+  },
+  {
+   "module": "korr_m36aa",
+   "area": "m36aa",
+   "returnable": true,
+   "remove": [
+    {
+     "tag": "kor36_sithassass",
+     "template": "kor36_sithassass",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k36_pkor_enter"
+     ],
+     "certain": false
+    }
+   ],
+   "spawned_and_killed": [
+    {
+     "template": "k36_enc_shywyrm",
+     "tag": "k36_enc_shywyrm"
+    }
+   ],
+   "doors": [
+    {
+     "tag": "kor36_door_stat",
+     "template": "kor36_door_stat",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "kor36_door_stata",
+     "template": "kor36_door_stata",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "kor36_kor35",
+     "template": "kor36_kor35",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_kor_caloatt",
+      "k_pkor_ud_endaca",
+      "kor_ud_ambush"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "kor36_kor37",
+     "template": "kor36_kor37",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "kor36_kor38a",
+     "template": "kor36_kor38a",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "kor36_kor38b",
+     "template": "kor36_kor38b",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    }
+   ],
+   "containers_looted": [
+    "kor36_medium1",
+    "kor36_medium2",
+    "kor36_medium4",
+    "kor36_medium5"
+   ],
+   "locals": [
+    {
+     "object": "area",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k36_pkor_enter"
+     ],
+     "area": "m36aa",
+     "set_by": {
+      "1": [
+       "k36_pkor_enter"
+      ]
+     }
+    },
+    {
+     "object": "area",
+     "index": 1,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k36_pkor_enter"
+     ],
+     "area": "m36aa",
+     "set_by": {
+      "1": [
+       "k36_pkor_enter"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_bant_trig"
+     ],
+     "tag": "banter",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "k_trg_partyinit"
+     ],
+     "tag": "g_partyinit001",
+     "set_by": {
+      "0": [
+       "k_trg_partyinit"
+      ],
+      "1": [
+       "k_trg_partyinit"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_init_lash"
+     ],
+     "tag": "k36_init_lashowe",
+     "set_by": {
+      "1": [
+       "k_pkor_init_lash"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_shywyrm"
+     ],
+     "tag": "k36_trg_shywyrm",
+     "set_by": {
+      "1": [
+       "k_pkor_shywyrm"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_endacadem"
+     ],
+     "tag": "k_kor_endacademy",
+     "set_by": {
+      "1": [
+       "k_pkor_endacadem"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_init_end"
+     ],
+     "tag": "k_kor_init_end",
+     "set_by": {
+      "1": [
+       "k_pkor_init_end"
+      ]
+     }
+    }
+   ],
+   "uncertain": [
+    "korr_m36aa: creature kor36_sithassass is destroyed by k36_pkor_enter, which is not on the curated critical path; it may belong to a side quest",
+    "korr_m36aa: door kor36_kor39 is locked (needs a key) and no script here opens it; left as it is",
+    "korr_m36aa: local boolean index 10 on g_partyinit001 = true is not certain (set to more than one value)"
+   ]
+  },
+  {
+   "module": "korr_m37aa",
+   "area": "m37aa",
+   "returnable": true,
+   "remove": [
+    {
+     "tag": "kor37_bridge1",
+     "template": "kor37_bridge1",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag kor37_bridge1, faction 5 (neutral), level 2; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "kor37_bridge2",
+     "template": "kor37_bridge2",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag kor37_bridge2, faction 5 (neutral), level 2; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "kor37_bridge3",
+     "template": "kor37_bridge3",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag kor37_bridge3, faction 5 (neutral), level 2; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "kor37_bridge4",
+     "template": "kor37_bridge4",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag kor37_bridge4, faction 5 (neutral), level 2; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "k37_statue",
+     "template": "k37_statue",
+     "kind": "placeable",
+     "why": "destroyed by script",
+     "scripts": [
+      "k37_sta_takefak1",
+      "k37_sta_takefak2",
+      "k37_sta_taketrue"
+     ],
+     "certain": false
+    }
+   ],
+   "spawned_and_killed": [
+    {
+     "template": "k37_enc_dire",
+     "tag": "k37_enc_dire"
+    }
+   ],
+   "doors": [
+    {
+     "tag": "k37_door_valley",
+     "template": "k37_door_valley",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "k37_dor_locked",
+     "template": "k37_dor_locked",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "k37_dr_freedon",
+     "template": "k37_dr_freedon",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k37_frd_leave",
+      "k37_ud_freedon",
+      "k_pkor_shadegood"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "kor37_door_end",
+     "template": "kor37_door_end",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "kor37_dr_tomb",
+     "template": "kor37_dr_tomb",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    }
+   ],
+   "containers_looted": [
+    "kor37_armdata",
+    "kor37_corpse",
+    "kor37_medium1",
+    "kor37_medium2",
+    "kor37_sithsarc"
+   ],
+   "locals": [
+    {
+     "object": "placeable",
+     "index": 1,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k37_plc_strtconv"
+     ],
+     "tag": "k37_inv_statue",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "tagged object",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "k37_plc_strtconv"
+     ],
+     "tag": "k37_trg_ajunta",
+     "set_by": {
+      "0": [
+       "k37_sta_takefak1",
+       "k37_sta_takefak2",
+       "k37_sta_taketrue"
+      ],
+      "1": [
+       "k37_plc_strtconv"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_init_ajun"
+     ],
+     "tag": "k37_trg_ajunta",
+     "set_by": {
+      "1": [
+       "k_pkor_init_ajun"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_dest_tuka"
+     ],
+     "tag": "k37_trg_dest_tuk",
+     "set_by": {
+      "1": [
+       "k_pkor_dest_tuka"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k37_init_shaardn"
+     ],
+     "tag": "k37_trg_shaardan",
+     "set_by": {
+      "1": [
+       "k37_init_shaardn"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_spn_shaar"
+     ],
+     "tag": "k37_trg_spn_shaa",
+     "set_by": {
+      "1": [
+       "k_pkor_spn_shaar"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_diretuka"
+     ],
+     "tag": "k37_trg_tukdire",
+     "set_by": {
+      "1": [
+       "k_pkor_diretuka"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_uselever"
+     ],
+     "tag": "kor37_droidlever",
+     "set_by": {
+      "1": [
+       "k_pkor_uselever"
+      ]
+     }
+    },
+    {
+     "object": "tagged object",
+     "index": 10,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k37_plc_strtconv"
+     ],
+     "tag": "kor37_freedon",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "placeable",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k37_opensarc"
+     ],
+     "tag": "kor37_sithsarc",
+     "set_by": {
+      "1": [
+       "k37_opensarc"
+      ]
+     }
+    }
+   ],
+   "uncertain": [
+    "korr_m37aa: placeable k37_statue is destroyed by k37_sta_takefak1, k37_sta_takefak2, k37_sta_taketrue, which is not on the curated critical path; it may belong to a side quest",
+    "korr_m37aa: door k37_doorlocked is locked (Security or force) and no script here opens it; left as it is",
+    "korr_m37aa: local boolean index 0 on k37_trg_ajunta = true is not certain (set to more than one value)"
+   ]
+  },
+  {
+   "module": "korr_m38aa",
+   "area": "m38ab",
+   "returnable": true,
+   "remove": [
+    {
+     "tag": "k38a_assassindrd",
+     "template": "k38a_assassindrd",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag k38a_assassindrd, faction 5 (neutral), level 12; its own or its dialog's script changes faction: k38a_drd_destruc, k38a_drd_hostile, k_pkor_trapopen"
+    },
+    {
+     "tag": "kor38a_trapdroid",
+     "template": "kor38a_trapdroid",
+     "count": 3,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag kor38a_trapdroid, faction 5 (neutral), level 6; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "kor38a_wardroid",
+     "template": "kor38a_wardroid",
+     "count": 8,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "kor38a_wardroid2",
+     "template": "kor38a_wardroid2",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag kor38a_wardroid2, faction 5 (neutral), level 8; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "kor38a_wardroid3",
+     "template": "kor38a_wardroid3",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag kor38a_wardroid3, faction 5 (neutral), level 8; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "kor38a_wardroid4",
+     "template": "kor38a_wardroid4",
+     "count": 3,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "kor38a_wardroid5",
+     "template": "kor38a_wardroid5",
+     "count": 6,
+     "why": "placed hostile",
+     "certain": true
+    }
+   ],
+   "spawned_and_killed": [],
+   "doors": [
+    {
+     "tag": "k38a_door_locked",
+     "template": "k38a_door_locked",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open/unlock it",
+     "scripts": [
+      "k38a_drd_destruc",
+      "k38a_drd_fixed",
+      "k38a_ud_roguedrd",
+      "k_pkor_38auddrd"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "kor38_door4",
+     "template": "kor38_door4",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "kor38_door7stat",
+     "template": "kor38_door7stat",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open/unlock it",
+     "scripts": [
+      "k38a_drd_destruc",
+      "k_pkor_trapopen"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "kor38a_door6",
+     "template": "kor38a_door6",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "kor38a_kor36",
+     "template": "kor38a_kor36",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    }
+   ],
+   "containers_looted": [
+    "k38a_sith_sarcoph",
+    "kor38a_corpse"
+   ],
+   "locals": [
+    {
+     "object": "door",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_open_door"
+     ],
+     "tag": "k38a_door_locked",
+     "set_by": {
+      "1": [
+       "k_pkor_open_door"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k38a_init_wardrd"
+     ],
+     "tag": "k38a_init_wardrd",
+     "set_by": {
+      "1": [
+       "k38a_init_wardrd"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloguer01",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloguer02",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloguer03",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecataloguer04",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    }
+   ],
+   "uncertain": []
+  },
+  {
+   "module": "korr_m38ab",
+   "area": "m38aa",
+   "returnable": true,
+   "remove": [
+    {
+     "tag": "kor38b_jorakuln",
+     "template": "kor38b_jorakuln",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag kor38b_jorakuln, faction 5 (neutral), level 15; its own or its dialog's script changes faction: k38b_jor_hostile"
+    },
+    {
+     "tag": "kor38b_mekel",
+     "template": "kor38b_mekel",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag kor38b_mekel, faction 2 (friendly_1), level 8; its own or its dialog's script changes faction: k38b_mek_hostile"
+    },
+    {
+     "tag": "kor38b_tukataqun",
+     "template": "kor38b_tukataqun",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    }
+   ],
+   "spawned_and_killed": [
+    {
+     "template": "k38b_enc_dire",
+     "tag": "k38b_enc_dire"
+    },
+    {
+     "template": "k38b_enc_shywyrm",
+     "tag": "k38b_enc_shywyrm"
+    }
+   ],
+   "doors": [
+    {
+     "tag": "k38b_door_jorak",
+     "template": "k38b_door_jorak",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open/unlock it",
+     "scripts": [
+      "k38b_jor_givetab",
+      "k38b_jor_hostile",
+      "k38b_ud_jorakuln",
+      "k38b_ud_mekel"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "k38b_door_valley",
+     "template": "k38b_door_valley",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "k38b_dor_locked",
+     "template": "k38b_dor_locked",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open/unlock it",
+     "scripts": [
+      "k38b_cn_opendoor"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "kor38b_door4",
+     "template": "kor38b_door4",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open it",
+     "scripts": [
+      "k_pkor_dooropen"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "kor38b_door6",
+     "template": "kor38b_door6",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "kor38b_kor36",
+     "template": "kor38b_kor36",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    }
+   ],
+   "containers_looted": [
+    "kor38b_large1",
+    "kor38b_medium1",
+    "kor38b_medium2",
+    "kor38b_medium3",
+    "kor38b_urn1",
+    "kor38b_urn2",
+    "kor38b_urn3"
+   ],
+   "locals": [
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k38b_init_jorak"
+     ],
+     "tag": "k38b_init_jorak",
+     "set_by": {
+      "1": [
+       "k38b_init_jorak"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k38b_init_jorak1"
+     ],
+     "tag": "k38b_init_jorak1",
+     "set_by": {
+      "1": [
+       "k38b_init_jorak1"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_diretuka1"
+     ],
+     "tag": "k38b_trg_dire1",
+     "set_by": {
+      "1": [
+       "k_pkor_diretuka1"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_diretuka2"
+     ],
+     "tag": "k38b_trg_dire2",
+     "set_by": {
+      "1": [
+       "k_pkor_diretuka2"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_shyrawyrm"
+     ],
+     "tag": "k38b_trg_shywyrm",
+     "set_by": {
+      "1": [
+       "k_pkor_shyrawyrm"
+      ]
+     }
+    }
+   ],
+   "uncertain": [
+    "korr_m38ab: door kor38b_door7stat is locked (Security or force) and no script here opens it; left as it is"
+   ]
+  },
+  {
+   "module": "korr_m39aa",
+   "area": "m39aa",
+   "returnable": true,
+   "remove": [
+    {
+     "tag": "kor39_rancor",
+     "template": "kor39_rancor",
+     "count": 2,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "k39_plc_pillar1",
+     "template": "k39_plc_pillar1",
+     "kind": "placeable",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_pkor_blowup"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "k39_plc_pillar2",
+     "template": "k39_plc_pillar2",
+     "kind": "placeable",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_pkor_blowup"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "k39_plc_pillar",
+     "template": "k39_plc_pillar",
+     "kind": "placeable",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_pkor_blowup"
+     ],
+     "certain": false
+    }
+   ],
+   "spawned_and_killed": [],
+   "doors": [
+    {
+     "tag": "k39_door_starmap",
+     "template": "k39_door_starmap",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k39_ud_uthar",
+      "k39_ud_yuthura",
+      "k39_uth_leave",
+      "k39_yth_leave"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "k39_door_trap1",
+     "template": "k39_door_trap1",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k39_pil_opendoor"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "k39_door_trap2",
+     "template": "k39_door_trap2",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k39_pil_opendoor"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "k39_door_trap3",
+     "template": "k39_door_trap3",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_pkor_useopen"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "k39_door_trap4",
+     "template": "k39_door_trap4",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_pkor_useopen"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "k39_door_uthar",
+     "template": "k39_door_uthar",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_pkor_test01"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "k39_door_valley",
+     "template": "k39_door_valley",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "kor39_dooracid",
+     "template": "kor39_dooracid",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k39_ud_uthar",
+      "k39_ud_yuthura",
+      "k39_uth_leave",
+      "k39_yth_leave"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "kor39_kor36",
+     "template": "kor39_kor36",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open/unlock it",
+     "scripts": [
+      "k39_mod_enter",
+      "k39_ud_uthar",
+      "k39_ud_yuthura",
+      "k39_uth_leave"
+     ],
+     "certain": false
+    }
+   ],
+   "containers_looted": [
+    "HmnSkel",
+    "k39_plc_coldpill",
+    "k39_plc_firepill",
+    "k39_plc_monument",
+    "k39_sabersarc",
+    "kor39_large1",
+    "kor39_medium1",
+    "kor39_sithcorpse"
+   ],
+   "locals": [
+    {
+     "object": "module",
+     "index": 5,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_areaenter"
+     ],
+     "set_by": {
+      "1": [
+       "k_pkor_areaenter"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k39_mod_enter"
+     ],
+     "tag": "k39_init_endmod",
+     "set_by": {
+      "1": [
+       "k39_mod_enter"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_pkor_areaenter"
+     ],
+     "tag": "k39_plc_pillcomp",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k39_init_uthar"
+     ],
+     "tag": "k39_trg_sithinit",
+     "set_by": {
+      "1": [
+       "k39_init_uthar"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_trg_teren"
+     ],
+     "tag": "k39_trg_terentat",
+     "set_by": {
+      "1": [
+       "k_pkor_trg_teren"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k39_trg_trap"
+     ],
+     "tag": "k39_trg_trap",
+     "set_by": {
+      "1": [
+       "k39_trg_trap"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_star_map"
+     ],
+     "tag": "k_kor_star_map",
+     "set_by": {
+      "1": [
+       "k_pkor_star_map"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_utharmove"
+     ],
+     "tag": "k_kor_uthar_move",
+     "set_by": {
+      "1": [
+       "k_pkor_utharmove"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pkor_utharcut"
+     ],
+     "tag": "k_kor_utharcut",
+     "set_by": {
+      "1": [
+       "k_pkor_utharcut"
+      ]
+     }
+    }
+   ],
+   "uncertain": [
+    "korr_m39aa: placeable k39_plc_pillar1 is destroyed by k_pkor_blowup, which is not on the curated critical path; it may belong to a side quest",
+    "korr_m39aa: placeable k39_plc_pillar2 is destroyed by k_pkor_blowup, which is not on the curated critical path; it may belong to a side quest",
+    "korr_m39aa: placeable k39_plc_pillar is destroyed by k_pkor_blowup, which is not on the curated critical path; it may belong to a side quest"
+   ]
+  }
+ ],
+ "cleared_note": "How each module looks after a full run, for an editor that stores the area as played: remove (tag, template), doors (tag: open, unlocked), containers_looted (container tags the rewards file empties), locals (the area's, the module's and placed objects' local variables their own scripts read to tell a first visit from a return, with the value a played area holds; index = the engine's local slot). returnable = false: the player never comes back to the module. See tools/questdb/cleared.py.",
+ "returnable_note": "as Tatooine"
+}

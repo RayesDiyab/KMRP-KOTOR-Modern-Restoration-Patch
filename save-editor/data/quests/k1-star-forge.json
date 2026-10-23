@@ -1,0 +1,470 @@
+{
+ "game": "K1",
+ "planet": "Star Forge",
+ "generated_by": "tools/questdb/build.py",
+ "checked": false,
+ "quests": [
+  {
+   "tag": "k_swg_bastilatalk",
+   "stages": [
+    {
+     "stage": 3,
+     "end": true,
+     "steps": [
+      {
+       "module": "sta_m45ac",
+       "via": {
+        "script": "k_psta_bastsave"
+       },
+       "needs": [],
+       "does": [
+        {
+         "set_global_bool": [
+          "K_PSTA_BASTSAVE",
+          true
+         ]
+        },
+        {
+         "journal": [
+          "k_swg_bastilatalk",
+          3
+         ]
+        },
+        {
+         "other": "that journal call may also lower the stage (bAllowOverrideHigher = 1)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 100,
+     "end": true,
+     "steps": [
+      {
+       "module": "sta_m45ac",
+       "via": {
+        "dialog": "k_sta_bastila",
+        "node": 26,
+        "speaker": "sta_bastila",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "Sta_BastTalk",
+         "op": "==",
+         "value": 3
+        },
+        {
+         "global_number": "K_SWG_BASTILA",
+         "op": ">=",
+         "value": 12
+        },
+        {
+         "global_number": "K_SWG_BASTILA",
+         "op": "<=",
+         "value": 13
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "k_swg_bastilatalk",
+          100
+         ]
+        },
+        {
+         "other": "changes the faction of sta_bastila to STANDARD_FACTION_HOSTILE_1"
+        },
+        {
+         "other": "SetLocalNumber on sta_bastila: index 0 = GetLocalNumber(OBJECT_SELF, 0)"
+        },
+        {
+         "other": "SetLocalNumber on sta_bastila: index 0 = (GetLocalNumber(OBJECT_SELF, 0) + a helper function's result)"
+        }
+       ],
+       "branch": "way 1: sta_bastila, dialog k_sta_bastila R26 in sta_m45ac"
+      },
+      {
+       "module": "sta_m45ac",
+       "via": {
+        "dialog": "k_sta_bastila",
+        "node": 29,
+        "speaker": "sta_bastila",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "Sta_BastTalk",
+         "op": "==",
+         "value": 3
+        },
+        {
+         "global_number": "K_SWG_BASTILA",
+         "op": ">=",
+         "value": 12
+        },
+        {
+         "global_number": "K_SWG_BASTILA",
+         "op": "<=",
+         "value": 13
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "k_swg_bastilatalk",
+          100
+         ]
+        },
+        {
+         "other": "changes the faction of sta_bastila to STANDARD_FACTION_HOSTILE_1"
+        },
+        {
+         "other": "SetLocalNumber on sta_bastila: index 0 = GetLocalNumber(OBJECT_SELF, 0)"
+        },
+        {
+         "other": "SetLocalNumber on sta_bastila: index 0 = (GetLocalNumber(OBJECT_SELF, 0) + a helper function's result)"
+        }
+       ],
+       "branch": "way 2: sta_bastila, dialog k_sta_bastila R29 in sta_m45ac"
+      },
+      {
+       "module": "sta_m45ac",
+       "via": {
+        "dialog": "k_sta_bastlast",
+        "node": 26,
+        "speaker": "sta_bastlast_talk",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "Sta_BastTalk",
+         "op": "==",
+         "value": 3
+        },
+        {
+         "global_number": "K_SWG_BASTILA",
+         "op": ">=",
+         "value": 12
+        },
+        {
+         "global_number": "K_SWG_BASTILA",
+         "op": "<=",
+         "value": 13
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "k_swg_bastilatalk",
+          100
+         ]
+        },
+        {
+         "other": "changes the faction of sta_bastila to STANDARD_FACTION_HOSTILE_1"
+        },
+        {
+         "other": "SetLocalNumber on sta_bastlast_talk: index 0 = GetLocalNumber(OBJECT_SELF, 0)"
+        },
+        {
+         "other": "SetLocalNumber on sta_bastlast_talk: index 0 = (GetLocalNumber(OBJECT_SELF, 0) + a helper function's result)"
+        }
+       ],
+       "branch": "way 3: sta_bastlast_talk, dialog k_sta_bastlast R26 in sta_m45ac"
+      },
+      {
+       "module": "sta_m45ac",
+       "via": {
+        "dialog": "k_sta_bastlast",
+        "node": 29,
+        "speaker": "sta_bastlast_talk",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "Sta_BastTalk",
+         "op": "==",
+         "value": 3
+        },
+        {
+         "global_number": "K_SWG_BASTILA",
+         "op": ">=",
+         "value": 12
+        },
+        {
+         "global_number": "K_SWG_BASTILA",
+         "op": "<=",
+         "value": 13
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "k_swg_bastilatalk",
+          100
+         ]
+        },
+        {
+         "other": "changes the faction of sta_bastila to STANDARD_FACTION_HOSTILE_1"
+        },
+        {
+         "other": "SetLocalNumber on sta_bastlast_talk: index 0 = GetLocalNumber(OBJECT_SELF, 0)"
+        },
+        {
+         "other": "SetLocalNumber on sta_bastlast_talk: index 0 = (GetLocalNumber(OBJECT_SELF, 0) + a helper function's result)"
+        }
+       ],
+       "branch": "way 4: sta_bastlast_talk, dialog k_sta_bastlast R29 in sta_m45ac"
+      }
+     ]
+    }
+   ],
+   "notes": "This quest is not a Star Forge quest by its tag; only the stages set on Star Forge are listed. Other planets also set its stages. stage 100: dialog k_sta_bastila is used by several objects in sta_m45ac: sta_bastila, sta_bastila_dead, sta_invis_bast_conv, sta_invis_med_conv stage 100: condition k_psta_bastrom also tests: (GetGender(player) == 0) stage 100 can be reached in 4 ways; each step's branch starts with its way"
+  },
+  {
+   "tag": "sta_confront",
+   "stages": [
+    {
+     "stage": 1,
+     "end": false,
+     "steps": []
+    },
+    {
+     "stage": 2,
+     "end": false,
+     "steps": []
+    },
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "sta_m45ac",
+       "via": {
+        "dialog": "k_sta_bastila",
+        "node": 98,
+        "speaker": "sta_bastila",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_bool": "K_PSTA_BASTSAVE",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "sta_confront",
+          10
+         ]
+        }
+       ],
+       "branch": "way 1: sta_bastila, dialog k_sta_bastila R98 in sta_m45ac"
+      },
+      {
+       "module": "sta_m45ac",
+       "via": {
+        "dialog": "k_sta_bastlast",
+        "node": 36,
+        "speaker": "sta_bastlast_talk",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "Sta_BastTalk",
+         "op": "==",
+         "value": 3
+        },
+        {
+         "global_number": "K_SWG_BASTILA",
+         "op": ">=",
+         "value": 12
+        },
+        {
+         "global_number": "K_SWG_BASTILA",
+         "op": "<=",
+         "value": 13
+        },
+        {
+         "global_number": "Sta_BastConversion",
+         "op": ">=",
+         "value": 10
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "sta_confront",
+          10
+         ]
+        }
+       ],
+       "branch": "way 2: sta_bastlast_talk, dialog k_sta_bastlast R36 in sta_m45ac"
+      }
+     ]
+    },
+    {
+     "stage": 11,
+     "end": false,
+     "steps": [
+      {
+       "module": "sta_m45ac",
+       "via": {
+        "dialog": "k_sta_bastila",
+        "node": 3,
+        "speaker": "sta_bastila",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "Sta_BastTalk",
+         "op": "==",
+         "value": 3
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "sta_confront",
+          11
+         ]
+        },
+        {
+         "set_global_bool": [
+          "STA_BASTILA_DEAD",
+          true
+         ]
+        },
+        {
+         "door_unlock": "k45_door_bast2"
+        },
+        {
+         "destroy": "sta_bastila"
+        },
+        {
+         "take_item": [
+          "sta_temp_saber",
+          1
+         ]
+        },
+        {
+         "other": "moves the party to module \"STUNT_50a\""
+        }
+       ],
+       "branch": "way 1: sta_bastila, dialog k_sta_bastila R3 in sta_m45ac"
+      },
+      {
+       "module": "sta_m45ac",
+       "via": {
+        "dialog": "k_sta_bastlast",
+        "node": 3,
+        "speaker": "sta_bastlast_talk",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "Sta_BastTalk",
+         "op": "==",
+         "value": 3
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "sta_confront",
+          11
+         ]
+        },
+        {
+         "set_global_bool": [
+          "STA_BASTILA_DEAD",
+          true
+         ]
+        },
+        {
+         "door_unlock": "k45_door_bast2"
+        },
+        {
+         "destroy": "sta_bastila"
+        },
+        {
+         "take_item": [
+          "sta_temp_saber",
+          1
+         ]
+        },
+        {
+         "other": "moves the party to module \"STUNT_50a\""
+        }
+       ],
+       "branch": "way 2: sta_bastlast_talk, dialog k_sta_bastlast R3 in sta_m45ac"
+      },
+      {
+       "module": "sta_m45ac",
+       "via": {
+        "dialog": "k_sta_bastlast",
+        "node": 3,
+        "speaker": "sta_bastlast_talk",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "Sta_BastTalk",
+         "op": "==",
+         "value": 3
+        }
+       ],
+       "does": [
+        {
+         "give_item": [
+          "sta_temp_saber",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: sta_bastlast_talk, dialog k_sta_bastlast R3 in sta_m45ac / before this line: otherwise"
+      },
+      {
+       "module": "sta_m45ac",
+       "via": {
+        "dialog": "k_sta_bastlast",
+        "node": 3,
+        "speaker": "sta_bastlast_talk",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "Sta_BastTalk",
+         "op": "==",
+         "value": 3
+        }
+       ],
+       "does": [],
+       "branch": "way 2: sta_bastlast_talk, dialog k_sta_bastlast R3 in sta_m45ac / before this line: otherwise"
+      }
+     ]
+    },
+    {
+     "stage": 20,
+     "end": false,
+     "steps": []
+    },
+    {
+     "stage": 98,
+     "end": true,
+     "steps": []
+    },
+    {
+     "stage": 99,
+     "end": true,
+     "steps": []
+    }
+   ],
+   "notes": "stage 10: dialog k_sta_bastila is used by several objects in sta_m45ac: sta_bastila, sta_bastila_dead, sta_invis_bast_conv, sta_invis_med_conv stage 10: condition k_psta_bastrom also tests: (GetGender(player) == 0) stage 10 can be reached in 2 ways; each step's branch starts with its way stage 11: dialog k_sta_bastila is used by several objects in sta_m45ac: sta_bastila, sta_bastila_dead, sta_invis_bast_conv, sta_invis_med_conv stage 11 can be reached in 2 ways; each step's branch starts with its way UNCERTAIN: stage 1 has no setter in the Star Forge files (no dialog node or script sets it) UNCERTAIN: stage 2 has no setter in the Star Forge files (no dialog node or script sets it) UNCERTAIN: stage 11: a script near k_sta_bastlast R3 was too large to follow completely UNCERTAIN: stage 20 has no setter in the Star Forge files (no dialog node or script sets it) UNCERTAIN: stage 98 has no setter in the Star Forge files (no dialog node or script sets it) UNCERTAIN: stage 99 has no setter in the Star Forge files (no dialog node or script sets it)",
+   "own": true,
+   "run_ending": 99
+  }
+ ]
+}

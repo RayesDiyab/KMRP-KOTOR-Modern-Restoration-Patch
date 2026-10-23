@@ -1,0 +1,344 @@
+{
+ "game": "K1",
+ "what": "A full Tatooine run: kills (hostile creatures and active encounters of each module), then the quest XP met in that module, in module order. Written by tools/xp/make_path.py; read by tools/xp/calc.py --scenario.",
+ "checked": false,
+ "assumptions": [
+  "Every creature data/xp/k1-enemies.json marks hostile is killed; creatures a script may turn hostile (hostile = maybe) are left out; creatures whose template cannot die (Plot, Min1HP) are left out.",
+  "Active encounters spawn as calc.py replays the engine's spawn list for a party of three (mean of 200 seeded runs); encounters that respawn are counted once.",
+  "Only the chapter's own quests (build.py PLANETS tag_prefix) count; a quest of another chapter that this chapter's files also set is counted by its own chapter.",
+  "Each quest follows one route to one ending (the lowest ending stage the quest database reaches unless make_path.py ENDINGS names another); a stage gives its journal XP and the largest XP of one of its steps.",
+  "Not counted: plot XP on dialog lines that set no journal stage, level-scaled computer and repair XP, stealth XP.",
+  "tat18aa_tanistrapped stage 40: journal XP 25 with no module; left out",
+  "tat18aa_tanistrapped stage 60: journal XP 25 with no module; left out",
+  "tat18aa_tanistrapped stage 70: journal XP 13 with no module; left out"
+ ],
+ "modules": [
+  {
+   "module": "tat_m17ab",
+   "steps": []
+  },
+  {
+   "module": "tat_m17aa",
+   "steps": [
+    {
+     "do": "plot_xp",
+     "xp": 350,
+     "what": "tat17aa_jawarescue stage 70: journal 350"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 200,
+     "what": "tat17aa_middleman stage 30: journal 200"
+    }
+   ]
+  },
+  {
+   "module": "tat_m17ac",
+   "steps": [
+    {
+     "do": "plot_xp",
+     "xp": 250,
+     "what": "tat17ad_buyinghk47 stage 30: journal 250"
+    }
+   ]
+  },
+  {
+   "module": "tat_m17ad",
+   "steps": []
+  },
+  {
+   "module": "tat_m17ae",
+   "steps": [
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "tat17ae_signingnico stage 40: journal 50"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "tat17ae_signingnico stage 50: journal 50"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 200,
+     "what": "tat17ae_signingnico stage 60: journal 200"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 75,
+     "what": "tat17ae_swoopracing stage 20: journal 75"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 150,
+     "what": "tat17ae_swoopracing stage 30: journal 150"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 525,
+     "what": "tat17ae_swoopracing stage 40: journal 525"
+    }
+   ]
+  },
+  {
+   "module": "tat_m17af",
+   "steps": []
+  },
+  {
+   "module": "tat_m17ag",
+   "steps": [
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "tat17ag_sandbounty stage 120: journal 100"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 1300,
+     "what": "tat17ag_sandbounty stage 150: journal 1300"
+    }
+   ]
+  },
+  {
+   "module": "tat_m18aa",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 7.0,
+     "count": 2,
+     "what": "tat_m18aa g_tuskenmale003 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 3,
+     "what": "tat_m18aa tat18_tusken09 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 1,
+     "what": "tat_m18aa tat18_tusken010 (script)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 4,
+     "what": "tat_m18aa tat18_wraid01 (script)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 4,
+     "what": "tat_m18aa tat18_wraid02 (script)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 4,
+     "what": "tat_m18aa tat18_wraid03 (script)"
+    },
+    {
+     "do": "kill",
+     "cr": 11.0,
+     "count": 4,
+     "what": "tat_m18aa tat18_wraid21 (script)"
+    },
+    {
+     "do": "kill",
+     "cr": 11.0,
+     "count": 4,
+     "what": "tat_m18aa tat18_wraid22 (script)"
+    },
+    {
+     "do": "kill",
+     "cr": 11.0,
+     "count": 4,
+     "what": "tat_m18aa tat18_wraid23 (script)"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "tat_ambush stage 20: journal 50"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "tat17ag_sandbounty stage 40: journal 100"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 25,
+     "what": "tat18aa_tanistrapped stage 20: journal 25"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 13,
+     "what": "tat18aa_tanistrapped stage 30: journal 13"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 13,
+     "what": "tat18aa_tanistrapped stage 50: journal 13"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 175,
+     "what": "tat18aa_tanistrapped stage 80: journal 175"
+    }
+   ]
+  },
+  {
+   "module": "tat_m18ab",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 3,
+     "what": "tat_m18ab tat18_tusken (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 3,
+     "what": "tat_m18ab tat18_tusken02 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 1,
+     "what": "tat_m18ab tat18_14sandg_01 (script)"
+    }
+   ]
+  },
+  {
+   "module": "tat_m18ac",
+   "steps": [
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "tat18ac_dragonhunt stage 60: journal 100"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 400,
+     "what": "tat18ac_dragonhunt stage 70: journal 400"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 2000,
+     "what": "tat17_starmap stage 90: journal 2000"
+    }
+   ]
+  },
+  {
+   "module": "tat_m20aa",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 9.0,
+     "count": 1,
+     "what": "tat_m20aa tat20_09chief_01 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 1,
+     "what": "tat_m20aa tat20_09first_01 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 1,
+     "what": "tat_m20aa tat20_09warr_002 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 9,
+     "what": "tat_m20aa tat20_09warr_01 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 1,
+     "what": "tat_m20aa tat20_09warr_02 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 1,
+     "what": "tat_m20aa tat20_09warr_03 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 1,
+     "what": "tat_m20aa tat20_09warr_04 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 1,
+     "what": "tat_m20aa tat20_09warr_05 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 1,
+     "what": "tat_m20aa tat20_09warr_06 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 4,
+     "what": "tat_m20aa tat20_09warr_07 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 3,
+     "what": "tat_m20aa tat20_sandfem_01 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 4,
+     "what": "tat_m20aa tat20_09warr_01 (script)"
+    },
+    {
+     "do": "kill",
+     "cr": 10.0,
+     "count": 1,
+     "what": "tat_m20aa tat20_xstory_01 (script)"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 150,
+     "what": "tat17aa_jawarescue stage 60: journal 150"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "tat17ag_sandbounty stage 60: journal 100"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "tat17ag_sandbounty stage 90: journal 100"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 400,
+     "what": "tat17ag_sandbounty stage 130: journal 400"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 250,
+     "what": "Tat20aa_worthy stage 30: journal 250"
+    }
+   ]
+  }
+ ]
+}

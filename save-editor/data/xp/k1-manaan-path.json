@@ -1,0 +1,449 @@
+{
+ "game": "K1",
+ "what": "A full Manaan run: kills (hostile creatures and active encounters of each module), then the quest XP met in that module, in module order. Written by tools/xp/make_path.py; read by tools/xp/calc.py --scenario.",
+ "checked": false,
+ "assumptions": [
+  "Every creature data/xp/k1-enemies.json marks hostile is killed; creatures a script may turn hostile (hostile = maybe) are left out; creatures whose template cannot die (Plot, Min1HP) are left out.",
+  "Active encounters spawn as calc.py replays the engine's spawn list for a party of three (mean of 200 seeded runs); encounters that respawn are counted once.",
+  "Only the chapter's own quests (build.py PLANETS tag_prefix) count; a quest of another chapter that this chapter's files also set is counted by its own chapter.",
+  "Each quest follows one route to one ending (the lowest ending stage the quest database reaches unless make_path.py ENDINGS names another); a stage gives its journal XP and the largest XP of one of its steps.",
+  "Not counted: plot XP on dialog lines that set no journal stage, level-scaled computer and repair XP, stealth XP."
+ ],
+ "modules": [
+  {
+   "module": "manm26ad",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 1,
+     "what": "manm26ad g_darkjedi01 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 5.0,
+     "count": 3,
+     "what": "manm26ad g_sithtroop003 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 12.0,
+     "count": 1,
+     "what": "manm26ad g_sithtroop007 (placed)"
+    }
+   ]
+  },
+  {
+   "module": "manm26aa",
+   "steps": [
+    {
+     "do": "plot_xp",
+     "xp": 500,
+     "what": "man_elora stage 20: journal 500"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 150,
+     "what": "man_missing stage 20: journal 150"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 300,
+     "what": "man_missing stage 40: journal 300"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "man_murder stage 30: journal 100"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 500,
+     "what": "man_sunry stage 20: journal 500"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 500,
+     "what": "man_sunry stage 30: journal 500"
+    }
+   ]
+  },
+  {
+   "module": "manm26ab",
+   "steps": [
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "Man26ab_swoopraces stage 30: journal 100"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 200,
+     "what": "Man26ab_swoopraces stage 40: journal 200"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "Man26ab_swoopraces stage 50: journal 100"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 200,
+     "what": "Man26ab_swoopraces stage 60: journal 200"
+    }
+   ]
+  },
+  {
+   "module": "manm26ac",
+   "steps": []
+  },
+  {
+   "module": "manm26ae",
+   "steps": [
+    {
+     "do": "plot_xp",
+     "xp": 500,
+     "what": "man_firith stage 20: journal 500"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 500,
+     "what": "man_gluupor stage 20: journal 500"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 500,
+     "what": "man_ignus stage 20: journal 500"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 600,
+     "what": "man_planet stage 30: journal 600"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 900,
+     "what": "man_planet stage 70: journal 900"
+    }
+   ]
+  },
+  {
+   "module": "manm27aa",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 12.0,
+     "count": 2,
+     "what": "manm27aa c_drdmkfour001 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 12.0,
+     "count": 2,
+     "what": "manm27aa g_assaultdroi001 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 12.0,
+     "count": 2,
+     "what": "manm27aa g_assaultdroid03 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 1,
+     "what": "manm27aa g_darkjedi002 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 2,
+     "what": "manm27aa g_probedroid002 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 5.0,
+     "count": 6,
+     "what": "manm27aa g_sithtroop003 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 4,
+     "what": "manm27aa g_sithtroop004 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 1,
+     "what": "manm27aa g_sithtroop005 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 12.0,
+     "count": 1,
+     "what": "manm27aa g_sithtroop007 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 1,
+     "what": "manm27aa g_sithtroop008 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 12.0,
+     "count": 2,
+     "what": "manm27aa g_sithtroop06 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 1,
+     "what": "manm27aa man27_room003 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 2,
+     "what": "manm27aa man27_room1 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 1,
+     "what": "manm27aa man27_room2 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 1,
+     "what": "manm27aa man27_sithcap (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 2,
+     "what": "manm27aa n_darkjedif001 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 1,
+     "what": "manm27aa n_darkjedif002 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 2,
+     "what": "manm27aa n_darkjedim001 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 1,
+     "what": "manm27aa man27_seljed6 (script)"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 600,
+     "what": "man_missing stage 30: journal 600"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 500,
+     "what": "man_missing stage 34: journal 500"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 700,
+     "what": "man_missing stage 39: journal 700"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 300,
+     "what": "man_planet stage 20: journal 300"
+    }
+   ]
+  },
+  {
+   "module": "manm28aa",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 2,
+     "what": "manm28aa man28_adroid (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 1,
+     "what": "manm28aa man28_inssel002 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 1,
+     "what": "manm28aa man28_inssel003 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 9.0,
+     "count": 6,
+     "what": "manm28aa man28_inssel005 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 9.0,
+     "count": 10,
+     "what": "manm28aa man28_inssel006 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 1,
+     "what": "manm28aa man28_inssel02 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 5.0,
+     "count": 4,
+     "what": "manm28aa man28_inssel03 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 1,
+     "what": "manm28aa man28_inssel04 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 12.0,
+     "count": 3,
+     "what": "manm28aa man28_pdroid (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 12.0,
+     "count": 3,
+     "what": "manm28aa man28_pdroid3 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 11.0,
+     "count": 1,
+     "what": "manm28aa man28_shield (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 1,
+     "what": "manm28aa g_darkjedi003 (script)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 1,
+     "what": "manm28aa g_darkjedi004 (script)"
+    }
+   ]
+  },
+  {
+   "module": "manm28ab",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 1,
+     "what": "manm28ab man28_firixa01 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 1,
+     "what": "manm28ab man28_firixa02 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 1,
+     "what": "manm28ab man28_firixa04 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 1,
+     "what": "manm28ab man28_firixa05 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 1,
+     "what": "manm28ab man28_firixa07 (placed)"
+    }
+   ]
+  },
+  {
+   "module": "manm28ac",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 2,
+     "what": "manm28ac man28_inssel (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 3,
+     "what": "manm28ac man28_inssel001 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 12.0,
+     "count": 1,
+     "what": "manm28ac man28_inssel002 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 10.0,
+     "count": 1,
+     "what": "manm28ac man28_inssel003 (placed)"
+    }
+   ]
+  },
+  {
+   "module": "manm28ad",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 1,
+     "what": "manm28ad man28_firixa01 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 1,
+     "what": "manm28ad man28_firixa02 (placed)"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 1200,
+     "what": "man_planet stage 60: journal 1200"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 1500,
+     "what": "man_planet stage 65: journal 1500"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 2000,
+     "what": "man26_starmap stage 40: journal 2000"
+    }
+   ]
+  }
+ ]
+}

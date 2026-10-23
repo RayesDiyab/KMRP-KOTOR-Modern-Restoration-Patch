@@ -1,0 +1,4695 @@
+{
+ "game": "K1",
+ "planet": "Leviathan",
+ "order": 8,
+ "chapter_title": "The Leviathan: captured, and the escape",
+ "generated_by": "tools/questdb/build.py --milestone",
+ "checked": false,
+ "about": "Story state every completed run of the chapter ends with, for a skip-to-the-end feature. Curated in tools/questdb/chapters.py; values marked certain = false were worked out by reading the scripts or seen in one real save, not proven for every run.",
+ "journal": [
+  {
+   "tag": "lev_captured",
+   "stage": 99,
+   "set_by": "dialog lev40_carth R13 (lev_m40ac)"
+  }
+ ],
+ "journal_remove": [],
+ "globals": [
+  {
+   "name": "K_CAPTURED_LEV",
+   "type": "Number",
+   "value": 10,
+   "certain": true,
+   "note": "k_plev_finale5 / k_plev_goebon",
+   "read_after_planet": [
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_ebn12_leviath"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_ebn12_travel"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_kashy"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_korrib"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_manaan"
+    },
+    {
+     "where": "modules/ebo_m12aa.mod",
+     "script": "k_pebn_tatoo"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_ebn12_leviath"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_ebn12_travel"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_pebn_kashy"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_pebn_korrib"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_pebn_manaan"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_pebn_tatoo"
+    }
+   ],
+   "read_after_planet_total": 13,
+   "writers": [
+    {
+     "set": 10,
+     "script": "k_plev_finale5",
+     "module": "lev_m40ac",
+     "from": [
+      "lev40_carth R13 script"
+     ],
+     "critical": true
+    }
+   ]
+  },
+  {
+   "name": "K_KOTOR_MASTER",
+   "type": "Number",
+   "value": 20,
+   "certain": true,
+   "note": "k_plev_finale5 / k_plev_goebon; the galaxy map makes Dantooine unselectable at 20",
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid01",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "danm13"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid02",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "danm14aa"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid03",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "danm14ad"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid04",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "danm14ab"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid05",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "danm14ac"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pebn_galaxy",
+     "named_outside_planet": 2,
+     "named_by_examples": [
+      "ebo_m12aa",
+      "ebo_m41aa"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_rapid02",
+     "named_outside_planet": 2,
+     "named_by_examples": [
+      "manm26ac",
+      "manm26ae"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_rapid03",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "manm26ab"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_rapid04",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "manm26ab"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_rapid05",
+     "named_outside_planet": 2,
+     "named_by_examples": [
+      "manm26ac",
+      "manm26ae"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_ren_turret",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "m12ab"
+     ]
+    },
+    {
+     "where": "modules/danm13.mod",
+     "script": "k_pdan_trig1301"
+    }
+   ],
+   "read_after_planet_total": 49,
+   "writers": [
+    {
+     "set": 20,
+     "script": "k_plev_finale5",
+     "module": "lev_m40ac",
+     "from": [
+      "lev40_carth R13 script"
+     ],
+     "critical": true
+    }
+   ]
+  },
+  {
+   "name": "DAN_PLANET_PLOT",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    3
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_plev_journals",
+     "module": "lev_m40aa",
+     "set": 3
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_planet02"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_planet06"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_planet15"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_misc13"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_planet15"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_planet28"
+    }
+   ],
+   "read_after_planet_total": 16
+  },
+  {
+   "name": "G_CAND_STATE",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    5
+   ],
+   "writers_total": 4,
+   "writers": [
+    {
+     "script": "k_plev_throwdown",
+     "module": "lev_m40ac",
+     "set": 5,
+     "branch": "if G_CAND_STATE <= 5; k_swg_carth != 12; k_swg_carth != 13; k_swg_carth == 14"
+    },
+    {
+     "script": "k_plev_throwdown",
+     "module": "lev_m40ac",
+     "set": 5,
+     "branch": "if G_CAND_STATE <= 5; k_swg_carth != 12; k_swg_carth != 13; k_swg_carth != 14"
+    },
+    {
+     "script": "k_plev_throwdown",
+     "module": "lev_m40ac",
+     "set": 5,
+     "branch": "if G_CAND_STATE <= 5; k_swg_carth != 12"
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid01"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid02"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid03"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid04"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid05"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_rapid02"
+    }
+   ],
+   "read_after_planet_total": 17
+  },
+  {
+   "name": "K_SWG_CARTH",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    14,
+    99
+   ],
+   "writers_total": 10,
+   "writers": [
+    {
+     "script": "k_plev_throwdown",
+     "module": "lev_m40ac",
+     "set": 99,
+     "branch": "if G_CAND_STATE > 5; k_swg_carth != 12; k_swg_carth != 13; k_swg_carth != 14"
+    },
+    {
+     "script": "k_plev_throwdown",
+     "module": "lev_m40ac",
+     "set": 14,
+     "branch": "if G_CAND_STATE > 5; k_swg_carth != 12"
+    },
+    {
+     "script": "k_plev_throwdown",
+     "module": "lev_m40ac",
+     "set": 99,
+     "branch": "if G_CAND_STATE > 5; k_swg_carth != 12"
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "Override",
+     "script": "k_trg_partyinit"
+    },
+    {
+     "where": "modules/ebo_m40ad.mod",
+     "script": "k_pebo_carthrom"
+    },
+    {
+     "where": "modules/ebo_m40ad.mod",
+     "script": "k_pebo_carthromn"
+    },
+    {
+     "where": "modules/ebo_m40ad.mod",
+     "script": "cp_ebo40ad_done"
+    },
+    {
+     "where": "modules/ebo_m40ad.mod",
+     "script": "cp_ebo40ad_rdone"
+    },
+    {
+     "where": "modules/ebo_m41aa.mod",
+     "script": "k_punk_carthrom"
+    }
+   ],
+   "read_after_planet_total": 11
+  },
+  {
+   "name": "K_TURRET_SKYBOX",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    10
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_ren_levescape",
+     "module": "lev_m40ac",
+     "set": 10
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/m12ab.mod",
+     "script": "k_pebo_skybox"
+    }
+   ]
+  },
+  {
+   "name": "LEV_40AAREVEALED",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_plev_revealmap",
+     "module": "lev_m40aa",
+     "set": true,
+     "branch": "if does not have item K_COMPUTER_SPIKE"
+    },
+    {
+     "script": "k_plev_revealmap",
+     "module": "lev_m40aa",
+     "set": true,
+     "branch": "if has item K_COMPUTER_SPIKE"
+    }
+   ]
+  },
+  {
+   "name": "LEV_40ABREVEALED",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_plev_revealmap",
+     "module": "lev_m40ab",
+     "set": true,
+     "branch": "if does not have item K_COMPUTER_SPIKE"
+    },
+    {
+     "script": "k_plev_revealmap",
+     "module": "lev_m40ab",
+     "set": true,
+     "branch": "if has item K_COMPUTER_SPIKE"
+    }
+   ]
+  },
+  {
+   "name": "LEV_AIRLOCKOPEN",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    0,
+    4
+   ],
+   "writers_total": 5,
+   "writers": [
+    {
+     "script": "k_plev_40ac_hb",
+     "module": "lev_m40ac",
+     "add": -1,
+     "branch": "if LEV_AIRLOCKOPEN > 0"
+    },
+    {
+     "script": "k_plev_airlocks2",
+     "module": "lev_m40ac",
+     "set": 4,
+     "branch": "if not (1 && GetIsObjectValid(OBJECT_SELF))"
+    },
+    {
+     "script": "k_plev_airlocks2",
+     "module": "lev_m40ac",
+     "set": 4,
+     "branch": "if GetIsObjectValid(OBJECT_SELF)"
+    }
+   ]
+  },
+  {
+   "name": "lev_armory",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_plev_armopen",
+     "module": "lev_m40ab",
+     "set": true,
+     "branch": "if does not have item K_COMPUTER_SPIKE"
+    },
+    {
+     "script": "k_plev_armopen",
+     "module": "lev_m40ab",
+     "set": true,
+     "branch": "if has item K_COMPUTER_SPIKE"
+    }
+   ]
+  },
+  {
+   "name": "Lev_bascounc",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_plev_bascouncx",
+     "module": "lev_m40ac",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "Lev_BasLie",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_plev_basliex",
+     "module": "lev_m40ac",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "Lev_BasMission",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_plev_basmissx",
+     "module": "lev_m40ac",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "LEV_BRIDGEOPEN",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_plev_comp251x",
+     "module": "lev_m40ad",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "Lev_Elev40.12",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_plev_elev1x",
+     "module": "lev_m40aa",
+     "set": true
+    },
+    {
+     "script": "k_plev_elev1x",
+     "module": "lev_m40ab",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "LEV_ELEVATOR",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 5,
+   "writers": [
+    {
+     "script": "k_plev_freeparty",
+     "module": "lev_m40aa",
+     "set": 1,
+     "branch": "if not GetIsObjectValid(GetObjectByTag(\"lev40_tortcage\", 0))"
+    },
+    {
+     "script": "k_plev_freeparty",
+     "module": "lev_m40aa",
+     "set": 1,
+     "branch": "if GetIsObjectValid(GetObjectByTag(\"lev40_tortcage\", 0)); not GetIsObjectValid(GetObjectByTag(\"lev40_tortca..."
+    },
+    {
+     "script": "k_plev_freeparty",
+     "module": "lev_m40aa",
+     "set": 1,
+     "branch": "if GetIsObjectValid(GetObjectByTag(\"lev40_tortcage\", 0)); GetIsObjectValid(GetObjectByTag(\"lev40_tortcage\",..."
+    }
+   ]
+  },
+  {
+   "name": "Lev_Escape",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "writers_total": 6,
+   "writers": [
+    {
+     "script": "k_plev_escplot4",
+     "module": "lev_m40aa",
+     "set": 4
+    },
+    {
+     "script": "k_plev_escplot1",
+     "module": "lev_m40aa",
+     "set": 1
+    },
+    {
+     "script": "k_plev_escplot6",
+     "module": "lev_m40aa",
+     "set": 6
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/ebo_m40aa.mod",
+     "script": "k_plev_escsetup"
+    }
+   ]
+  },
+  {
+   "name": "LEV_LEVEL",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 11,
+   "writers": [
+    {
+     "script": "k_plev_40aa_en",
+     "module": "lev_m40aa",
+     "set": 1,
+     "branch": "if not GetIsObjectValid(GetFirstObjectInArea(OBJECT_SELF, 1))"
+    },
+    {
+     "script": "k_plev_40aa_en",
+     "module": "lev_m40aa",
+     "set": 1,
+     "branch": "if GetIsObjectValid(GetFirstObjectInArea(OBJECT_SELF, 1)); not a helper function's result; not GetIsObjectV..."
+    },
+    {
+     "script": "k_plev_40aa_en",
+     "module": "lev_m40aa",
+     "set": 1,
+     "branch": "if GetIsObjectValid(GetFirstObjectInArea(OBJECT_SELF, 1)); not a helper function's result; GetIsObjectValid..."
+    }
+   ]
+  },
+  {
+   "name": "LEV_MALAK_SPAWN",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "lev40_area_enter",
+     "module": "lev_m40ac",
+     "set": true,
+     "branch": "if LEV_MALAK_SPAWN is FALSE"
+    }
+   ]
+  },
+  {
+   "name": "Lev_MalakVision",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_plev_malakinc2",
+     "module": "lev_m40ac",
+     "add": 1
+    }
+   ]
+  },
+  {
+   "name": "Lev_MalBetray",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_plev_malbetx",
+     "module": "lev_m40ac",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "Lev_MalBetray_2",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_plev_malbet2x",
+     "module": "lev_m40ac",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "Lev_MalDream",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 9,
+   "writers": [
+    {
+     "script": "k_plev_maldreamx",
+     "module": "lev_m40ac",
+     "set": true
+    },
+    {
+     "script": "k_plev_throwdown",
+     "module": "lev_m40ac",
+     "set": true,
+     "branch": "if G_CAND_STATE > 5; k_swg_carth != 12; k_swg_carth != 13; k_swg_carth == 14"
+    },
+    {
+     "script": "k_plev_throwdown",
+     "module": "lev_m40ac",
+     "set": true,
+     "branch": "if G_CAND_STATE > 5; k_swg_carth != 12; k_swg_carth != 13; k_swg_carth != 14"
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pman_misc70"
+    },
+    {
+     "where": "modules/kas_m22aa.mod",
+     "script": "k_ptat_isrevan_y"
+    },
+    {
+     "where": "modules/kas_m22ab.mod",
+     "script": "k_ptat_isrevan_y"
+    },
+    {
+     "where": "modules/kas_m23ad.mod",
+     "script": "k_ptat_isrevan_y"
+    },
+    {
+     "where": "modules/kas_m25aa.mod",
+     "script": "k_ptat_isrevan_y"
+    },
+    {
+     "where": "modules/korr_m33aa.mod",
+     "script": "k_pkor_knowrev"
+    }
+   ],
+   "read_after_planet_total": 19
+  },
+  {
+   "name": "Lev_MalJedi",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_plev_maljedx",
+     "module": "lev_m40ac",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "Lev_MalTalk",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 4,
+   "writers": [
+    {
+     "script": "k_plev_maljedx",
+     "module": "lev_m40ac",
+     "add": 1
+    },
+    {
+     "script": "k_plev_malbetx",
+     "module": "lev_m40ac",
+     "add": 1
+    },
+    {
+     "script": "k_plev_malbet2x",
+     "module": "lev_m40ac",
+     "add": 1
+    }
+   ]
+  },
+  {
+   "name": "lev_portgas",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_plev_port1",
+     "module": "lev_m40aa",
+     "set": true,
+     "branch": "if does not have item K_COMPUTER_SPIKE"
+    },
+    {
+     "script": "k_plev_port1",
+     "module": "lev_m40aa",
+     "set": true,
+     "branch": "if has item K_COMPUTER_SPIKE"
+    }
+   ]
+  },
+  {
+   "name": "Lev_ramdroid",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_plev_droidram",
+     "module": "lev_m40ab",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "LEV_REPOP40AB",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_plev_40ab_en",
+     "module": "lev_m40ab",
+     "set": true,
+     "branch": "if LEV_BRIDGEOPEN is FALSE; LEV_SAULDEAD is TRUE; LEV_REPOP40AB is FALSE"
+    },
+    {
+     "script": "k_plev_40ab_en",
+     "module": "lev_m40ab",
+     "set": true,
+     "branch": "if LEV_BRIDGEOPEN is TRUE; LEV_SAULDEAD is TRUE; LEV_REPOP40AB is FALSE"
+    }
+   ]
+  },
+  {
+   "name": "Lev_Rescue",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 4,
+   "writers": [
+    {
+     "script": "k_plev_rescuex",
+     "module": "lev_m40aa",
+     "set": true
+    },
+    {
+     "script": "k_plev_freeparty",
+     "module": "lev_m40aa",
+     "set": true,
+     "branch": "if not GetIsObjectValid(GetObjectByTag(\"lev40_tortcage\", 0))"
+    },
+    {
+     "script": "k_plev_freeparty",
+     "module": "lev_m40aa",
+     "set": true,
+     "branch": "if GetIsObjectValid(GetObjectByTag(\"lev40_tortcage\", 0)); not GetIsObjectValid(GetObjectByTag(\"lev40_tortca..."
+    }
+   ]
+  },
+  {
+   "name": "LEV_RIOTS",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 10,
+   "writers": [
+    {
+     "script": "k_plev_stargas",
+     "module": "lev_m40aa",
+     "expr": "(GetGlobalNumber(\"LEV_RIOTS\") | 8)"
+    },
+    {
+     "script": "k_plev_starriot",
+     "module": "lev_m40aa",
+     "expr": "(GetGlobalNumber(\"LEV_RIOTS\") | 2)",
+     "branch": "if not GetIsObjectValid(GetObjectByTag(\"lev40_starslave\", 0)); not GetIsObjectValid(GetObjectByTag(\"lev40_s..."
+    },
+    {
+     "script": "k_plev_starriot",
+     "module": "lev_m40aa",
+     "expr": "(GetGlobalNumber(\"LEV_RIOTS\") | 2)",
+     "branch": "if not GetIsObjectValid(GetObjectByTag(\"lev40_starslave\", 0)); GetIsObjectValid(GetObjectByTag(\"lev40_starg..."
+    }
+   ]
+  },
+  {
+   "name": "LEV_SAULDEAD",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_plev_playpron2",
+     "module": "lev_m40ad",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "Lev_secDroidInact",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_plev_comp221x",
+     "module": "lev_m40ab",
+     "set": true,
+     "branch": "if does not have item K_COMPUTER_SPIKE"
+    },
+    {
+     "script": "k_plev_comp221x",
+     "module": "lev_m40ab",
+     "set": true,
+     "branch": "if has item K_COMPUTER_SPIKE"
+    }
+   ]
+  },
+  {
+   "name": "lev_secTurretInact",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_plev_comp222x",
+     "module": "lev_m40ab",
+     "set": true,
+     "branch": "if does not have item K_COMPUTER_SPIKE"
+    },
+    {
+     "script": "k_plev_comp222x",
+     "module": "lev_m40ab",
+     "set": true,
+     "branch": "if has item K_COMPUTER_SPIKE"
+    }
+   ]
+  },
+  {
+   "name": "LEV_SPACESUIT",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    false,
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_plev_airinopen",
+     "module": "lev_m40ad",
+     "set": false,
+     "branch": "if LEV_SPACESUIT is TRUE"
+    },
+    {
+     "script": "k_plev_airouopn2",
+     "module": "lev_m40ad",
+     "set": true,
+     "branch": "if has item lev40_spacesuit; LEV_SPACESUIT is FALSE"
+    }
+   ]
+  },
+  {
+   "name": "LEV_SPACEWALK",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    0,
+    45
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_plev_airinopen",
+     "module": "lev_m40ad",
+     "set": 0,
+     "branch": "if LEV_SPACESUIT is TRUE"
+    },
+    {
+     "script": "k_plev_airouopn2",
+     "module": "lev_m40ad",
+     "set": 45,
+     "branch": "if has item lev40_spacesuit; LEV_SPACESUIT is FALSE"
+    }
+   ]
+  },
+  {
+   "name": "LEV_SPIKES",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    -1,
+    0
+   ],
+   "writers_total": 8,
+   "writers": [
+    {
+     "script": "k_plev_40aa_en",
+     "module": "lev_m40aa",
+     "set": -1,
+     "branch": "if not GetIsObjectValid(GetFirstObjectInArea(OBJECT_SELF, 1))"
+    },
+    {
+     "script": "k_plev_40aa_en",
+     "module": "lev_m40aa",
+     "set": -1,
+     "branch": "if GetIsObjectValid(GetFirstObjectInArea(OBJECT_SELF, 1)); not a helper function's result; not GetIsObjectV..."
+    },
+    {
+     "script": "k_plev_40aa_en",
+     "module": "lev_m40aa",
+     "set": -1,
+     "branch": "if GetIsObjectValid(GetFirstObjectInArea(OBJECT_SELF, 1)); a helper function's result; not GetIsObjectValid..."
+    }
+   ]
+  },
+  {
+   "name": "lev_starboardgas",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_plev_star1",
+     "module": "lev_m40aa",
+     "set": true,
+     "branch": "if does not have item K_COMPUTER_SPIKE"
+    },
+    {
+     "script": "k_plev_star1",
+     "module": "lev_m40aa",
+     "set": true,
+     "branch": "if has item K_COMPUTER_SPIKE"
+    }
+   ]
+  },
+  {
+   "name": "lev_storage",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "k_plev_storopen",
+     "module": "lev_m40ab",
+     "set": true,
+     "branch": "if does not have item K_COMPUTER_SPIKE"
+    },
+    {
+     "script": "k_plev_storopen",
+     "module": "lev_m40ab",
+     "set": true,
+     "branch": "if has item K_COMPUTER_SPIKE"
+    },
+    {
+     "script": "k_plev_droidram",
+     "module": "lev_m40ab",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "Lev_TortureBetray",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    false,
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_plev_tortbettr",
+     "module": "lev_m40aa",
+     "set": true
+    },
+    {
+     "script": "k_plev_tortbetfa",
+     "module": "lev_m40aa",
+     "set": false
+    }
+   ]
+  },
+  {
+   "name": "Tar_VulkarElevator",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 4,
+   "writers": [
+    {
+     "script": "k_tar_elevunlock",
+     "module": "lev_m40aa",
+     "set": 1,
+     "branch": "if does not have item K_COMPUTER_SPIKE"
+    },
+    {
+     "script": "k_tar_elevunlock",
+     "module": "lev_m40aa",
+     "set": 1,
+     "branch": "if has item K_COMPUTER_SPIKE"
+    },
+    {
+     "script": "k_tar_elevunlock",
+     "module": "lev_m40ab",
+     "set": 1,
+     "branch": "if does not have item K_COMPUTER_SPIKE"
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/tar_m10aa.mod",
+     "script": "k_ptar_turtrig"
+    },
+    {
+     "where": "modules/tar_m10aa.mod",
+     "script": "k_ptar_vulkelev1"
+    },
+    {
+     "where": "modules/tar_m10aa.mod",
+     "script": "k_ptar_vulkelev2"
+    },
+    {
+     "where": "modules/tar_m10ab_s.rim",
+     "script": "k_ptar_vulkelev1"
+    },
+    {
+     "where": "modules/tar_m10ab_s.rim",
+     "script": "k_ptar_vulkelev2"
+    },
+    {
+     "where": "modules/tar_m10ac.mod",
+     "script": "k_ptar_vulkelev1"
+    }
+   ],
+   "read_after_planet_total": 7
+  }
+ ],
+ "globals_never_set": [
+  "LEV_ALIGNMENT",
+  "LEV_BRIDGEDEFENSE",
+  "Lev_BastTalk"
+ ],
+ "items": {
+  "held_at_end": [],
+  "held_note": "Given by scripts on the critical path (tools/questdb/chapters.py).",
+  "other_script_gifts": [
+   {
+    "item": "g_i_progspike01",
+    "count": 1,
+    "script": "k_plev_resspikes",
+    "module": "lev_m40aa",
+    "branch": "if LEV_SPIKES >= 0; does not have item k_computer_spike; LEV_SPIKES > 0"
+   },
+   {
+    "item": "g_i_progspike01",
+    "count": 1,
+    "script": "k_plev_hack",
+    "module": "lev_m40aa",
+    "branch": "if does not have item k_computer_spike"
+   },
+   {
+    "item": "tar09_icebreaker",
+    "count": 1,
+    "script": "k_plev_giveice",
+    "module": "lev_m40aa"
+   },
+   {
+    "item": "lev40_spacesuit",
+    "count": 1,
+    "script": "k_plev_givesuit",
+    "module": "lev_m40ab"
+   }
+  ],
+  "taken_optional": [
+   {
+    "item": "k_computer_spike",
+    "script": "k_plev_resspikes",
+    "module": "lev_m40aa",
+    "from": [
+     "lev40_brigcom029.utp OnEndDialogue (BrigComputer)"
+    ],
+    "branch": "if LEV_SPIKES >= 0; has item k_computer_spike"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_act_com35",
+    "module": "lev_m40aa",
+    "from": [
+     "lev40_aacompdlg E3 script",
+     "tar10_aacompdlg E3 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_plev_revealmap",
+    "module": "lev_m40aa",
+    "from": [
+     "lev40_aacompdlg E6 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_plev_opendet",
+    "module": "lev_m40aa",
+    "from": [
+     "lev40_aacompdlg E8 script",
+     "lev40_brigcompp E11 script",
+     "lev40_brigcompst E11 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_act_com34",
+    "module": "lev_m40aa",
+    "from": [
+     "lev40_aacompdlg E18 script",
+     "lev40_aacompdlg E25 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_act_com33",
+    "module": "lev_m40aa",
+    "from": [
+     "lev40_aacompdlg E21 script",
+     "lev40_aacompdlg E28 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "tar09_icebreaker",
+    "script": "k_plev_hack",
+    "module": "lev_m40aa",
+    "from": [
+     "lev40_aacompdlg E34 script",
+     "lev40_brigcompp E12 script",
+     "lev40_brigcompst E12 script"
+    ],
+    "branch": "if does not have item k_computer_spike"
+   },
+   {
+    "item": "tar09_icebreaker",
+    "script": "k_plev_hack",
+    "module": "lev_m40aa",
+    "from": [
+     "lev40_aacompdlg E34 script",
+     "lev40_brigcompp E12 script",
+     "lev40_brigcompst E12 script"
+    ],
+    "branch": "if has item k_computer_spike"
+   },
+   {
+    "item": "k_computer_spike",
+    "script": "k_plev_hack",
+    "module": "lev_m40aa",
+    "from": [
+     "lev40_aacompdlg E34 script",
+     "lev40_brigcompp E12 script",
+     "lev40_brigcompst E12 script"
+    ],
+    "branch": "if has item k_computer_spike"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_act_comp01",
+    "module": "lev_m40aa",
+    "from": [
+     "lev40_brigcomp E3 script",
+     "lev40_brigcompn E3 script",
+     "lev40_brigcompp E3 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_act_com32",
+    "module": "lev_m40aa",
+    "from": [
+     "lev40_brigcomp E6 script",
+     "tar10_aacompdlg E23 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_plev_port1",
+    "module": "lev_m40aa",
+    "from": [
+     "lev40_brigcompn E5 script",
+     "lev40_brigcompp E6 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_plev_opencel",
+    "module": "lev_m40aa",
+    "from": [
+     "lev40_brigcompn E9 script",
+     "lev40_brigcompp E9 script",
+     "lev40_brigcomps E9 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_plev_star1",
+    "module": "lev_m40aa",
+    "from": [
+     "lev40_brigcomps E5 script",
+     "lev40_brigcompst E6 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_REPAIR_PART",
+    "script": "k_com_compart",
+    "module": "lev_m40aa",
+    "from": [
+     "lev40_decomdroid E4 script"
+    ],
+    "branch": "if has item K_REPAIR_PART",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_REPAIR_PART",
+    "script": "k_act_com45",
+    "module": "lev_m40aa",
+    "from": [
+     "lev40_decomdroid E6 script"
+    ],
+    "branch": "if has item K_REPAIR_PART",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_REPAIR_PART",
+    "script": "k_act_com44",
+    "module": "lev_m40aa",
+    "from": [
+     "lev40_decomdroid E8 script"
+    ],
+    "branch": "if has item K_REPAIR_PART",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_REPAIR_PART",
+    "script": "k_act_com43",
+    "module": "lev_m40aa",
+    "from": [
+     "lev40_decomdroid E9 script"
+    ],
+    "branch": "if has item K_REPAIR_PART",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_REPAIR_PART",
+    "script": "k_act_com42",
+    "module": "lev_m40aa",
+    "from": [
+     "lev40_decomdroid E10 script"
+    ],
+    "branch": "if has item K_REPAIR_PART",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_act_com31",
+    "module": "lev_m40aa",
+    "from": [
+     "tar10_aacompdlg E7 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_tar_elevunlock",
+    "module": "lev_m40aa",
+    "from": [
+     "tar10_aacompdlg E15 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_act_com35",
+    "module": "lev_m40ab",
+    "from": [
+     "lev40_abcompdlg E3 script",
+     "tar10_aacompdlg E3 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_plev_revealmap",
+    "module": "lev_m40ab",
+    "from": [
+     "lev40_abcompdlg E6 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_act_com31",
+    "module": "lev_m40ab",
+    "from": [
+     "lev40_abcompdlg E8 script",
+     "tar10_aacompdlg E7 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_act_com34",
+    "module": "lev_m40ab",
+    "from": [
+     "lev40_abcompdlg E25 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_act_comp01",
+    "module": "lev_m40ab",
+    "from": [
+     "lev40_comp14 E4 script",
+     "lev40_comp14 E7 script",
+     "lev40_comp22 E4 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_plev_storopen",
+    "module": "lev_m40ab",
+    "from": [
+     "lev40_comp14 E9 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_plev_armopen",
+    "module": "lev_m40ab",
+    "from": [
+     "lev40_comp14 E11 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_plev_comp221x",
+    "module": "lev_m40ab",
+    "from": [
+     "lev40_comp22 E11 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_plev_comp222x",
+    "module": "lev_m40ab",
+    "from": [
+     "lev40_comp22 R12 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_REPAIR_PART",
+    "script": "k_com_compart",
+    "module": "lev_m40ab",
+    "from": [
+     "lev40_droid17a E4 script"
+    ],
+    "branch": "if has item K_REPAIR_PART",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_REPAIR_PART",
+    "script": "k_act_com45",
+    "module": "lev_m40ab",
+    "from": [
+     "lev40_droid17a E6 script",
+     "lev40_droid17b E6 script",
+     "lev40_droid17b E11 script"
+    ],
+    "branch": "if has item K_REPAIR_PART",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_REPAIR_PART",
+    "script": "k_act_com44",
+    "module": "lev_m40ab",
+    "from": [
+     "lev40_droid17a E8 script",
+     "lev40_droid17b E8 script"
+    ],
+    "branch": "if has item K_REPAIR_PART",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_REPAIR_PART",
+    "script": "k_act_com43",
+    "module": "lev_m40ab",
+    "from": [
+     "lev40_droid17a E9 script",
+     "lev40_droid17b E9 script"
+    ],
+    "branch": "if has item K_REPAIR_PART",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_REPAIR_PART",
+    "script": "k_act_com42",
+    "module": "lev_m40ab",
+    "from": [
+     "lev40_droid17a E10 script",
+     "lev40_droid17b E10 script"
+    ],
+    "branch": "if has item K_REPAIR_PART",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_REPAIR_PART",
+    "script": "k_lev_ramdroid",
+    "module": "lev_m40ab",
+    "from": [
+     "lev40_droid17b E4 script"
+    ],
+    "branch": "if has item K_REPAIR_PART"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_tar_elevunlock",
+    "module": "lev_m40ab",
+    "from": [
+     "tar10_aacompdlg E15 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_act_com32",
+    "module": "lev_m40ab",
+    "from": [
+     "tar10_aacompdlg E23 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "lev09_starcellkey",
+    "script": "k_plev_hangarcs0",
+    "module": "lev_m40ac",
+    "from": [
+     "lev40_hangardlg E0 script"
+    ],
+    "branch": "if GetPartyMemberCount() at most 0"
+   },
+   {
+    "item": "lev40_detcard",
+    "script": "k_plev_hangarcs0",
+    "module": "lev_m40ac",
+    "from": [
+     "lev40_hangardlg E0 script"
+    ],
+    "branch": "if GetPartyMemberCount() at most 0"
+   },
+   {
+    "item": "tar09_icebreaker",
+    "script": "k_plev_hangarcs0",
+    "module": "lev_m40ac",
+    "from": [
+     "lev40_hangardlg E0 script"
+    ],
+    "branch": "if GetPartyMemberCount() at most 0"
+   },
+   {
+    "item": "lev09_starcellkey",
+    "script": "k_plev_hangarcs0",
+    "module": "lev_m40ac",
+    "from": [
+     "lev40_hangardlg E0 script"
+    ],
+    "branch": "if GetPartyMemberCount() is 1"
+   },
+   {
+    "item": "lev40_detcard",
+    "script": "k_plev_hangarcs0",
+    "module": "lev_m40ac",
+    "from": [
+     "lev40_hangardlg E0 script"
+    ],
+    "branch": "if GetPartyMemberCount() is 1"
+   },
+   {
+    "item": "tar09_icebreaker",
+    "script": "k_plev_hangarcs0",
+    "module": "lev_m40ac",
+    "from": [
+     "lev40_hangardlg E0 script"
+    ],
+    "branch": "if GetPartyMemberCount() is 1"
+   },
+   {
+    "item": "lev09_starcellkey",
+    "script": "k_plev_hangarcs0",
+    "module": "lev_m40ac",
+    "from": [
+     "lev40_hangardlg E0 script"
+    ],
+    "branch": "if GetPartyMemberCount() at least 2"
+   },
+   {
+    "item": "lev40_detcard",
+    "script": "k_plev_hangarcs0",
+    "module": "lev_m40ac",
+    "from": [
+     "lev40_hangardlg E0 script"
+    ],
+    "branch": "if GetPartyMemberCount() at least 2"
+   },
+   {
+    "item": "tar09_icebreaker",
+    "script": "k_plev_hangarcs0",
+    "module": "lev_m40ac",
+    "from": [
+     "lev40_hangardlg E0 script"
+    ],
+    "branch": "if GetPartyMemberCount() at least 2"
+   }
+  ],
+  "container_loot_optional": [
+   {
+    "module": "lev_m40aa",
+    "area": "m40aa",
+    "container": "lev40_drdupgrades",
+    "template": "lev40_drdupgrade",
+    "position": [
+     58.95,
+     90.8
+    ],
+    "items": [
+     {
+      "resref": "g_i_drdltplat003",
+      "count": 3
+     },
+     {
+      "resref": "g_i_drdmdplat003",
+      "count": 1
+     },
+     {
+      "resref": "g_i_drdmtnsen003",
+      "count": 1
+     },
+     {
+      "resref": "g_i_drdshld002",
+      "count": 1
+     },
+     {
+      "resref": "g_i_drdutldev002",
+      "count": 1
+     },
+     {
+      "resref": "g_i_parts01",
+      "count": 5
+     },
+     {
+      "resref": "g_i_drdutldev007",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "lev_m40aa",
+    "area": "m40aa",
+    "container": "lev40_bpack",
+    "template": "lev40_bpack",
+    "position": [
+     7.86,
+     72.5
+    ],
+    "items": [
+     {
+      "resref": "g_i_progspike01",
+      "count": 5
+     },
+     {
+      "resref": "g_i_secspike02",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "lev_m40aa",
+    "area": "m40aa",
+    "container": "lev40_bandoleer",
+    "template": "lev40_bandoleer",
+    "position": [
+     9.04,
+     76.34
+    ],
+    "items": [
+     {
+      "resref": "g_w_blstrrfl003",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "lev_m40aa",
+    "area": "m40aa",
+    "container": "lev40_locker",
+    "template": "lev40_locker",
+    "position": [
+     10.38,
+     69.69
+    ],
+    "items": [
+     {
+      "resref": "g_i_credits011",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "lev_m40aa",
+    "area": "m40aa",
+    "container": "medlock2",
+    "template": "lockerlg002",
+    "position": [
+     60.39,
+     54.49
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 3
+     },
+     {
+      "resref": "g_i_medeqpmnt03",
+      "count": 1
+     },
+     {
+      "resref": "g_i_medeqpmnt02",
+      "count": 1
+     },
+     {
+      "resref": "g_i_implant203",
+      "count": 1
+     },
+     {
+      "resref": "g_i_implant202",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "lev_m40aa",
+    "area": "m40aa",
+    "container": "medlock",
+    "template": "lockerlg001",
+    "position": [
+     60.36,
+     55.2
+    ],
+    "items": [
+     {
+      "resref": "g_i_adrnaline002",
+      "count": 1
+     },
+     {
+      "resref": "g_i_adrnaline003",
+      "count": 1
+     },
+     {
+      "resref": "g_i_adrnaline001",
+      "count": 1
+     },
+     {
+      "resref": "g_i_medeqpmnt04",
+      "count": 2
+     },
+     {
+      "resref": "g_i_cmbtshot001",
+      "count": 1
+     },
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 2
+     }
+    ]
+   },
+   {
+    "module": "lev_m40aa",
+    "area": "m40aa",
+    "container": "droidlock",
+    "template": "footlker001",
+    "position": [
+     58.49,
+     102.5
+    ],
+    "items": [
+     {
+      "resref": "g_i_drdmtnsen002",
+      "count": 1
+     },
+     {
+      "resref": "g_i_drdmdplat002",
+      "count": 1
+     },
+     {
+      "resref": "g_i_drdutldev006",
+      "count": 1
+     },
+     {
+      "resref": "g_i_secspike01",
+      "count": 2
+     },
+     {
+      "resref": "g_i_parts01",
+      "count": 6
+     },
+     {
+      "resref": "g_i_drdrepeqp003",
+      "count": 5
+     },
+     {
+      "resref": "g_i_drdutldev001",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "lev_m40aa",
+    "area": "m40aa",
+    "container": "CivilFootLker2",
+    "template": "g_trescivil003",
+    "position": [
+     98.42,
+     20.14
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "lev_m40aa",
+    "area": "m40aa",
+    "container": "CivilFootLker2",
+    "template": "g_trescivil003",
+    "position": [
+     98.39,
+     20.73
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "lev_m40aa",
+    "area": "m40aa",
+    "container": "CivilFootLker2",
+    "template": "g_trescivil003",
+    "position": [
+     98.39,
+     21.29
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "lev_m40aa",
+    "area": "m40aa",
+    "container": "PlstcCrt",
+    "template": "plstccrt001",
+    "position": [
+     90.56,
+     68.26
+    ],
+    "items": [
+     {
+      "resref": "g_i_parts01",
+      "count": 4
+     },
+     {
+      "resref": "g_i_progspike01",
+      "count": 4
+     }
+    ]
+   },
+   {
+    "module": "lev_m40aa",
+    "area": "m40aa",
+    "container": "lev09_contriband",
+    "template": "lev09_contriband",
+    "position": [
+     99.06,
+     46.56
+    ],
+    "items": [
+     {
+      "resref": "g_i_belt010",
+      "count": 1
+     },
+     {
+      "resref": "g_i_pazdeck",
+      "count": 1
+     },
+     {
+      "resref": "g_w_shortswrd01",
+      "count": 1
+     },
+     {
+      "resref": "g_i_pazcard_018",
+      "count": 1
+     },
+     {
+      "resref": "g_i_upgrade004",
+      "count": 1
+     },
+     {
+      "resref": "g_i_pazcard_001",
+      "count": 1
+     },
+     {
+      "resref": "g_i_pazcard_002",
+      "count": 1
+     },
+     {
+      "resref": "g_i_progspike01",
+      "count": 4
+     }
+    ]
+   },
+   {
+    "module": "lev_m40aa",
+    "area": "m40aa",
+    "container": "lev40_riotlocker",
+    "template": "lev40_riotlocker",
+    "position": [
+     98.72,
+     44.44
+    ],
+    "items": [
+     {
+      "resref": "g_w_stunbaton01",
+      "count": 1
+     },
+     {
+      "resref": "g_w_blstrpstl001",
+      "count": 2
+     },
+     {
+      "resref": "g_a_class4001",
+      "count": 1
+     },
+     {
+      "resref": "g_w_lngswrd01",
+      "count": 1
+     },
+     {
+      "resref": "g_w_shortswrd01",
+      "count": 1
+     },
+     {
+      "resref": "g_i_medeqpmnt02",
+      "count": 1
+     },
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 2
+     }
+    ]
+   },
+   {
+    "module": "lev_m40aa",
+    "area": "m40aa",
+    "container": "lev40_barlocker",
+    "template": "lev40_barlocker",
+    "position": [
+     104.01,
+     19.8
+    ],
+    "items": [
+     {
+      "resref": "lev40_detcard",
+      "count": 1
+     },
+     {
+      "resref": "g_i_progspike01",
+      "count": 3
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ab",
+    "area": "m40ab",
+    "container": "lev40_gren0",
+    "template": "lev40_gren0",
+    "position": [
+     88.02,
+     38.91
+    ],
+    "items": [
+     {
+      "resref": "g_w_stungren01",
+      "count": 6
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ab",
+    "area": "m40ab",
+    "container": "lev40_gren0",
+    "template": "lev40_gren001",
+    "position": [
+     88.9,
+     38.24
+    ],
+    "items": [
+     {
+      "resref": "g_w_sonicgren01",
+      "count": 6
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ab",
+    "area": "m40ab",
+    "container": "lev40_gren0",
+    "template": "lev40_gren002",
+    "position": [
+     88.98,
+     37.3
+    ],
+    "items": [
+     {
+      "resref": "g_w_thermldet01",
+      "count": 3
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ab",
+    "area": "m40ab",
+    "container": "lev40_gunlock0",
+    "template": "lev40_gunlock0",
+    "position": [
+     88.58,
+     31.37
+    ],
+    "items": [
+     {
+      "resref": "g_w_blstrrfl001",
+      "count": 3
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ab",
+    "area": "m40ab",
+    "container": "lev40_gunlock0",
+    "template": "lev40_gunlock001",
+    "position": [
+     89.25,
+     31.38
+    ],
+    "items": [
+     {
+      "resref": "g_w_blstrcrbn002",
+      "count": 3
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ab",
+    "area": "m40ab",
+    "container": "lev40_gunlock0",
+    "template": "lev40_gunlock002",
+    "position": [
+     89.94,
+     31.37
+    ],
+    "items": [
+     {
+      "resref": "g_w_dsrptrfl001",
+      "count": 1
+     },
+     {
+      "resref": "g_w_rptnblstr01",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ab",
+    "area": "m40ab",
+    "container": "lev40_armlock0",
+    "template": "lev40_armlock0",
+    "position": [
+     92.82,
+     31.33
+    ],
+    "items": [
+     {
+      "resref": "g_a_class7003",
+      "count": 3
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ab",
+    "area": "m40ab",
+    "container": "lev40_armlock0",
+    "template": "lev40_armlock001",
+    "position": [
+     92.16,
+     31.33
+    ],
+    "items": [
+     {
+      "resref": "g_a_class8001",
+      "count": 2
+     },
+     {
+      "resref": "g_a_class9002",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ab",
+    "area": "m40ab",
+    "container": "lev40_drdupgrades",
+    "template": "lev40_drdupgrade",
+    "position": [
+     47.04,
+     29.82
+    ],
+    "items": [
+     {
+      "resref": "g_i_drdhvplat003",
+      "count": 1
+     },
+     {
+      "resref": "g_i_drdutldev007",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ab",
+    "area": "m40ab",
+    "container": "lev40_secequip",
+    "template": "footlker001",
+    "position": [
+     82.5,
+     43.23
+    ],
+    "items": [
+     {
+      "resref": "g_i_secspike02",
+      "count": 3
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ab",
+    "area": "m40ab",
+    "container": "MilMidLockerLg",
+    "template": "g_tresmilmid006",
+    "position": [
+     68.68,
+     80.82
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt02",
+      "count": 1
+     },
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 2
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ab",
+    "area": "m40ab",
+    "container": "droidlock1",
+    "template": "footlker002",
+    "position": [
+     57.48,
+     29.42
+    ],
+    "items": [
+     {
+      "resref": "g_i_drdrepeqp002",
+      "count": 1
+     },
+     {
+      "resref": "g_i_drdshld002",
+      "count": 1
+     },
+     {
+      "resref": "g_i_drdrepeqp001",
+      "count": 2
+     },
+     {
+      "resref": "g_i_parts01",
+      "count": 3
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ab",
+    "area": "m40ab",
+    "container": "droidlock2",
+    "template": "footlker003",
+    "position": [
+     58.8,
+     29.35
+    ],
+    "items": [
+     {
+      "resref": "g_i_drdtrgcom003",
+      "count": 1
+     },
+     {
+      "resref": "g_i_secspike02",
+      "count": 1
+     },
+     {
+      "resref": "g_i_secspike01",
+      "count": 4
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ab",
+    "area": "m40ab",
+    "container": "Medlock",
+    "template": "lockerlg001",
+    "position": [
+     98.72,
+     79.37
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt02",
+      "count": 1
+     },
+     {
+      "resref": "g_i_implant304",
+      "count": 1
+     },
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 2
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ab",
+    "area": "m40ab",
+    "container": "Medlock2",
+    "template": "lockerlg002",
+    "position": [
+     98.72,
+     78.61
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 2
+     },
+     {
+      "resref": "g_i_adrnaline005",
+      "count": 1
+     },
+     {
+      "resref": "g_i_adrnaline006",
+      "count": 1
+     },
+     {
+      "resref": "g_i_cmbtshot002",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ab",
+    "area": "m40ab",
+    "container": "Millock1",
+    "template": "g_tresmillow006",
+    "position": [
+     127.14,
+     67.93
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 2
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ab",
+    "area": "m40ab",
+    "container": "FootLker1",
+    "template": "footlker004",
+    "position": [
+     124.7,
+     70.03
+    ],
+    "items": [
+     {
+      "resref": "g_i_progspike01",
+      "count": 3
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ab",
+    "area": "m40ab",
+    "container": "FootLker2",
+    "template": "footlker005",
+    "position": [
+     124.68,
+     65.98
+    ],
+    "items": [
+     {
+      "resref": "g_i_parts01",
+      "count": 3
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ac",
+    "area": "m40ac",
+    "container": "plev_consm0",
+    "template": "plev_consm0",
+    "position": [
+     34.23,
+     175.9
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ac",
+    "area": "m40ac",
+    "container": "plev_consm0",
+    "template": "plev_consm0",
+    "position": [
+     34.2,
+     175.13
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ac",
+    "area": "m40ac",
+    "container": "plev_consm0",
+    "template": "plev_consm0",
+    "position": [
+     47.22,
+     175.95
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ac",
+    "area": "m40ac",
+    "container": "MilMidLockerLg",
+    "template": "g_tresmilmid006",
+    "position": [
+     32.21,
+     146.73
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt02",
+      "count": 2
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ac",
+    "area": "m40ac",
+    "container": "plev_consm0",
+    "template": "plev_consm0",
+    "position": [
+     114.89,
+     145.8
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ac",
+    "area": "m40ac",
+    "container": "plev_consm0",
+    "template": "plev_consm0",
+    "position": [
+     112.56,
+     147.29
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ac",
+    "area": "m40ac",
+    "container": "plev_contsm3",
+    "template": "plev_contsm003",
+    "position": [
+     136.61,
+     146.11
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt02",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ac",
+    "area": "m40ac",
+    "container": "plev_contsm3",
+    "template": "plev_contsm003",
+    "position": [
+     114.0,
+     146.46
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt02",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ad",
+    "area": "m40ad",
+    "container": "PartPile1",
+    "template": "partpile001",
+    "position": [
+     114.42,
+     84.87
+    ],
+    "items": [
+     {
+      "resref": "g_i_parts01",
+      "count": 2
+     },
+     {
+      "resref": "g_i_progspike01",
+      "count": 2
+     },
+     {
+      "resref": "g_i_drdutldev003",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ad",
+    "area": "m40ad",
+    "container": "MilLowMetalBox",
+    "template": "g_tresmillow006",
+    "position": [
+     114.3,
+     88.52
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ad",
+    "area": "m40ad",
+    "container": "MilLowMetalBox",
+    "template": "g_tresmillow006",
+    "position": [
+     115.12,
+     89.18
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ad",
+    "area": "m40ad",
+    "container": "MilMidPlstcCylin",
+    "template": "g_tresmilmid006",
+    "position": [
+     115.48,
+     90.02
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt02",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ad",
+    "area": "m40ad",
+    "container": "MilHighLockerLg",
+    "template": "g_tresmilhig006",
+    "position": [
+     170.32,
+     50.19
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt02",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ad",
+    "area": "m40ad",
+    "container": "MilLowLockerLg",
+    "template": "g_tresmillow007",
+    "position": [
+     170.86,
+     50.2
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "lev_m40ad",
+    "area": "m40ad",
+    "container": "MilLowLockerLg",
+    "template": "g_tresmillow007",
+    "position": [
+     171.39,
+     50.2
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 1
+     }
+    ]
+   }
+  ],
+  "random_loot": "creature drops rolled by the generic treasure scripts at death are random and not listed"
+ },
+ "party": {
+  "recruit": [],
+  "remove": [
+   {
+    "slot": 0,
+    "constant": "NPC_BASTILA",
+    "script": "k_plev_finale5",
+    "module": "lev_m40ac",
+    "certain": true,
+    "note": "slot 0 is taken by the enemy (RemoveAvailableNPC 0)"
+   }
+  ],
+  "recruited_at_end": [],
+  "recruit_note": "Apply as the game's own AddAvailableNPCByTemplate(slot, template): the slot's AVAILNPC<slot> creature in the save is built from the template (templates.bif, Override or the named module)",
+  "calls": [
+   {
+    "call": "AddPartyMember(2, GetObjectByTag(\"carth\", 0))",
+    "script": "k_plev_freecs2",
+    "module": "lev_m40aa",
+    "from": [
+     "lev40_bast400 R74 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "AddPartyMember(0, GetObjectByTag(\"bastila\", 0))",
+    "script": "k_plev_freecs2",
+    "module": "lev_m40aa",
+    "from": [
+     "lev40_bast400 R74 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "RemoveAvailableNPC(0)",
+    "script": "k_plev_finale5",
+    "module": "lev_m40ac",
+    "from": [
+     "lev40_carth R13 script"
+    ],
+    "critical": true
+   },
+   {
+    "call": "AddPartyMember(2, GetObjectByTag(\"carth\", 0))",
+    "script": "k_plev_finale5",
+    "module": "lev_m40ac",
+    "from": [
+     "lev40_carth R13 script"
+    ],
+    "critical": true
+   },
+   {
+    "call": "AddPartyMember(0, GetObjectByTag(\"bastila\", 0))",
+    "script": "k_plev_postvis",
+    "module": "lev_m40ac",
+    "from": [
+     "lev40_darthmala2 E0 script",
+     "lev40_darthmalak E0 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "AddPartyMember(2, GetObjectByTag(\"carth\", 0))",
+    "script": "k_plev_postvis",
+    "module": "lev_m40ac",
+    "from": [
+     "lev40_darthmala2 E0 script",
+     "lev40_darthmalak E0 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(2)",
+    "script": "k_plev_malstun",
+    "module": "lev_m40ac",
+    "from": [
+     "lev40_darthmala2 E21 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(0)",
+    "script": "k_plev_malstun",
+    "module": "lev_m40ac",
+    "from": [
+     "lev40_darthmala2 E21 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(0)",
+    "script": "k_plev_gostunt",
+    "module": "lev_m40ac",
+    "from": [
+     "lev40_darthmala2 R58 script",
+     "lev40_darthmalak R56 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(2)",
+    "script": "k_plev_gostunt",
+    "module": "lev_m40ac",
+    "from": [
+     "lev40_darthmala2 R58 script",
+     "lev40_darthmalak R56 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(2)",
+    "script": "k_plev_playpron2",
+    "module": "lev_m40ad",
+    "from": [
+     "lev40_saul402 E0 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(0)",
+    "script": "k_plev_playpron2",
+    "module": "lev_m40ad",
+    "from": [
+     "lev40_saul402 E0 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(2)",
+    "script": "k_plev_saulcs0",
+    "module": "lev_m40ad",
+    "from": [
+     "lev40_saul402 E19 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(0)",
+    "script": "k_plev_saulcs0",
+    "module": "lev_m40ad",
+    "from": [
+     "lev40_saul402 E19 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "AddPartyMember(2, GetObjectByTag(\"Carth\", 0))",
+    "script": "cp_lev40_saulend",
+    "module": "lev_m40ad",
+    "from": [
+     "lev40_saul402 R20 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "AddPartyMember(0, GetObjectByTag(\"Bastila\", 0))",
+    "script": "cp_lev40_saulend",
+    "module": "lev_m40ad",
+    "from": [
+     "lev40_saul402 R20 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "AddPartyMember(2, GetObjectByTag(\"Carth\", 0))",
+    "script": "k_plev_bridgeatk",
+    "module": "lev_m40ad",
+    "from": [
+     "lev40_saul402 R32 script"
+    ],
+    "branch": "if not GetIsObjectValid(GetObjectByTag(\"lev40_saulguard\", 0)); not GetIsObjectValid(GetObjectByTag(\"lev40_s...",
+    "critical": false
+   },
+   {
+    "call": "AddPartyMember(0, GetObjectByTag(\"Bastila\", 0))",
+    "script": "k_plev_bridgeatk",
+    "module": "lev_m40ad",
+    "from": [
+     "lev40_saul402 R32 script"
+    ],
+    "branch": "if not GetIsObjectValid(GetObjectByTag(\"lev40_saulguard\", 0)); not GetIsObjectValid(GetObjectByTag(\"lev40_s...",
+    "critical": false
+   },
+   {
+    "call": "AddPartyMember(2, GetObjectByTag(\"Carth\", 0))",
+    "script": "k_plev_bridgeatk",
+    "module": "lev_m40ad",
+    "from": [
+     "lev40_saul402 R32 script"
+    ],
+    "branch": "if not GetIsObjectValid(GetObjectByTag(\"lev40_saulguard\", 0)); GetIsObjectValid(GetObjectByTag(\"lev40_saulj...",
+    "critical": false
+   },
+   {
+    "call": "AddPartyMember(0, GetObjectByTag(\"Bastila\", 0))",
+    "script": "k_plev_bridgeatk",
+    "module": "lev_m40ad",
+    "from": [
+     "lev40_saul402 R32 script"
+    ],
+    "branch": "if not GetIsObjectValid(GetObjectByTag(\"lev40_saulguard\", 0)); GetIsObjectValid(GetObjectByTag(\"lev40_saulj...",
+    "critical": false
+   },
+   {
+    "call": "AddPartyMember(2, GetObjectByTag(\"Carth\", 0))",
+    "script": "k_plev_bridgeatk",
+    "module": "lev_m40ad",
+    "from": [
+     "lev40_saul402 R32 script"
+    ],
+    "branch": "if GetIsObjectValid(GetObjectByTag(\"lev40_saulguard\", 0)); not GetIsObjectValid(GetObjectByTag(\"lev40_saulg...",
+    "critical": false
+   },
+   {
+    "call": "AddPartyMember(0, GetObjectByTag(\"Bastila\", 0))",
+    "script": "k_plev_bridgeatk",
+    "module": "lev_m40ad",
+    "from": [
+     "lev40_saul402 R32 script"
+    ],
+    "branch": "if GetIsObjectValid(GetObjectByTag(\"lev40_saulguard\", 0)); not GetIsObjectValid(GetObjectByTag(\"lev40_saulg...",
+    "critical": false
+   },
+   {
+    "call": "AddPartyMember(2, GetObjectByTag(\"Carth\", 0))",
+    "script": "k_plev_bridgeatk",
+    "module": "lev_m40ad",
+    "from": [
+     "lev40_saul402 R32 script"
+    ],
+    "branch": "if GetIsObjectValid(GetObjectByTag(\"lev40_saulguard\", 0)); GetIsObjectValid(GetObjectByTag(\"lev40_saulguard...",
+    "critical": false
+   },
+   {
+    "call": "AddPartyMember(0, GetObjectByTag(\"Bastila\", 0))",
+    "script": "k_plev_bridgeatk",
+    "module": "lev_m40ad",
+    "from": [
+     "lev40_saul402 R32 script"
+    ],
+    "branch": "if GetIsObjectValid(GetObjectByTag(\"lev40_saulguard\", 0)); GetIsObjectValid(GetObjectByTag(\"lev40_saulguard...",
+    "critical": false
+   }
+  ],
+  "slots": []
+ },
+ "next_chapter": {
+  "module": "ebo_m40ad",
+  "waypoint": "",
+  "chain": [
+   {
+    "module": "ebo_m40ad",
+    "waypoint": "",
+    "movies": [],
+    "by": "transition door lev40_hangar",
+    "in": "lev_m40ac"
+   }
+  ],
+  "note": "the hangar door k_plev_finale5 unlocks leads to the ship (ebo_m40ad), which flies out by its own scripts; k_plev_goebon and k_plev_hackebon make the same move but nothing in lev_m40ac runs them"
+ },
+ "critical_path": [
+  {
+   "module": "lev_m40ac",
+   "source": "k_plev_finale5",
+   "what": "after the bridge (dialog lev40_carth R13): K_KOTOR_MASTER 20, K_CAPTURED_LEV 10, slot 0 leaves, the hangar door lev40_hangar unlocks"
+  }
+ ],
+ "critical_path_note": "Curated in tools/questdb/chapters.py; the order is inferred, not played. Writers marked critical = true belong to these scripts.",
+ "uncertain": [
+  "script k_def_spawn01 in lev_m40aa was too large to follow completely; some of its effects may be missing",
+  "script k_plev_tort_sp in lev_m40aa was too large to follow completely; some of its effects may be missing",
+  "script k_plev_patrol_sp in lev_m40aa was too large to follow completely; some of its effects may be missing",
+  "script k_def_rependd in lev_m40aa was too large to follow completely; some of its effects may be missing",
+  "script k_def_repairsp in lev_m40aa was too large to follow completely; some of its effects may be missing",
+  "script cp_sp_rngwep in lev_m40aa was too large to follow completely; some of its effects may be missing",
+  "script k_plev_gamsp in lev_m40aa was too large to follow completely; some of its effects may be missing",
+  "script k_plev_escsetup in lev_m40aa was too large to follow completely; some of its effects may be missing",
+  "script k_act_walkways2 in lev_m40aa was too large to follow completely; some of its effects may be missing",
+  "script k_plev_transfrm1 in lev_m40aa was too large to follow completely; some of its effects may be missing",
+  "script k_plev_transform in lev_m40aa was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in lev_m40aa was too large to follow completely; some of its effects may be missing",
+  "script k_hen_candspwn in lev_m40aa was too large to follow completely; some of its effects may be missing",
+  "script k_def_spawn01 in lev_m40ab was too large to follow completely; some of its effects may be missing",
+  "script k_plev_troop_sp in lev_m40ab was too large to follow completely; some of its effects may be missing",
+  "script k_def_rependd in lev_m40ab was too large to follow completely; some of its effects may be missing",
+  "script k_def_repairsp in lev_m40ab was too large to follow completely; some of its effects may be missing",
+  "script k_plev_servdr_sp in lev_m40ab was too large to follow completely; some of its effects may be missing",
+  "script k_plev_patrol_sp in lev_m40ab was too large to follow completely; some of its effects may be missing",
+  "script k_plev_altdrd_sp in lev_m40ab was too large to follow completely; some of its effects may be missing",
+  "script k_plev_altdrd_ud in lev_m40ab was too large to follow completely; some of its effects may be missing",
+  "script k_plev_setupfact in lev_m40ab was too large to follow completely; some of its effects may be missing",
+  "script k_plev_resetfact in lev_m40ab was too large to follow completely; some of its effects may be missing",
+  "script k_act_walkways2 in lev_m40ab was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in lev_m40ab was too large to follow completely; some of its effects may be missing",
+  "script k_def_grenspn in lev_m40ab was too large to follow completely; some of its effects may be missing",
+  "script k_def_spawn01 in lev_m40ac was too large to follow completely; some of its effects may be missing",
+  "script k_plev_malak_sp in lev_m40ac was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in lev_m40ac was too large to follow completely; some of its effects may be missing",
+  "script k_plev_saulcs_sp in lev_m40ad was too large to follow completely; some of its effects may be missing",
+  "script k_plev_saulgd_sp in lev_m40ad was too large to follow completely; some of its effects may be missing",
+  "script k_def_spawn01 in lev_m40ad was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in lev_m40ad was too large to follow completely; some of its effects may be missing",
+  "script k_def_grenspn in lev_m40ad was too large to follow completely; some of its effects may be missing",
+  "lev_m40aa: creature levrodian is destroyed by k_plev_detopen, which is not on the curated critical path; it may belong to a side quest",
+  "lev_m40aa: creature carth is destroyed by k_plev_freecs2, which is not on the curated critical path; it may belong to a side quest",
+  "lev_m40aa: creature bastila is destroyed by k_plev_freecs2, which is not on the curated critical path; it may belong to a side quest",
+  "lev_m40aa: creature lev40_torturer is destroyed by k_plev_tortpc2, which is not on the curated critical path; it may belong to a side quest",
+  "lev_m40aa: creature sithcommander is destroyed by k_plev_tortscene, which is not on the curated critical path; it may belong to a side quest",
+  "lev_m40aa: creature sithtrooper1 is destroyed by k_plev_tortscene, which is not on the curated critical path; it may belong to a side quest",
+  "lev_m40aa: creature sithtrooper2 is destroyed by k_plev_tortscene, which is not on the curated critical path; it may belong to a side quest",
+  "lev_m40ad: placed creature saulkarath402 (template lev40_saulbridge) is hostile but its template cannot die (Plot or Min1HP); left in place",
+  "lev_m40ad: creature saulkarath402 is destroyed by k_plev_killsaul, which is not on the curated critical path; it may belong to a side quest",
+  "lev_m40ad: door lev40_airlockout is locked (needs a key) and no script here opens it; left as it is"
+ ],
+ "cleared": [
+  {
+   "module": "lev_m40aa",
+   "area": "m40aa",
+   "returnable": false,
+   "remove": [
+    {
+     "tag": "lev40_starguard",
+     "template": "lev40_guard1",
+     "count": 5,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "lev40_idletech",
+     "template": "lev40_idletechf",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "lev40_idletech",
+     "template": "lev40_idletechm",
+     "count": 2,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "lev40_starslave",
+     "template": "lev40_starslave",
+     "count": 3,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "sithcomf",
+     "template": "n_sithcomf002",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "sithcomm",
+     "template": "n_sithcomm002",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "starguard",
+     "template": "starguard",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "levrodian",
+     "template": "lev40_rodpris",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_plev_detopen"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "carth",
+     "template": "p_carth002",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_plev_freecs2"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "bastila",
+     "template": "p_bastilla001",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_plev_freecs2"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "lev40_torturer",
+     "template": "lev40_torturer",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_plev_tortpc2"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "sithcommander",
+     "template": "lev_sithcommand",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_plev_tortscene"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "sithtrooper1",
+     "template": "lev_sithtroop001",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_plev_tortscene"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "sithtrooper2",
+     "template": "lev_sithtroop002",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_plev_tortscene"
+     ],
+     "certain": false
+    }
+   ],
+   "spawned_and_killed": [],
+   "doors": [
+    {
+     "tag": "lev40_cell08",
+     "template": "lev_cell010",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open/unlock it",
+     "scripts": [
+      "k_plev_brigstarb",
+      "k_plev_jolcel_en",
+      "k_plev_joleeesc",
+      "k_plev_miscel_en"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "lev40_celldoor",
+     "template": "lev40_celldoor",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open it",
+     "scripts": [
+      "k_plev_freeparty",
+      "k_plev_tortscene"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "lev40_drddoor",
+     "template": "lev40_drddoor",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open it",
+     "scripts": [
+      "k_plev_t3cs0"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "lev40_partycelldoor",
+     "template": "lev_partycelldoo",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open it",
+     "scripts": [
+      "k_plev_freeparty"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "lev40_stardoor",
+     "template": "lev40_stardoor",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open it",
+     "scripts": [
+      "k_plev_starriot"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "lev_detdoor",
+     "template": "lev_detdoor",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open/unlock it",
+     "scripts": [
+      "k_plev_opendet"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "lev_impdoor",
+     "template": "lev_impdoor",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open it",
+     "scripts": [
+      "k_plev_freecs1"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "lev_stddoor",
+     "template": "lev_stddoor",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open it",
+     "scripts": [
+      "k_plev_freecs0"
+     ],
+     "certain": false
+    }
+   ],
+   "containers_looted": [
+    "CivilFootLker2",
+    "PlstcCrt",
+    "droidlock",
+    "lev09_contriband",
+    "lev40_bandoleer",
+    "lev40_barlocker",
+    "lev40_bpack",
+    "lev40_drdupgrades",
+    "lev40_locker",
+    "lev40_riotlocker",
+    "medlock",
+    "medlock2"
+   ],
+   "locals": [
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresciv"
+     ],
+     "tag": "civilfootlker2",
+     "set_by": {
+      "1": [
+       "k_plc_tresciv"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plev_candship"
+     ],
+     "tag": "lev40_candship",
+     "set_by": {
+      "1": [
+       "k_plev_candship"
+      ]
+     }
+    },
+    {
+     "object": "door",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plev_rodfree"
+     ],
+     "tag": "lev40_cell08",
+     "set_by": {
+      "1": [
+       "k_plev_rodfree"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plev_hkcs_en"
+     ],
+     "tag": "lev40_hkcs",
+     "set_by": {
+      "1": [
+       "k_plev_hkcs_en"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plev_spawnjedi"
+     ],
+     "tag": "lev40_jeditrigger",
+     "set_by": {
+      "1": [
+       "k_plev_spawnjedi"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plev_jolcel_en"
+     ],
+     "tag": "lev40_jolcel",
+     "set_by": {
+      "1": [
+       "k_plev_jolcel_en"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plev_juhanics"
+     ],
+     "tag": "lev40_juhanics",
+     "set_by": {
+      "1": [
+       "k_plev_juhanics"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plev_miscel_en"
+     ],
+     "tag": "lev40_miscel",
+     "set_by": {
+      "1": [
+       "k_plev_miscel_en"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_plev_rodtlk_en"
+     ],
+     "tag": "lev40_rodtlk",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plev_t3cs_en"
+     ],
+     "tag": "lev40_t3cs",
+     "set_by": {
+      "1": [
+       "k_plev_t3cs_en"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plev_wakeup_en"
+     ],
+     "tag": "lev40_wakeup",
+     "set_by": {
+      "1": [
+       "k_plev_wakeup_en"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresmillow"
+     ],
+     "tag": "millowfootlker",
+     "set_by": {
+      "1": [
+       "k_plc_tresmillow"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plev_consmall"
+     ],
+     "tag": "plev_consm1",
+     "set_by": {
+      "1": [
+       "k_plev_consmall"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecat01",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecat02",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecat03",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecat04",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    }
+   ],
+   "uncertain": [
+    "lev_m40aa: creature levrodian is destroyed by k_plev_detopen, which is not on the curated critical path; it may belong to a side quest",
+    "lev_m40aa: creature carth is destroyed by k_plev_freecs2, which is not on the curated critical path; it may belong to a side quest",
+    "lev_m40aa: creature bastila is destroyed by k_plev_freecs2, which is not on the curated critical path; it may belong to a side quest",
+    "lev_m40aa: creature lev40_torturer is destroyed by k_plev_tortpc2, which is not on the curated critical path; it may belong to a side quest",
+    "lev_m40aa: creature sithcommander is destroyed by k_plev_tortscene, which is not on the curated critical path; it may belong to a side quest",
+    "lev_m40aa: creature sithtrooper1 is destroyed by k_plev_tortscene, which is not on the curated critical path; it may belong to a side quest",
+    "lev_m40aa: creature sithtrooper2 is destroyed by k_plev_tortscene, which is not on the curated critical path; it may belong to a side quest"
+   ]
+  },
+  {
+   "module": "lev_m40ab",
+   "area": "m40ab",
+   "returnable": false,
+   "remove": [
+    {
+     "tag": "g_darkjedi03",
+     "template": "g_darkjedi004",
+     "count": 3,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "lev40_sithstay",
+     "template": "g_sithcomm003",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "lev40_guarda",
+     "template": "lev40_guarda",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "lev40_sithgo",
+     "template": "lev40_sithgo",
+     "count": 3,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "lev40_sithstay",
+     "template": "lev40_sithstay",
+     "count": 9,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "lev40_sithstay",
+     "template": "lev40_wardroid",
+     "count": 3,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "sithguard1",
+     "template": "starguard",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "sithguard2",
+     "template": "starguard001",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "sithguard3",
+     "template": "starguard002",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "sithguard4",
+     "template": "starguard003",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "sithguard5",
+     "template": "starguard004",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    }
+   ],
+   "spawned_and_killed": [
+    {
+     "template": "g_sithtroop06",
+     "tag": "g_sithtroop06"
+    },
+    {
+     "template": "n_darkjedif",
+     "tag": "darkjedif"
+    },
+    {
+     "template": "n_darkjedim",
+     "tag": "darkjedim"
+    }
+   ],
+   "doors": [
+    {
+     "tag": "lev40_armory",
+     "template": "sw_door_sith002",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_plev_armopen"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "lev40_bridgedoor",
+     "template": "lev40_bridgedoor",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_plev_40ab_en"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "lev40_door",
+     "template": "lev40_door",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "lev40_storage",
+     "template": "lev40_storage",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open/unlock it",
+     "scripts": [
+      "k_plev_droidram",
+      "k_plev_ramdrd_ud",
+      "k_plev_storopen"
+     ],
+     "certain": false
+    }
+   ],
+   "containers_looted": [
+    "FootLker1",
+    "FootLker2",
+    "Medlock",
+    "Medlock2",
+    "MilMidLockerLg",
+    "Millock1",
+    "droidlock1",
+    "droidlock2",
+    "lev40_armlock0",
+    "lev40_drdupgrades",
+    "lev40_gren0",
+    "lev40_gunlock0",
+    "lev40_secequip"
+   ],
+   "locals": [
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresciv"
+     ],
+     "tag": "civilfootlker",
+     "set_by": {
+      "1": [
+       "k_plc_tresciv"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plev_sithspwna"
+     ],
+     "tag": "lev40_sithspwtrga",
+     "set_by": {
+      "1": [
+       "k_plev_sithspwna"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plev_sithspwnb"
+     ],
+     "tag": "lev40_sithspwtrgb",
+     "set_by": {
+      "1": [
+       "k_plev_sithspwnb"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresmillow"
+     ],
+     "tag": "millock1",
+     "set_by": {
+      "1": [
+       "k_plc_tresmillow"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresmillow"
+     ],
+     "tag": "millowlockerlg",
+     "set_by": {
+      "1": [
+       "k_plc_tresmillow"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresmilmid"
+     ],
+     "tag": "milmidlockerlg",
+     "set_by": {
+      "1": [
+       "k_plc_tresmilmid"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plev_consmall"
+     ],
+     "tag": "plev_consm0",
+     "set_by": {
+      "1": [
+       "k_plev_consmall"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plev_consmall"
+     ],
+     "tag": "plev_contsm2",
+     "set_by": {
+      "1": [
+       "k_plev_consmall"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecatalogue01",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecatalogue02",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecatalogue03",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecatalogue04",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecatalogue05",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecatalogue06",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecatalogue07",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    }
+   ],
+   "uncertain": []
+  },
+  {
+   "module": "lev_m40ac",
+   "area": "m40ac",
+   "returnable": false,
+   "remove": [
+    {
+     "tag": "g_darkjedi03",
+     "template": "g_darkjedi004",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "g_darkjedi02",
+     "template": "g_darkjedi02",
+     "count": 2,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "g_sithcomm02",
+     "template": "g_sithcomm02",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "g_sithtroop03",
+     "template": "g_sithtroop004",
+     "count": 4,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "lev40_sithtroopa",
+     "template": "lev40_sithtroopa",
+     "count": 6,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "darkjedim",
+     "template": "n_darkjedim",
+     "count": 2,
+     "why": "placed hostile",
+     "certain": true
+    }
+   ],
+   "spawned_and_killed": [],
+   "doors": [
+    {
+     "tag": "lev40_blastdoor",
+     "template": "lev40_blastdoor",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "lev40_blastdoora",
+     "template": "lev40_blastdoora",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_plev_endfight1"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "lev40_blastdoorb",
+     "template": "lev40_blastdoorb",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open/unlock it",
+     "scripts": [
+      "k_plev_combtlk0x",
+      "k_plev_malacs_en"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "lev40_blastdoorc",
+     "template": "lev40_blastdoorc",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_plev_endfight1"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "lev40_blastdoord",
+     "template": "lev40_blastdoord",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open it",
+     "scripts": [
+      "k_plev_finale0"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "lev40_blastdoore",
+     "template": "lev40_blastdoore",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open it",
+     "scripts": [
+      "k_plev_finale0"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "lev40_blastdoorf",
+     "template": "lev40_blastdoorf",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_plev_finale2",
+      "k_plev_testpush"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "lev40_blastdoorg",
+     "template": "lev40_blastdoorg",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open it",
+     "scripts": [
+      "k_plev_ambush_en"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "lev40_blastdoorh",
+     "template": "lev40_blastdoorh",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_plev_endfight1"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "lev40_blastdoori",
+     "template": "lev40_blastdoori",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_plev_endfight1"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "lev40_hangar",
+     "template": "lev40_hangar",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_plev_finale5"
+     ],
+     "certain": true
+    },
+    {
+     "tag": "lev40_hngcntrla",
+     "template": "lev40_hngcntrla",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "lev40_hngcntrlb",
+     "template": "lev40_hngcntrlb",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_plev_unlockb"
+     ],
+     "certain": false
+    }
+   ],
+   "containers_looted": [
+    "MilMidLockerLg",
+    "plev_consm0",
+    "plev_contsm3"
+   ],
+   "locals": [
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plev_ambush_en"
+     ],
+     "tag": "lev40_ambush",
+     "set_by": {
+      "1": [
+       "k_plev_ambush_en"
+      ]
+     }
+    },
+    {
+     "object": "door",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_ptar_doorf_op"
+     ],
+     "tag": "lev40_blastdoorf",
+     "set_by": {
+      "1": [
+       "k_ptar_doorf_op"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plev_candship"
+     ],
+     "tag": "lev40_candship",
+     "set_by": {
+      "1": [
+       "k_plev_candship"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plev_endfight1"
+     ],
+     "tag": "lev40_endfight1",
+     "set_by": {
+      "1": [
+       "k_plev_endfight1"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 0,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_plev_fpush2_ud"
+     ],
+     "tag": "lev40_forcepush2",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_ptar_jumpebon"
+     ],
+     "tag": "lev40_jumpebon",
+     "set_by": {
+      "1": [
+       "k_ptar_jumpebon"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plev_malacs_en"
+     ],
+     "tag": "lev40_malacs",
+     "set_by": {
+      "1": [
+       "k_plev_malacs_en"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plev_malak2_e2"
+     ],
+     "tag": "lev40_malak2",
+     "set_by": {
+      "1": [
+       "k_plev_malak2_e2"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plev_testpush"
+     ],
+     "tag": "lev40_testpush",
+     "set_by": {
+      "1": [
+       "k_plev_testpush"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresmillow"
+     ],
+     "tag": "millowlockerlg",
+     "set_by": {
+      "1": [
+       "k_plc_tresmillow"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresmillow"
+     ],
+     "tag": "millowmetalbox",
+     "set_by": {
+      "1": [
+       "k_plc_tresmillow"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresmilmid"
+     ],
+     "tag": "milmidlockerlg",
+     "set_by": {
+      "1": [
+       "k_plc_tresmilmid"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plev_consmall"
+     ],
+     "tag": "plev_consm0",
+     "set_by": {
+      "1": [
+       "k_plev_consmall"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plev_consmall"
+     ],
+     "tag": "plev_contsm2",
+     "set_by": {
+      "1": [
+       "k_plev_consmall"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plev_consmall"
+     ],
+     "tag": "plev_contsm3",
+     "set_by": {
+      "1": [
+       "k_plev_consmall"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecatalogue01",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecatalogue02",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecatalogue03",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    }
+   ],
+   "uncertain": []
+  },
+  {
+   "module": "lev_m40ad",
+   "area": "m40ad",
+   "returnable": false,
+   "remove": [
+    {
+     "tag": "g_sithtroop02",
+     "template": "g_sithtroop003",
+     "count": 5,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "lev40_saulguard",
+     "template": "lev40_saulguard",
+     "count": 4,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag lev40_saulguard, faction 5 (neutral), level 14; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "lev40_sauljedi",
+     "template": "n_darkjedim001",
+     "count": 2,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag lev40_sauljedi, faction 5 (neutral), level 16; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "saulkarath402",
+     "template": "lev40_saulbridge",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "k_plev_killsaul"
+     ],
+     "certain": false
+    }
+   ],
+   "spawned_and_killed": [
+    {
+     "template": "g_sithtroop04",
+     "tag": "g_sithtroop04"
+    }
+   ],
+   "doors": [
+    {
+     "tag": "lev40_airlockin",
+     "template": "lev40_airlockin",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "lev40_bdgdoor",
+     "template": "lev40_bdgdoor",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_plev_bdgunlock"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "lev40_cmddoor",
+     "template": "sw_door_sith004",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_plev_comp251x"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "lev40_stddoor",
+     "template": "sw_door_sith003",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "sithdoor1",
+     "template": "sw_door_sith002",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    }
+   ],
+   "containers_looted": [
+    "MilHighLockerLg",
+    "MilLowLockerLg",
+    "MilLowMetalBox",
+    "MilMidPlstcCylin",
+    "PartPile1"
+   ],
+   "locals": [
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "cp_lev_airlckcls"
+     ],
+     "tag": "cp_lev_airlckcls",
+     "set_by": {
+      "1": [
+       "cp_lev_airlckcls"
+      ]
+     }
+    },
+    {
+     "object": "door",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plev_brdgcs_en"
+     ],
+     "tag": "lev40_bdgdoor",
+     "set_by": {
+      "1": [
+       "k_plev_brdgcs_en"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresmilhig"
+     ],
+     "tag": "milhighlockerlg",
+     "set_by": {
+      "1": [
+       "k_plc_tresmilhig"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresmillow"
+     ],
+     "tag": "millowlockerlg",
+     "set_by": {
+      "1": [
+       "k_plc_tresmillow"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresmillow"
+     ],
+     "tag": "millowmetalbox",
+     "set_by": {
+      "1": [
+       "k_plc_tresmillow"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresmilmid"
+     ],
+     "tag": "milmidplstccylin",
+     "set_by": {
+      "1": [
+       "k_plc_tresmilmid"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "zonecatalogue01",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    }
+   ],
+   "uncertain": [
+    "lev_m40ad: placed creature saulkarath402 (template lev40_saulbridge) is hostile but its template cannot die (Plot or Min1HP); left in place",
+    "lev_m40ad: creature saulkarath402 is destroyed by k_plev_killsaul, which is not on the curated critical path; it may belong to a side quest",
+    "lev_m40ad: door lev40_airlockout is locked (needs a key) and no script here opens it; left as it is"
+   ]
+  }
+ ],
+ "cleared_note": "How each module looks after a full run, for an editor that stores the area as played: remove (tag, template), doors (tag: open, unlocked), containers_looted (container tags the rewards file empties), locals (the area's, the module's and placed objects' local variables their own scripts read to tell a first visit from a return, with the value a played area holds; index = the engine's local slot). returnable = false: the player never comes back to the module. See tools/questdb/cleared.py.",
+ "returnable_note": "the Leviathan is never boarded again. In the game it comes after the third of the four free planets (K_STAR_MAP 40 and K_CAPTURED_LEV 5 at the next take-off), not after the fourth: order 8 is the chapter list's order, not a fixed place in the story"
+}

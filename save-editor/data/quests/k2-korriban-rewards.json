@@ -1,0 +1,337 @@
+{
+  "game": "K2",
+  "planet": "Korriban",
+  "generated_by": "tools/questdb/rewards.py",
+  "checked": false,
+  "xp_at_end": 185385,
+  "xp_chapter": 23475,
+  "xp_start": 175010,
+  "xp_note": "full-run scenario data/xp/k2-korriban-path.json from the Dantooine rewards' xp_at_end, 175010 XP: 701kor 175760, 702kor 178535, 710kor 179085, 711kor 185385",
+  "xp_chapter_note": "the same scenario from a new character's 0 XP: 23475",
+  "enemies_killed": 61,
+  "drops": [],
+  "templates_missing": [],
+  "containers": [
+    {
+      "module": "702kor",
+      "area": "702kor",
+      "container": "twilek_body",
+      "template": "twilek_body",
+      "position": [
+        31.73,
+        72.99
+      ],
+      "items": [
+        {
+          "resref": "twilek_datapad",
+          "count": 1
+        },
+        {
+          "resref": "g_w_thermldet01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "702kor",
+      "area": "702kor",
+      "container": "mil_locker",
+      "template": "mil_locker",
+      "position": [
+        88.14,
+        136.21
+      ],
+      "items": [
+        {
+          "resref": "pl_thorium",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "702kor",
+      "area": "702kor",
+      "container": "Bag_datapad",
+      "template": "bag005",
+      "position": [
+        89.41,
+        137.05
+      ],
+      "items": [
+        {
+          "resref": "datapad_thorium",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "702kor",
+      "area": "702kor",
+      "container": "footlocker_ll",
+      "template": "footlocker_ll",
+      "position": [
+        61.62,
+        55.22
+      ],
+      "items": [
+        {
+          "resref": "u_l_colo_08",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "702kor",
+      "area": "702kor",
+      "container": "footlocker_comp",
+      "template": "footlocker_comp",
+      "position": [
+        56.96,
+        31.58
+      ],
+      "items": [
+        {
+          "resref": "datapad_recruits",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "702kor",
+      "area": "702kor",
+      "container": "Bag_datapad2",
+      "template": "bag_datapad2",
+      "position": [
+        79.12,
+        74.57
+      ],
+      "items": [
+        {
+          "resref": "datapad_tukata",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "702kor",
+      "area": "702kor",
+      "container": "vash_container",
+      "template": "vash_container",
+      "position": [
+        181.92,
+        92.2
+      ],
+      "items": [
+        {
+          "resref": "datapad_vash",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "710kor",
+      "area": "710kor",
+      "container": "corpse_tukata",
+      "template": "corpse_tukata",
+      "position": [
+        18.16,
+        155.42
+      ],
+      "items": [
+        {
+          "resref": "datapad_tukata",
+          "count": 1
+        },
+        {
+          "resref": "w_melee_03",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "711kor",
+      "area": "711kor",
+      "container": "SevrdArm",
+      "template": "sevrdarm001",
+      "position": [
+        -48.73,
+        -65.1
+      ],
+      "items": [
+        {
+          "resref": "pad_shyrak",
+          "count": 1
+        },
+        {
+          "resref": "a_belt_14",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "711kor",
+      "area": "711kor",
+      "container": "jedi_cont",
+      "template": "jedi_cont",
+      "position": [
+        144.55,
+        -53.14
+      ],
+      "items": [
+        {
+          "resref": "pad_nebel",
+          "count": 1
+        },
+        {
+          "resref": "u_l_cell_07",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "711kor",
+      "area": "711kor",
+      "container": "sith_mummy",
+      "template": "sith_mummy",
+      "position": [
+        180.76,
+        22.3
+      ],
+      "items": [
+        {
+          "resref": "a_band_x03",
+          "count": 1
+        },
+        {
+          "resref": "w_melee_x12",
+          "count": 1
+        }
+      ]
+    }
+  ],
+  "credits": {
+    "light": {
+      "credits": 0,
+      "light_points": 15,
+      "dark_points": 0,
+      "influence": {
+        "0": 24
+      }
+    },
+    "dark": {
+      "credits": 0,
+      "light_points": 0,
+      "dark_points": 33,
+      "influence": {
+        "0": 8
+      }
+    },
+    "sources": [
+      {
+        "dialog": "kreia_kr",
+        "module": "701kor",
+        "light": {
+          "credits": 0,
+          "light_points": 3,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "vash",
+        "module": "702kor",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "atton",
+        "module": "711kor",
+        "light": {
+          "credits": 0,
+          "light_points": 8,
+          "dark_points": 0,
+          "influence": {
+            "0": 24
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 9,
+          "influence": {
+            "0": 8
+          }
+        }
+      },
+      {
+        "dialog": "kreia_vs",
+        "module": "711kor",
+        "light": {
+          "credits": 0,
+          "light_points": 4,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "malak",
+        "module": "711kor",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "pc_death",
+        "module": "711kor",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 6
+        }
+      },
+      {
+        "dialog": "re_flash",
+        "module": "711kor",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 6
+        }
+      }
+    ],
+    "note": "tools/questdb/credits.py: the credits and alignment points a full run of the chapter picks up from its conversations and scripts, for a light-side and a dark-side player (gambling left out). Worked out from the files, not played"
+  }
+}

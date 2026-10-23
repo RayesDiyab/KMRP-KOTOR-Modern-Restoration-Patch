@@ -1,0 +1,226 @@
+{
+ "game": "K1",
+ "planet": "Endar Spire",
+ "generated_by": "tools/questdb/build.py",
+ "checked": false,
+ "quests": [
+  {
+   "tag": "end_attack",
+   "stages": [
+    {
+     "stage": 1,
+     "end": false,
+     "steps": [
+      {
+       "module": "end_m01aa",
+       "via": {
+        "dialog": "end_trask01",
+        "node": 92,
+        "speaker": "end_trask",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "End_TraskTalk",
+         "op": "==",
+         "value": 0
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "end_attack",
+          1
+         ]
+        },
+        {
+         "other": "SetLocalBoolean on a helper function's result: index 2 = 1"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 10,
+     "end": false,
+     "steps": []
+    },
+    {
+     "stage": 11,
+     "end": false,
+     "steps": [
+      {
+       "module": "end_m01aa",
+       "via": {
+        "dialog": "end_trask01",
+        "node": 49,
+        "speaker": "end_trask",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "END_TRASK_DLG",
+         "op": "==",
+         "value": 10
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "end_attack",
+          11
+         ]
+        },
+        {
+         "other": "SetLocalBoolean on a helper function's result: index 2 = 1"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 20,
+     "end": false,
+     "steps": [
+      {
+       "module": "end_m01aa",
+       "via": {
+        "dialog": "end_trask01",
+        "node": 45,
+        "speaker": "end_trask",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "END_TRASK_DLG",
+         "op": "==",
+         "value": 10
+        }
+       ],
+       "does": [
+        {
+         "set_global_number": [
+          "END_TRASK_DLG",
+          11
+         ]
+        },
+        {
+         "journal": [
+          "end_attack",
+          20
+         ]
+        },
+        {
+         "other": "runs script k_pend_carth11, which was not found"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 30,
+     "end": false,
+     "steps": [
+      {
+       "module": "end_m01aa",
+       "via": {
+        "dialog": "cp_end_traskbrdg",
+        "node": 0,
+        "speaker": "",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "END_TRASK_DLG",
+         "op": "==",
+         "value": 31
+        }
+       ],
+       "does": [
+        {
+         "other": "locks end_door08"
+        },
+        {
+         "set_global_bool": [
+          "END_BRIDGE_SEALED",
+          true
+         ]
+        },
+        {
+         "journal": [
+          "end_attack",
+          30
+         ]
+        }
+       ],
+       "branch": "way 1: unknown speaker, dialog cp_end_traskbrdg R0 in end_m01aa"
+      },
+      {
+       "module": "end_m01aa",
+       "via": {
+        "dialog": "end_trask01",
+        "node": 1,
+        "speaker": "end_trask",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "END_TRASK_DLG",
+         "op": "==",
+         "value": 31
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "end_attack",
+          30
+         ]
+        }
+       ],
+       "branch": "way 2: end_trask, dialog end_trask01 R1 in end_m01aa"
+      }
+     ]
+    },
+    {
+     "stage": 40,
+     "end": false,
+     "steps": []
+    },
+    {
+     "stage": 99,
+     "end": true,
+     "steps": [
+      {
+       "module": "end_m01ab",
+       "via": {
+        "dialog": "end_pod",
+        "node": 1,
+        "speaker": "end_pod",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "end_attack",
+          99
+         ]
+        },
+        {
+         "xp": 350
+        },
+        {
+         "other": "moves the party to module \"STUNT_00\""
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "notes": "stage 1: dialog end_trask01 is used by several objects in end_m01aa: end_door02, end_trask stage 11: dialog end_trask01 is used by several objects in end_m01aa: end_door02, end_trask stage 20: dialog end_trask01 is used by several objects in end_m01aa: end_door02, end_trask stage 30: dialog end_trask01 is used by several objects in end_m01aa: end_door02, end_trask stage 30 can be reached in 2 ways; each step's branch starts with its way UNCERTAIN: stage 10 has no setter in the Endar Spire files (no dialog node or script sets it) UNCERTAIN: stage 30: no creature, placeable or door template in end_m01aa names dialog cp_end_traskbrdg, so its speaker is unknown; scripts that name it: cp_end_trasksp_d UNCERTAIN: stage 40 has no setter in the Endar Spire files (no dialog node or script sets it)",
+   "own": true,
+   "run_ending": 99
+  }
+ ]
+}

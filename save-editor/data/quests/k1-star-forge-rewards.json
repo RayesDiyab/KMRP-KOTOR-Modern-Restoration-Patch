@@ -1,0 +1,192 @@
+{
+  "game": "K1",
+  "planet": "Star Forge",
+  "generated_by": "tools/questdb/rewards.py",
+  "checked": false,
+  "xp_at_end": 207440,
+  "xp_chapter": 30600,
+  "xp_start": 201390,
+  "xp_note": "full-run scenario data/xp/k1-star-forge-path.json from the Unknown World rewards' xp_at_end, 201390 XP: sta_m45aa 203840, sta_m45ab 206015, sta_m45ac 207440, sta_m45ad 207440",
+  "xp_chapter_note": "the same scenario from a new character's 0 XP: 30600",
+  "enemies_killed": 27,
+  "drops": [
+    {
+      "resref": "g_i_adrnaline004",
+      "count": 2,
+      "from": [
+        "a_sta_darkjed001",
+        "sta45b_appren001"
+      ]
+    },
+    {
+      "resref": "g_i_adrnaline006",
+      "count": 1,
+      "from": [
+        "a_sta_darkjed001"
+      ]
+    },
+    {
+      "resref": "g_i_medeqpmnt02",
+      "count": 1,
+      "from": [
+        "a_sta_darkjed001"
+      ]
+    },
+    {
+      "resref": "g_i_medeqpmnt03",
+      "count": 3,
+      "from": [
+        "k_sta_sithtrpenc",
+        "k_sta_trooper001"
+      ]
+    },
+    {
+      "resref": "g_i_medeqpmnt08",
+      "count": 1,
+      "from": [
+        "a_sta_darkjed001"
+      ]
+    },
+    {
+      "resref": "g_w_cryobgren001",
+      "count": 1,
+      "from": [
+        "sta45b_trooper"
+      ]
+    },
+    {
+      "resref": "g_w_firegren001",
+      "count": 2,
+      "from": [
+        "sta45b_trooper",
+        "sta45c_trooper"
+      ]
+    }
+  ],
+  "templates_missing": [],
+  "containers": [
+    {
+      "module": "sta_m45ab",
+      "area": "m45ab",
+      "container": "sta45b_medium4",
+      "template": "sta45b_medium4",
+      "position": [
+        -27.48,
+        -227.42
+      ],
+      "items": [
+        {
+          "resref": "g_i_gauntlet03",
+          "count": 1
+        },
+        {
+          "resref": "g_i_progspike01",
+          "count": 3
+        },
+        {
+          "resref": "g_i_medeqpmnt04",
+          "count": 2
+        },
+        {
+          "resref": "g_w_firegren001",
+          "count": 5
+        }
+      ]
+    },
+    {
+      "module": "sta_m45ab",
+      "area": "m45ab",
+      "container": "sta_armor_container",
+      "template": "g_tresmilhig006",
+      "position": [
+        148.83,
+        -183.14
+      ],
+      "items": [],
+      "created_by_script": [
+        {
+          "resref": "g_a_mstrrobe07",
+          "script": "k_psta_replicat5",
+          "when": []
+        },
+        {
+          "resref": "g_a_mstrrobe06",
+          "script": "k_psta_replicat4",
+          "when": []
+        },
+        {
+          "resref": "g_a_class9002",
+          "script": "k_psta_replicat3",
+          "when": []
+        },
+        {
+          "resref": "g_a_class9001",
+          "script": "k_psta_replicat2",
+          "when": []
+        },
+        {
+          "resref": "g_a_class7001",
+          "script": "k_psta_replicate",
+          "when": []
+        }
+      ]
+    },
+    {
+      "module": "sta_m45ac",
+      "area": "m45ac",
+      "container": "sta45c_medium1",
+      "template": "sta45c_medium1",
+      "position": [
+        167.94,
+        -219.46
+      ],
+      "items": [
+        {
+          "resref": "g_i_adrnaline004",
+          "count": 1
+        },
+        {
+          "resref": "g_i_progspike01",
+          "count": 5
+        },
+        {
+          "resref": "g_i_medeqpmnt03",
+          "count": 1
+        },
+        {
+          "resref": "g_i_medeqpmnt04",
+          "count": 4
+        }
+      ]
+    }
+  ],
+  "credits": {
+    "light": {
+      "credits": 0,
+      "light_points": 3,
+      "dark_points": 0
+    },
+    "dark": {
+      "credits": 0,
+      "light_points": 0,
+      "dark_points": 12
+    },
+    "sources": [
+      {
+        "dialog": "k_sta_darthmalak",
+        "module": "sta_m45ac",
+        "light": {
+          "credits": 0,
+          "light_points": 3,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 12
+        }
+      }
+    ],
+    "note": "tools/questdb/credits.py: the credits and alignment points a full run of the chapter picks up from its conversations and scripts, for a light-side and a dark-side player (gambling left out). Worked out from the files, not played"
+  }
+}

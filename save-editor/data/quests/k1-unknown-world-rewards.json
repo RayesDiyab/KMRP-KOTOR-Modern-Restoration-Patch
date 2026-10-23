@@ -1,0 +1,915 @@
+{
+  "game": "K1",
+  "planet": "Unknown World",
+  "generated_by": "tools/questdb/rewards.py",
+  "checked": false,
+  "xp_at_end": 201390,
+  "xp_chapter": 79600,
+  "xp_start": 161890,
+  "xp_note": "full-run scenario data/xp/k1-unknown-world-path.json from the Leviathan rewards' xp_at_end, 161890 XP: unk_m41aa 162890, unk_m41ab 168090, unk_m41ac 169090, unk_m41ad 178790, unk_m42aa 181490, unk_m43aa 188490, unk_m44aa 195990, unk_m44ab 197390, unk_m44ac 201390",
+  "xp_chapter_note": "the same scenario from a new character's 0 XP: 79600",
+  "enemies_killed": 79,
+  "drops": [
+    {
+      "resref": "g_a_class9010",
+      "count": 1,
+      "from": [
+        "g_mandalor004"
+      ]
+    },
+    {
+      "resref": "g_head",
+      "count": 1,
+      "from": [
+        "g_mandalor004"
+      ]
+    },
+    {
+      "resref": "g_i_frarmbnds06",
+      "count": 2,
+      "from": [
+        "g_mandalor003"
+      ]
+    }
+  ],
+  "templates_missing": [],
+  "containers": [
+    {
+      "module": "unk_m41aa",
+      "area": "m41aa",
+      "container": "FootLker",
+      "template": "footlker001",
+      "position": [
+        49.31,
+        184.89
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt02",
+          "count": 3
+        },
+        {
+          "resref": "g_i_drdrepeqp002",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "module": "unk_m42aa",
+      "area": "m42aa",
+      "container": "MetalBox",
+      "template": "metalbox001",
+      "position": [
+        59.22,
+        95.16
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 2
+        },
+        {
+          "resref": "g_i_drdrepeqp001",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "unk_m42aa",
+      "area": "m42aa",
+      "container": "MetalBox",
+      "template": "metalbox001",
+      "position": [
+        57.57,
+        94.06
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 2
+        },
+        {
+          "resref": "g_i_drdrepeqp001",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "unk_m42aa",
+      "area": "m42aa",
+      "container": "PlstcCrt",
+      "template": "plstccrt001",
+      "position": [
+        45.68,
+        95.4
+      ],
+      "items": [
+        {
+          "resref": "g_w_adhsvgren001",
+          "count": 5
+        },
+        {
+          "resref": "g_w_stungren01",
+          "count": 5
+        }
+      ]
+    },
+    {
+      "module": "unk_m42aa",
+      "area": "m42aa",
+      "container": "PlstcCrt",
+      "template": "plstccrt002",
+      "position": [
+        46.96,
+        94.08
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt02",
+          "count": 2
+        },
+        {
+          "resref": "g_i_drdrepeqp002",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "unk_m43aa",
+      "area": "m43aa",
+      "container": "unk43_treas0",
+      "template": "unk43_treas0",
+      "position": [
+        14.22,
+        135.53
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt04",
+          "count": 2
+        },
+        {
+          "resref": "g_i_cmbtshot001",
+          "count": 1
+        },
+        {
+          "resref": "g_i_drdutldev008",
+          "count": 1
+        },
+        {
+          "resref": "g_i_medeqpmnt03",
+          "count": 2
+        },
+        {
+          "resref": "g_i_drdtrgcom004",
+          "count": 1
+        },
+        {
+          "resref": "g_i_drdtrgcom005",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "unk_m43aa",
+      "area": "m43aa",
+      "container": "unk43_treas0",
+      "template": "unk43_treas001",
+      "position": [
+        14.2,
+        138.75
+      ],
+      "items": [
+        {
+          "resref": "g_i_progspike01",
+          "count": 3
+        },
+        {
+          "resref": "g_i_trapkit009",
+          "count": 2
+        },
+        {
+          "resref": "g_w_cryobgren001",
+          "count": 3
+        },
+        {
+          "resref": "g_w_thermldet01",
+          "count": 2
+        },
+        {
+          "resref": "g_w_poisngren01",
+          "count": 5
+        },
+        {
+          "resref": "g_w_sbrcrstl16",
+          "count": 1
+        },
+        {
+          "resref": "g_w_warblade001",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "unk_m43aa",
+      "area": "m43aa",
+      "container": "RakatBn2",
+      "template": "rakatbn003",
+      "position": [
+        14.79,
+        131.64
+      ],
+      "items": [
+        {
+          "resref": "g_i_frarmbnds03",
+          "count": 1
+        },
+        {
+          "resref": "g_a_class4001",
+          "count": 1
+        },
+        {
+          "resref": "g_i_belt008",
+          "count": 1
+        },
+        {
+          "resref": "g_i_frarmbnds01",
+          "count": 1
+        },
+        {
+          "resref": "g_i_mask01",
+          "count": 1
+        },
+        {
+          "resref": "g_i_frarmbnds05",
+          "count": 1
+        },
+        {
+          "resref": "g_i_gauntlet01",
+          "count": 2
+        },
+        {
+          "resref": "g_a_class4002",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "unk_m43aa",
+      "area": "m43aa",
+      "container": "RakatBin",
+      "template": "rakatbin002",
+      "position": [
+        14.81,
+        142.68
+      ],
+      "items": [
+        {
+          "resref": "g_a_class9003",
+          "count": 1
+        },
+        {
+          "resref": "g_a_mstrrobe01",
+          "count": 1
+        },
+        {
+          "resref": "g_w_ionrfl02",
+          "count": 1
+        },
+        {
+          "resref": "g_w_hvyblstr03",
+          "count": 1
+        },
+        {
+          "resref": "g_w_hvrptbltr02",
+          "count": 1
+        },
+        {
+          "resref": "g_w_rptnblstr02",
+          "count": 1
+        },
+        {
+          "resref": "g_w_qtrstaff01",
+          "count": 2
+        },
+        {
+          "resref": "g_w_stunbaton01",
+          "count": 1
+        },
+        {
+          "resref": "g_w_stunbaton04",
+          "count": 2
+        },
+        {
+          "resref": "g_w_vbroswrd03",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "unk_m43aa",
+      "area": "m43aa",
+      "container": "RakatBn2",
+      "template": "rakatbn004",
+      "position": [
+        198.4,
+        54.5
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt02",
+          "count": 1
+        },
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "module": "unk_m43aa",
+      "area": "m43aa",
+      "container": "RakatBin",
+      "template": "rakatbin003",
+      "position": [
+        194.2,
+        85.35
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdrepeqp001",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "module": "unk_m44aa",
+      "area": "m44aa",
+      "container": "RnePillr",
+      "template": "rnepillr001",
+      "position": [
+        76.78,
+        106.9
+      ],
+      "items": [
+        {
+          "resref": "g_w_sbrcrstl04",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "unk_m44aa",
+      "area": "m44aa",
+      "container": "LockerLg",
+      "template": "lockerlg002",
+      "position": [
+        68.38,
+        51.82
+      ],
+      "items": [
+        {
+          "resref": "g_w_blstrcrbn002",
+          "count": 4
+        },
+        {
+          "resref": "g_w_blstrrfl002",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "unk_m44aa",
+      "area": "m44aa",
+      "container": "LockerLg",
+      "template": "lockerlg003",
+      "position": [
+        68.38,
+        50.92
+      ],
+      "items": [
+        {
+          "resref": "g_w_rptnblstr01",
+          "count": 2
+        },
+        {
+          "resref": "g_w_dsrptrfl002",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "unk_m44aa",
+      "area": "m44aa",
+      "container": "LockerLg",
+      "template": "lockerlg004",
+      "position": [
+        71.03,
+        55.63
+      ],
+      "items": [
+        {
+          "resref": "g_a_class7003",
+          "count": 1
+        },
+        {
+          "resref": "g_i_frarmbnds09",
+          "count": 1
+        },
+        {
+          "resref": "g_a_class8002",
+          "count": 1
+        },
+        {
+          "resref": "g_i_frarmbnds02",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "unk_m44aa",
+      "area": "m44aa",
+      "container": "LockerLg",
+      "template": "lockerlg005",
+      "position": [
+        72.85,
+        55.63
+      ],
+      "items": [
+        {
+          "resref": "g_i_belt007",
+          "count": 1
+        },
+        {
+          "resref": "g_i_belt010",
+          "count": 1
+        },
+        {
+          "resref": "g_i_mask07",
+          "count": 1
+        },
+        {
+          "resref": "g_i_frarmbnds02",
+          "count": 2
+        },
+        {
+          "resref": "g_i_mask03",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "unk_m44aa",
+      "area": "m44aa",
+      "container": "PlstcCrt",
+      "template": "plstccrt001",
+      "position": [
+        135.02,
+        91.89
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt02",
+          "count": 4
+        },
+        {
+          "resref": "g_i_medeqpmnt03",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "unk_m44aa",
+      "area": "m44aa",
+      "container": "PlstcCrt",
+      "template": "plstccrt001",
+      "position": [
+        135.69,
+        98.07
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt02",
+          "count": 4
+        },
+        {
+          "resref": "g_i_medeqpmnt03",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "unk_m44aa",
+      "area": "m44aa",
+      "container": "MetalBox",
+      "template": "metalbox001",
+      "position": [
+        132.52,
+        80.7
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdrepeqp002",
+          "count": 4
+        },
+        {
+          "resref": "g_i_drdrepeqp003",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "unk_m44aa",
+      "area": "m44aa",
+      "container": "MetalBox",
+      "template": "metalbox001",
+      "position": [
+        135.64,
+        46.6
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdrepeqp002",
+          "count": 4
+        },
+        {
+          "resref": "g_i_drdrepeqp003",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "unk_m44aa",
+      "area": "m44aa",
+      "container": "MetalBox",
+      "template": "metalbox001",
+      "position": [
+        56.9,
+        91.65
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdrepeqp002",
+          "count": 4
+        },
+        {
+          "resref": "g_i_drdrepeqp003",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "unk_m44aa",
+      "area": "m44aa",
+      "container": "MetalBox",
+      "template": "metalbox002",
+      "position": [
+        61.46,
+        91.98
+      ],
+      "items": [
+        {
+          "resref": "g_i_progspike01",
+          "count": 2
+        },
+        {
+          "resref": "g_i_parts01",
+          "count": 6
+        }
+      ]
+    },
+    {
+      "module": "unk_m44aa",
+      "area": "m44aa",
+      "container": "MetalBox",
+      "template": "metalbox002",
+      "position": [
+        129.26,
+        88.84
+      ],
+      "items": [
+        {
+          "resref": "g_i_progspike01",
+          "count": 2
+        },
+        {
+          "resref": "g_i_parts01",
+          "count": 6
+        }
+      ]
+    },
+    {
+      "module": "unk_m44aa",
+      "area": "m44aa",
+      "container": "FootLker",
+      "template": "footlker001",
+      "position": [
+        68.47,
+        49.61
+      ],
+      "items": [
+        {
+          "resref": "g_w_adhsvgren001",
+          "count": 5
+        },
+        {
+          "resref": "g_w_cryobgren001",
+          "count": 5
+        },
+        {
+          "resref": "g_w_fraggren01",
+          "count": 5
+        },
+        {
+          "resref": "g_w_iongren01",
+          "count": 5
+        },
+        {
+          "resref": "g_w_firegren001",
+          "count": 5
+        },
+        {
+          "resref": "g_w_poisngren01",
+          "count": 5
+        },
+        {
+          "resref": "g_w_sonicgren01",
+          "count": 5
+        },
+        {
+          "resref": "g_w_stungren01",
+          "count": 5
+        },
+        {
+          "resref": "g_w_thermldet01",
+          "count": 5
+        }
+      ]
+    },
+    {
+      "module": "unk_m44aa",
+      "area": "m44aa",
+      "container": "MetalBox",
+      "template": "metalbox003",
+      "position": [
+        54.39,
+        97.86
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdrepeqp002",
+          "count": 2
+        },
+        {
+          "resref": "g_i_drdrepeqp003",
+          "count": 2
+        },
+        {
+          "resref": "g_i_drdhvplat003",
+          "count": 1
+        },
+        {
+          "resref": "g_i_drdhvplat002",
+          "count": 1
+        },
+        {
+          "resref": "g_i_drdmdplat003",
+          "count": 1
+        },
+        {
+          "resref": "g_i_drdshld003",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "unk_m44aa",
+      "area": "m44aa",
+      "container": "MetalBox",
+      "template": "metalbox004",
+      "position": [
+        64.88,
+        92.21
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdmtnsen002",
+          "count": 1
+        },
+        {
+          "resref": "g_i_drdmtnsen003",
+          "count": 1
+        },
+        {
+          "resref": "g_i_drdshld007",
+          "count": 1
+        },
+        {
+          "resref": "g_i_drdcomspk002",
+          "count": 1
+        },
+        {
+          "resref": "g_i_drdrepeqp002",
+          "count": 2
+        },
+        {
+          "resref": "g_i_drdrepeqp003",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "unk_m44aa",
+      "area": "m44aa",
+      "container": "MetalBox",
+      "template": "metalbox005",
+      "position": [
+        80.75,
+        52.77
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt02",
+          "count": 5
+        },
+        {
+          "resref": "g_i_medeqpmnt03",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "unk_m44aa",
+      "area": "m44aa",
+      "container": "unk44_strong",
+      "template": "unk44_strong003",
+      "position": [
+        103.21,
+        90.95
+      ],
+      "items": [
+        {
+          "resref": "g_i_credits014",
+          "count": 1
+        },
+        {
+          "resref": "g_w_sbrcrstl18",
+          "count": 2
+        },
+        {
+          "resref": "g_i_drdrepeqp003",
+          "count": 2
+        },
+        {
+          "resref": "g_i_medeqpmnt03",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "unk_m44ab",
+      "area": "m44ab",
+      "container": "RnePillr",
+      "template": "rnepillr001",
+      "position": [
+        48.73,
+        74.31
+      ],
+      "items": [
+        {
+          "resref": "g_w_sbrcrstl04",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "unk_m44ab",
+      "area": "m44ab",
+      "container": "FootLker",
+      "template": "footlker001",
+      "position": [
+        50.6,
+        80.53
+      ],
+      "items": [
+        {
+          "resref": "unk44_data",
+          "count": 1
+        }
+      ]
+    }
+  ],
+  "credits": {
+    "light": {
+      "credits": 0,
+      "light_points": 33,
+      "dark_points": 6
+    },
+    "dark": {
+      "credits": 0,
+      "light_points": 6,
+      "dark_points": 87
+    },
+    "sources": [
+      {
+        "dialog": "unk41_ithor01",
+        "module": "unk_m41aa",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 4
+        }
+      },
+      {
+        "dialog": "unk41_mission",
+        "module": "unk_m41aa",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 14
+        }
+      },
+      {
+        "dialog": "unk41_guide_dlg",
+        "module": "unk_m41ad",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "unk42_redelder",
+        "module": "unk_m42aa",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "unk43_theone",
+        "module": "unk_m43aa",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 6
+        }
+      },
+      {
+        "dialog": "unk44_darkjed001",
+        "module": "unk_m44aa",
+        "light": {
+          "credits": 0,
+          "light_points": 3,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "unk44_evilbast",
+        "module": "unk_m44ac",
+        "light": {
+          "credits": 0,
+          "light_points": 30,
+          "dark_points": 6
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 6,
+          "dark_points": 54
+        }
+      }
+    ],
+    "note": "tools/questdb/credits.py: the credits and alignment points a full run of the chapter picks up from its conversations and scripts, for a light-side and a dark-side player (gambling left out). Worked out from the files, not played"
+  }
+}

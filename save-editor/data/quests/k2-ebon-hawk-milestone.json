@@ -1,0 +1,6275 @@
+{
+ "game": "K2",
+ "planet": "Ebon Hawk",
+ "order": 11,
+ "chapter_title": "The Ebon Hawk: the ship's own quests",
+ "side_chapter": true,
+ "story_position": "the ship's own quests between planets; its XP is counted after Korriban, the last of the four free planets in chapter order, by when the droid's four parts (sold or carried on Telos, Nar Shaddaa, Onderon and Dantooine) can all be found, the alignment movie has brought slot 9 on board and the Nar Shaddaa and Korriban visits on the ship are done",
+ "generated_by": "tools/questdb/build.py --milestone",
+ "checked": false,
+ "about": "Story state every completed run of the chapter ends with, for a skip-to-the-end feature. Curated in tools/questdb/chapters.py; values marked certain = false were worked out by reading the scripts or seen in one real save, not proven for every run.",
+ "journal": [
+  {
+   "tag": "RebuildHK47",
+   "stage": 80,
+   "set_by": "dialog drdparts E13 (003ebo)"
+  }
+ ],
+ "journal_remove": [],
+ "globals": [
+  {
+   "name": "000_Event_Movie",
+   "type": "Number",
+   "value": 1,
+   "certain": true,
+   "note": "k_align_movie (scripts.bif, read from its disassembly), its only writer, sets 1 when it plays the movie that sends slot 9: while it is 0, at an alignment of 75 and above or 25 and below, and in any case once 000_Jedi_Found reaches 3, so every run sees it; at 0 the movie (and the attack) would come again",
+   "read_after_planet": [],
+   "writers": []
+  },
+  {
+   "name": "000_HK_Alive",
+   "type": "Number",
+   "value": 1,
+   "certain": true,
+   "note": "a_createhk47 (drdparts R10); hk47 starts at E384 while it is 1",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "set": 1,
+     "script": "a_createhk47|0,0,0,0,0,",
+     "module": "003ebo",
+     "from": [
+      "drdparts R10 script"
+     ],
+     "critical": true
+    },
+    {
+     "set": 2,
+     "script": "a_global_set|2,0,0,0,0,000_hk_alive",
+     "module": "003ebo",
+     "from": [
+      "hk47 R441 script"
+     ],
+     "resolves_to": "chitin:scripts.bif",
+     "critical": false
+    }
+   ]
+  },
+  {
+   "name": "000_HK_Chassis",
+   "type": "Number",
+   "value": 1,
+   "certain": true,
+   "note": "drdparts E9 (a_hk_chassis) / E10; only 1 is ever written",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "set": 1,
+     "script": "a_hk_chassis|0,0,0,0,0,",
+     "module": "003ebo",
+     "from": [
+      "drdparts E9 script"
+     ],
+     "branch": "if not GetIsObjectValid(GetObjectByTag(\"DrdParts\", 0))",
+     "critical": false
+    },
+    {
+     "set": 1,
+     "script": "a_hk_chassis|0,0,0,0,0,",
+     "module": "003ebo",
+     "from": [
+      "drdparts E9 script"
+     ],
+     "branch": "if GetIsObjectValid(GetObjectByTag(\"DrdParts\", 0))",
+     "critical": false
+    },
+    {
+     "set": 1,
+     "script": "a_global_set|1,0,0,0,0,000_hk_chassis",
+     "module": "003ebo",
+     "from": [
+      "drdparts E10 script"
+     ],
+     "resolves_to": "chitin:scripts.bif",
+     "critical": false
+    }
+   ]
+  },
+  {
+   "name": "000_HK_Control_C",
+   "type": "Number",
+   "value": 1,
+   "certain": true,
+   "note": "drdparts E5 / E6; only 1 is ever written",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "set": 1,
+     "script": "a_global_set|1,0,0,0,0,000_hk_control_c",
+     "module": "003ebo",
+     "from": [
+      "drdparts E5 script",
+      "drdparts E6 script"
+     ],
+     "resolves_to": "chitin:scripts.bif",
+     "critical": false
+    }
+   ]
+  },
+  {
+   "name": "000_HK_Processor",
+   "type": "Number",
+   "value": 1,
+   "certain": true,
+   "note": "drdparts E11 / E12; only 1 is ever written",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "set": 1,
+     "script": "a_global_set|1,0,0,0,0,000_hk_processor",
+     "module": "003ebo",
+     "from": [
+      "drdparts E11 script",
+      "drdparts E12 script"
+     ],
+     "resolves_to": "chitin:scripts.bif",
+     "critical": false
+    }
+   ]
+  },
+  {
+   "name": "000_HK_Total_Parts",
+   "type": "Number",
+   "value": 4,
+   "certain": true,
+   "note": "a_global_inc on drdparts R5 to R8, once per part; E13 needs 4",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "add": 1,
+     "script": "a_global_inc|1,0,0,0,0,000_hk_total_parts",
+     "module": "003ebo",
+     "from": [
+      "drdparts R5 script",
+      "drdparts R6 script",
+      "drdparts R7 script"
+     ],
+     "resolves_to": "chitin:scripts.bif",
+     "critical": false
+    }
+   ]
+  },
+  {
+   "name": "000_HK_Vocab",
+   "type": "Number",
+   "value": 1,
+   "certain": true,
+   "note": "drdparts E7 / E8; only 1 is ever written",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "set": 1,
+     "script": "a_global_set|1,0,0,0,0,000_hk_vocab",
+     "module": "003ebo",
+     "from": [
+      "drdparts E7 script",
+      "drdparts E8 script"
+     ],
+     "resolves_to": "chitin:scripts.bif",
+     "critical": false
+    }
+   ]
+  },
+  {
+   "name": "003_IN_COMBAT",
+   "type": "Number",
+   "value": 0,
+   "certain": true,
+   "note": "k_003ebo_enter sets 1 for the attack; k_visas_damage sets 0 when slot 9 is beaten; at 1 the exit (tr_leave_ehawk) skips party selection",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "set": 0,
+     "script": "k_visas_damage",
+     "module": "003ebo",
+     "from": [
+      "visasbed.utc ScriptDamaged (VisasBed) spawned by a_visasarrives|9,0,0,0,0,"
+     ],
+     "branch": "if not GetLocalBoolean(OBJECT_SELF, 31); ((IntToFloat(GetCurrentHitPoints(OBJECT_SELF)) / IntToFloat(GetMax...",
+     "critical": false
+    }
+   ]
+  },
+  {
+   "name": "003EBO_CLEANUP_VISAS",
+   "type": "Boolean",
+   "value": false,
+   "certain": true,
+   "note": "the cutscene table sets TRUE when the attack starts (scene VISAS ARRIVES); a_next_scene|1 (003atton R115, the aftermath scene) clears it, and the flag only steers that clean-up, so a finished arrival leaves FALSE",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "set": false,
+     "script": "a_next_scene|1,0,0,0,0,",
+     "module": "003ebo",
+     "from": [
+      "003atton R115 script",
+      "003disci R11 script",
+      "003disci R22 script"
+     ],
+     "branch": "if 003EBO_CLEANUP_VISAS is TRUE",
+     "critical": false
+    }
+   ]
+  },
+  {
+   "name": "003EBO_VISAS_ARRIVES",
+   "type": "Boolean",
+   "value": false,
+   "certain": true,
+   "note": "set TRUE by the alignment movie (k_align_movie, scripts.bif); k_003ebo_enter sets it FALSE when the attack starts",
+   "read_after_planet": [],
+   "writers": []
+  },
+  {
+   "name": "GBL_MAIN_SITH_LORD",
+   "type": "Number",
+   "value": 2,
+   "certain": true,
+   "note": "k_align_movie sets 2 with the movie (5 only when GBL_GAME_COMPLETE > 2, which a first run never has). Later writers: dialog atrend3 E0 / E1 (262tel, The Jedi Masters) set 3 or 4, so this side chapter must not be applied to a save past that point",
+   "read_after_planet": [],
+   "writers": []
+  },
+  {
+   "name": "VISAS_ARRIVES_CONV",
+   "type": "Boolean",
+   "value": false,
+   "certain": false,
+   "note": "set TRUE by a_next_scene's party spawn after the attack and FALSE by visasmarr E171 (a_glob_bool_set 0); whether every run reaches E171 was not worked out",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "set": false,
+     "script": "a_glob_bool_set|0,0,0,0,0,visas_arrives_conv",
+     "module": "003ebo",
+     "from": [
+      "visasmarr E171 script"
+     ],
+     "resolves_to": "chitin:scripts.bif",
+     "critical": false
+    }
+   ]
+  },
+  {
+   "name": "",
+   "type": "unknown",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged; not in globalcat.2da, so a save does not keep it",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,",
+     "module": "003ebo",
+     "set": 1
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/602dan_s.rim",
+     "script": "a_jedi_redeem"
+    },
+    {
+     "where": "modules/602dan_s.rim",
+     "script": "c_chk_wounded"
+    }
+   ]
+  },
+  {
+   "name": "000_Astrogation",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_setastrogation|1,0,0,0,0,",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Atriscs3",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    2
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_262handcs|0,0,0,0,0,",
+     "module": "003ebo",
+     "set": 2,
+     "branch": "if 000_atriscs3 == 0"
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/262tel_s.rim",
+     "script": "k_262_enter"
+    }
+   ]
+  },
+  {
+   "name": "000_Atton_Hanharr",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_atton_hanharr",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Atton_ID_Reveal",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "writers_total": 5,
+   "writers": [
+    {
+     "script": "a_global_set|5,0,0,0,0,000_atton_id_reveal",
+     "module": "003ebo",
+     "set": 5
+    },
+    {
+     "script": "a_global_set|6,0,0,0,0,000_atton_id_reveal",
+     "module": "003ebo",
+     "set": 6
+    },
+    {
+     "script": "a_global_set|4,0,0,0,0,000_atton_id_reveal",
+     "module": "003ebo",
+     "set": 4
+    }
+   ]
+  },
+  {
+   "name": "000_Atton_Pazaak",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|2,0,0,0,0,000_atton_pazaak",
+     "module": "003ebo",
+     "set": 2
+    },
+    {
+     "script": "a_global_set|1,0,0,0,0,000_atton_pazaak",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_BAO_CLAWS",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_glob_bool_set|1,0,0,0,0,000_bao_claws",
+     "module": "003ebo",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "000_Battle_Precog",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_battle_precog",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_disc_council",
+   "type": "unknown",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged; not in globalcat.2da, so a save does not keep it",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_disc_council",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Disc_Dark_React",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_disc_dark_react",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Disc_End_1",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|2,0,0,0,0,000_disc_end_1",
+     "module": "003ebo",
+     "set": 2
+    },
+    {
+     "script": "a_global_set|1,0,0,0,0,000_disc_end_1",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Disc_Good_React",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_disc_good_react",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Disc_Heal_Evil_XP",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_disc_heal_evil_xp",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Disc_Heal_Good_XP",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_disc_heal_good_xp",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Disc_Jedi_Prob",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_disc_jedi_prob",
+     "module": "003ebo",
+     "set": 1
+    },
+    {
+     "script": "a_global_set|2,0,0,0,0,000_disc_jedi_prob",
+     "module": "003ebo",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "000_Disc_Jedi_React",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|2,0,0,0,0,000_disc_jedi_react",
+     "module": "003ebo",
+     "set": 2
+    },
+    {
+     "script": "a_global_set|1,0,0,0,0,000_disc_jedi_react",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Disc_Medic",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_disc_medic",
+     "module": "003ebo",
+     "set": 1
+    },
+    {
+     "script": "a_global_set|2,0,0,0,0,000_disc_medic",
+     "module": "003ebo",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "000_Disc_Meditate",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_disc_meditate",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Disc_Padawan",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    4,
+    5
+   ],
+   "writers_total": 4,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_disc_padawan",
+     "module": "003ebo",
+     "set": 1
+    },
+    {
+     "script": "a_global_set|2,0,0,0,0,000_disc_padawan",
+     "module": "003ebo",
+     "set": 2
+    },
+    {
+     "script": "a_global_set|4,0,0,0,0,000_disc_padawan",
+     "module": "003ebo",
+     "set": 4
+    }
+   ]
+  },
+  {
+   "name": "000_Disc_Record",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "writers_total": 5,
+   "writers": [
+    {
+     "script": "a_global_set|3,0,0,0,0,000_disc_record",
+     "module": "003ebo",
+     "set": 3
+    },
+    {
+     "script": "a_global_set|4,0,0,0,0,000_disc_record",
+     "module": "003ebo",
+     "set": 4
+    },
+    {
+     "script": "a_global_set|1,0,0,0,0,000_disc_record",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Disc_Republic_XP",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_disc_republic_xp",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Disciple_Job",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_disciple_job",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Disciple_Job_XP",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_disciple_job_xp",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Duel_Fail_1",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|2,0,0,0,0,000_duel_fail_1",
+     "module": "003ebo",
+     "set": 2
+    },
+    {
+     "script": "a_global_set|1,0,0,0,0,000_duel_fail_1",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Goto_Bith",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_goto_bith",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Goto_Confront",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_inc|1,0,0,0,0,000_goto_confront",
+     "module": "003ebo",
+     "add": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Goto_Crimes",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_inc|1,0,0,0,0,000_goto_crimes",
+     "module": "003ebo",
+     "add": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Goto_Hutts",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_goto_hutts",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Goto_Jekk",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_goto_jekk",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Goto_Paid",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_goto_paid",
+     "module": "003ebo",
+     "set": 1
+    },
+    {
+     "script": "a_global_set|2,0,0,0,0,000_goto_paid",
+     "module": "003ebo",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "000_Goto_Paid_Dan",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_goto_paid_dan",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Goto_Paid_Ond",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_goto_paid_ond",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Goto_Pazaak",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_goto_pazaak",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Goto_Questions",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    0,
+    1,
+    2
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "a_global_set|0,0,0,0,0,000_goto_questions",
+     "module": "003ebo",
+     "set": 0
+    },
+    {
+     "script": "a_global_set|2,0,0,0,0,000_goto_questions",
+     "module": "003ebo",
+     "set": 2
+    },
+    {
+     "script": "a_global_set|1,0,0,0,0,000_goto_questions",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Goto_Questions_2",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    0,
+    1
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|0,0,0,0,0,000_goto_questions_2",
+     "module": "003ebo",
+     "set": 0
+    },
+    {
+     "script": "a_global_set|1,0,0,0,0,000_goto_questions_2",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Goto_Skills",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_goto_skills",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Goto_Swoop",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_goto_swoop",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Goto_Ware",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_goto_ware",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Han_Mira_Awa",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_han_mira_awa",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Han_Mira_Per",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_han_mira_per",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Han_Shackles",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_han_shackles",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Han_Shadowlands",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_han_shadowlands",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Hand_Angry",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hand_angry",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Hand_Atris_PC",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hand_atris_pc",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Hand_Dad_Teach",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hand_dad_teach",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Hand_Father",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    2
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|2,0,0,0,0,000_hand_father",
+     "module": "003ebo",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "000_Hand_Finale",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hand_finale",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Hand_Mom_PC",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hand_mom_pc",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Hand_React_Evil",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hand_react_evil",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Hand_React_Good",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hand_react_good",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Hand_Trial",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hand_trial",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Handmaiden_Force",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_handmaiden_force",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Handmaiden_Jedi",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_handmaiden_jedi",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Hanharr_Dark_Rea",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hanharr_dark_rea",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Hanharr_Debt",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hanharr_debt",
+     "module": "003ebo",
+     "set": 1
+    },
+    {
+     "script": "a_global_set|2,0,0,0,0,000_hanharr_debt",
+     "module": "003ebo",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "000_Hanharr_Good_Rea",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hanharr_good_rea",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Hanharr_Hunt",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hanharr_hunt",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Hanharr_Jeedai",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hanharr_jeedai",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Hanharr_Mira",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hanharr_mira",
+     "module": "003ebo",
+     "set": 1
+    },
+    {
+     "script": "a_global_set|2,0,0,0,0,000_hanharr_mira",
+     "module": "003ebo",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "000_Hanharr_People",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hanharr_people",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Hanharr_Wars",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hanharr_wars",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_HK47_Dark_React",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hk47_dark_react",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_HK47_Good_Retort",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hk47_good_retort",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_HK47_HK50",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hk47_hk50",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_HK47_Hold",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hk47_hold",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_HK47_Jedi_XP",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hk47_jedi_xp",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_HK47_Jedi_XP2",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hk47_jedi_xp2",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_HK47_Kill_Jedi",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hk47_kill_jedi",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_HK47_Level",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hk47_level",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_HK47_Light_React",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hk47_light_react",
+     "module": "003ebo",
+     "set": 1
+    },
+    {
+     "script": "a_global_set|2,0,0,0,0,000_hk47_light_react",
+     "module": "003ebo",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "000_HK47_Malachor",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hk47_malachor",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_HK47_Murder",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hk47_murder",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_HK47_PC_Past",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hk47_pc_past",
+     "module": "003ebo",
+     "set": 1
+    },
+    {
+     "script": "a_global_set|2,0,0,0,0,000_hk47_pc_past",
+     "module": "003ebo",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "000_HK47_Sensor",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|2,0,0,0,0,000_hk47_sensor",
+     "module": "003ebo",
+     "set": 2
+    },
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hk47_sensor",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_HK_Droid_Function",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hk_droid_function",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_HK_Found",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hk_found",
+     "module": "003ebo",
+     "set": 1
+    },
+    {
+     "script": "a_global_set|2,0,0,0,0,000_hk_found",
+     "module": "003ebo",
+     "set": 2
+    },
+    {
+     "script": "a_global_set|3,0,0,0,0,000_hk_found",
+     "module": "003ebo",
+     "set": 3
+    }
+   ]
+  },
+  {
+   "name": "000_HK_Ques_Switch",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    0,
+    1
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|0,0,0,0,0,000_hk_ques_switch",
+     "module": "003ebo",
+     "set": 0
+    },
+    {
+     "script": "a_global_set|1,0,0,0,0,000_hk_ques_switch",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Know_Goto",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_know_goto",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Know_Hand_Mom",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_know_hand_mom",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Kreia_Dark_React",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_kreia_dark_react",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Kreia_Good_React",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_kreia_good_react",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Kreia_Hand_Mom",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "writers_total": 5,
+   "writers": [
+    {
+     "script": "a_global_set|5,0,0,0,0,000_kreia_hand_mom",
+     "module": "003ebo",
+     "set": 5
+    },
+    {
+     "script": "a_global_set|1,0,0,0,0,000_kreia_hand_mom",
+     "module": "003ebo",
+     "set": 1
+    },
+    {
+     "script": "a_global_set|3,0,0,0,0,000_kreia_hand_mom",
+     "module": "003ebo",
+     "set": 3
+    }
+   ]
+  },
+  {
+   "name": "000_Kreia_Hanharr",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|2,0,0,0,0,000_kreia_hanharr",
+     "module": "003ebo",
+     "set": 2
+    },
+    {
+     "script": "a_global_set|1,0,0,0,0,000_kreia_hanharr",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Kreia_Influence",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_kreia_influence",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Kreia_Lightsaber",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_kreia_lightsaber",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Kreia_Movie",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_kreia_movie",
+     "module": "003ebo",
+     "set": 1
+    },
+    {
+     "script": "a_global_set|2,0,0,0,0,000_kreia_movie",
+     "module": "003ebo",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "000_Kreia_Questions",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_kreia_questions",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Kreia_React_Hand",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_kreia_react_hand",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Kreia_Revan",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|2,0,0,0,0,000_kreia_revan",
+     "module": "003ebo",
+     "set": 2
+    },
+    {
+     "script": "a_global_set|1,0,0,0,0,000_kreia_revan",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Kreia_Revan_XP",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_kreia_revan_xp",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Kreia_Sight",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "a_global_set|3,0,0,0,0,000_kreia_sight",
+     "module": "003ebo",
+     "set": 3
+    },
+    {
+     "script": "a_global_set|2,0,0,0,0,000_kreia_sight",
+     "module": "003ebo",
+     "set": 2
+    },
+    {
+     "script": "a_global_set|1,0,0,0,0,000_kreia_sight",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Kreia_Sith",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_kreia_sith",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Kreia_Skill",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_kreia_skill",
+     "module": "003ebo",
+     "set": 1
+    },
+    {
+     "script": "a_global_set|2,0,0,0,0,000_kreia_skill",
+     "module": "003ebo",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "000_Kreia_Taught_Rev",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_kreia_taught_rev",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Kreia_Visas_Intro",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_kreia_visas_intro",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Lightsaber_Built",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_glob_bool_set|1,0,0,0,0,000_lightsaber_built",
+     "module": "003ebo",
+     "set": true
+    }
+   ]
+  },
+  {
+   "name": "000_Mira_Angry",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_mira_angry",
+     "module": "003ebo",
+     "set": 1
+    },
+    {
+     "script": "a_global_set|2,0,0,0,0,000_mira_angry",
+     "module": "003ebo",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "000_Mira_Atton_Angry",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_mira_atton_angry",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Mira_Cooped",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_mira_cooped",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Mira_Dark_React",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_mira_dark_react",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Mira_Dxun",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_mira_dxun",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Mira_Family",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_mira_family",
+     "module": "003ebo",
+     "set": 1
+    },
+    {
+     "script": "a_global_set|2,0,0,0,0,000_mira_family",
+     "module": "003ebo",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "000_Mira_Good_React",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_mira_good_react",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Mira_Jedi",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    3,
+    5
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_mira_jedi",
+     "module": "003ebo",
+     "set": 1
+    },
+    {
+     "script": "a_global_set|3,0,0,0,0,000_mira_jedi",
+     "module": "003ebo",
+     "set": 3
+    },
+    {
+     "script": "a_global_set|5,0,0,0,0,000_mira_jedi",
+     "module": "003ebo",
+     "set": 5
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/301nar_s.rim",
+     "script": "k_kreiatouch"
+    }
+   ]
+  },
+  {
+   "name": "000_Mira_Malachor_XP",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_mira_malachor_xp",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Mira_Questions",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    0,
+    1
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|0,0,0,0,0,000_mira_questions",
+     "module": "003ebo",
+     "set": 0
+    },
+    {
+     "script": "a_global_set|1,0,0,0,0,000_mira_questions",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Prestige",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|2,0,0,0,0,000_prestige",
+     "module": "003ebo",
+     "set": 2
+    },
+    {
+     "script": "a_global_set|1,0,0,0,0,000_prestige",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Quest_Crystal",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 6,
+   "writers": [
+    {
+     "script": "a_q_cryst_change|0,0,0,0,0,",
+     "module": "003ebo",
+     "expr": "StringToInt((IntToString((1 + ((GetGlobalNumber(\"G_PC_LEVEL\") - 9) / 3))) + sub-result))",
+     "branch": "if not GetIsObjectValid(GetItemPossessedBy(player, (((\"qcrystal_\" + GetStringLeft(IntToString(GetGlobalNumb..."
+    },
+    {
+     "script": "a_q_cryst_change|0,0,0,0,0,",
+     "module": "003ebo",
+     "expr": "StringToInt((IntToString(9) + sub-result))",
+     "branch": "if not GetIsObjectValid(GetItemPossessedBy(player, (((\"qcrystal_\" + GetStringLeft(IntToString(GetGlobalNumb..."
+    },
+    {
+     "script": "a_q_cryst_change|0,0,0,0,0,",
+     "module": "003ebo",
+     "expr": "StringToInt((IntToString(1) + sub-result))",
+     "branch": "if not GetIsObjectValid(GetItemPossessedBy(player, (((\"qcrystal_\" + GetStringLeft(IntToString(GetGlobalNumb..."
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/604dan_s.rim",
+     "script": "a_q_cryst_first"
+    }
+   ]
+  },
+  {
+   "name": "000_RareItemChance",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    0
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "k_def_spawn01",
+     "module": "003ebo",
+     "set": 0,
+     "branch": "if G_PC_LEVEL != 1; G_PC_LEVEL >= 4"
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_def_ambmobtrea"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_def_grenspn"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_def_repairsptr"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_def_spawn01"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_def_spn_t_drd"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_def_spn_t_jedi"
+    }
+   ],
+   "read_after_planet_total": 169
+  },
+  {
+   "name": "000_Skill_Best_Quest",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "writers_total": 8,
+   "writers": [
+    {
+     "script": "a_global_set|8,0,0,0,0,000_skill_best_quest",
+     "module": "003ebo",
+     "set": 8
+    },
+    {
+     "script": "a_global_set|7,0,0,0,0,000_skill_best_quest",
+     "module": "003ebo",
+     "set": 7
+    },
+    {
+     "script": "a_global_set|6,0,0,0,0,000_skill_best_quest",
+     "module": "003ebo",
+     "set": 6
+    }
+   ]
+  },
+  {
+   "name": "000_Skill_Worst_Quest",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "writers_total": 8,
+   "writers": [
+    {
+     "script": "a_global_set|8,0,0,0,0,000_skill_worst_quest",
+     "module": "003ebo",
+     "set": 8
+    },
+    {
+     "script": "a_global_set|7,0,0,0,0,000_skill_worst_quest",
+     "module": "003ebo",
+     "set": 7
+    },
+    {
+     "script": "a_global_set|6,0,0,0,0,000_skill_worst_quest",
+     "module": "003ebo",
+     "set": 6
+    }
+   ]
+  },
+  {
+   "name": "000_t3_astro_fix",
+   "type": "unknown",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged; not in globalcat.2da, so a save does not keep it",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_t3_astro_fix",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_T3_Computer",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    3
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|3,0,0,0,0,000_t3_computer",
+     "module": "003ebo",
+     "set": 3
+    },
+    {
+     "script": "a_global_inc|1,0,0,0,0,000_t3_computer",
+     "module": "003ebo",
+     "add": 1
+    }
+   ]
+  },
+  {
+   "name": "000_T3_Ebon_Hawk_Q",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_t3_ebon_hawk_q",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_T3_Friend",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_t3_friend",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_T3_Hawk_Response",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_t3_hawk_response",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_T3_Jedi_Masters",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_t3_jedi_masters",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_T3_Lvl_Damage",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_t3_lvl_damage",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_T3_Message",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_t3_message",
+     "module": "003ebo",
+     "set": 1
+    },
+    {
+     "script": "a_global_set|2,0,0,0,0,000_t3_message",
+     "module": "003ebo",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "000_T3_Old_Friend",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_t3_old_friend",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_T3_Repair",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    2,
+    3,
+    4
+   ],
+   "writers_total": 4,
+   "writers": [
+    {
+     "script": "a_global_set|4,0,0,0,0,000_t3_repair",
+     "module": "003ebo",
+     "set": 4
+    },
+    {
+     "script": "a_global_set|3,0,0,0,0,000_t3_repair",
+     "module": "003ebo",
+     "set": 3
+    },
+    {
+     "script": "a_global_set|2,0,0,0,0,000_t3_repair",
+     "module": "003ebo",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "000_T3_Why_Me",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_t3_why_me",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Talk_Mira_Hanharr",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "writers_total": 5,
+   "writers": [
+    {
+     "script": "a_global_set|2,0,0,0,0,000_talk_mira_hanharr",
+     "module": "003ebo",
+     "set": 2
+    },
+    {
+     "script": "a_global_set|3,0,0,0,0,000_talk_mira_hanharr",
+     "module": "003ebo",
+     "set": 3
+    },
+    {
+     "script": "a_global_set|4,0,0,0,0,000_talk_mira_hanharr",
+     "module": "003ebo",
+     "set": 4
+    }
+   ]
+  },
+  {
+   "name": "000_Talk_Mira_Nar_XP",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_talk_mira_nar_xp",
+     "module": "003ebo",
+     "set": 1
+    },
+    {
+     "script": "a_global_set|2,0,0,0,0,000_talk_mira_nar_xp",
+     "module": "003ebo",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "000_Visas_Bring",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_visas_bring",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Visas_End",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_visas_end",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Visas_Health",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_visas_health",
+     "module": "003ebo",
+     "set": 1
+    },
+    {
+     "script": "a_global_set|2,0,0,0,0,000_visas_health",
+     "module": "003ebo",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "000_Visas_Love",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    2
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|2,0,0,0,0,000_visas_love",
+     "module": "003ebo",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "000_Visas_Master",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_visas_master",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Visas_Questions",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_visas_questions",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Visas_Sac_React",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_visas_sac_react",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "000_Visas_Sight",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_visas_sight",
+     "module": "003ebo",
+     "set": 1
+    },
+    {
+     "script": "a_global_set|2,0,0,0,0,000_visas_sight",
+     "module": "003ebo",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "000_Visas_World",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,000_visas_world",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "003_cutscene_mode",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    false,
+    true
+   ],
+   "writers_total": 12,
+   "writers": [
+    {
+     "script": "k_003ebo_enter",
+     "module": "003ebo",
+     "set": true,
+     "branch": "if 003EBO_BACKGROUND == 0; 003EBO_G0T0_BAO_2 != 1; 003EBO_ATTDISC_COUNT != 1"
+    },
+    {
+     "script": "k_003ebo_enter",
+     "module": "003ebo",
+     "set": false,
+     "branch": "if 003EBO_BACKGROUND == 0; 003EBO_G0T0_BAO_2 != 1; 003EBO_ATTDISC_COUNT != 1"
+    },
+    {
+     "script": "k_003ebo_enter",
+     "module": "003ebo",
+     "set": true,
+     "branch": "if 003EBO_BACKGROUND == 0; 003EBO_G0T0_BAO_2 != 1; 003EBO_ATTDISC_COUNT == 1"
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_oei_spawn"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_oei_userdef"
+    },
+    {
+     "where": "modules/305nar_s.rim",
+     "script": "k_oei_spawn_han"
+    }
+   ]
+  },
+  {
+   "name": "003_Kreia_History",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,003_kreia_history",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "003_Kreia_Train",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,003_kreia_train",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "003_PARTY_SPAWN",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 5,
+   "writers": [
+    {
+     "script": "k_003ebo_enter",
+     "module": "003ebo",
+     "set": true,
+     "branch": "if 003EBO_BACKGROUND == 0; 003EBO_G0T0_BAO_2 != 1; 003EBO_ATTDISC_COUNT != 1"
+    },
+    {
+     "script": "k_003ebo_enter",
+     "module": "003ebo",
+     "set": true,
+     "branch": "if 003EBO_BACKGROUND == 0; 003EBO_G0T0_BAO_2 != 1; 003EBO_ATTDISC_COUNT == 1"
+    },
+    {
+     "script": "k_003ebo_enter",
+     "module": "003ebo",
+     "set": true,
+     "branch": "if 003EBO_BACKGROUND == 0; 003EBO_G0T0_BAO_2 == 1; 003EBO_ATTDISC_COUNT != 1"
+    }
+   ]
+  },
+  {
+   "name": "003EB_MAND_EBON",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    true
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "c_on_ebon|3,0,0,0,0,",
+     "module": "003ebo",
+     "set": true,
+     "branch": "if 003EB_MAND_EBON is FALSE"
+    }
+   ]
+  },
+  {
+   "name": "003EBO_ATTDISC_COUNT",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_003ebo_enter",
+     "module": "003ebo",
+     "set": 2,
+     "branch": "if 003EBO_BACKGROUND == 0; 003EBO_G0T0_BAO_2 != 1; 003EBO_ATTDISC_COUNT == 1"
+    },
+    {
+     "script": "k_003ebo_enter",
+     "module": "003ebo",
+     "set": 2,
+     "branch": "if 003EBO_BACKGROUND == 0; 003EBO_G0T0_BAO_2 == 1; 003EBO_ATTDISC_COUNT == 1"
+    }
+   ]
+  },
+  {
+   "name": "003EBO_Atton_Care",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,003ebo_atton_care",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "003EBO_Atton_End",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|2,0,0,0,0,003ebo_atton_end",
+     "module": "003ebo",
+     "set": 2
+    },
+    {
+     "script": "a_global_set|1,0,0,0,0,003ebo_atton_end",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "003EBO_Atton_Hand",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,003ebo_atton_hand",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "003EBO_Atton_Response",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,003ebo_atton_response",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "003EBO_Atton_Talk",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "writers_total": 5,
+   "writers": [
+    {
+     "script": "a_set003atttlk|3,0,0,0,0,",
+     "module": "003ebo",
+     "set": 3
+    },
+    {
+     "script": "a_set003atttlk|2,0,0,0,0,",
+     "module": "003ebo",
+     "set": 2
+    },
+    {
+     "script": "a_set003atttlk|4,0,0,0,0,",
+     "module": "003ebo",
+     "set": 4
+    }
+   ]
+  },
+  {
+   "name": "003EBO_BACKGROUND",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    4,
+    8
+   ],
+   "writers_total": 24,
+   "writers": [
+    {
+     "script": "k_003start",
+     "module": "003ebo",
+     "set": 8,
+     "branch": "if 003EBO_BACKGROUND == 0"
+    },
+    {
+     "script": "k_003start",
+     "module": "003ebo",
+     "set": 8,
+     "branch": "if 003EBO_BACKGROUND == 1"
+    },
+    {
+     "script": "k_003start",
+     "module": "003ebo",
+     "set": 8,
+     "branch": "if 003EBO_BACKGROUND == 2"
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/004ebo_s.rim",
+     "script": "k_003ebo_enter"
+    },
+    {
+     "where": "modules/005ebo_s.rim",
+     "script": "k_005_enter"
+    }
+   ]
+  },
+  {
+   "name": "003EBO_Disciple_Atton",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "writers_total": 4,
+   "writers": [
+    {
+     "script": "a_global_set|3,0,0,0,0,003ebo_disciple_atton",
+     "module": "003ebo",
+     "set": 3
+    },
+    {
+     "script": "a_global_set|2,0,0,0,0,003ebo_disciple_atton",
+     "module": "003ebo",
+     "set": 2
+    },
+    {
+     "script": "a_global_set|1,0,0,0,0,003ebo_disciple_atton",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "003EBO_Disciple_Event",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,003ebo_disciple_event",
+     "module": "003ebo",
+     "set": 1
+    },
+    {
+     "script": "a_global_set|2,0,0,0,0,003ebo_disciple_event",
+     "module": "003ebo",
+     "set": 2
+    },
+    {
+     "script": "a_global_set|3,0,0,0,0,003ebo_disciple_event",
+     "module": "003ebo",
+     "set": 3
+    }
+   ]
+  },
+  {
+   "name": "003EBO_Disciple_Med",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,003ebo_disciple_med",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "003EBO_G0T0_BAO_2",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "k_003ebo_enter",
+     "module": "003ebo",
+     "set": 2,
+     "branch": "if 003EBO_BACKGROUND == 0; 003EBO_G0T0_BAO_2 == 1; 003EBO_ATTDISC_COUNT != 1"
+    },
+    {
+     "script": "k_003ebo_enter",
+     "module": "003ebo",
+     "set": 2,
+     "branch": "if 003EBO_BACKGROUND == 0; 003EBO_G0T0_BAO_2 == 1; 003EBO_ATTDISC_COUNT == 1"
+    }
+   ]
+  },
+  {
+   "name": "003EBO_G0t0_Remote",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,003ebo_g0t0_remote",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "003EBO_Goto_HK47",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,003ebo_goto_hk47",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "003EBO_Hand_Fight",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    7
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,003ebo_hand_fight",
+     "module": "003ebo",
+     "set": 1
+    },
+    {
+     "script": "a_global_set|7,0,0,0,0,003ebo_hand_fight",
+     "module": "003ebo",
+     "set": 7
+    }
+   ]
+  },
+  {
+   "name": "003EBO_Handmaid_Fight",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,003ebo_handmaid_fight",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "003EBO_HANHARR_MOVE",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    false,
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_glob_bool_set|0,0,0,0,0,003ebo_hanharr_move",
+     "module": "003ebo",
+     "set": false
+    },
+    {
+     "script": "a_glob_bool_set|1,0,0,0,0,003ebo_hanharr_move",
+     "module": "003ebo",
+     "set": true
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_oei_userdef"
+    }
+   ]
+  },
+  {
+   "name": "003EBO_HK47_T3",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,003ebo_hk47_t3",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "003EBO_Kreia_Disciple",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,003ebo_kreia_disciple",
+     "module": "003ebo",
+     "set": 1
+    },
+    {
+     "script": "a_global_set|2,0,0,0,0,003ebo_kreia_disciple",
+     "module": "003ebo",
+     "set": 2
+    },
+    {
+     "script": "a_global_set|3,0,0,0,0,003ebo_kreia_disciple",
+     "module": "003ebo",
+     "set": 3
+    }
+   ]
+  },
+  {
+   "name": "003EBO_Meditate_Event",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,003ebo_meditate_event",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "003EBO_Mira_Hand",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,003ebo_mira_hand",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "003EBO_PC_Hilt",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    0,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_setpchilt|2,0,0,0,0,",
+     "module": "003ebo",
+     "set": 2
+    },
+    {
+     "script": "a_setpchilt|0,0,0,0,0,",
+     "module": "003ebo",
+     "set": 0
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/262tel_s.rim",
+     "script": "a_createpcsaber"
+    },
+    {
+     "where": "modules/262tel_s.rim",
+     "script": "a_createpcsaber2"
+    },
+    {
+     "where": "modules/950cor_s.rim",
+     "script": "a_createpcsaber"
+    },
+    {
+     "where": "modules/950cor_s.rim",
+     "script": "a_stabsaber"
+    }
+   ]
+  },
+  {
+   "name": "003EBO_PC_Lightsaber",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    9
+   ],
+   "writers_total": 8,
+   "writers": [
+    {
+     "script": "a_setsabercolor|7,0,0,0,0,",
+     "module": "003ebo",
+     "set": 7
+    },
+    {
+     "script": "a_setsabercolor|9,0,0,0,0,",
+     "module": "003ebo",
+     "set": 9
+    },
+    {
+     "script": "a_setsabercolor|6,0,0,0,0,",
+     "module": "003ebo",
+     "set": 6
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/262tel_s.rim",
+     "script": "a_createpcsaber"
+    },
+    {
+     "where": "modules/262tel_s.rim",
+     "script": "a_createpcsaber2"
+    },
+    {
+     "where": "modules/950cor_s.rim",
+     "script": "a_createpcsaber"
+    }
+   ]
+  },
+  {
+   "name": "003EBO_RETURN_DEST",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    4,
+    8
+   ],
+   "writers_total": 24,
+   "writers": [
+    {
+     "script": "k_003start",
+     "module": "003ebo",
+     "set": 8,
+     "branch": "if 003EBO_BACKGROUND == 0"
+    },
+    {
+     "script": "k_003start",
+     "module": "003ebo",
+     "set": 8,
+     "branch": "if 003EBO_BACKGROUND == 1"
+    },
+    {
+     "script": "k_003start",
+     "module": "003ebo",
+     "set": 8,
+     "branch": "if 003EBO_BACKGROUND == 2"
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/004ebo_s.rim",
+     "script": "tr_leave_ehawk"
+    }
+   ]
+  },
+  {
+   "name": "003EBO_T3_Atton",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    2
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|2,0,0,0,0,003ebo_t3_atton",
+     "module": "003ebo",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "003EBO_T3_Disciple",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,003ebo_t3_disciple",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "003EBO_T3_Holo_Seq",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|2,0,0,0,0,003ebo_t3_holo_seq",
+     "module": "003ebo",
+     "set": 2
+    },
+    {
+     "script": "a_global_set|1,0,0,0,0,003ebo_t3_holo_seq",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "003EBO_T3_Pazaak",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,003ebo_t3_pazaak",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "003EBO_T3M4_MOVE",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    false,
+    true
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_glob_bool_set|0,0,0,0,0,003ebo_t3m4_move",
+     "module": "003ebo",
+     "set": false
+    },
+    {
+     "script": "a_glob_bool_set|1,0,0,0,0,003ebo_t3m4_move",
+     "module": "003ebo",
+     "set": true
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_oei_userdef"
+    }
+   ]
+  },
+  {
+   "name": "003EBO_Visas_Hand",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2,
+    3
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "a_global_set|2,0,0,0,0,003ebo_visas_hand",
+     "module": "003ebo",
+     "set": 2
+    },
+    {
+     "script": "a_global_set|3,0,0,0,0,003ebo_visas_hand",
+     "module": "003ebo",
+     "set": 3
+    },
+    {
+     "script": "a_global_set|1,0,0,0,0,003ebo_visas_hand",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "106PER_Peragus_End",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_setperend|1,0,0,0,0,",
+     "module": "003ebo",
+     "set": 1
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/201tel_s.rim",
+     "script": "c_perend"
+    },
+    {
+     "where": "modules/262tel_s.rim",
+     "script": "c_chk106perend"
+    }
+   ]
+  },
+  {
+   "name": "200TEL_Fuel",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    0
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|0,0,0,0,0,200tel_fuel",
+     "module": "003ebo",
+     "set": 0
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/202tel_s.rim",
+     "script": "c_200fuel"
+    }
+   ]
+  },
+  {
+   "name": "262TEL_Atton_Echani",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    2
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|2,0,0,0,0,262tel_atton_echani",
+     "module": "003ebo",
+     "set": 2
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/262tel_s.rim",
+     "script": "c_chkattonechani"
+    }
+   ]
+  },
+  {
+   "name": "262TEL_Atton_Inter",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,262tel_atton_inter",
+     "module": "003ebo",
+     "set": 1
+    },
+    {
+     "script": "a_global_set|2,0,0,0,0,262tel_atton_inter",
+     "module": "003ebo",
+     "set": 2
+    }
+   ]
+  },
+  {
+   "name": "262TEL_Atton_Mind",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|2,0,0,0,0,262tel_atton_mind",
+     "module": "003ebo",
+     "set": 2
+    },
+    {
+     "script": "a_global_set|1,0,0,0,0,262tel_atton_mind",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "262TEL_Atton_Talk",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_262imprison|2,0,0,0,0,",
+     "module": "003ebo",
+     "set": 1
+    },
+    {
+     "script": "c_chk262atttalk|2,2,0,0,0,",
+     "module": "003ebo",
+     "set": 2,
+     "branch": "if 262TEL_Atton_Talk == 2"
+    }
+   ]
+  },
+  {
+   "name": "301_INTRO_SCENE",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    2
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "tr_301_first",
+     "module": "003ebo",
+     "set": 2,
+     "branch": "if 301_INTRO_SCENE == 1"
+    }
+   ]
+  },
+  {
+   "name": "301NAR_T3_Sold",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    2
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|2,0,0,0,0,301nar_t3_sold",
+     "module": "003ebo",
+     "set": 2
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/004ebo_s.rim",
+     "script": "k_004_heart"
+    },
+    {
+     "where": "modules/301nar_s.rim",
+     "script": "tr_ehawk_custom"
+    }
+   ]
+  },
+  {
+   "name": "303NAR_Goto_Ware",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,303nar_goto_ware",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "400DXN_Space_Battle",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1,
+    2
+   ],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_global_set|2,0,0,0,0,400dxn_space_battle",
+     "module": "003ebo",
+     "set": 2
+    },
+    {
+     "script": "a_global_set|1,0,0,0,0,400dxn_space_battle",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  },
+  {
+   "name": "401DXN_STARTED",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    3,
+    5
+   ],
+   "writers_total": 9,
+   "writers": [
+    {
+     "script": "k_003ebo_enter",
+     "module": "003ebo",
+     "set": 5,
+     "branch": "if 003EBO_BACKGROUND == 0; 003EBO_G0T0_BAO_2 != 1; 003EBO_ATTDISC_COUNT != 1"
+    },
+    {
+     "script": "k_003ebo_enter",
+     "module": "003ebo",
+     "set": 3,
+     "branch": "if 003EBO_BACKGROUND == 0; 003EBO_G0T0_BAO_2 != 1; 003EBO_ATTDISC_COUNT != 1"
+    },
+    {
+     "script": "k_003ebo_enter",
+     "module": "003ebo",
+     "set": 5,
+     "branch": "if 003EBO_BACKGROUND == 0; 003EBO_G0T0_BAO_2 != 1; 003EBO_ATTDISC_COUNT == 1"
+    }
+   ]
+  },
+  {
+   "name": "403DXN_Second_Visit",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,403dxn_second_visit",
+     "module": "003ebo",
+     "set": 1
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/402dxn_s.rim",
+     "script": "k_402_enter"
+    },
+    {
+     "where": "modules/402dxn_s.rim",
+     "script": "tr_es_visible"
+    },
+    {
+     "where": "modules/403dxn_s.rim",
+     "script": "c_post_403"
+    },
+    {
+     "where": "modules/403dxn_s.rim",
+     "script": "k_403_enter"
+    },
+    {
+     "where": "modules/403dxn_s.rim",
+     "script": "tr_mandtalk"
+    },
+    {
+     "where": "modules/410dxn_s.rim",
+     "script": "c_post_403"
+    }
+   ],
+   "read_after_planet_total": 7
+  },
+  {
+   "name": "604DAN_Vrook_Status",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,604dan_vrook_status",
+     "module": "003ebo",
+     "set": 1
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/601dan_s.rim",
+     "script": "k_enter_dan"
+    },
+    {
+     "where": "modules/601dan_s.rim",
+     "script": "k_fab_enter"
+    },
+    {
+     "where": "modules/601dan_s.rim",
+     "script": "tr_battle_enter"
+    },
+    {
+     "where": "modules/602dan_s.rim",
+     "script": "a_azkul_attack"
+    },
+    {
+     "where": "modules/602dan_s.rim",
+     "script": "c_check_status"
+    },
+    {
+     "where": "modules/602dan_s.rim",
+     "script": "c_check_vrook"
+    }
+   ],
+   "read_after_planet_total": 14
+  },
+  {
+   "name": "701_INTRO_SCENE",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    2
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "tr_301_first",
+     "module": "003ebo",
+     "set": 2,
+     "branch": "if 301_INTRO_SCENE != 1; 701_INTRO_SCENE == 1"
+    }
+   ]
+  },
+  {
+   "name": "711KOR_Party_Dead",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 4,
+   "writers": [
+    {
+     "script": "k_oei_userdef",
+     "module": "003ebo",
+     "add": 1,
+     "branch": "if GetIsObjectValid(OBJECT_SELF); not (GetTag(OBJECT_SELF) == \"atton\"); not (GetTag(OBJECT_SELF) == \"baodur..."
+    },
+    {
+     "script": "k_oei_userdef",
+     "module": "003ebo",
+     "add": 1,
+     "branch": "if GetIsObjectValid(OBJECT_SELF); not (GetTag(OBJECT_SELF) == \"atton\"); (GetTag(OBJECT_SELF) == \"baodur\"); ..."
+    },
+    {
+     "script": "k_oei_userdef",
+     "module": "003ebo",
+     "add": 1,
+     "branch": "if GetIsObjectValid(OBJECT_SELF); (GetTag(OBJECT_SELF) == \"atton\"); (GetModuleName() == \"711KOR\"); not ((Ge..."
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_oei_userdef"
+    }
+   ]
+  },
+  {
+   "name": "K_ATTON_ITEMS",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 4,
+   "writers": [
+    {
+     "script": "a_item_gen|0,0,0,0,0,",
+     "module": "003ebo",
+     "add": 1,
+     "branch": "if does not have item g_i_secspike01; does not have item G_I_SECSPIKE02"
+    },
+    {
+     "script": "a_item_gen|0,0,0,0,0,",
+     "module": "003ebo",
+     "add": 1,
+     "branch": "if does not have item g_i_secspike01; has item G_I_SECSPIKE02"
+    },
+    {
+     "script": "a_item_gen|0,0,0,0,0,",
+     "module": "003ebo",
+     "add": 1,
+     "branch": "if has item g_i_secspike01; does not have item G_I_SECSPIKE02"
+    }
+   ]
+  },
+  {
+   "name": "K_DISCIPLE_ITEMS",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 8,
+   "writers": [
+    {
+     "script": "a_item_gen|0,0,0,0,0,",
+     "module": "003ebo",
+     "add": 1,
+     "branch": "if does not have item g_I_medeqpmnt01; does not have item G_I_MEDEQPMNT02; does not have item g_I_medeqpmnt03"
+    },
+    {
+     "script": "a_item_gen|0,0,0,0,0,",
+     "module": "003ebo",
+     "add": 1,
+     "branch": "if does not have item g_I_medeqpmnt01; does not have item G_I_MEDEQPMNT02; has item g_I_medeqpmnt03"
+    },
+    {
+     "script": "a_item_gen|0,0,0,0,0,",
+     "module": "003ebo",
+     "add": 1,
+     "branch": "if does not have item g_I_medeqpmnt01; has item G_I_MEDEQPMNT02; does not have item g_I_medeqpmnt03"
+    }
+   ]
+  },
+  {
+   "name": "K_MAND_ITEMS",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 15,
+   "writers": [
+    {
+     "script": "a_item_gen|0,0,0,0,0,",
+     "module": "003ebo",
+     "add": 1,
+     "branch": "if does not have item g_i_adrnaline001; does not have item G_I_ADRNALINE002; does not have item g_i_adrnali..."
+    },
+    {
+     "script": "a_item_gen|0,0,0,0,0,",
+     "module": "003ebo",
+     "add": 1,
+     "branch": "if does not have item g_i_adrnaline001; does not have item G_I_ADRNALINE002; has item g_i_adrnaline003; doe..."
+    },
+    {
+     "script": "a_item_gen|0,0,0,0,0,",
+     "module": "003ebo",
+     "add": 1,
+     "branch": "if does not have item g_i_adrnaline001; does not have item G_I_ADRNALINE002; has item g_i_adrnaline003; has..."
+    }
+   ]
+  },
+  {
+   "name": "K_MIRA_ITEMS",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 19,
+   "writers": [
+    {
+     "script": "a_item_gen|0,0,0,0,0,",
+     "module": "003ebo",
+     "add": 1,
+     "branch": "if does not have item G_w_StunGren01; does not have item g_w_adhsvgren001; does not have item G_W_CRYOBGREN..."
+    },
+    {
+     "script": "a_item_gen|0,0,0,0,0,",
+     "module": "003ebo",
+     "add": 1,
+     "branch": "if does not have item G_w_StunGren01; does not have item g_w_adhsvgren001; has item G_W_CRYOBGREN001; does ..."
+    },
+    {
+     "script": "a_item_gen|0,0,0,0,0,",
+     "module": "003ebo",
+     "add": 1,
+     "branch": "if does not have item G_w_StunGren01; does not have item g_w_adhsvgren001; has item G_W_CRYOBGREN001; has i..."
+    }
+   ]
+  },
+  {
+   "name": "K_T3M4_ITEMS",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 2,
+   "writers": [
+    {
+     "script": "a_item_gen|0,0,0,0,0,",
+     "module": "003ebo",
+     "add": 1,
+     "branch": "if does not have item K_COMPUTER_SPIKE"
+    },
+    {
+     "script": "a_item_gen|0,0,0,0,0,",
+     "module": "003ebo",
+     "add": 1,
+     "branch": "if has item K_COMPUTER_SPIKE"
+    }
+   ]
+  },
+  {
+   "name": "kreia_nature",
+   "type": "unknown",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged; not in globalcat.2da, so a save does not keep it",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,kreia_nature",
+     "module": "003ebo",
+     "set": 1
+    }
+   ]
+  }
+ ],
+ "globals_never_set": [
+  "003EBO_ATTON_T3_START",
+  "003EBO_Bao_Kreia",
+  "003EBO_Hatch",
+  "003EBO_REMOTE_MOVE",
+  "003_CHECK_CUTSCENES",
+  "003_ENTER_COUNT"
+ ],
+ "items": {
+  "held_at_end": [],
+  "held_note": "Given by scripts on the critical path (tools/questdb/chapters.py).",
+  "other_script_gifts": [
+   {
+    "item": "a_shield_01",
+    "count": 2,
+    "script": "a_give_item|2,0,0,0,0,a_shield_01",
+    "module": "003ebo"
+   },
+   {
+    "item": "a_shield_02",
+    "count": 1,
+    "script": "a_give_item|0,0,0,0,0,a_shield_02",
+    "module": "003ebo"
+   },
+   {
+    "item": "g_w_lghtsbr03",
+    "count": 1,
+    "script": "a_give_item|0,0,0,0,0,g_w_lghtsbr03",
+    "module": "003ebo"
+   },
+   {
+    "item": "g_w_dblsbr003",
+    "count": 1,
+    "script": "a_give_item|0,0,0,0,0,g_w_dblsbr003",
+    "module": "003ebo"
+   },
+   {
+    "item": "g_w_lghtsbr11",
+    "count": 1,
+    "script": "a_give_item|0,0,0,0,0,g_w_lghtsbr11",
+    "module": "003ebo"
+   },
+   {
+    "item": "g_w_lghtsbr09",
+    "count": 1,
+    "script": "a_give_item|0,0,0,0,0,g_w_lghtsbr09",
+    "module": "003ebo"
+   },
+   {
+    "item": "g_w_lghtsbr08",
+    "count": 1,
+    "script": "a_give_item|0,0,0,0,0,g_w_lghtsbr08",
+    "module": "003ebo"
+   },
+   {
+    "item": "g_w_lghtsbr02",
+    "count": 1,
+    "script": "a_give_item|0,0,0,0,0,g_w_lghtsbr02",
+    "module": "003ebo"
+   },
+   {
+    "item": "g_w_lghtsbr05",
+    "count": 1,
+    "script": "a_give_item|0,0,0,0,0,g_w_lghtsbr05",
+    "module": "003ebo"
+   },
+   {
+    "item": "g_w_lghtsbr04",
+    "count": 1,
+    "script": "a_give_item|0,0,0,0,0,g_w_lghtsbr04",
+    "module": "003ebo"
+   },
+   {
+    "item": "g_w_lghtsbr01",
+    "count": 1,
+    "script": "a_give_item|0,0,0,0,0,g_w_lghtsbr01",
+    "module": "003ebo"
+   },
+   {
+    "item": "g_w_dblsbr011",
+    "count": 1,
+    "script": "a_give_item|0,0,0,0,0,g_w_dblsbr011",
+    "module": "003ebo"
+   },
+   {
+    "item": "g_w_dblsbr009",
+    "count": 1,
+    "script": "a_give_item|0,0,0,0,0,g_w_dblsbr009",
+    "module": "003ebo"
+   },
+   {
+    "item": "g_w_dblsbr008",
+    "count": 1,
+    "script": "a_give_item|0,0,0,0,0,g_w_dblsbr008",
+    "module": "003ebo"
+   },
+   {
+    "item": "g_w_dblsbr002",
+    "count": 1,
+    "script": "a_give_item|0,0,0,0,0,g_w_dblsbr002",
+    "module": "003ebo"
+   },
+   {
+    "item": "g_w_dblsbr005",
+    "count": 1,
+    "script": "a_give_item|0,0,0,0,0,g_w_dblsbr005",
+    "module": "003ebo"
+   },
+   {
+    "item": "g_w_dblsbr004",
+    "count": 1,
+    "script": "a_give_item|0,0,0,0,0,g_w_dblsbr004",
+    "module": "003ebo"
+   },
+   {
+    "item": "g_w_dblsbr001",
+    "count": 1,
+    "script": "a_give_item|0,0,0,0,0,g_w_dblsbr001",
+    "module": "003ebo"
+   },
+   {
+    "item": "g_i_progspike01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "g_i_progspike01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item K_COMPUTER_SPIKE"
+   },
+   {
+    "item": "g_i_cmbtshot001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; does not have item G_I_ADRNALINE002; does not have item g_i_adrnali..."
+   },
+   {
+    "item": "g_i_adrnaline003",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; does not have item G_I_ADRNALINE002; does not have item g_i_adrnali..."
+   },
+   {
+    "item": "g_i_adrnaline002",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; does not have item G_I_ADRNALINE002; does not have item g_i_adrnali..."
+   },
+   {
+    "item": "g_i_adrnaline001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; does not have item G_I_ADRNALINE002; does not have item g_i_adrnali..."
+   },
+   {
+    "item": "g_i_cmbtshot001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; does not have item G_I_ADRNALINE002; has item g_i_adrnaline003; doe..."
+   },
+   {
+    "item": "g_i_adrnaline003",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; does not have item G_I_ADRNALINE002; has item g_i_adrnaline003; doe..."
+   },
+   {
+    "item": "g_i_adrnaline002",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; does not have item G_I_ADRNALINE002; has item g_i_adrnaline003; doe..."
+   },
+   {
+    "item": "g_i_adrnaline001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; does not have item G_I_ADRNALINE002; has item g_i_adrnaline003; doe..."
+   },
+   {
+    "item": "g_i_cmbtshot001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; does not have item G_I_ADRNALINE002; has item g_i_adrnaline003; has..."
+   },
+   {
+    "item": "g_i_adrnaline003",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; does not have item G_I_ADRNALINE002; has item g_i_adrnaline003; has..."
+   },
+   {
+    "item": "g_i_adrnaline002",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; does not have item G_I_ADRNALINE002; has item g_i_adrnaline003; has..."
+   },
+   {
+    "item": "g_i_adrnaline001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; does not have item G_I_ADRNALINE002; has item g_i_adrnaline003; has..."
+   },
+   {
+    "item": "g_i_cmbtshot001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; has item G_I_ADRNALINE002; does not have item g_i_adrnaline003; doe..."
+   },
+   {
+    "item": "g_i_adrnaline003",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; has item G_I_ADRNALINE002; does not have item g_i_adrnaline003; doe..."
+   },
+   {
+    "item": "g_i_adrnaline002",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; has item G_I_ADRNALINE002; does not have item g_i_adrnaline003; doe..."
+   },
+   {
+    "item": "g_i_adrnaline001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; has item G_I_ADRNALINE002; does not have item g_i_adrnaline003; doe..."
+   },
+   {
+    "item": "g_i_cmbtshot001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; has item G_I_ADRNALINE002; does not have item g_i_adrnaline003; has..."
+   },
+   {
+    "item": "g_i_adrnaline003",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; has item G_I_ADRNALINE002; does not have item g_i_adrnaline003; has..."
+   },
+   {
+    "item": "g_i_adrnaline002",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; has item G_I_ADRNALINE002; does not have item g_i_adrnaline003; has..."
+   },
+   {
+    "item": "g_i_adrnaline001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; has item G_I_ADRNALINE002; does not have item g_i_adrnaline003; has..."
+   },
+   {
+    "item": "g_i_cmbtshot001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; has item G_I_ADRNALINE002; has item g_i_adrnaline003; does not have..."
+   },
+   {
+    "item": "g_i_adrnaline003",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; has item G_I_ADRNALINE002; has item g_i_adrnaline003; does not have..."
+   },
+   {
+    "item": "g_i_adrnaline002",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; has item G_I_ADRNALINE002; has item g_i_adrnaline003; does not have..."
+   },
+   {
+    "item": "g_i_adrnaline001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; has item G_I_ADRNALINE002; has item g_i_adrnaline003; does not have..."
+   },
+   {
+    "item": "g_i_cmbtshot001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; has item G_I_ADRNALINE002; has item g_i_adrnaline003; has item g_i_..."
+   },
+   {
+    "item": "g_i_adrnaline003",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; has item G_I_ADRNALINE002; has item g_i_adrnaline003; has item g_i_..."
+   },
+   {
+    "item": "g_i_adrnaline002",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; has item G_I_ADRNALINE002; has item g_i_adrnaline003; has item g_i_..."
+   },
+   {
+    "item": "g_i_adrnaline001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_adrnaline001; has item G_I_ADRNALINE002; has item g_i_adrnaline003; has item g_i_..."
+   },
+   {
+    "item": "g_i_cmbtshot001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; does not have item G_I_ADRNALINE002; does not have item g_i_adrnaline003; doe..."
+   },
+   {
+    "item": "g_i_adrnaline003",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; does not have item G_I_ADRNALINE002; does not have item g_i_adrnaline003; doe..."
+   },
+   {
+    "item": "g_i_adrnaline002",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; does not have item G_I_ADRNALINE002; does not have item g_i_adrnaline003; doe..."
+   },
+   {
+    "item": "g_i_adrnaline001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; does not have item G_I_ADRNALINE002; does not have item g_i_adrnaline003; doe..."
+   },
+   {
+    "item": "g_i_cmbtshot001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; does not have item G_I_ADRNALINE002; does not have item g_i_adrnaline003; has..."
+   },
+   {
+    "item": "g_i_adrnaline003",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; does not have item G_I_ADRNALINE002; does not have item g_i_adrnaline003; has..."
+   },
+   {
+    "item": "g_i_adrnaline002",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; does not have item G_I_ADRNALINE002; does not have item g_i_adrnaline003; has..."
+   },
+   {
+    "item": "g_i_adrnaline001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; does not have item G_I_ADRNALINE002; does not have item g_i_adrnaline003; has..."
+   },
+   {
+    "item": "g_i_cmbtshot001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; does not have item G_I_ADRNALINE002; has item g_i_adrnaline003; does not have..."
+   },
+   {
+    "item": "g_i_adrnaline003",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; does not have item G_I_ADRNALINE002; has item g_i_adrnaline003; does not have..."
+   },
+   {
+    "item": "g_i_adrnaline002",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; does not have item G_I_ADRNALINE002; has item g_i_adrnaline003; does not have..."
+   },
+   {
+    "item": "g_i_adrnaline001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; does not have item G_I_ADRNALINE002; has item g_i_adrnaline003; does not have..."
+   },
+   {
+    "item": "g_i_cmbtshot001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; does not have item G_I_ADRNALINE002; has item g_i_adrnaline003; has item g_i_..."
+   },
+   {
+    "item": "g_i_adrnaline003",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; does not have item G_I_ADRNALINE002; has item g_i_adrnaline003; has item g_i_..."
+   },
+   {
+    "item": "g_i_adrnaline002",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; does not have item G_I_ADRNALINE002; has item g_i_adrnaline003; has item g_i_..."
+   },
+   {
+    "item": "g_i_adrnaline001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; does not have item G_I_ADRNALINE002; has item g_i_adrnaline003; has item g_i_..."
+   },
+   {
+    "item": "g_i_cmbtshot001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; has item G_I_ADRNALINE002; does not have item g_i_adrnaline003; does not have..."
+   },
+   {
+    "item": "g_i_adrnaline003",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; has item G_I_ADRNALINE002; does not have item g_i_adrnaline003; does not have..."
+   },
+   {
+    "item": "g_i_adrnaline002",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; has item G_I_ADRNALINE002; does not have item g_i_adrnaline003; does not have..."
+   },
+   {
+    "item": "g_i_adrnaline001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; has item G_I_ADRNALINE002; does not have item g_i_adrnaline003; does not have..."
+   },
+   {
+    "item": "g_i_cmbtshot001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; has item G_I_ADRNALINE002; does not have item g_i_adrnaline003; has item g_i_..."
+   },
+   {
+    "item": "g_i_adrnaline003",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; has item G_I_ADRNALINE002; does not have item g_i_adrnaline003; has item g_i_..."
+   },
+   {
+    "item": "g_i_adrnaline002",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; has item G_I_ADRNALINE002; does not have item g_i_adrnaline003; has item g_i_..."
+   },
+   {
+    "item": "g_i_adrnaline001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; has item G_I_ADRNALINE002; does not have item g_i_adrnaline003; has item g_i_..."
+   },
+   {
+    "item": "g_i_cmbtshot001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; has item G_I_ADRNALINE002; has item g_i_adrnaline003; does not have item g_i_..."
+   },
+   {
+    "item": "g_i_adrnaline003",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; has item G_I_ADRNALINE002; has item g_i_adrnaline003; does not have item g_i_..."
+   },
+   {
+    "item": "g_i_adrnaline002",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; has item G_I_ADRNALINE002; has item g_i_adrnaline003; does not have item g_i_..."
+   },
+   {
+    "item": "g_i_adrnaline001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; has item G_I_ADRNALINE002; has item g_i_adrnaline003; does not have item g_i_..."
+   },
+   {
+    "item": "g_i_cmbtshot001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; has item G_I_ADRNALINE002; has item g_i_adrnaline003; has item g_i_cmbtshot001"
+   },
+   {
+    "item": "g_i_adrnaline003",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; has item G_I_ADRNALINE002; has item g_i_adrnaline003; has item g_i_cmbtshot001"
+   },
+   {
+    "item": "g_i_adrnaline002",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; has item G_I_ADRNALINE002; has item g_i_adrnaline003; has item g_i_cmbtshot001"
+   },
+   {
+    "item": "g_i_adrnaline001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_adrnaline001; has item G_I_ADRNALINE002; has item g_i_adrnaline003; has item g_i_cmbtshot001"
+   },
+   {
+    "item": "g_i_secspike02",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_secspike01; does not have item G_I_SECSPIKE02"
+   },
+   {
+    "item": "g_i_secspike01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_secspike01; does not have item G_I_SECSPIKE02"
+   },
+   {
+    "item": "g_i_secspike02",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_secspike01; has item G_I_SECSPIKE02"
+   },
+   {
+    "item": "g_i_secspike01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_i_secspike01; has item G_I_SECSPIKE02"
+   },
+   {
+    "item": "g_i_secspike02",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_secspike01; does not have item G_I_SECSPIKE02"
+   },
+   {
+    "item": "g_i_secspike01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_secspike01; does not have item G_I_SECSPIKE02"
+   },
+   {
+    "item": "g_i_secspike02",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_secspike01; has item G_I_SECSPIKE02"
+   },
+   {
+    "item": "g_i_secspike01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_i_secspike01; has item G_I_SECSPIKE02"
+   },
+   {
+    "item": "g_i_medeqpmnt03",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_I_medeqpmnt01; does not have item G_I_MEDEQPMNT02; does not have item g_I_medeqpmnt03"
+   },
+   {
+    "item": "g_i_medeqpmnt02",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_I_medeqpmnt01; does not have item G_I_MEDEQPMNT02; does not have item g_I_medeqpmnt03"
+   },
+   {
+    "item": "g_i_medeqpmnt01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_I_medeqpmnt01; does not have item G_I_MEDEQPMNT02; does not have item g_I_medeqpmnt03"
+   },
+   {
+    "item": "g_i_medeqpmnt03",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_I_medeqpmnt01; does not have item G_I_MEDEQPMNT02; has item g_I_medeqpmnt03"
+   },
+   {
+    "item": "g_i_medeqpmnt02",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_I_medeqpmnt01; does not have item G_I_MEDEQPMNT02; has item g_I_medeqpmnt03"
+   },
+   {
+    "item": "g_i_medeqpmnt01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_I_medeqpmnt01; does not have item G_I_MEDEQPMNT02; has item g_I_medeqpmnt03"
+   },
+   {
+    "item": "g_i_medeqpmnt03",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_I_medeqpmnt01; has item G_I_MEDEQPMNT02; does not have item g_I_medeqpmnt03"
+   },
+   {
+    "item": "g_i_medeqpmnt02",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_I_medeqpmnt01; has item G_I_MEDEQPMNT02; does not have item g_I_medeqpmnt03"
+   },
+   {
+    "item": "g_i_medeqpmnt01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_I_medeqpmnt01; has item G_I_MEDEQPMNT02; does not have item g_I_medeqpmnt03"
+   },
+   {
+    "item": "g_i_medeqpmnt03",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_I_medeqpmnt01; has item G_I_MEDEQPMNT02; has item g_I_medeqpmnt03"
+   },
+   {
+    "item": "g_i_medeqpmnt02",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_I_medeqpmnt01; has item G_I_MEDEQPMNT02; has item g_I_medeqpmnt03"
+   },
+   {
+    "item": "g_i_medeqpmnt01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_I_medeqpmnt01; has item G_I_MEDEQPMNT02; has item g_I_medeqpmnt03"
+   },
+   {
+    "item": "g_i_medeqpmnt03",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_I_medeqpmnt01; does not have item G_I_MEDEQPMNT02; does not have item g_I_medeqpmnt03"
+   },
+   {
+    "item": "g_i_medeqpmnt02",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_I_medeqpmnt01; does not have item G_I_MEDEQPMNT02; does not have item g_I_medeqpmnt03"
+   },
+   {
+    "item": "g_i_medeqpmnt01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_I_medeqpmnt01; does not have item G_I_MEDEQPMNT02; does not have item g_I_medeqpmnt03"
+   },
+   {
+    "item": "g_i_medeqpmnt03",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_I_medeqpmnt01; does not have item G_I_MEDEQPMNT02; has item g_I_medeqpmnt03"
+   },
+   {
+    "item": "g_i_medeqpmnt02",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_I_medeqpmnt01; does not have item G_I_MEDEQPMNT02; has item g_I_medeqpmnt03"
+   },
+   {
+    "item": "g_i_medeqpmnt01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_I_medeqpmnt01; does not have item G_I_MEDEQPMNT02; has item g_I_medeqpmnt03"
+   },
+   {
+    "item": "g_i_medeqpmnt03",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_I_medeqpmnt01; has item G_I_MEDEQPMNT02; does not have item g_I_medeqpmnt03"
+   },
+   {
+    "item": "g_i_medeqpmnt02",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_I_medeqpmnt01; has item G_I_MEDEQPMNT02; does not have item g_I_medeqpmnt03"
+   },
+   {
+    "item": "g_i_medeqpmnt01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_I_medeqpmnt01; has item G_I_MEDEQPMNT02; does not have item g_I_medeqpmnt03"
+   },
+   {
+    "item": "g_i_medeqpmnt03",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_I_medeqpmnt01; has item G_I_MEDEQPMNT02; has item g_I_medeqpmnt03"
+   },
+   {
+    "item": "g_i_medeqpmnt02",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_I_medeqpmnt01; has item G_I_MEDEQPMNT02; has item g_I_medeqpmnt03"
+   },
+   {
+    "item": "g_i_medeqpmnt01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_I_medeqpmnt01; has item G_I_MEDEQPMNT02; has item g_I_medeqpmnt03"
+   },
+   {
+    "item": "g_w_adhsvgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; does not have item g_w_adhsvgren001; does not have item G_W_CRYOBGREN..."
+   },
+   {
+    "item": "g_w_iongren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; does not have item g_w_adhsvgren001; does not have item G_W_CRYOBGREN..."
+   },
+   {
+    "item": "g_w_stungren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; does not have item g_w_adhsvgren001; does not have item G_W_CRYOBGREN..."
+   },
+   {
+    "item": "g_w_cryobgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; does not have item g_w_adhsvgren001; does not have item G_W_CRYOBGREN..."
+   },
+   {
+    "item": "g_w_adhsvgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; does not have item g_w_adhsvgren001; has item G_W_CRYOBGREN001; does ..."
+   },
+   {
+    "item": "g_w_iongren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; does not have item g_w_adhsvgren001; has item G_W_CRYOBGREN001; does ..."
+   },
+   {
+    "item": "g_w_stungren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; does not have item g_w_adhsvgren001; has item G_W_CRYOBGREN001; does ..."
+   },
+   {
+    "item": "g_w_cryobgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; does not have item g_w_adhsvgren001; has item G_W_CRYOBGREN001; does ..."
+   },
+   {
+    "item": "g_w_adhsvgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; does not have item g_w_adhsvgren001; has item G_W_CRYOBGREN001; has i..."
+   },
+   {
+    "item": "g_w_iongren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; does not have item g_w_adhsvgren001; has item G_W_CRYOBGREN001; has i..."
+   },
+   {
+    "item": "g_w_stungren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; does not have item g_w_adhsvgren001; has item G_W_CRYOBGREN001; has i..."
+   },
+   {
+    "item": "g_w_cryobgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; does not have item g_w_adhsvgren001; has item G_W_CRYOBGREN001; has i..."
+   },
+   {
+    "item": "g_w_adhsvgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; has item g_w_adhsvgren001; does not have item G_W_CRYOBGREN001; does ..."
+   },
+   {
+    "item": "g_w_iongren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; has item g_w_adhsvgren001; does not have item G_W_CRYOBGREN001; does ..."
+   },
+   {
+    "item": "g_w_stungren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; has item g_w_adhsvgren001; does not have item G_W_CRYOBGREN001; does ..."
+   },
+   {
+    "item": "g_w_cryobgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; has item g_w_adhsvgren001; does not have item G_W_CRYOBGREN001; does ..."
+   },
+   {
+    "item": "g_w_adhsvgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; has item g_w_adhsvgren001; does not have item G_W_CRYOBGREN001; has i..."
+   },
+   {
+    "item": "g_w_iongren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; has item g_w_adhsvgren001; does not have item G_W_CRYOBGREN001; has i..."
+   },
+   {
+    "item": "g_w_stungren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; has item g_w_adhsvgren001; does not have item G_W_CRYOBGREN001; has i..."
+   },
+   {
+    "item": "g_w_cryobgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; has item g_w_adhsvgren001; does not have item G_W_CRYOBGREN001; has i..."
+   },
+   {
+    "item": "g_w_adhsvgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; has item g_w_adhsvgren001; has item G_W_CRYOBGREN001; does not have i..."
+   },
+   {
+    "item": "g_w_iongren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; has item g_w_adhsvgren001; has item G_W_CRYOBGREN001; does not have i..."
+   },
+   {
+    "item": "g_w_stungren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; has item g_w_adhsvgren001; has item G_W_CRYOBGREN001; does not have i..."
+   },
+   {
+    "item": "g_w_cryobgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; has item g_w_adhsvgren001; has item G_W_CRYOBGREN001; does not have i..."
+   },
+   {
+    "item": "g_w_adhsvgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; has item g_w_adhsvgren001; has item G_W_CRYOBGREN001; has item g_w_io..."
+   },
+   {
+    "item": "g_w_iongren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; has item g_w_adhsvgren001; has item G_W_CRYOBGREN001; has item g_w_io..."
+   },
+   {
+    "item": "g_w_stungren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; has item g_w_adhsvgren001; has item G_W_CRYOBGREN001; has item g_w_io..."
+   },
+   {
+    "item": "g_w_cryobgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item G_w_StunGren01; has item g_w_adhsvgren001; has item G_W_CRYOBGREN001; has item g_w_io..."
+   },
+   {
+    "item": "g_w_adhsvgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; does not have item g_w_adhsvgren001; does not have item G_W_CRYOBGREN001; does ..."
+   },
+   {
+    "item": "g_w_iongren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; does not have item g_w_adhsvgren001; does not have item G_W_CRYOBGREN001; does ..."
+   },
+   {
+    "item": "g_w_stungren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; does not have item g_w_adhsvgren001; does not have item G_W_CRYOBGREN001; does ..."
+   },
+   {
+    "item": "g_w_cryobgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; does not have item g_w_adhsvgren001; does not have item G_W_CRYOBGREN001; does ..."
+   },
+   {
+    "item": "g_w_adhsvgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; does not have item g_w_adhsvgren001; does not have item G_W_CRYOBGREN001; has i..."
+   },
+   {
+    "item": "g_w_iongren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; does not have item g_w_adhsvgren001; does not have item G_W_CRYOBGREN001; has i..."
+   },
+   {
+    "item": "g_w_stungren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; does not have item g_w_adhsvgren001; does not have item G_W_CRYOBGREN001; has i..."
+   },
+   {
+    "item": "g_w_cryobgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; does not have item g_w_adhsvgren001; does not have item G_W_CRYOBGREN001; has i..."
+   },
+   {
+    "item": "g_w_adhsvgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; does not have item g_w_adhsvgren001; has item G_W_CRYOBGREN001; does not have i..."
+   },
+   {
+    "item": "g_w_iongren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; does not have item g_w_adhsvgren001; has item G_W_CRYOBGREN001; does not have i..."
+   },
+   {
+    "item": "g_w_stungren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; does not have item g_w_adhsvgren001; has item G_W_CRYOBGREN001; does not have i..."
+   },
+   {
+    "item": "g_w_cryobgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; does not have item g_w_adhsvgren001; has item G_W_CRYOBGREN001; does not have i..."
+   },
+   {
+    "item": "g_w_adhsvgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; does not have item g_w_adhsvgren001; has item G_W_CRYOBGREN001; has item g_w_io..."
+   },
+   {
+    "item": "g_w_iongren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; does not have item g_w_adhsvgren001; has item G_W_CRYOBGREN001; has item g_w_io..."
+   },
+   {
+    "item": "g_w_stungren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; does not have item g_w_adhsvgren001; has item G_W_CRYOBGREN001; has item g_w_io..."
+   },
+   {
+    "item": "g_w_cryobgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; does not have item g_w_adhsvgren001; has item G_W_CRYOBGREN001; has item g_w_io..."
+   },
+   {
+    "item": "g_w_adhsvgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; has item g_w_adhsvgren001; does not have item G_W_CRYOBGREN001; does not have i..."
+   },
+   {
+    "item": "g_w_iongren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; has item g_w_adhsvgren001; does not have item G_W_CRYOBGREN001; does not have i..."
+   },
+   {
+    "item": "g_w_stungren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; has item g_w_adhsvgren001; does not have item G_W_CRYOBGREN001; does not have i..."
+   },
+   {
+    "item": "g_w_cryobgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; has item g_w_adhsvgren001; does not have item G_W_CRYOBGREN001; does not have i..."
+   },
+   {
+    "item": "g_w_adhsvgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; has item g_w_adhsvgren001; does not have item G_W_CRYOBGREN001; has item g_w_io..."
+   },
+   {
+    "item": "g_w_iongren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; has item g_w_adhsvgren001; does not have item G_W_CRYOBGREN001; has item g_w_io..."
+   },
+   {
+    "item": "g_w_stungren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; has item g_w_adhsvgren001; does not have item G_W_CRYOBGREN001; has item g_w_io..."
+   },
+   {
+    "item": "g_w_cryobgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; has item g_w_adhsvgren001; does not have item G_W_CRYOBGREN001; has item g_w_io..."
+   },
+   {
+    "item": "g_w_adhsvgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; has item g_w_adhsvgren001; has item G_W_CRYOBGREN001; does not have item g_w_io..."
+   },
+   {
+    "item": "g_w_iongren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; has item g_w_adhsvgren001; has item G_W_CRYOBGREN001; does not have item g_w_io..."
+   },
+   {
+    "item": "g_w_stungren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; has item g_w_adhsvgren001; has item G_W_CRYOBGREN001; does not have item g_w_io..."
+   },
+   {
+    "item": "g_w_cryobgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; has item g_w_adhsvgren001; has item G_W_CRYOBGREN001; does not have item g_w_io..."
+   },
+   {
+    "item": "g_w_adhsvgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; has item g_w_adhsvgren001; has item G_W_CRYOBGREN001; has item g_w_iongren01"
+   },
+   {
+    "item": "g_w_iongren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; has item g_w_adhsvgren001; has item G_W_CRYOBGREN001; has item g_w_iongren01"
+   },
+   {
+    "item": "g_w_stungren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; has item g_w_adhsvgren001; has item G_W_CRYOBGREN001; has item g_w_iongren01"
+   },
+   {
+    "item": "g_w_cryobgren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item G_w_StunGren01; has item g_w_adhsvgren001; has item G_W_CRYOBGREN001; has item g_w_iongren01"
+   },
+   {
+    "item": "g_w_firegren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_w_fraggren01; does not have item G_W_FIREGREN001"
+   },
+   {
+    "item": "g_w_fraggren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_w_fraggren01; does not have item G_W_FIREGREN001"
+   },
+   {
+    "item": "g_w_firegren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_w_fraggren01; has item G_W_FIREGREN001"
+   },
+   {
+    "item": "g_w_fraggren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if does not have item g_w_fraggren01; has item G_W_FIREGREN001"
+   },
+   {
+    "item": "g_w_firegren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_w_fraggren01; does not have item G_W_FIREGREN001"
+   },
+   {
+    "item": "g_w_fraggren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_w_fraggren01; does not have item G_W_FIREGREN001"
+   },
+   {
+    "item": "g_w_firegren001",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_w_fraggren01; has item G_W_FIREGREN001"
+   },
+   {
+    "item": "g_w_fraggren01",
+    "count": 1,
+    "script": "a_item_gen|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if has item g_w_fraggren01; has item G_W_FIREGREN001"
+   },
+   {
+    "item": "",
+    "count": 1,
+    "script": "a_give_quest_ls|0,0,0,0,0,",
+    "module": "003ebo",
+    "branch": "if journal LightsaberQuest < 40"
+   }
+  ],
+  "taken_optional": [
+   {
+    "item": "lspart01",
+    "script": "a_take_item|0,0,0,0,0,lspart01",
+    "module": "003ebo",
+    "from": [
+     "baodur E91 script"
+    ],
+    "branch": "if has item lspart01",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "lspart02",
+    "script": "a_take_item|0,0,0,0,0,lspart02",
+    "module": "003ebo",
+    "from": [
+     "baodur E91 script"
+    ],
+    "branch": "if has item lspart02",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "lspart03",
+    "script": "a_take_item|0,0,0,0,0,lspart03",
+    "module": "003ebo",
+    "from": [
+     "baodur R49 script"
+    ],
+    "branch": "if has item lspart03",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "u_l_colo_09",
+    "script": "a_take_item|0,0,0,0,0,u_l_colo_09",
+    "module": "003ebo",
+    "from": [
+     "baodur R51 script",
+     "baodur R60 script"
+    ],
+    "branch": "if has item u_l_colo_09",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "u_l_colo_07",
+    "script": "a_take_item|0,0,0,0,0,u_l_colo_07",
+    "module": "003ebo",
+    "from": [
+     "baodur R52 script",
+     "baodur R61 script"
+    ],
+    "branch": "if has item u_l_colo_07",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "u_l_colo_08",
+    "script": "a_take_item|0,0,0,0,0,u_l_colo_08",
+    "module": "003ebo",
+    "from": [
+     "baodur R53 script",
+     "baodur R62 script"
+    ],
+    "branch": "if has item u_l_colo_08",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "u_l_colo_04",
+    "script": "a_take_item|0,0,0,0,0,u_l_colo_04",
+    "module": "003ebo",
+    "from": [
+     "baodur R54 script",
+     "baodur R63 script"
+    ],
+    "branch": "if has item u_l_colo_04",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "u_l_colo_05",
+    "script": "a_take_item|0,0,0,0,0,u_l_colo_05",
+    "module": "003ebo",
+    "from": [
+     "baodur R55 script",
+     "baodur R64 script"
+    ],
+    "branch": "if has item u_l_colo_05",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "u_l_colo_02",
+    "script": "a_take_item|0,0,0,0,0,u_l_colo_02",
+    "module": "003ebo",
+    "from": [
+     "baodur R56 script",
+     "baodur R65 script"
+    ],
+    "branch": "if has item u_l_colo_02",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "u_l_colo_03",
+    "script": "a_take_item|0,0,0,0,0,u_l_colo_03",
+    "module": "003ebo",
+    "from": [
+     "baodur R57 script",
+     "baodur R66 script"
+    ],
+    "branch": "if has item u_l_colo_03",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "u_l_colo_01",
+    "script": "a_take_item|0,0,0,0,0,u_l_colo_01",
+    "module": "003ebo",
+    "from": [
+     "baodur R58 script",
+     "baodur R67 script"
+    ],
+    "branch": "if has item u_l_colo_01",
+    "resolves_to": "chitin:scripts.bif"
+   }
+  ],
+  "container_loot_optional": [],
+  "random_loot": "creature drops rolled by the generic treasure scripts at death are random and not listed"
+ },
+ "party": {
+  "recruit": [
+   {
+    "slot": 9,
+    "constant": "NPC_VISAS",
+    "template": "p_visas",
+    "script": "a_visasarrives|9,0,0,0,0,",
+    "module": "003ebo",
+    "certain": true,
+    "note": "joins after the attack on board (dialog visasmarr E190); the attack comes after the alignment movie (k_align_movie), which every run sees once the alignment leaves the middle"
+   },
+   {
+    "slot": 5,
+    "constant": "NPC_HK_47",
+    "template": "p_hk47",
+    "script": "a_addhk47_2|0,0,0,0,0,",
+    "module": "003ebo",
+    "certain": false,
+    "note": "optional side quest: after the four parts (drdparts E13) a_createhk47 creates the droid from template p_hk47 and dialog hk47 R448 adds that object (AddAvailableNPCByObject 5, not ByTemplate)"
+   }
+  ],
+  "remove": [],
+  "recruited_at_end": [
+   "NPC_VISAS",
+   "NPC_HK_47"
+  ],
+  "recruit_note": "Apply as the game's own AddAvailableNPCByTemplate(slot, template): the slot's AVAILNPC<slot> creature in the save is built from the template (templates.bif, Override or the named module)",
+  "calls": [
+   {
+    "call": "AddAvailableNPCByObject(5, GetObjectByTag(\"HK47\", 0))",
+    "script": "a_addhk47_2|0,0,0,0,0,",
+    "module": "003ebo",
+    "from": [
+     "hk47 R448 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "AddAvailableNPCByTemplate(9, \"p_visas\")",
+    "script": "a_visasarrives|9,0,0,0,0,",
+    "module": "003ebo",
+    "from": [
+     "visasmarr E190 script"
+    ],
+    "critical": true
+   }
+  ],
+  "slots": [
+   {
+    "slot": 9,
+    "constant": "NPC_VISAS",
+    "available_at_end": true
+   },
+   {
+    "slot": 5,
+    "constant": "NPC_HK_47",
+    "available_at_end": true
+   }
+  ]
+ },
+ "next_chapter": {
+  "module": "003ebo",
+  "waypoint": "",
+  "chain": [
+   {
+    "module": "003ebo",
+    "waypoint": "",
+    "movies": [],
+    "by": null,
+    "in": "003ebo"
+   }
+  ],
+  "note": "the chapter happens on board; the party stays on the ship (module.ifo entry point)"
+ },
+ "critical_path": [
+  {
+   "module": "003ebo",
+   "source": "dialog visasmarr E190",
+   "what": "the attack on board ends: a_visasarrives 9 recruits slot 9"
+  },
+  {
+   "module": "003ebo",
+   "source": "a_visasarrives|9,0,0,0,0,",
+   "what": "slot 9 joins (template p_visas)"
+  },
+  {
+   "module": "003ebo",
+   "source": "dialog drdparts E13",
+   "what": "the four parts installed: journal RebuildHK47 80"
+  },
+  {
+   "module": "003ebo",
+   "source": "a_createhk47|0,0,0,0,0,",
+   "what": "drdparts R10: 000_HK_Alive 1, the droid created from p_hk47"
+  },
+  {
+   "module": "003ebo",
+   "source": "dialog hk47 R448",
+   "what": "slot 5 joins: a_addhk47_2 (AddAvailableNPCByObject 5). Named by its line: hk47 is the conversation of the creature a_createhk47 spawns, which the generator's reachability does not follow"
+  }
+ ],
+ "critical_path_note": "Curated in tools/questdb/chapters.py; the order is inferred, not played. Writers marked critical = true belong to these scripts.",
+ "uncertain": [
+  "script k_003ebo_enter in 003ebo was too large to follow completely; some of its effects may be missing",
+  "script a_next_scene|0,0,0,0,0, in 003ebo was too large to follow completely; some of its effects may be missing",
+  "script a_give_quest_ls|0,0,0,0,0, in 003ebo was too large to follow completely; some of its effects may be missing",
+  "script k_hen_hk47dlg in 003ebo was too large to follow completely; some of its effects may be missing",
+  "script k_oei_spawn in 003ebo was too large to follow completely; some of its effects may be missing",
+  "script k_oei_userdef in 003ebo was too large to follow completely; some of its effects may be missing",
+  "script k_def_spawn01 in 003ebo was too large to follow completely; some of its effects may be missing",
+  "script k_hen_visasdlg in 003ebo was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in 003ebo was too large to follow completely; some of its effects may be missing",
+  "global  is not in globalcat.2da, so a save does not keep it",
+  "global 000_disc_council is not in globalcat.2da, so a save does not keep it",
+  "global 000_t3_astro_fix is not in globalcat.2da, so a save does not keep it",
+  "global kreia_nature is not in globalcat.2da, so a save does not keep it",
+  "global VISAS_ARRIVES_CONV = false: set TRUE by a_next_scene's party spawn after the attack and FALSE by visasmarr E171 (a_glob_bool_set 0); whether every run reaches E171 was not worked out",
+  "party: slot 5 (p_hk47) joins only on one branch: optional side quest: after the four parts (drdparts E13) a_createhk47 creates the droid from template p_hk47 and dialog hk47 R448 adds that object (AddAvailableNPCByObject 5, not ByTemplate)",
+  "003ebo: creature drdparts is destroyed by a_deletehkparts|0,0,0,0,0,, which is not on the curated critical path; it may belong to a side quest"
+ ],
+ "cleared": [
+  {
+   "module": "003ebo",
+   "area": "003ebo",
+   "returnable": true,
+   "remove": [
+    {
+     "tag": "drdparts",
+     "template": "p_damhk47",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "a_deletehkparts|0,0,0,0,0,"
+     ],
+     "certain": false
+    }
+   ],
+   "spawned_and_killed": [],
+   "doors": [
+    {
+     "tag": "cargodoor",
+     "template": "sw_door_czerk001",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open it",
+     "scripts": [
+      "k_003ebo_enter",
+      "k_ebo_user",
+      "k_inc_handfight"
+     ],
+     "certain": false
+    }
+   ],
+   "containers_looted": [],
+   "locals": [
+    {
+     "object": "area",
+     "index": 29,
+     "type": "boolean",
+     "value": false,
+     "certain": true,
+     "read_by": [
+      "k_003ebo_enter"
+     ],
+     "area": "003ebo",
+     "set_by": {
+      "0": [
+       "k_003ebo_enter"
+      ]
+     }
+    },
+    {
+     "object": "area",
+     "index": 99,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_003ebo_enter"
+     ],
+     "area": "003ebo",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 100,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_003ebo_enter"
+     ],
+     "area": "003ebo",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 102,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_003ebo_enter"
+     ],
+     "area": "003ebo",
+     "set_by": {
+      "1": [
+       "k_003ebo_enter"
+      ]
+     }
+    },
+    {
+     "object": "area",
+     "index": 103,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_003ebo_enter"
+     ],
+     "area": "003ebo",
+     "set_by": {
+      "1": [
+       "k_003ebo_enter"
+      ]
+     }
+    },
+    {
+     "object": "area",
+     "index": 104,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_003ebo_enter"
+     ],
+     "area": "003ebo",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 105,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_003ebo_enter"
+     ],
+     "area": "003ebo",
+     "set_by": {
+      "1": [
+       "k_003ebo_enter"
+      ]
+     }
+    },
+    {
+     "object": "area",
+     "index": 106,
+     "type": "boolean",
+     "value": false,
+     "certain": true,
+     "read_by": [
+      "k_003ebo_enter"
+     ],
+     "area": "003ebo",
+     "set_by": {
+      "0": [
+       "k_003ebo_enter"
+      ]
+     }
+    },
+    {
+     "object": "area",
+     "index": 107,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_003ebo_enter"
+     ],
+     "area": "003ebo",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 108,
+     "type": "boolean",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_003ebo_enter"
+     ],
+     "area": "003ebo",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 109,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_003ebo_enter"
+     ],
+     "area": "003ebo",
+     "set_by": {
+      "1": [
+       "k_003ebo_enter"
+      ]
+     }
+    },
+    {
+     "object": "area",
+     "index": 0,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_003ebo_enter"
+     ],
+     "area": "003ebo",
+     "set_by": {
+      "(GetLocalNumber(OBJECT_SELF, 0) + -1)": [
+       "k_003ebo_enter"
+      ],
+      "(GetLocalNumber(OBJECT_SELF, 0) + 1)": [
+       "k_003ebo_enter"
+      ],
+      "(Random(GetLocalNumber(OBJECT_SELF, 1)) + 1)": [
+       "k_003ebo_enter"
+      ],
+      "GetLocalNumber(OBJECT_SELF, 0)": [
+       "k_003ebo_enter"
+      ]
+     },
+     "note": "also set to values that are not constant: GetLocalNumber(OBJECT_SELF, 0), (GetLocalNumber(OBJECT_SELF, 0) + 1), (GetLocalNumber(OBJECT_SELF, 0) + -1)"
+    },
+    {
+     "object": "area",
+     "index": 1,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_003ebo_enter"
+     ],
+     "area": "003ebo",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 2,
+     "type": "number",
+     "value": null,
+     "certain": false,
+     "read_by": [
+      "k_003ebo_enter"
+     ],
+     "area": "003ebo",
+     "note": "read here but no script in the module sets it; leave unchanged"
+    },
+    {
+     "object": "area",
+     "index": 29,
+     "type": "number",
+     "value": 15,
+     "certain": true,
+     "read_by": [
+      "k_003ebo_enter"
+     ],
+     "area": "003ebo",
+     "set_by": {
+      "15": [
+       "k_003ebo_enter"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 29,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_003start"
+     ],
+     "tag": "003start",
+     "set_by": {
+      "1": [
+       "k_003start"
+      ]
+     }
+    }
+   ],
+   "uncertain": [
+    "003ebo: creature drdparts is destroyed by a_deletehkparts|0,0,0,0,0,, which is not on the curated critical path; it may belong to a side quest"
+   ]
+  }
+ ],
+ "cleared_note": "How each module looks after a full run, for an editor that stores the area as played: remove (tag, template), doors (tag: open, unlocked), containers_looted (container tags the rewards file empties), locals (the area's, the module's and placed objects' local variables their own scripts read to tell a first visit from a return, with the value a played area holds; index = the engine's local slot). returnable = false: the player never comes back to the module. See tools/questdb/cleared.py.",
+ "returnable_note": "003ebo is the ship between planets (004ebo and 007ebo, the Nar Shaddaa scenes on board, moved to the Nar Shaddaa chapter in build.py after curation)"
+}

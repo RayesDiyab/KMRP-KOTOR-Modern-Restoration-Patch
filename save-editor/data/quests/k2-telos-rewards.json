@@ -1,0 +1,588 @@
+{
+  "game": "K2",
+  "planet": "Telos",
+  "generated_by": "tools/questdb/rewards.py",
+  "checked": false,
+  "xp_at_end": 43910,
+  "xp_chapter": 17250,
+  "xp_start": 23810,
+  "xp_note": "full-run scenario data/xp/k2-telos-path.json from the Peragus rewards' xp_at_end, 23810 XP: 201tel 25410, 202tel 26510, 203tel 27560, 204tel 30610, 205tel 30610, 207tel 31810, 211tel 31810, 208tel 32510, 209tel 33210, 231tel 37460, 233tel 38210, 232tel 43710, 261tel 43710, 262tel 43910",
+  "xp_chapter_note": "the same scenario from a new character's 0 XP: 17250",
+  "enemies_killed": 49,
+  "drops": [
+    {
+      "resref": "w_melee_14",
+      "count": 1,
+      "from": [
+        "g_mandalor007"
+      ]
+    }
+  ],
+  "templates_missing": [],
+  "containers": [
+    {
+      "module": "201tel",
+      "area": "201tel",
+      "container": "ith_locker",
+      "template": "ith_locker",
+      "position": [
+        3.74,
+        7.08
+      ],
+      "items": [],
+      "created_by_script": [
+        {
+          "resref": "ith_shield",
+          "script": "k_201tel_enter",
+          "when": []
+        }
+      ]
+    },
+    {
+      "module": "202tel",
+      "area": "202tel",
+      "container": "LockerTSF1",
+      "template": "g_lockertsf001",
+      "position": [
+        -21.25,
+        -22.97
+      ],
+      "items": [
+        {
+          "resref": "w_brifle_04",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "204tel",
+      "area": "204tel",
+      "container": "med_supplies",
+      "template": "g_tresmilhig006",
+      "position": [
+        -78.48,
+        26.25
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        }
+      ],
+      "created_by_script": [
+        {
+          "resref": "medical_supplies",
+          "script": "tr_smuggling",
+          "when": []
+        }
+      ]
+    },
+    {
+      "module": "231tel",
+      "area": "231tel",
+      "container": "CivilFootLker",
+      "template": "g_trescivil003",
+      "position": [
+        329.29,
+        193.9
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt02",
+          "count": 3
+        },
+        {
+          "resref": "g_i_medeqpmnt03",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "232tel",
+      "area": "232tel",
+      "container": "CivilFootLkerS",
+      "template": "g_trescivil003",
+      "position": [
+        0.39,
+        218.54
+      ],
+      "items": [
+        {
+          "resref": "ptel_datapad",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "232tel",
+      "area": "232tel",
+      "container": "MetalBoxP",
+      "template": "metalbox001",
+      "position": [
+        78.47,
+        61.77
+      ],
+      "items": [
+        {
+          "resref": "g_i_parts01",
+          "count": 6
+        }
+      ]
+    },
+    {
+      "module": "232tel",
+      "area": "232tel",
+      "container": "MetalBoxC",
+      "template": "metalbox002",
+      "position": [
+        78.32,
+        59.85
+      ],
+      "items": [
+        {
+          "resref": "compont_002",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "232tel",
+      "area": "232tel",
+      "container": "MetalBoxG",
+      "template": "metalbox003",
+      "position": [
+        60.12,
+        59.41
+      ],
+      "items": [
+        {
+          "resref": "g_w_fraggren01",
+          "count": 5
+        }
+      ]
+    },
+    {
+      "module": "232tel",
+      "area": "232tel",
+      "container": "MetalBoxP",
+      "template": "metalbox001",
+      "position": [
+        5.49,
+        218.02
+      ],
+      "items": [
+        {
+          "resref": "g_i_parts01",
+          "count": 6
+        }
+      ]
+    },
+    {
+      "module": "232tel",
+      "area": "232tel",
+      "container": "CenterCylinder",
+      "template": "g_tresmillow009",
+      "position": [
+        88.33,
+        195.62
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 2
+        },
+        {
+          "resref": "g_i_adrnaline003",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "232tel",
+      "area": "232tel",
+      "container": "Backpack",
+      "template": "backpack001",
+      "position": [
+        -17.83,
+        65.02
+      ],
+      "items": [
+        {
+          "resref": "g_i_asthitem002",
+          "count": 1
+        }
+      ]
+    }
+  ],
+  "credits": {
+    "light": {
+      "credits": 8545,
+      "light_points": 58,
+      "dark_points": 6,
+      "influence": {
+        "0": 16,
+        "1": 24,
+        "4": 48,
+        "9": 32,
+        "10": 8
+      }
+    },
+    "dark": {
+      "credits": 9545,
+      "light_points": 5,
+      "dark_points": 84,
+      "influence": {
+        "0": -16,
+        "1": -8,
+        "4": 48,
+        "9": 16,
+        "10": 8
+      }
+    },
+    "sources": [
+      {
+        "dialog": "czerdock",
+        "module": "201tel",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 1
+        }
+      },
+      {
+        "dialog": "tempman",
+        "module": "201tel",
+        "light": {
+          "credits": 25,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 25,
+          "light_points": 0,
+          "dark_points": 0
+        }
+      },
+      {
+        "dialog": "000react",
+        "module": "202tel",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "9": 24,
+            "10": 8
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "9": 24,
+            "10": 8
+          }
+        }
+      },
+      {
+        "dialog": "202grenn",
+        "module": "202tel",
+        "light": {
+          "credits": 1500,
+          "light_points": 3,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 1500,
+          "light_points": 3,
+          "dark_points": 0
+        }
+      },
+      {
+        "dialog": "sullust",
+        "module": "202tel",
+        "light": {
+          "credits": 0,
+          "light_points": 6,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 7
+        }
+      },
+      {
+        "dialog": "203chano",
+        "module": "203tel",
+        "light": {
+          "credits": 2520,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 2520,
+          "light_points": 0,
+          "dark_points": 6
+        }
+      },
+      {
+        "dialog": "203thgd1",
+        "module": "203tel",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "bountyhunter",
+        "module": "203tel",
+        "light": {
+          "credits": 500,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 500,
+          "light_points": 0,
+          "dark_points": 0
+        }
+      },
+      {
+        "dialog": "civilian",
+        "module": "203tel",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "dotonhet",
+        "module": "203tel",
+        "light": {
+          "credits": 0,
+          "light_points": 1,
+          "dark_points": 3
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 6
+        }
+      },
+      {
+        "dialog": "falt",
+        "module": "203tel",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "ramana",
+        "module": "203tel",
+        "light": {
+          "credits": 0,
+          "light_points": 3,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "204habat",
+        "module": "204tel",
+        "light": {
+          "credits": 3500,
+          "light_points": 8,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 4500,
+          "light_points": 0,
+          "dark_points": 5
+        }
+      },
+      {
+        "dialog": "204moza",
+        "module": "204tel",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 1
+        }
+      },
+      {
+        "dialog": "plant",
+        "module": "204tel",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 1
+        }
+      },
+      {
+        "dialog": "207swpmc",
+        "module": "207tel",
+        "light": {
+          "credits": 500,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 500,
+          "light_points": 0,
+          "dark_points": 0
+        }
+      },
+      {
+        "dialog": "handmaiden",
+        "module": "261tel",
+        "light": {
+          "credits": 0,
+          "light_points": 24,
+          "dark_points": 0,
+          "influence": {
+            "4": 40,
+            "9": 8
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 2,
+          "dark_points": 26,
+          "influence": {
+            "4": 40,
+            "9": -8
+          }
+        }
+      },
+      {
+        "dialog": "262atton",
+        "module": "262tel",
+        "light": {
+          "credits": 0,
+          "light_points": 4,
+          "dark_points": 0,
+          "influence": {
+            "0": 16
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 6,
+          "influence": {
+            "0": -16
+          }
+        }
+      },
+      {
+        "dialog": "262bdcg",
+        "module": "262tel",
+        "light": {
+          "credits": 0,
+          "light_points": 3,
+          "dark_points": 0,
+          "influence": {
+            "1": 24
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 1,
+          "influence": {
+            "1": -8
+          }
+        }
+      },
+      {
+        "dialog": "262kreia",
+        "module": "262tel",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 6
+        }
+      },
+      {
+        "dialog": "atris",
+        "module": "262tel",
+        "light": {
+          "credits": 0,
+          "light_points": 6,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 6
+        }
+      },
+      {
+        "dialog": "holorec",
+        "module": "950cor",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "4": 8
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "4": 8
+          }
+        }
+      }
+    ],
+    "note": "tools/questdb/credits.py: the credits and alignment points a full run of the chapter picks up from its conversations and scripts, for a light-side and a dark-side player (gambling left out). Worked out from the files, not played"
+  }
+}

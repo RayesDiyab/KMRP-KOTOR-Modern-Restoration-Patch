@@ -267,3 +267,224 @@ fn spawned_creatures_survive_a_write() {
     }
     eprintln!("spawned into {} saves", checked);
 }
+
+/// Recruiting from a template (Skip Ahead's companions): Carth from p_carth into copies of
+/// KotOR 1 saves that do not have him; written and read back, he is there, recruited and
+/// selectable, with his template's name tag.
+#[test]
+fn recruit_from_template_survives_a_write() {
+    use kse_core::formats::erf::RES_TYPE_UTC;
+    let installs = find_installs(&[]);
+    let Some(install) = installs.iter().find(|i| i.game == Game::K1) else { return };
+    let data = GameData::open(Game::K1, &install.path);
+    let Some(carth) = data.gff("p_carth", "utc", RES_TYPE_UTC) else { return };
+    let mut checked = 0;
+    for folder in find_saves(&installs, Game::K1, &[]) {
+        let name = folder.path.file_name().unwrap().to_string_lossy().to_string();
+        let work = scratch(&format!("recruit-{}", name));
+        copy_dir(&folder.path, &work);
+        let backups = scratch(&format!("recruit-{}-backups", name));
+        let mut save = Save::open(&work).unwrap();
+        if save.npcs().contains(&2) && save.recruited(2) {
+            continue;
+        }
+        save.recruit_from_template(2, &carth.root).unwrap();
+        save.write(&backups).unwrap();
+        let again = Save::open(&work).unwrap();
+        assert!(again.recruited(2), "{}: Carth recruited", name);
+        assert!(again.selectable(2), "{}: Carth selectable", name);
+        assert_eq!(again.creature(Who::Npc(2)).and_then(|c| c.string("Tag")), carth.root.string("Tag"), "{}", name);
+        checked += 1;
+    }
+    eprintln!("recruited into {} saves", checked);
+}
+
+/// Played-through stored copies (stored::played_through) of every KotOR 1 module, built
+/// against a real save's current module: each is a readable archive of module.ifo, the .are
+/// and the .git; every object a full struct with the struct id its list loader checks and an
+/// ObjectId used once, below Mod_NextObjId0; every door and placeable of the game's .git
+/// kept (nothing is removed without a "remove" list), creatures too.
+#[test]
+fn played_through_copies_of_every_module() {
+    use kse_core::formats::erf::{Erf, RES_TYPE_GIT, RES_TYPE_IFO};
+    use kse_core::formats::gff::Gff;
+    let installs = find_installs(&[]);
+    let Some(install) = installs.iter().find(|i| i.game == Game::K1) else { return };
+    let data = GameData::open(Game::K1, &install.path);
+    let Some(folder) = find_saves(&installs, Game::K1, &[]).into_iter().next() else { return };
+    let save = Save::open(&folder.path).unwrap();
+    let (ifo, base) = save.current_module_parts().unwrap();
+    let mut built = 0;
+    for module in kse_core::map::game_modules(&install.path) {
+        let Some(game) = kse_core::map::game_git(&data, &module) else { continue };
+        let Some(bytes) = kse_core::stored::played_through(&data, &module, &Default::default(), &ifo, &base) else { continue };
+        let erf = Erf::read(&bytes).unwrap_or_else(|e| panic!("{}: {}", module, e));
+        let git = Gff::read(&erf.resources.iter().find(|r| r.kind == RES_TYPE_GIT).unwrap().data).unwrap();
+        let mifo = Gff::read(&erf.resources.iter().find(|r| r.kind == RES_TYPE_IFO).unwrap().data).unwrap();
+        assert_eq!(mifo.root.int("Mod_IsSaveGame"), Some(1), "{}", module);
+        assert!(git.root.get("UseTemplates").is_none(), "{}", module);
+        let next = mifo.root.int("Mod_NextObjId0").unwrap();
+        let mut ids = Vec::new();
+        for (list, sid) in [("Creature List", 4), ("Door List", 8), ("Placeable List", 9), ("TriggerList", 1), ("SoundList", 6), ("StoreList", 11), ("Encounter List", 7), ("WaypointList", 5)] {
+            let ours = git.root.list(list).cloned().unwrap_or_default();
+            for o in &ours {
+                assert_eq!(o.id, sid, "{} {}: struct id", module, list);
+                if list != "WaypointList" {
+                    assert!(o.get("TemplateResRef").is_none(), "{} {}: template field left", module, list);
+                }
+                let id = o.int("ObjectId").unwrap_or_else(|| panic!("{} {}: no ObjectId", module, list));
+                assert!(id < next, "{} {}: id {} not below {}", module, list, id, next);
+                ids.push(id);
+            }
+            let theirs = game.root.list(list).map(|l| l.len()).unwrap_or(0);
+            assert!(ours.len() <= theirs, "{} {}: more objects than the game's", module, list);
+            if list == "Door List" || list == "Placeable List" || list == "WaypointList" {
+                assert_eq!(ours.len(), theirs, "{} {}: an object lost", module, list);
+            }
+        }
+        let n = ids.len();
+        ids.sort();
+        ids.dedup();
+        assert_eq!(ids.len(), n, "{}: an object id used twice", module);
+        built += 1;
+    }
+    eprintln!("built {} played-through modules", built);
+    assert!(built > 50);
+}
+
+/// Skip Ahead through every main chapter of KotOR 1 on each side, from a copy of a save on
+/// the Endar Spire: written and read back, the dark side ends with the dark story (the
+/// final choice 1, Bastila back in the party, Juhani never recruited, Carth gone), the light
+/// side with the light one; the light run ends with more light side and the dark run with
+/// more dark side than the save had; both runs end with more credits.
+#[test]
+fn skip_whole_game_on_each_side() {
+    let installs = find_installs(&[]);
+    let Some(install) = installs.iter().find(|i| i.game == Game::K1) else { return };
+    let data = GameData::open(Game::K1, &install.path);
+    let Some(folder) = find_saves(&installs, Game::K1, &[]).into_iter().find(|f| {
+        Save::open(&f.path).map_or(false, |s| s.module_name().to_ascii_lowercase().starts_with("end_m01"))
+    }) else {
+        return;
+    };
+    let order = |m: &serde_json::Value| m.get("order").and_then(|v| v.as_i64()).unwrap_or(99);
+    let mut path: Vec<serde_json::Value> = kse_core::questdb::milestones(Game::K1).into_iter().map(|(_, m)| m).filter(|m| order(m) <= 10).collect();
+    path.sort_by_key(|m| order(m));
+    assert_eq!(path.len(), 10);
+    assert!(kse_core::questdb::side_matters(Game::K1, &path));
+    for dark in [false, true] {
+        let work = scratch(&format!("skip-side-{}", dark));
+        copy_dir(&folder.path, &work);
+        let backups = scratch(&format!("skip-side-{}-backups", dark));
+        let mut save = Save::open(&work).unwrap();
+        let (gold, align) = (save.party_int("PT_GOLD").unwrap_or(0), creature::alignment(save.player().unwrap()));
+        kse_core::questdb::skip_through(&mut save, &data, &path, Some(1), dark).unwrap();
+        save.write(&backups).unwrap();
+        let again = Save::open(&work).unwrap();
+        let globals = globals::list(&again.globals.as_ref().unwrap().root);
+        let number = |n: &str| globals.iter().find(|g| g.name.eq_ignore_ascii_case(n)).map(|g| g.value.clone());
+        assert_eq!(number("G_FinalChoice"), Some(GlobalValue::Number(if dark { 1 } else { 2 })), "dark {}", dark);
+        assert_eq!(again.recruited(5), !dark, "Juhani, dark {}", dark);
+        assert_eq!(again.recruited(2), !dark, "Carth, dark {}", dark);
+        if dark {
+            assert!(again.recruited(0), "Bastila rejoins on the dark side");
+        }
+        let now = creature::alignment(again.player().unwrap());
+        assert!(if dark { now < align } else { now > align }, "alignment {} from {}, dark {}", now, align, dark);
+        assert!(again.party_int("PT_GOLD").unwrap_or(0) > gold, "credits, dark {}", dark);
+    }
+}
+
+/// Skip Ahead through every main chapter of KotOR 2 on each side, from a copy of a save on
+/// Peragus: written and read back, the masters' count reaches 4, the XP reaches the full
+/// run's, slot 6 is gone after the masters' meeting and slot 1 after Malachor; the light
+/// side recruits slot 7, the dark side slot 10 instead; the player's gender picks slot 4 or
+/// slot 11. Not seen in the game.
+#[test]
+fn skip_whole_k2_game_on_each_side() {
+    let installs = find_installs(&[]);
+    let Some(install) = installs.iter().find(|i| i.game == Game::K2) else { return };
+    let data = GameData::open(Game::K2, &install.path);
+    let Some(folder) = find_saves(&installs, Game::K2, &[]).into_iter().find(|f| {
+        Save::open(&f.path).map_or(false, |s| s.module_name().to_ascii_lowercase().starts_with("101per"))
+    }) else {
+        return;
+    };
+    let order = |m: &serde_json::Value| m.get("order").and_then(|v| v.as_i64()).unwrap_or(99);
+    let side = |m: &serde_json::Value| m.get("side_chapter").and_then(|v| v.as_bool()).unwrap_or(false);
+    let mut path: Vec<serde_json::Value> = kse_core::questdb::milestones(Game::K2).into_iter().map(|(_, m)| m).filter(|m| !side(m)).collect();
+    path.sort_by_key(|m| order(m));
+    assert_eq!(path.len(), 10);
+    assert!(kse_core::questdb::side_matters(Game::K2, &path));
+    let xp_end = kse_core::questdb::rewards_of(Game::K2, "Malachor V").and_then(|r| r.get("xp_at_end").and_then(|v| v.as_i64())).unwrap();
+    for dark in [false, true] {
+        let work = scratch(&format!("skip-k2-side-{}", dark));
+        copy_dir(&folder.path, &work);
+        let backups = scratch(&format!("skip-k2-side-{}-backups", dark));
+        let mut save = Save::open(&work).unwrap();
+        let gold = save.party_int("PT_GOLD").unwrap_or(0);
+        let female = save.player().and_then(|p| p.int("Gender")) == Some(1);
+        // the prestige class that matches the base class (Guardian, Sentinel, Consular)
+        let base = creature::classes(save.player().unwrap())[0].0;
+        let pick = match base { 3 => 0, 5 => 1, _ => 2 };
+        let prestige = if dark { kse_core::questdb::PRESTIGE_DARK[pick] } else { kse_core::questdb::PRESTIGE_LIGHT[pick] };
+        let notes = kse_core::questdb::skip_through_with(&mut save, &data, &path, None, dark, Some(prestige), true).unwrap();
+        save.write(&backups).unwrap();
+        let again = Save::open(&work).unwrap();
+        let globals = globals::list(&again.globals.as_ref().unwrap().root);
+        let number = |n: &str| globals.iter().find(|g| g.name.eq_ignore_ascii_case(n)).map(|g| g.value.clone());
+        assert_eq!(number("000_Jedi_Found"), Some(GlobalValue::Number(4)), "masters found, dark {}", dark);
+        assert!(creature::experience(again.player().unwrap()) >= xp_end, "XP, dark {}", dark);
+        assert!(!again.recruited(6), "slot 6 gone after the masters' meeting, dark {}", dark);
+        assert!(!again.recruited(1), "slot 1 lost at Malachor, dark {}", dark);
+        assert_eq!(again.recruited(7), !dark, "slot 7, dark {}", dark);
+        assert_eq!(again.recruited(10), dark, "slot 10, dark {}", dark);
+        assert_eq!(again.recruited(4), !female, "slot 4 by gender, dark {}", dark);
+        assert_eq!(again.recruited(11), female, "slot 11 by gender, dark {}", dark);
+        assert!(again.party_int("PT_GOLD").unwrap_or(0) > gold, "credits, dark {}", dark);
+        // the three masters' teachings, the story's powers, the prestige class
+        let p = again.player().unwrap();
+        assert_eq!(number("G_PC_FORM"), Some(GlobalValue::Number(3)), "forms taught, dark {}", dark);
+        let forms = creature::powers(p).into_iter().filter(|s| (258..=268).contains(s)).count();
+        assert!(forms >= 3, "{} forms known, dark {}", forms, dark);
+        assert!(creature::feats(p).contains(&205), "Force Chain, dark {}", dark);
+        assert!(creature::powers(p).contains(&if dark { 177 } else { 180 }), "the enclave's power, dark {}", dark);
+        assert_eq!(creature::classes(p).get(1).map(|c| c.0), Some(prestige), "prestige class, dark {}", dark);
+        assert_eq!(number("000_Prestige"), Some(GlobalValue::Number(2)), "000_Prestige, dark {}", dark);
+        // influence moved for the companions who end in the party
+        assert!((0..12).filter(|&i| again.recruited(i)).any(|i| again.influence(i).map_or(false, |v| v != 50)), "influence, dark {}", dark);
+        for n in notes.iter().filter(|n| !n.starts_with("Story value")) {
+            eprintln!("K2 dark {}: {}", dark, n);
+        }
+    }
+}
+
+/// Nothing a real run gives once is given twice: a chapter applied a second time to the same
+/// save (its quests closed, its purchases made, its story items held) pays at most a small
+/// remainder (conversations no quest of the chapter marks done), in both games. A chapter whose
+/// areas the save keeps (Dantooine, Telos): their loot was taken on the first pass.
+#[test]
+fn a_chapter_does_not_pay_twice() {
+    let installs = find_installs(&[]);
+    for (game, start, chapter) in [(Game::K1, "end_m01", "Dantooine"), (Game::K2, "101per", "Telos")] {
+        let Some(install) = installs.iter().find(|i| i.game == game) else { continue };
+        let data = GameData::open(game, &install.path);
+        let Some(folder) = find_saves(&installs, game, &[]).into_iter().find(|f| {
+            Save::open(&f.path).map_or(false, |s| s.module_name().to_ascii_lowercase().starts_with(start))
+        }) else {
+            continue;
+        };
+        let m = kse_core::questdb::milestones(game).into_iter().find(|(p, _)| p.eq_ignore_ascii_case(chapter)).map(|(_, m)| m).unwrap();
+        let work = scratch(&format!("twice-{:?}", game));
+        copy_dir(&folder.path, &work);
+        let mut save = Save::open(&work).unwrap();
+        let g0 = save.party_int("PT_GOLD").unwrap_or(0);
+        kse_core::questdb::skip_through(&mut save, &data, &[m.clone()], Some(0), false).unwrap();
+        let (g1, items1) = (save.party_int("PT_GOLD").unwrap_or(0), save.inventory().len());
+        kse_core::questdb::skip_through(&mut save, &data, &[m.clone()], Some(0), false).unwrap();
+        let g2 = save.party_int("PT_GOLD").unwrap_or(0);
+        eprintln!("{:?} {}: first pass {} credits, second {}; items {} then {}", game, chapter, g1 - g0, g2 - g1, items1, save.inventory().len());
+        assert!(g1 - g0 > 0, "{:?}: the first pass pays", game);
+        assert!((g2 - g1) * 4 < (g1 - g0), "{:?}: the second pass pays {} of {}", game, g2 - g1, g1 - g0);
+    }
+}

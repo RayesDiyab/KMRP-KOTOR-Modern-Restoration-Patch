@@ -1,0 +1,2054 @@
+{
+ "game": "K1",
+ "planet": "Unknown World",
+ "generated_by": "tools/questdb/build.py",
+ "checked": false,
+ "quests": [
+  {
+   "tag": "k_starforge",
+   "stages": [
+    {
+     "stage": 70,
+     "end": true,
+     "steps": [
+      {
+       "module": "unk_m44ac",
+       "via": {
+        "script": "k_punk_disfldoff"
+       },
+       "needs": [
+        {
+         "global_bool": "UNK_DISRUPT_OFF",
+         "is": true
+        },
+        {
+         "global_bool": "UNK_SHIELD_OFF",
+         "is": true
+        },
+        {
+         "global_number": "G_FinalChoice",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "set_global_bool": [
+          "UNK_DISRUPT_OFF",
+          true
+         ]
+        },
+        {
+         "door_unlock": "unk44_tpllckdoor"
+        },
+        {
+         "journal": [
+          "k_starforge",
+          70
+         ]
+        },
+        {
+         "journal": [
+          "unk_trapped",
+          98
+         ]
+        }
+       ],
+       "branch": "way 1: script k_punk_disfldoff in unk_m44ac"
+      },
+      {
+       "module": "unk_m44ac",
+       "via": {
+        "script": "k_punk_shieldoff"
+       },
+       "needs": [
+        {
+         "global_bool": "UNK_DISRUPT_OFF",
+         "is": true
+        },
+        {
+         "global_bool": "UNK_SHIELD_OFF",
+         "is": true
+        },
+        {
+         "global_number": "G_FinalChoice",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "set_global_bool": [
+          "UNK_SHIELD_OFF",
+          true
+         ]
+        },
+        {
+         "door_unlock": "unk44_tpllckdoor"
+        },
+        {
+         "journal": [
+          "k_starforge",
+          70
+         ]
+        },
+        {
+         "journal": [
+          "unk_trapped",
+          98
+         ]
+        }
+       ],
+       "branch": "way 2: script k_punk_shieldoff in unk_m44ac"
+      }
+     ]
+    },
+    {
+     "stage": 75,
+     "end": true,
+     "steps": [
+      {
+       "module": "unk_m44ac",
+       "via": {
+        "script": "k_punk_disfldoff"
+       },
+       "needs": [
+        {
+         "global_bool": "UNK_DISRUPT_OFF",
+         "is": true
+        },
+        {
+         "global_bool": "UNK_SHIELD_OFF",
+         "is": true
+        },
+        {
+         "global_number": "G_FinalChoice",
+         "op": "!=",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "set_global_bool": [
+          "UNK_DISRUPT_OFF",
+          true
+         ]
+        },
+        {
+         "door_unlock": "unk44_tpllckdoor"
+        },
+        {
+         "journal": [
+          "k_starforge",
+          75
+         ]
+        },
+        {
+         "journal": [
+          "unk_trapped",
+          99
+         ]
+        }
+       ],
+       "branch": "way 1: script k_punk_disfldoff in unk_m44ac"
+      },
+      {
+       "module": "unk_m44ac",
+       "via": {
+        "script": "k_punk_shieldoff"
+       },
+       "needs": [
+        {
+         "global_bool": "UNK_DISRUPT_OFF",
+         "is": true
+        },
+        {
+         "global_bool": "UNK_SHIELD_OFF",
+         "is": true
+        },
+        {
+         "global_number": "G_FinalChoice",
+         "op": "!=",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "set_global_bool": [
+          "UNK_SHIELD_OFF",
+          true
+         ]
+        },
+        {
+         "door_unlock": "unk44_tpllckdoor"
+        },
+        {
+         "journal": [
+          "k_starforge",
+          75
+         ]
+        },
+        {
+         "journal": [
+          "unk_trapped",
+          99
+         ]
+        }
+       ],
+       "branch": "way 2: script k_punk_shieldoff in unk_m44ac"
+      }
+     ]
+    }
+   ],
+   "notes": "This quest is not a Unknown World quest by its tag; only the stages set on Unknown World are listed. Other planets also set its stages. stage 70 can be reached in 2 ways; each step's branch starts with its way stage 75 can be reached in 2 ways; each step's branch starts with its way"
+  },
+  {
+   "tag": "k_swg_bastilatalk",
+   "stages": [
+    {
+     "stage": 2,
+     "end": false,
+     "steps": [
+      {
+       "module": "unk_m44ac",
+       "via": {
+        "script": "k_punk_bastjour2"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "k_swg_bastilatalk",
+          2
+         ]
+        },
+        {
+         "other": "that journal call may also lower the stage (bAllowOverrideHigher = 1)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 4,
+     "end": true,
+     "steps": [
+      {
+       "module": "unk_m44ac",
+       "via": {
+        "script": "k_punk_bastjourn"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "k_swg_bastilatalk",
+          4
+         ]
+        },
+        {
+         "other": "that journal call may also lower the stage (bAllowOverrideHigher = 1)"
+        },
+        {
+         "other": "removes the journal quest \"k_swg_joleetalk\""
+        },
+        {
+         "other": "removes the journal quest \"k_swg_juhani\""
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "notes": "This quest is not a Unknown World quest by its tag; only the stages set on Unknown World are listed. Other planets also set its stages."
+  },
+  {
+   "tag": "k_swg_canderous",
+   "stages": [
+    {
+     "stage": 120,
+     "end": true,
+     "steps": [
+      {
+       "module": "unk_m41aa",
+       "via": {
+        "dialog": "unk41_carth",
+        "node": 69,
+        "speaker": "",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "G_FinalChoice",
+         "op": "==",
+         "value": 2
+        },
+        {
+         "global_number": "K_SWG_CARTH",
+         "op": "==",
+         "value": 15
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "k_swg_canderous",
+          120
+         ]
+        },
+        {
+         "set_global_number": [
+          "UNK_PARTYSHOWDOWN",
+          2
+         ]
+        }
+       ],
+       "branch": "way 1: unknown speaker, dialog unk41_carth E69 in unk_m41aa"
+      },
+      {
+       "module": "unk_m41aa",
+       "via": {
+        "script": "k_punk_finale20"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "k_swg_canderous",
+          120
+         ]
+        }
+       ],
+       "branch": "way 2: script k_punk_finale20 in unk_m41aa"
+      }
+     ]
+    }
+   ],
+   "notes": "This quest is not a Unknown World quest by its tag; only the stages set on Unknown World are listed. Other planets also set its stages. stage 120: unk41_carth E69 can be reached from 3 places; needs follow the shortest path stage 120 can be reached in 2 ways; each step's branch starts with its way UNCERTAIN: stage 120: no creature, placeable or door template in unk_m41aa names dialog unk41_carth, so its speaker is unknown; scripts that name it: k_punk_fincs_en, k_punk_landcs_en, k_punk_shipfixed"
+  },
+  {
+   "tag": "unk_invis",
+   "stages": [
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "unk_m41ac",
+       "via": {
+        "dialog": "unk43_rakplot",
+        "node": 31,
+        "speaker": "unk41_rakplot",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "unk_invis",
+          10
+         ]
+        },
+        {
+         "set_global_bool": [
+          "UNK_RAKPLOT",
+          true
+         ]
+        }
+       ],
+       "branch": "way 1: unk41_rakplot, dialog unk43_rakplot E31 in unk_m41ac"
+      },
+      {
+       "module": "unk_m41ac",
+       "via": {
+        "dialog": "unk43_rakplot",
+        "node": 33,
+        "speaker": "unk41_rakplot",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "unk_invis",
+          10
+         ]
+        }
+       ],
+       "branch": "way 2: unk41_rakplot, dialog unk43_rakplot E33 in unk_m41ac"
+      }
+     ]
+    },
+    {
+     "stage": 15,
+     "end": false,
+     "steps": [
+      {
+       "module": "unk_m41ad",
+       "via": {
+        "script": "k_punk_mand06"
+       },
+       "needs": [
+        {
+         "global_bool": "UNK_RAKPLOT",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "unk_invis",
+          15
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 500
+    },
+    {
+     "stage": 20,
+     "end": false,
+     "steps": [
+      {
+       "module": "unk_m41ad",
+       "via": {
+        "script": "k_punk_mand06"
+       },
+       "needs": [
+        {
+         "global_bool": "UNK_RAKPLOT",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "unk_invis",
+          20
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 500
+    },
+    {
+     "stage": 30,
+     "end": true,
+     "steps": [
+      {
+       "module": "unk_m41ac",
+       "via": {
+        "dialog": "unk43_rakplot",
+        "node": 20,
+        "speaker": "unk41_rakplot",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "unk_invis",
+          30
+         ]
+        }
+       ]
+      },
+      {
+       "module": "unk_m41ac",
+       "via": {
+        "dialog": "unk43_rakplot",
+        "node": 20,
+        "speaker": "unk41_rakplot",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "destroy": "g_head"
+        },
+        {
+         "destroy": "unk41_rakplot"
+        }
+       ],
+       "branch": "if not (1 && GetIsObjectValid(OBJECT_SELF))"
+      },
+      {
+       "module": "unk_m41ac",
+       "via": {
+        "dialog": "unk43_rakplot",
+        "node": 20,
+        "speaker": "unk41_rakplot",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "local": [
+          "unk41_rakplot",
+          "bool",
+          4,
+          1
+         ]
+        },
+        {
+         "destroy": "g_head"
+        },
+        {
+         "destroy": "unk41_rakplot"
+        }
+       ],
+       "branch": "if GetIsObjectValid(OBJECT_SELF)"
+      }
+     ],
+     "journal_xp": 1000
+    }
+   ],
+   "notes": "stage 10: condition k_punk_rakplot02 also tests: (GetIsObjectValid(GetItemPossessedBy(player, \"g_head\")) == 0) stage 10 can be reached in 2 ways; each step's branch starts with its way stage 15: k_punk_mand06 (stage 15) also depends on: (user-defined event == 1007) stage 20: k_punk_mand06 (stage 20) also depends on: (user-defined event == 1007) stage 30: condition k_punk_final04 also tests: (GetIsObjectValid(GetItemPossessedBy(player, \"g_head\")) == 1)",
+   "own": true,
+   "run_ending": 30
+  },
+  {
+   "tag": "k_swg_juhani",
+   "stages": [
+    {
+     "stage": 120,
+     "end": true,
+     "steps": [
+      {
+       "module": "unk_m41aa",
+       "via": {
+        "dialog": "unk41_carth",
+        "node": 68,
+        "speaker": "Juhani",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "G_FinalChoice",
+         "op": "==",
+         "value": 2
+        },
+        {
+         "global_number": "K_SWG_CARTH",
+         "op": "==",
+         "value": 15
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "k_swg_juhani",
+          120
+         ]
+        }
+       ],
+       "branch": "way 1: Juhani, dialog unk41_carth E68 in unk_m41aa"
+      },
+      {
+       "module": "unk_m44ac",
+       "via": {
+        "script": "k_punk_bastesc"
+       },
+       "needs": [],
+       "does": [
+        {
+         "other": "PlayMovie(\"05_8E\")"
+        },
+        {
+         "journal": [
+          "k_swg_juhani",
+          120
+         ]
+        },
+        {
+         "set_global_number": [
+          "G_FinalChoice",
+          2
+         ]
+        },
+        {
+         "destroy": "GWing"
+        },
+        {
+         "other": "removes the object running the script (owner unknown)"
+        }
+       ],
+       "branch": "way 2: script k_punk_bastesc in unk_m44ac"
+      }
+     ]
+    }
+   ],
+   "notes": "This quest is not a Unknown World quest by its tag; only the stages set on Unknown World are listed. Other planets also set its stages. stage 120: unk41_carth E68 can be reached from 3 places; needs follow the shortest path stage 120: k_punk_bastesc (stage 120) also depends on: (IsNPCPartyMember(5) == 1) stage 120 can be reached in 2 ways; each step's branch starts with its way UNCERTAIN: stage 120: no creature, placeable or door template in unk_m41aa names dialog unk41_carth, so its speaker is unknown; scripts that name it: k_punk_fincs_en, k_punk_landcs_en, k_punk_shipfixed"
+  },
+  {
+   "tag": "unk_research",
+   "stages": [
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "unk_m42aa",
+       "via": {
+        "dialog": "unk42_redbreed01",
+        "node": 42,
+        "speaker": "unk42_rakbreed01",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "unk_research",
+          10
+         ]
+        },
+        {
+         "set_global_number": [
+          "UNK_RESEARCH",
+          1
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 20,
+     "end": false,
+     "steps": [
+      {
+       "module": "unk_m44ab",
+       "via": {
+        "dialog": "unk44_lib_dlg",
+        "node": 28,
+        "speaker": "unk44_rakcomp",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "unk_research",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "unk_research",
+          20
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 500
+    },
+    {
+     "stage": 30,
+     "end": true,
+     "steps": [
+      {
+       "module": "unk_m42aa",
+       "via": {
+        "dialog": "unk42_redbreed01",
+        "node": 2,
+        "speaker": "unk42_rakbreed01",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "unk_researchpad"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "unk_research",
+          30
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 1000
+    }
+   ],
+   "notes": "stage 10: unk42_redbreed01 E42 can be reached from 3 places; needs follow the shortest path",
+   "own": true,
+   "run_ending": 30
+  },
+  {
+   "tag": "unk_trapped",
+   "stages": [
+    {
+     "stage": 1,
+     "end": false,
+     "steps": [
+      {
+       "module": "unk_m42aa",
+       "via": {
+        "dialog": "unk42_redcomp",
+        "node": 26,
+        "speaker": "holo",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "unk_trapped",
+          1
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 5,
+     "end": false,
+     "steps": [
+      {
+       "module": "unk_m41aa",
+       "via": {
+        "dialog": "unk41_ithor01",
+        "node": 31,
+        "speaker": "",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "unk_trapped",
+          5
+         ]
+        },
+        {
+         "other": "changes the faction of unk41_ithor01 to STANDARD_FACTION_HOSTILE_1"
+        },
+        {
+         "other": "changes the faction of unk41_ithor02 to STANDARD_FACTION_HOSTILE_1"
+        },
+        {
+         "other": "SetLocalNumber on the object running the script: index 0 = GetLocalNumber(OBJECT_SELF, 0)"
+        },
+        {
+         "other": "SetLocalNumber on the object running the script: index 0 = (GetLocalNumber(OBJECT_SELF, 0) + a helper function's result)"
+        },
+        {
+         "other": "SetLocalNumber on the object running the script: index 0 = GetLocalNumber(OBJECT_SELF, 0)"
+        },
+        {
+         "other": "SetLocalNumber on the object running the script: index 0 = (GetLocalNumber(OBJECT_SELF, 0) + a helper function's result)"
+        }
+       ],
+       "branch": "way 1: unknown speaker, dialog unk41_ithor01 R31 in unk_m41aa"
+      },
+      {
+       "module": "unk_m41aa",
+       "via": {
+        "dialog": "unk41_ithor01",
+        "node": 31,
+        "speaker": "",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 1
+        }
+       ],
+       "branch": "way 1: unknown speaker, dialog unk41_ithor01 R31 in unk_m41aa / before this line: if player alignment at most 14"
+      },
+      {
+       "module": "unk_m41aa",
+       "via": {
+        "dialog": "unk41_ithor01",
+        "node": 31,
+        "speaker": "",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 2
+        }
+       ],
+       "branch": "way 1: unknown speaker, dialog unk41_ithor01 R31 in unk_m41aa / before this line: if player alignment from 15 to 39"
+      },
+      {
+       "module": "unk_m41aa",
+       "via": {
+        "dialog": "unk41_ithor01",
+        "node": 31,
+        "speaker": "",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 4
+        }
+       ],
+       "branch": "way 1: unknown speaker, dialog unk41_ithor01 R31 in unk_m41aa / before this line: if player alignment from 40 to 60"
+      },
+      {
+       "module": "unk_m41aa",
+       "via": {
+        "dialog": "unk41_ithor01",
+        "node": 31,
+        "speaker": "",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 6
+        }
+       ],
+       "branch": "way 1: unknown speaker, dialog unk41_ithor01 R31 in unk_m41aa / before this line: if player alignment from 61 to 84"
+      },
+      {
+       "module": "unk_m41aa",
+       "via": {
+        "dialog": "unk41_ithor01",
+        "node": 31,
+        "speaker": "",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 8
+        }
+       ],
+       "branch": "way 1: unknown speaker, dialog unk41_ithor01 R31 in unk_m41aa / before this line: if player alignment at least 85"
+      },
+      {
+       "module": "unk_m41aa",
+       "via": {
+        "dialog": "unk41_ithor01",
+        "node": 40,
+        "speaker": "",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "destroy": "unk41_ithor01"
+        },
+        {
+         "destroy": "unk41_ithor02"
+        },
+        {
+         "journal": [
+          "unk_trapped",
+          5
+         ]
+        }
+       ],
+       "branch": "way 2: unknown speaker, dialog unk41_ithor01 R40 in unk_m41aa"
+      }
+     ]
+    },
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "unk_m43aa",
+       "via": {
+        "dialog": "unk43_theone",
+        "node": 44,
+        "speaker": "unk43_theone",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "unk_trapped",
+          10
+         ]
+        },
+        {
+         "set_global_bool": [
+          "UNK_THEONE",
+          true
+         ]
+        },
+        {
+         "set_global_bool": [
+          "Unk_One_Spoke",
+          true
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 1000
+    },
+    {
+     "stage": 15,
+     "end": false,
+     "steps": [
+      {
+       "module": "unk_m42aa",
+       "via": {
+        "dialog": "unk42_redelder",
+        "node": 51,
+        "speaker": "holo",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Unk_Red_Talk",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "unk_trapped",
+          15
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 1000
+    },
+    {
+     "stage": 25,
+     "end": false,
+     "steps": [],
+     "journal_xp": 2000
+    },
+    {
+     "stage": 30,
+     "end": false,
+     "steps": [
+      {
+       "module": "unk_m43aa",
+       "via": {
+        "script": "k_punk_one_ud"
+       },
+       "needs": [
+        {
+         "global_bool": "UNK_REDTALK",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "set_global_bool": [
+          "Unk_One_Dead",
+          true
+         ]
+        },
+        {
+         "journal": [
+          "unk_trapped",
+          30
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 1000
+    },
+    {
+     "stage": 32,
+     "end": false,
+     "steps": [
+      {
+       "module": "unk_m43aa",
+       "via": {
+        "script": "k_punk_one_ud"
+       },
+       "needs": [
+        {
+         "global_bool": "UNK_REDTALK",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "set_global_bool": [
+          "Unk_One_Dead",
+          true
+         ]
+        },
+        {
+         "journal": [
+          "unk_trapped",
+          32
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 1000
+    },
+    {
+     "stage": 33,
+     "end": false,
+     "steps": [
+      {
+       "module": "unk_m43aa",
+       "via": {
+        "dialog": "unk43_redpris",
+        "node": 11,
+        "speaker": "unk43_redpris",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "UNK_PRISONER",
+         "op": ">=",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "unk_trapped",
+          33
+         ]
+        },
+        {
+         "set_global_number": [
+          "UNK_PRISONER",
+          2
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 1000
+    },
+    {
+     "stage": 35,
+     "end": false,
+     "steps": [
+      {
+       "module": "unk_m43aa",
+       "via": {
+        "dialog": "unk43_theone",
+        "node": 28,
+        "speaker": "unk43_theone",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Unk_RedHostile",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "unk_trapped",
+          35
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 3000
+    },
+    {
+     "stage": 37,
+     "end": false,
+     "steps": [
+      {
+       "module": "unk_m42aa",
+       "via": {
+        "dialog": "unk42_redelder",
+        "node": 72,
+        "speaker": "holo",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Unk_Prisoner",
+         "op": "==",
+         "value": 2
+        },
+        {
+         "global_number": "Unk_Prisoner",
+         "op": ">=",
+         "value": 2
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "unk_trapped",
+          37
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 40,
+     "end": false,
+     "steps": [
+      {
+       "module": "unk_m41ad",
+       "via": {
+        "dialog": "unk41_guide_dlg",
+        "node": 8,
+        "speaker": "Jolee",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "unk_trapped",
+          40
+         ]
+        }
+       ],
+       "branch": "way 1: Jolee, dialog unk41_guide_dlg E8 in unk_m41ad"
+      },
+      {
+       "module": "unk_m41ad",
+       "via": {
+        "dialog": "unk41_guide_dlg",
+        "node": 13,
+        "speaker": "Jolee",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Dan_Juhani_Plot",
+         "op": "!=",
+         "value": 2
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "unk_trapped",
+          40
+         ]
+        }
+       ],
+       "branch": "way 2: Jolee, dialog unk41_guide_dlg E13 in unk_m41ad"
+      }
+     ]
+    },
+    {
+     "stage": 45,
+     "end": false,
+     "steps": [
+      {
+       "module": "unk_m41ad",
+       "via": {
+        "dialog": "unk41_guide_dlg",
+        "node": 9,
+        "speaker": "Juhani",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Dan_Juhani_Plot",
+         "op": "!=",
+         "value": 2
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "unk_trapped",
+          45
+         ]
+        }
+       ],
+       "branch": "way 1: Juhani, dialog unk41_guide_dlg E9 in unk_m41ad"
+      },
+      {
+       "module": "unk_m41ad",
+       "via": {
+        "dialog": "unk41_guide_dlg",
+        "node": 30,
+        "speaker": "Juhani",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Dan_Juhani_Plot",
+         "op": "!=",
+         "value": 2
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "unk_trapped",
+          45
+         ]
+        }
+       ],
+       "branch": "way 2: Juhani, dialog unk41_guide_dlg E30 in unk_m41ad"
+      }
+     ]
+    },
+    {
+     "stage": 98,
+     "end": true,
+     "steps": [
+      {
+       "module": "unk_m44ac",
+       "via": {
+        "dialog": "unk44_evilbast",
+        "node": 74,
+        "speaker": "Bastilae",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "k_swg_bastilatalk",
+          4
+         ]
+        },
+        {
+         "other": "that journal call may also lower the stage (bAllowOverrideHigher = 1)"
+        },
+        {
+         "other": "removes the journal quest \"k_swg_joleetalk\""
+        },
+        {
+         "other": "removes the journal quest \"k_swg_juhani\""
+        },
+        {
+         "journal": [
+          "unk_trapped",
+          98
+         ]
+        },
+        {
+         "other": "changes the faction of jolee to STANDARD_FACTION_HOSTILE_1"
+        },
+        {
+         "other": "changes the faction of juhani to STANDARD_FACTION_HOSTILE_1"
+        },
+        {
+         "other": "runs script k_ai_master (its effects branch or could not be read)"
+        },
+        {
+         "other": "runs script k_ai_master (its effects branch or could not be read)"
+        },
+        {
+         "other": "runs script k_ai_master (its effects branch or could not be read)"
+        },
+        {
+         "destroy": "Bastilae"
+        }
+       ],
+       "branch": "way 1: Bastilae, dialog unk44_evilbast R74 in unk_m44ac"
+      },
+      {
+       "module": "unk_m44ac",
+       "via": {
+        "dialog": "unk44_evilbast",
+        "node": 163,
+        "speaker": "Bastilae",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "k_swg_bastilatalk",
+          4
+         ]
+        },
+        {
+         "other": "that journal call may also lower the stage (bAllowOverrideHigher = 1)"
+        },
+        {
+         "other": "removes the journal quest \"k_swg_joleetalk\""
+        },
+        {
+         "other": "removes the journal quest \"k_swg_juhani\""
+        },
+        {
+         "journal": [
+          "unk_trapped",
+          98
+         ]
+        },
+        {
+         "other": "changes the faction of jolee to STANDARD_FACTION_HOSTILE_1"
+        },
+        {
+         "other": "changes the faction of juhani to STANDARD_FACTION_HOSTILE_1"
+        },
+        {
+         "other": "runs script k_ai_master (its effects branch or could not be read)"
+        },
+        {
+         "other": "runs script k_ai_master (its effects branch or could not be read)"
+        },
+        {
+         "other": "runs script k_ai_master (its effects branch or could not be read)"
+        },
+        {
+         "destroy": "Bastilae"
+        }
+       ],
+       "branch": "way 2: Bastilae, dialog unk44_evilbast R163 in unk_m44ac"
+      },
+      {
+       "module": "unk_m44ac",
+       "via": {
+        "dialog": "unk44_evilbast2",
+        "node": 74,
+        "speaker": "",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "UNK_AREA",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "k_swg_bastilatalk",
+          4
+         ]
+        },
+        {
+         "other": "that journal call may also lower the stage (bAllowOverrideHigher = 1)"
+        },
+        {
+         "other": "removes the journal quest \"k_swg_joleetalk\""
+        },
+        {
+         "other": "removes the journal quest \"k_swg_juhani\""
+        },
+        {
+         "journal": [
+          "unk_trapped",
+          98
+         ]
+        },
+        {
+         "other": "changes the faction of jolee to STANDARD_FACTION_HOSTILE_1"
+        },
+        {
+         "other": "SetLocalNumber on the object running the script: index 0 = GetLocalNumber(OBJECT_SELF, 0)"
+        },
+        {
+         "other": "SetLocalNumber on the object running the script: index 0 = (GetLocalNumber(OBJECT_SELF, 0) + a helper function's result)"
+        },
+        {
+         "other": "changes the faction of juhani to STANDARD_FACTION_HOSTILE_1"
+        },
+        {
+         "other": "SetLocalNumber on the object running the script: index 0 = GetLocalNumber(OBJECT_SELF, 0)"
+        },
+        {
+         "other": "SetLocalNumber on the object running the script: index 0 = (GetLocalNumber(OBJECT_SELF, 0) + a helper function's result)"
+        },
+        {
+         "other": "removes the object running the script (owner unknown)"
+        }
+       ],
+       "branch": "way 3: unknown speaker, dialog unk44_evilbast2 R74 in unk_m44ac"
+      },
+      {
+       "module": "unk_m44ac",
+       "via": {
+        "dialog": "unk44_evilbast2",
+        "node": 163,
+        "speaker": "",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "UNK_AREA",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "k_swg_bastilatalk",
+          4
+         ]
+        },
+        {
+         "other": "that journal call may also lower the stage (bAllowOverrideHigher = 1)"
+        },
+        {
+         "other": "removes the journal quest \"k_swg_joleetalk\""
+        },
+        {
+         "other": "removes the journal quest \"k_swg_juhani\""
+        },
+        {
+         "journal": [
+          "unk_trapped",
+          98
+         ]
+        },
+        {
+         "other": "changes the faction of jolee to STANDARD_FACTION_HOSTILE_1"
+        },
+        {
+         "other": "SetLocalNumber on the object running the script: index 0 = GetLocalNumber(OBJECT_SELF, 0)"
+        },
+        {
+         "other": "SetLocalNumber on the object running the script: index 0 = (GetLocalNumber(OBJECT_SELF, 0) + a helper function's result)"
+        },
+        {
+         "other": "changes the faction of juhani to STANDARD_FACTION_HOSTILE_1"
+        },
+        {
+         "other": "SetLocalNumber on the object running the script: index 0 = GetLocalNumber(OBJECT_SELF, 0)"
+        },
+        {
+         "other": "SetLocalNumber on the object running the script: index 0 = (GetLocalNumber(OBJECT_SELF, 0) + a helper function's result)"
+        },
+        {
+         "other": "removes the object running the script (owner unknown)"
+        }
+       ],
+       "branch": "way 4: unknown speaker, dialog unk44_evilbast2 R163 in unk_m44ac"
+      },
+      {
+       "module": "unk_m44ac",
+       "via": {
+        "script": "k_punk_disfldoff"
+       },
+       "needs": [
+        {
+         "global_bool": "UNK_DISRUPT_OFF",
+         "is": true
+        },
+        {
+         "global_bool": "UNK_SHIELD_OFF",
+         "is": true
+        },
+        {
+         "global_number": "G_FinalChoice",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "set_global_bool": [
+          "UNK_DISRUPT_OFF",
+          true
+         ]
+        },
+        {
+         "door_unlock": "unk44_tpllckdoor"
+        },
+        {
+         "journal": [
+          "k_starforge",
+          70
+         ]
+        },
+        {
+         "journal": [
+          "unk_trapped",
+          98
+         ]
+        }
+       ],
+       "branch": "way 5: script k_punk_disfldoff in unk_m44ac"
+      },
+      {
+       "module": "unk_m44ac",
+       "via": {
+        "script": "k_punk_shieldoff"
+       },
+       "needs": [
+        {
+         "global_bool": "UNK_DISRUPT_OFF",
+         "is": true
+        },
+        {
+         "global_bool": "UNK_SHIELD_OFF",
+         "is": true
+        },
+        {
+         "global_number": "G_FinalChoice",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "set_global_bool": [
+          "UNK_SHIELD_OFF",
+          true
+         ]
+        },
+        {
+         "door_unlock": "unk44_tpllckdoor"
+        },
+        {
+         "journal": [
+          "k_starforge",
+          70
+         ]
+        },
+        {
+         "journal": [
+          "unk_trapped",
+          98
+         ]
+        }
+       ],
+       "branch": "way 6: script k_punk_shieldoff in unk_m44ac"
+      }
+     ],
+     "journal_xp": 4000
+    },
+    {
+     "stage": 99,
+     "end": true,
+     "steps": [
+      {
+       "module": "unk_m44ac",
+       "via": {
+        "dialog": "unk44_evilbast",
+        "node": 60,
+        "speaker": "Bastilae",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "K_SWG_BASTILA",
+         "op": ">=",
+         "value": 12
+        },
+        {
+         "global_number": "K_SWG_BASTILA",
+         "op": "<=",
+         "value": 13
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "unk_trapped",
+          99
+         ]
+        }
+       ],
+       "branch": "way 1: Bastilae, dialog unk44_evilbast R60 in unk_m44ac"
+      },
+      {
+       "module": "unk_m44ac",
+       "via": {
+        "dialog": "unk44_evilbast",
+        "node": 60,
+        "speaker": "Bastilae",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "K_SWG_BASTILA",
+         "op": ">=",
+         "value": 12
+        },
+        {
+         "global_number": "K_SWG_BASTILA",
+         "op": "<=",
+         "value": 13
+        }
+       ],
+       "does": [
+        {
+         "other": "PlayMovie(\"05_8E\")"
+        },
+        {
+         "set_global_number": [
+          "G_FinalChoice",
+          2
+         ]
+        },
+        {
+         "destroy": "GWing"
+        },
+        {
+         "destroy": "Bastilae"
+        }
+       ],
+       "branch": "way 1: Bastilae, dialog unk44_evilbast R60 in unk_m44ac / if not (IsNPCPartyMember(5) == 1)"
+      },
+      {
+       "module": "unk_m44ac",
+       "via": {
+        "dialog": "unk44_evilbast",
+        "node": 60,
+        "speaker": "Bastilae",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "K_SWG_BASTILA",
+         "op": ">=",
+         "value": 12
+        },
+        {
+         "global_number": "K_SWG_BASTILA",
+         "op": "<=",
+         "value": 13
+        }
+       ],
+       "does": [
+        {
+         "other": "PlayMovie(\"05_8E\")"
+        },
+        {
+         "journal": [
+          "k_swg_juhani",
+          120
+         ]
+        },
+        {
+         "set_global_number": [
+          "G_FinalChoice",
+          2
+         ]
+        },
+        {
+         "destroy": "GWing"
+        },
+        {
+         "destroy": "Bastilae"
+        }
+       ],
+       "branch": "way 1: Bastilae, dialog unk44_evilbast R60 in unk_m44ac / if IsNPCPartyMember(5) is 1"
+      },
+      {
+       "module": "unk_m44ac",
+       "via": {
+        "dialog": "unk44_evilbast",
+        "node": 149,
+        "speaker": "Bastilae",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "unk_trapped",
+          99
+         ]
+        }
+       ],
+       "branch": "way 2: Bastilae, dialog unk44_evilbast R149 in unk_m44ac"
+      },
+      {
+       "module": "unk_m44ac",
+       "via": {
+        "dialog": "unk44_evilbast",
+        "node": 149,
+        "speaker": "Bastilae",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "other": "PlayMovie(\"05_8E\")"
+        },
+        {
+         "set_global_number": [
+          "G_FinalChoice",
+          2
+         ]
+        },
+        {
+         "destroy": "GWing"
+        },
+        {
+         "destroy": "Bastilae"
+        }
+       ],
+       "branch": "way 2: Bastilae, dialog unk44_evilbast R149 in unk_m44ac / if not (IsNPCPartyMember(5) == 1)"
+      },
+      {
+       "module": "unk_m44ac",
+       "via": {
+        "dialog": "unk44_evilbast",
+        "node": 149,
+        "speaker": "Bastilae",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "other": "PlayMovie(\"05_8E\")"
+        },
+        {
+         "journal": [
+          "k_swg_juhani",
+          120
+         ]
+        },
+        {
+         "set_global_number": [
+          "G_FinalChoice",
+          2
+         ]
+        },
+        {
+         "destroy": "GWing"
+        },
+        {
+         "destroy": "Bastilae"
+        }
+       ],
+       "branch": "way 2: Bastilae, dialog unk44_evilbast R149 in unk_m44ac / if IsNPCPartyMember(5) is 1"
+      },
+      {
+       "module": "unk_m44ac",
+       "via": {
+        "dialog": "unk44_evilbast2",
+        "node": 60,
+        "speaker": "",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "UNK_AREA",
+         "op": "==",
+         "value": 1
+        },
+        {
+         "global_number": "K_SWG_BASTILA",
+         "op": ">=",
+         "value": 12
+        },
+        {
+         "global_number": "K_SWG_BASTILA",
+         "op": "<=",
+         "value": 13
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "unk_trapped",
+          99
+         ]
+        }
+       ],
+       "branch": "way 3: unknown speaker, dialog unk44_evilbast2 R60 in unk_m44ac"
+      },
+      {
+       "module": "unk_m44ac",
+       "via": {
+        "dialog": "unk44_evilbast2",
+        "node": 60,
+        "speaker": "",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "UNK_AREA",
+         "op": "==",
+         "value": 1
+        },
+        {
+         "global_number": "K_SWG_BASTILA",
+         "op": ">=",
+         "value": 12
+        },
+        {
+         "global_number": "K_SWG_BASTILA",
+         "op": "<=",
+         "value": 13
+        }
+       ],
+       "does": [
+        {
+         "other": "PlayMovie(\"05_8E\")"
+        },
+        {
+         "set_global_number": [
+          "G_FinalChoice",
+          2
+         ]
+        },
+        {
+         "destroy": "GWing"
+        },
+        {
+         "other": "removes the object running the script (owner unknown)"
+        }
+       ],
+       "branch": "way 3: unknown speaker, dialog unk44_evilbast2 R60 in unk_m44ac / if not (IsNPCPartyMember(5) == 1)"
+      },
+      {
+       "module": "unk_m44ac",
+       "via": {
+        "dialog": "unk44_evilbast2",
+        "node": 60,
+        "speaker": "",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "UNK_AREA",
+         "op": "==",
+         "value": 1
+        },
+        {
+         "global_number": "K_SWG_BASTILA",
+         "op": ">=",
+         "value": 12
+        },
+        {
+         "global_number": "K_SWG_BASTILA",
+         "op": "<=",
+         "value": 13
+        }
+       ],
+       "does": [
+        {
+         "other": "PlayMovie(\"05_8E\")"
+        },
+        {
+         "journal": [
+          "k_swg_juhani",
+          120
+         ]
+        },
+        {
+         "set_global_number": [
+          "G_FinalChoice",
+          2
+         ]
+        },
+        {
+         "destroy": "GWing"
+        },
+        {
+         "other": "removes the object running the script (owner unknown)"
+        }
+       ],
+       "branch": "way 3: unknown speaker, dialog unk44_evilbast2 R60 in unk_m44ac / if IsNPCPartyMember(5) is 1"
+      },
+      {
+       "module": "unk_m44ac",
+       "via": {
+        "dialog": "unk44_evilbast2",
+        "node": 149,
+        "speaker": "",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "UNK_AREA",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "unk_trapped",
+          99
+         ]
+        }
+       ],
+       "branch": "way 4: unknown speaker, dialog unk44_evilbast2 R149 in unk_m44ac"
+      },
+      {
+       "module": "unk_m44ac",
+       "via": {
+        "dialog": "unk44_evilbast2",
+        "node": 149,
+        "speaker": "",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "UNK_AREA",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "other": "PlayMovie(\"05_8E\")"
+        },
+        {
+         "set_global_number": [
+          "G_FinalChoice",
+          2
+         ]
+        },
+        {
+         "destroy": "GWing"
+        },
+        {
+         "other": "removes the object running the script (owner unknown)"
+        }
+       ],
+       "branch": "way 4: unknown speaker, dialog unk44_evilbast2 R149 in unk_m44ac / if not (IsNPCPartyMember(5) == 1)"
+      },
+      {
+       "module": "unk_m44ac",
+       "via": {
+        "dialog": "unk44_evilbast2",
+        "node": 149,
+        "speaker": "",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "UNK_AREA",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "other": "PlayMovie(\"05_8E\")"
+        },
+        {
+         "journal": [
+          "k_swg_juhani",
+          120
+         ]
+        },
+        {
+         "set_global_number": [
+          "G_FinalChoice",
+          2
+         ]
+        },
+        {
+         "destroy": "GWing"
+        },
+        {
+         "other": "removes the object running the script (owner unknown)"
+        }
+       ],
+       "branch": "way 4: unknown speaker, dialog unk44_evilbast2 R149 in unk_m44ac / if IsNPCPartyMember(5) is 1"
+      },
+      {
+       "module": "unk_m44ac",
+       "via": {
+        "script": "k_punk_disfldoff"
+       },
+       "needs": [
+        {
+         "global_bool": "UNK_DISRUPT_OFF",
+         "is": true
+        },
+        {
+         "global_bool": "UNK_SHIELD_OFF",
+         "is": true
+        },
+        {
+         "global_number": "G_FinalChoice",
+         "op": "!=",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "set_global_bool": [
+          "UNK_DISRUPT_OFF",
+          true
+         ]
+        },
+        {
+         "door_unlock": "unk44_tpllckdoor"
+        },
+        {
+         "journal": [
+          "k_starforge",
+          75
+         ]
+        },
+        {
+         "journal": [
+          "unk_trapped",
+          99
+         ]
+        }
+       ],
+       "branch": "way 5: script k_punk_disfldoff in unk_m44ac"
+      },
+      {
+       "module": "unk_m44ac",
+       "via": {
+        "script": "k_punk_shieldoff"
+       },
+       "needs": [
+        {
+         "global_bool": "UNK_DISRUPT_OFF",
+         "is": true
+        },
+        {
+         "global_bool": "UNK_SHIELD_OFF",
+         "is": true
+        },
+        {
+         "global_number": "G_FinalChoice",
+         "op": "!=",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "set_global_bool": [
+          "UNK_SHIELD_OFF",
+          true
+         ]
+        },
+        {
+         "door_unlock": "unk44_tpllckdoor"
+        },
+        {
+         "journal": [
+          "k_starforge",
+          75
+         ]
+        },
+        {
+         "journal": [
+          "unk_trapped",
+          99
+         ]
+        }
+       ],
+       "branch": "way 6: script k_punk_shieldoff in unk_m44ac"
+      }
+     ],
+     "journal_xp": 4000
+    }
+   ],
+   "notes": "stage 5 can be reached in 2 ways; each step's branch starts with its way stage 15: dialog unk42_redelder is used by several objects in unk_m42aa: holo, unk42_redelder, unk42_redelder2, unk42_redelder3 stage 30: k_punk_one_ud (stage 30) also depends on: (user-defined event == 1007) stage 32: k_punk_one_ud (stage 32) also depends on: (user-defined event == 1007) stage 33: unk43_redpris E11 can be reached from 2 places; needs follow the shortest path stage 35: condition k_punk_hastome also tests: (GetIsObjectValid(GetItemPossessedBy(player, \"AncientTome\")) == 1) stage 35: unk43_theone E28 can be reached from 2 places; needs follow the shortest path stage 37: dialog unk42_redelder is used by several objects in unk_m42aa: holo, unk42_redelder, unk42_redelder2, unk42_redelder3 stage 37: unk42_redelder E72 can be reached from 2 places; needs follow the shortest path stage 40: unk41_guide_dlg E8 can be reached from 2 places; needs follow the shortest path stage 40: unk41_guide_dlg E13 can be reached from 2 places; needs follow the shortest path stage 40 can be reached in 2 ways; each step's branch starts with its way stage 45: unk41_guide_dlg E9 can be reached from 2 places; needs follow the shortest path stage 45 can be reached in 2 ways; each step's branch starts with its way stage 98 can be reached in 6 ways; each step's branch starts with its way stage 99: condition k_punk_bastrom also tests: (GetGender(player) == 0) stage 99 can be reached in 6 ways; each step's branch starts with its way UNCERTAIN: stage 5: no creature, placeable or door template in unk_m41aa names dialog unk41_ithor01, so its speaker is unknown; scripts that name it: k_punk_41aa_def, k_punk_ith02, k_punk_ith03, k_punk_ith05 UNCERTAIN: stage 25 has no setter in the Unknown World files (no dialog node or script sets it) UNCERTAIN: stage 98: no creature, placeable or door template in unk_m44ac names dialog unk44_evilbast2, so its speaker is unknown UNCERTAIN: stage 99: no creature, placeable or door template in unk_m44ac names dialog unk44_evilbast2, so its speaker is unknown",
+   "own": true,
+   "run_ending": 99
+  }
+ ]
+}

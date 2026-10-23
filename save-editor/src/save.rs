@@ -426,6 +426,29 @@ impl Save {
             .loaded(&format!("availnpc{}", npc), RES_TYPE_UTC)
             .ok_or("that save does not have this party member")?
             .clone();
+        self.put_npc(npc, creature);
+        self.changed(format!("npc{}.import", npc));
+        Ok(())
+    }
+
+    /// Recruits party member `npc` from the game's template, as the game's own scripts do
+    /// (AddAvailableNPCByTemplate): the template made into a creature as the party table
+    /// keeps it, the member available and selectable. A member already recruited is kept.
+    pub fn recruit_from_template(&mut self, npc: usize, template: &Struct) -> Result<()> {
+        if self.npcs().contains(&npc) && self.recruited(npc) {
+            return Ok(());
+        }
+        let mut c = crate::area::creature_from_template(template, None);
+        // The party table's copy is a file of its own: its root, not a list element. Like the
+        // game's (AVAILNPCn in a real save) it keeps position fields and has no ObjectId; its
+        // spawn script has not run, so the game runs it when the member first appears.
+        c.id = u32::MAX;
+        self.put_npc(npc, Gff { file_type: *b"UTC ", root: c });
+        self.changed(format!("npc{}.recruit", npc));
+        Ok(())
+    }
+
+    fn put_npc(&mut self, npc: usize, creature: Gff) {
         let name = format!("availnpc{}", npc);
         let display = self
             .archive
@@ -456,8 +479,6 @@ impl Save {
         self.dirty_archive.insert((name, RES_TYPE_UTC));
         self.set_recruited(npc, true);
         self.set_selectable(npc, true);
-        self.changed(format!("npc{}.import", npc));
-        Ok(())
     }
 
     // ---- the party table ----
@@ -798,6 +819,29 @@ impl Save {
         self.dirty.insert("ifo");
         self.changed(format!("travel.{}", module.to_ascii_lowercase()));
         Ok(())
+    }
+
+    /// Whether SAVEGAME.sav holds a stored copy of `module` (the player has been there).
+    pub fn has_module(&self, module: &str) -> bool {
+        self.archive.resources.iter().any(|r| r.kind == RES_TYPE_SAV && r.name.eq_ignore_ascii_case(module))
+    }
+
+    /// The current module's module.ifo and nested archive: the live counters and the
+    /// archive layout a new stored copy takes after (stored::played_through).
+    pub fn current_module_parts(&self) -> Option<(Struct, Erf)> {
+        Some((self.ifo.as_ref()?.root.clone(), self.module.as_ref()?.clone()))
+    }
+
+    /// Adds a stored copy of an area to SAVEGAME.sav (lower case, as the game names them).
+    /// Never over a copy that is there: the player has been to that area.
+    pub fn add_stored_module(&mut self, module: &str, data: Vec<u8>) -> bool {
+        if self.has_module(module) {
+            return false;
+        }
+        self.archive.resources.push(crate::formats::erf::Resource { name: module.to_ascii_lowercase(), kind: RES_TYPE_SAV, id: 0, data });
+        self.archive_dirty = true;
+        self.changed(format!("stored.{}", module.to_ascii_lowercase()));
+        true
     }
 
     /// Changes the saved objects (.git) of `module`: the current area, or another area this

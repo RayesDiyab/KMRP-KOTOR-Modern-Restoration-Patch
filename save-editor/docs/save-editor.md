@@ -156,6 +156,99 @@ remove cross.
 | Skip Ahead | Story, Skip Ahead: a chapter as if played (`questdb::skip_to`). The chapter's milestone (`data/quests/*-milestone.json`): journal, the story values the rest of the game reads, items; its rewards (`*-rewards.json`, `tools/questdb/rewards.py`): the XP of a full run (kills by the engine's rule, plot XP, script XP, SetXP floors, `tools/xp/calc.py`), the enemies' Dropable items and the containers' loot (class gear by the game's own tests); then the trip by the game's own first hop with its movies, so the story plays on (from the Endar Spire: escape pod movie 01c, the vision, then the Taris apartment) |
 | Kill XP | The engine on every death (`ApplyDeathExperience` 0x004FB1E0): xptable.2da row (player level from XP) column trunc(CR), for a creature whose faction's reputation toward the player is 10 or below; the player all of it, party members 80%, the pool all of it. Checked against two Endar Spire saves (150 and 450 XP at the same points) |
 
+**The whole of KotOR 1** (2026-10-23, mapped by `tools/questdb`, `checked: false`): 12
+chapters (Endar Spire, Taris, Dantooine, Tatooine, Kashyyyk, Manaan, Korriban, Leviathan,
+Unknown World, Star Forge, and the Ebon Hawk and Yavin Station as side chapters), each with
+its quest file, milestone, rewards and XP scenario, in `data/quests` and `data/xp`, IDs only
+(no game text: names and journal text are looked up from the player's own game; the readable
+review pages go to the ignored `data/quests/local`). Skip to Here applies every main chapter
+before the picked one that the save has not played, in story order, then the picked one:
+
+| Applied per chapter | How |
+| --- | --- |
+| Journal | the chapter's stages, then the quests the game itself removes (`journal_remove`) |
+| Story values | the milestone's globals |
+| Star maps | `K_STAR_MAP` counted the game's way (10 and 10 a planet whose map is found) and what reaching a count sets (the Leviathan capture after the third, the Unknown World after the fourth) |
+| Items, loot | held items, the enemies' Dropable items, the containers' loot (class gear by the game's tests); credit chips (base item 57) add their stack size to the party's credits |
+| Credits, alignment | what the chapter's conversations and scripts pay and take, for a light-side and for a dark-side run (`tools/questdb/credits.py`, in the rewards file's `credits`), plus the payments the main path cannot avoid (`credits_fixed`: the droid on Taris, the assassin droid on Tatooine); the alignment moves by the side's points, never toward the other side |
+| Light or dark | asked in the confirmation when it changes anything (`side_matters`), the player's current leaning first; the dark side applies the chapter's `dark` block where the story branches: on Dantooine slot 5 is killed, not recruited; at the temple summit slot 0 rejoins and slots 4 and 5 are lost, then slots 2 and 6 leave the ship; the Star Forge plays the dark-side ending |
+| Companions | recruited from their templates into their slots (AddAvailableNPCByTemplate), removed where the story removes them |
+| Jedi class | the player's pick in the confirmation: `DAN_PATH_STATE`, a level of the class, its lightsaber |
+| XP | the cumulative full-run total at the end of the picked chapter, never lowered |
+| Areas | every area of every chapter the player can return to is stored as played through (`src/stored.rs`): each object a full struct as the game stores a left area, one-time enemies omitted, doors on the path open and unlocked, looted containers empty, the area's, module's and objects' local flags as a run leaves them; never over an area the save has been to; only for save groups the trip on keeps (modulesave.2da) |
+| The trip | the last chapter's own route on, with its movies |
+
+Checked without the game (2026-10-23): a played-through copy of every one of the 117 modules
+builds and reads back (`played_through_copies_of_every_module`), and a synthesized `danm14ad`
+matches the copy the game itself stored in a real save list for list and field for field (but
+for fields the game recomputes on load); companions from templates write and read back
+(`recruit_from_template_survives_a_write`); a new save skipped to the end of Dantooine, of
+Korriban and of the Star Forge reads back with the XP (53,690; 156,320; 207,440), the
+companions, the class and lightsaber, the stored areas and the trip; a save on the Endar Spire
+skipped through the whole game on each side reads back with that side's ending, party,
+alignment and more credits (`skip_whole_game_on_each_side`). **Not yet seen in the game:** any
+chapter after the Endar Spire; a return to a stored area; companions from templates; the
+credits and the dark side.
+
+How credits.py models a run, per conversation: a node's own effect is what its scripts pay,
+take and shift; where the player picks a reply, one with a condition (a bounty handed in) is a
+situation the run meets and counts, unless it costs credits or leans to the other side, and of
+the free replies the run takes one that costs nothing if it can, then the side's way, then the
+most credits; where the game picks a line, the best one (a persuade check passed); every
+starting line counts (later visits), each node once. Gambling is left out. Per KotOR 1 chapter
+(light / dark): Taris 2,980 / 4,005; Dantooine 2,900 / 3,000; Tatooine 2,470 / 2,590; Kashyyyk
+1,900 / 2,150; Manaan 7,600 / 9,300; Korriban 1,500 / 1,500.
+
+**KotOR 2** (2026-10-23) is mapped the same way, from the game's own files (Steam 1.0.2), in
+eleven chapters: Peragus, Telos, Nar Shaddaa, Dxun, Onderon, Dantooine, Korriban, The Jedi
+Masters (the enclave meeting and the return to Telos), Ravager, Malachor V, and the Ebon Hawk as
+a side chapter (`tools/questdb/chapters_k2/`). What differs from KotOR 1:
+
+| | How |
+| --- | --- |
+| Conversation scripts | KotOR 2 nodes run two scripts with five numbers and a string each (`a_global_set`, `a_givecredits`); the tools run them with those values bound (`tools/questdb/nodescript.py`, `ncsvm` params), so the values become constants |
+| The masters found | `000_Jedi_Found`, a number each free planet raises by one (`increments`); at 4 the game itself calls the party to the enclave |
+| Companions | by the player's gender (slot 4 for a male player, slot 11 for a female one) and side (slot 7 light, slot 10 dark); a template only in an area's own files is read from that area |
+| Items | many loot and quest items exist only in an area's own files; Skip Ahead finds them in the chapter's areas |
+| Kill XP | read from swkotor2.exe 1.0.2 (`CalculateDeathExperience` at 0x00575B20): KotOR 2's tables, the row and column capped at 31, and an autobalanced creature (`MultiplierSet`, 316 of the 333 hostile kinds) counted at the player's level when it spawned plus its `autobalance.2da` crmod (`tools/xp/calc.py`) |
+| The trip | the save's event queue loads event 26 with the same layout as KotOR 1 (swkotor2.exe 0x005205F0) |
+
+A full KotOR 2 run reaches 249,610 XP; light / dark credits by chapter: Telos 8,545 / 9,545,
+Nar Shaddaa 4,550 / 8,953, Onderon 37,475 / 42,475 (each side's ruler pays the war's reward,
+`credits_side_only`), Dantooine 12,000 / 13,575. Checked without the game: a save on Peragus
+skipped through the whole game on each side reads back with the masters found, the XP, the
+companions by gender and side, and more credits (`skip_whole_k2_game_on_each_side`). **Before
+it ships:** nothing of KotOR 2 has been seen in the game. Quest XP takes one route per quest
+(of the stages in the same group of ten, the best paying), and autobalanced enemies are counted
+at the player's level on entering their area.
+
+**As a real run leaves it, nothing twice** (2026-10-23, both games). Skip Ahead closes each
+skipped chapter's own quests at the ending a run reaches (journal, story values, the NPCs' own
+flags, doors, people who leave; `close_quests`), so their people do not offer them again; it
+brings the areas the save has already been to to the played state too (one-time enemies gone,
+doors open, looted containers emptied, flags set; `reconcile_visited`); and it leaves out what
+the save already had: containers it emptied, drops of enemies it killed, conversations whose
+quests it finished (their credits, alignment and influence), purchases whose companion it has
+(T3-M4, HK-47, KotOR 2's HK chassis), story items and the Jedi lightsaber it holds, a KotOR 2
+master who already taught (`master_met`). Checked: a chapter applied twice pays little the
+second time and gives no item twice (`a_chapter_does_not_pay_twice`). KotOR 2's per-object
+flag table holds 160 flags and 32 numbers (KotOR 1: 96 and 8); played-through areas use the
+game's own size.
+
+**KotOR 2 party and powers** (2026-10-23): influence per companion from the conversations of
+each chapter (`ModifyInfluence`, the run's replies preferring what a companion likes), added to
+`PT_INFLUENCE`; the masters' teachings by the game's own rule (`a_give_form`: class, prestige
+class, `G_PC_FORM`, side, forms known; spells.2da 261 to 268); Force Chain on Peragus, Force
+Enlightenment or Force Crush at the enclave; the prestige class Kreia offers from level 15,
+picked in the confirmation (`a_pc_jedi`: the class added, `000_Prestige` 2); and, if the
+player picks it, the companions trained as Jedi without their conversations (the class
+`a_makejedi` gives and the values their conversation chains end with).
+
+The data pipeline caches each script's analysis on disk (`ncsvm.run_script`, in
+`save-editor/build/questdb-cache`, keyed on the script, its parameters, the interpreter's
+settings and its code), so a chapter rebuild takes minutes, and `rewards.py` works out the
+chapters' credits in parallel.
+
 Seen in the game: the Endar Spire skip from a fresh save gave 3,085 XP, the level-ups, the
 loot, the escape pod movie and the vision, and the Taris apartment with Carth's opening.
 **Not known:** random treasure rolled by scripts at death (left out); chapters after the

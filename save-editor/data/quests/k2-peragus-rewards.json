@@ -1,0 +1,2144 @@
+{
+  "game": "K2",
+  "planet": "Peragus",
+  "generated_by": "tools/questdb/rewards.py",
+  "checked": false,
+  "xp_at_end": 23810,
+  "xp_chapter": 23810,
+  "xp_start": 0,
+  "xp_note": "full-run scenario data/xp/k2-peragus-path.json from 0 XP: 001ebo 1010, 002ebo 1310, 101per 4010, 102per 7710, 103per 13110, 104per 13110, 105per 16535, 151har 16785, 152har 16985, 153har 16985, 106per 21385, 107per 21635, 005ebo 23810",
+  "xp_chapter_note": "the same scenario from a new character's 0 XP: 23810",
+  "enemies_killed": 130,
+  "drops": [
+    {
+      "resref": "compont_00001",
+      "count": 32,
+      "from": [
+        "g_assassindrd003",
+        "g_assassindrd005"
+      ]
+    },
+    {
+      "resref": "g_w_sonicdet01",
+      "count": 13,
+      "from": [
+        "g_assassindrd005",
+        "g_assassindrd003"
+      ]
+    },
+    {
+      "resref": "g_w_sonicgren01",
+      "count": 6,
+      "from": [
+        "g_assassindrd003",
+        "g_assassindrd004"
+      ]
+    },
+    {
+      "resref": "mininglaser",
+      "count": 2,
+      "from": [
+        "g_assassindrd003",
+        "g_assassindrd004"
+      ]
+    }
+  ],
+  "templates_missing": [],
+  "containers": [
+    {
+      "module": "001ebo",
+      "area": "001ebo",
+      "container": "PlsCylSpk",
+      "template": "g_tresmilhig006",
+      "position": [
+        57.2,
+        65.33
+      ],
+      "items": [
+        {
+          "resref": "g_i_progspike01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "001ebo",
+      "area": "001ebo",
+      "container": "locker_locked",
+      "template": "g_tresmilhig007",
+      "position": [
+        35.81,
+        33.5
+      ],
+      "items": [
+        {
+          "resref": "g_i_parts01",
+          "count": 1
+        },
+        {
+          "resref": "d_armor_01",
+          "count": 1
+        },
+        {
+          "resref": "g_i_progspike01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "001ebo",
+      "area": "001ebo",
+      "container": "cont_sensor_drds",
+      "template": "cont_sensor_drds",
+      "position": [
+        31.6,
+        32.39
+      ],
+      "items": [
+        {
+          "resref": "w_blaste_03",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "001ebo",
+      "area": "001ebo",
+      "container": "fl_spikes",
+      "template": "fl_spikes",
+      "position": [
+        42.39,
+        46.11
+      ],
+      "items": [
+        {
+          "resref": "g_i_progspike01",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "001ebo",
+      "area": "001ebo",
+      "container": "med_bin",
+      "template": "g_tresmilhig009",
+      "position": [
+        41.97,
+        39.06
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "module": "001ebo",
+      "area": "001ebo",
+      "container": "bDroid01",
+      "template": "bdroid001",
+      "position": [
+        45.31,
+        40.96
+      ],
+      "items": [
+        {
+          "resref": "g_i_parts01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "001ebo",
+      "area": "001ebo",
+      "container": "LowBroknDrd",
+      "template": "g_tresdrd004",
+      "position": [
+        59.63,
+        41.41
+      ],
+      "items": [
+        {
+          "resref": "g_i_parts01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "001ebo",
+      "area": "001ebo",
+      "container": "body_invis",
+      "template": "body_invis",
+      "position": [
+        57.15,
+        40.91
+      ],
+      "items": [
+        {
+          "resref": "key_locker",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "001ebo",
+      "area": "001ebo",
+      "container": "fl_flamethrow",
+      "template": "fl_flamethrow",
+      "position": [
+        77.9,
+        56.11
+      ],
+      "items": [
+        {
+          "resref": "d_device_03",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "001ebo",
+      "area": "001ebo",
+      "container": "fl_parts",
+      "template": "fl_parts",
+      "position": [
+        80.61,
+        52.33
+      ],
+      "items": [
+        {
+          "resref": "g_i_parts01",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "module": "001ebo",
+      "area": "001ebo",
+      "container": "cont_tunnel",
+      "template": "cont_tunnel",
+      "position": [
+        26.87,
+        35.75
+      ],
+      "items": [
+        {
+          "resref": "g_i_parts01",
+          "count": 1
+        },
+        {
+          "resref": "compont_00001",
+          "count": 2
+        },
+        {
+          "resref": "g_i_progspike01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "001ebo",
+      "area": "001ebo",
+      "container": "MilHighPlstcCylin",
+      "template": "g_tresmilhig008",
+      "position": [
+        26.81,
+        38.06
+      ],
+      "items": [
+        {
+          "resref": "g_i_secspike01",
+          "count": 3
+        },
+        {
+          "resref": "g_i_parts01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "002ebo",
+      "area": "002ebo",
+      "container": "ProtonMis",
+      "template": "inveb001",
+      "position": [
+        -11.32,
+        -15.56
+      ],
+      "items": [
+        {
+          "resref": "g_i_parts01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "002ebo",
+      "area": "002ebo",
+      "container": "openhatch",
+      "template": "inveb003",
+      "position": [
+        6.37,
+        14.71
+      ],
+      "items": [
+        {
+          "resref": "g_i_parts01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "002ebo",
+      "area": "002ebo",
+      "container": "openhatch",
+      "template": "inveb003",
+      "position": [
+        15.98,
+        -4.9
+      ],
+      "items": [
+        {
+          "resref": "g_i_parts01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "002ebo",
+      "area": "002ebo",
+      "container": "openhatch",
+      "template": "inveb003",
+      "position": [
+        13.76,
+        -6.97
+      ],
+      "items": [
+        {
+          "resref": "g_i_parts01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "002ebo",
+      "area": "002ebo",
+      "container": "Quad",
+      "template": "inveb004",
+      "position": [
+        -16.51,
+        -1.05
+      ],
+      "items": [
+        {
+          "resref": "g_i_parts01",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "module": "002ebo",
+      "area": "002ebo",
+      "container": "openhatch",
+      "template": "inveb003",
+      "position": [
+        9.86,
+        -13.75
+      ],
+      "items": [
+        {
+          "resref": "g_i_parts01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "002ebo",
+      "area": "002ebo",
+      "container": "eng_port",
+      "template": "inveb005",
+      "position": [
+        7.22,
+        -11.08
+      ],
+      "items": [
+        {
+          "resref": "g_i_parts01",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "module": "101per",
+      "area": "101per",
+      "container": "MilLowPlstcCylin",
+      "template": "g_tresmillow006",
+      "position": [
+        -10.25,
+        -10.88
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "101per",
+      "area": "101per",
+      "container": "LowCorpse",
+      "template": "g_tresgencorp006",
+      "position": [
+        48.82,
+        -57.16
+      ],
+      "items": [
+        {
+          "resref": "g_i_secspike01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "101per",
+      "area": "101per",
+      "container": "SecLoc",
+      "template": "lockerlg002",
+      "position": [
+        50.05,
+        -57.14
+      ],
+      "items": [
+        {
+          "resref": "g_w_iongren01",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "101per",
+      "area": "101per",
+      "container": "MilLowPlstcCylin",
+      "template": "g_tresmillow007",
+      "position": [
+        67.37,
+        -70.99
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "101per",
+      "area": "101per",
+      "container": "MilLowPlstcCylin",
+      "template": "g_tresmillow009",
+      "position": [
+        109.11,
+        -71.56
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "101per",
+      "area": "101per",
+      "container": "CivilFootLker",
+      "template": "g_trescivil003",
+      "position": [
+        47.81,
+        -31.62
+      ],
+      "items": [
+        {
+          "resref": "g_w_iongren01",
+          "count": 2
+        },
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 2
+        },
+        {
+          "resref": "a_belt_03",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "101per",
+      "area": "101per",
+      "container": "CivilFootLker",
+      "template": "g_trescivil004",
+      "position": [
+        51.19,
+        -29.49
+      ],
+      "items": [
+        {
+          "resref": "g_w_iongren01",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "101per",
+      "area": "101per",
+      "container": "MilLowPlstcCylin",
+      "template": "g_tresmillow010",
+      "position": [
+        0.85,
+        -3.11
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "101per",
+      "area": "101per",
+      "container": "MilLowPlstcCylin",
+      "template": "g_tresmillow011",
+      "position": [
+        -1.93,
+        -6.94
+      ],
+      "items": [
+        {
+          "resref": "chem_002",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "101per",
+      "area": "101per",
+      "container": "LowCorpse",
+      "template": "g_tresgencorp004",
+      "position": [
+        -28.08,
+        13.0
+      ],
+      "items": [
+        {
+          "resref": "plasmatorch",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "101per",
+      "area": "101per",
+      "container": "LowCorpse",
+      "template": "g_tresgencorp005",
+      "position": [
+        -27.73,
+        -13.91
+      ],
+      "items": [
+        {
+          "resref": "w_melee_05",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "101per",
+      "area": "101per",
+      "container": "MilLowPlstcCylin",
+      "template": "g_tresmillow012",
+      "position": [
+        149.14,
+        -69.98
+      ],
+      "items": [
+        {
+          "resref": "compont_002",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "102per",
+      "area": "102per",
+      "container": "MilLowPlstcCylin",
+      "template": "g_tresmillow007",
+      "position": [
+        24.31,
+        -53.9
+      ],
+      "items": [
+        {
+          "resref": "100_belt01",
+          "count": 1
+        },
+        {
+          "resref": "100_fore01",
+          "count": 1
+        },
+        {
+          "resref": "100_mask01",
+          "count": 1
+        },
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        },
+        {
+          "resref": "mineruniform",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "102per",
+      "area": "102per",
+      "container": "HighCorpse",
+      "template": "g_tresgencorp004",
+      "position": [
+        -23.95,
+        20.13
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "102per",
+      "area": "102per",
+      "container": "LowBroknDrd",
+      "template": "g_tresdrd004",
+      "position": [
+        21.95,
+        -23.57
+      ],
+      "items": [
+        {
+          "resref": "g_i_parts01",
+          "count": 3
+        },
+        {
+          "resref": "compont_00001",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "102per",
+      "area": "102per",
+      "container": "HighCorpse",
+      "template": "g_tresgencorp005",
+      "position": [
+        -45.99,
+        -72.04
+      ],
+      "items": [
+        {
+          "resref": "advancedminingla",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "102per",
+      "area": "102per",
+      "container": "CenterCylinder",
+      "template": "g_tresmillow008",
+      "position": [
+        -12.13,
+        28.71
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        },
+        {
+          "resref": "g_w_sonicgren01",
+          "count": 2
+        },
+        {
+          "resref": "g_i_secspike01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "102per",
+      "area": "102per",
+      "container": "CenterCylinder",
+      "template": "g_tresmillow009",
+      "position": [
+        -3.68,
+        76.24
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "102per",
+      "area": "102per",
+      "container": "HighCorpse",
+      "template": "g_tresgencorp006",
+      "position": [
+        76.21,
+        9.22
+      ],
+      "items": [
+        {
+          "resref": "u_m_edge_02",
+          "count": 1
+        },
+        {
+          "resref": "a_belt_02",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "102per",
+      "area": "102per",
+      "container": "HighCorpse",
+      "template": "g_tresgencorp008",
+      "position": [
+        -77.39,
+        -78.3
+      ],
+      "items": [
+        {
+          "resref": "100_fore01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "102per",
+      "area": "102per",
+      "container": "HighCorpse",
+      "template": "g_tresgencorp008",
+      "position": [
+        -52.55,
+        -24.3
+      ],
+      "items": [
+        {
+          "resref": "100_fore01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "102per",
+      "area": "102per",
+      "container": "LowBroknDrd",
+      "template": "g_tresdrd004",
+      "position": [
+        18.93,
+        -52.7
+      ],
+      "items": [
+        {
+          "resref": "g_i_parts01",
+          "count": 3
+        },
+        {
+          "resref": "compont_00001",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "102per",
+      "area": "102per",
+      "container": "LowBroknDrd",
+      "template": "g_tresdrd004",
+      "position": [
+        -5.75,
+        -18.18
+      ],
+      "items": [
+        {
+          "resref": "g_i_parts01",
+          "count": 3
+        },
+        {
+          "resref": "compont_00001",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "102per",
+      "area": "102per",
+      "container": "LowBroknDrd",
+      "template": "g_tresdrd005",
+      "position": [
+        -11.52,
+        -13.91
+      ],
+      "items": [
+        {
+          "resref": "g_i_progspike01",
+          "count": 1
+        },
+        {
+          "resref": "compont_00001",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "102per",
+      "area": "102per",
+      "container": "LowBroknDrd",
+      "template": "g_tresdrd006",
+      "position": [
+        36.32,
+        -5.16
+      ],
+      "items": [
+        {
+          "resref": "g_w_sonicgren01",
+          "count": 1
+        },
+        {
+          "resref": "g_i_parts01",
+          "count": 1
+        },
+        {
+          "resref": "compont_00001",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "module": "102per",
+      "area": "102per",
+      "container": "LowBroknDrd",
+      "template": "g_tresdrd007",
+      "position": [
+        -21.57,
+        -72.33
+      ],
+      "items": [
+        {
+          "resref": "g_w_sonicgren01",
+          "count": 1
+        },
+        {
+          "resref": "compont_00001",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "102per",
+      "area": "102per",
+      "container": "LowBroknDrd",
+      "template": "g_tresdrd007",
+      "position": [
+        -72.69,
+        -10.39
+      ],
+      "items": [
+        {
+          "resref": "g_w_sonicgren01",
+          "count": 1
+        },
+        {
+          "resref": "compont_00001",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "102per",
+      "area": "102per",
+      "container": "LowBroknDrd",
+      "template": "g_tresdrd007",
+      "position": [
+        54.94,
+        18.29
+      ],
+      "items": [
+        {
+          "resref": "g_w_sonicgren01",
+          "count": 1
+        },
+        {
+          "resref": "compont_00001",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "103per",
+      "area": "103per",
+      "container": "LowBroknDrd",
+      "template": "g_tresdrd006",
+      "position": [
+        -36.78,
+        44.35
+      ],
+      "items": [
+        {
+          "resref": "g_i_parts01",
+          "count": 2
+        },
+        {
+          "resref": "compont_00001",
+          "count": 1
+        },
+        {
+          "resref": "d_device_12",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "103per",
+      "area": "103per",
+      "container": "LowCorpse",
+      "template": "g_tresgencorp005",
+      "position": [
+        -31.2,
+        46.29
+      ],
+      "items": [
+        {
+          "resref": "mine_datapad001",
+          "count": 1
+        },
+        {
+          "resref": "g_i_trapkit015",
+          "count": 3
+        },
+        {
+          "resref": "d_device_06",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "103per",
+      "area": "103per",
+      "container": "LowBroknDrd",
+      "template": "g_tresdrd007",
+      "position": [
+        -80.62,
+        -21.64
+      ],
+      "items": [
+        {
+          "resref": "compont_00001",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "module": "103per",
+      "area": "103per",
+      "container": "LowBroknDrd",
+      "template": "g_tresdrd007",
+      "position": [
+        -84.82,
+        -20.13
+      ],
+      "items": [
+        {
+          "resref": "compont_00001",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "module": "103per",
+      "area": "103per",
+      "container": "LowBroknDrd",
+      "template": "g_tresdrd007",
+      "position": [
+        -26.47,
+        63.15
+      ],
+      "items": [
+        {
+          "resref": "compont_00001",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "module": "103per",
+      "area": "103per",
+      "container": "MilHighPlstcCylin",
+      "template": "g_tresmilhig006",
+      "position": [
+        -74.27,
+        -18.85
+      ],
+      "items": [
+        {
+          "resref": "sonicimprintsens",
+          "count": 1
+        },
+        {
+          "resref": "mine_datapad002",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "103per",
+      "area": "103per",
+      "container": "MilLowPlstcCylin",
+      "template": "g_tresmillow007",
+      "position": [
+        -61.47,
+        -49.04
+      ],
+      "items": [
+        {
+          "resref": "compont_002",
+          "count": 1
+        },
+        {
+          "resref": "g_i_parts01",
+          "count": 1
+        },
+        {
+          "resref": "e_imp1_01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "103per",
+      "area": "103per",
+      "container": "SpaceSuitLocker",
+      "template": "lockerlg001",
+      "position": [
+        -26.15,
+        -64.17
+      ],
+      "items": [
+        {
+          "resref": "lev40_spacesuit",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "103per",
+      "area": "103per",
+      "container": "LowBroknDrd",
+      "template": "g_tresdrd008",
+      "position": [
+        -83.35,
+        -22.67
+      ],
+      "items": [
+        {
+          "resref": "compont_00001",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "module": "103per",
+      "area": "103per",
+      "container": "OddCase",
+      "template": "g_tresmilhig008",
+      "position": [
+        -49.48,
+        -0.74
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdrepeqp001",
+          "count": 1
+        },
+        {
+          "resref": "compont_00001",
+          "count": 3
+        },
+        {
+          "resref": "hangar25control",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "105per",
+      "area": "105per",
+      "container": "LowCorpse",
+      "template": "g_tresgencorp005",
+      "position": [
+        -21.29,
+        -36.56
+      ],
+      "items": [
+        {
+          "resref": "datapadminer1",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "105per",
+      "area": "105per",
+      "container": "Refresher",
+      "template": "inveb002",
+      "position": [
+        71.7,
+        -3.28
+      ],
+      "items": [
+        {
+          "resref": "datapadmineforem",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "105per",
+      "area": "105per",
+      "container": "LowCorpse",
+      "template": "g_tresgencorp006",
+      "position": [
+        53.15,
+        27.03
+      ],
+      "items": [
+        {
+          "resref": "datapadmineadm",
+          "count": 1
+        },
+        {
+          "resref": "g_i_credits002",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "105per",
+      "area": "105per",
+      "container": "LowCorpse",
+      "template": "g_tresgencorp007",
+      "position": [
+        62.32,
+        -17.94
+      ],
+      "items": [
+        {
+          "resref": "datapaddockoff",
+          "count": 1
+        },
+        {
+          "resref": "g_i_parts01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "105per",
+      "area": "105per",
+      "container": "LowCorpse",
+      "template": "g_tresgencorp009",
+      "position": [
+        70.03,
+        -0.87
+      ],
+      "items": [
+        {
+          "resref": "compont_002",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "105per",
+      "area": "105per",
+      "container": "LowCorpse",
+      "template": "g_tresgencorp010",
+      "position": [
+        -49.27,
+        -36.39
+      ],
+      "items": [
+        {
+          "resref": "datapadminecoort",
+          "count": 1
+        },
+        {
+          "resref": "mininglaser",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "105per",
+      "area": "105per",
+      "container": "LowCorpse",
+      "template": "g_tresgencorp011",
+      "position": [
+        -53.22,
+        -39.4
+      ],
+      "items": [
+        {
+          "resref": "mininglaser",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "105per",
+      "area": "105per",
+      "container": "LowCorpse",
+      "template": "g_tresgencorp011",
+      "position": [
+        -47.19,
+        -41.74
+      ],
+      "items": [
+        {
+          "resref": "mininglaser",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "105per",
+      "area": "105per",
+      "container": "CenterCylinder",
+      "template": "g_tresmillow009",
+      "position": [
+        -19.29,
+        1.76
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        },
+        {
+          "resref": "u_a_unde_02",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "105per",
+      "area": "105per",
+      "container": "MilLowMetalBox",
+      "template": "g_tresmillow007",
+      "position": [
+        14.2,
+        -31.14
+      ],
+      "items": [
+        {
+          "resref": "chem_003",
+          "count": 1
+        },
+        {
+          "resref": "g_i_medeqpmnt04",
+          "count": 1
+        },
+        {
+          "resref": "datapadminer002",
+          "count": 1
+        },
+        {
+          "resref": "a_helmet_02",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "105per",
+      "area": "105per",
+      "container": "MilMidMetalCase",
+      "template": "g_tresmilmid006",
+      "position": [
+        14.09,
+        -37.63
+      ],
+      "items": [
+        {
+          "resref": "chem_004",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "105per",
+      "area": "105per",
+      "container": "MilMidMetalCase",
+      "template": "g_tresmilmid006",
+      "position": [
+        13.99,
+        -40.21
+      ],
+      "items": [
+        {
+          "resref": "chem_004",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "105per",
+      "area": "105per",
+      "container": "MilMidMetalCase",
+      "template": "g_tresmilmid006",
+      "position": [
+        6.37,
+        -30.75
+      ],
+      "items": [
+        {
+          "resref": "chem_004",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "105per",
+      "area": "105per",
+      "container": "MilMidMetalCase",
+      "template": "g_tresmilmid006",
+      "position": [
+        5.63,
+        -44.23
+      ],
+      "items": [
+        {
+          "resref": "chem_004",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "105per",
+      "area": "105per",
+      "container": "MilMidMetalCase",
+      "template": "g_tresmilmid006",
+      "position": [
+        -7.49,
+        -36.07
+      ],
+      "items": [
+        {
+          "resref": "chem_004",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "105per",
+      "area": "105per",
+      "container": "MilMidMetalCase",
+      "template": "g_tresmilmid006",
+      "position": [
+        -23.76,
+        -39.86
+      ],
+      "items": [
+        {
+          "resref": "chem_004",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "105per",
+      "area": "105per",
+      "container": "LowBroknDrd",
+      "template": "g_tresdrd004",
+      "position": [
+        -17.18,
+        18.86
+      ],
+      "items": [
+        {
+          "resref": "compont_003",
+          "count": 1
+        },
+        {
+          "resref": "g_w_sonicgren01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "105per",
+      "area": "105per",
+      "container": "LowCorpse",
+      "template": "g_tresgencorp008",
+      "position": [
+        62.27,
+        46.39
+      ],
+      "items": [
+        {
+          "resref": "chem_002",
+          "count": 1
+        },
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "105per",
+      "area": "105per",
+      "container": "LowCorpse",
+      "template": "g_tresgencorp013",
+      "position": [
+        -42.53,
+        32.82
+      ],
+      "items": [
+        {
+          "resref": "datapadminer003",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "105per",
+      "area": "105per",
+      "container": "MilLowLockerLg",
+      "template": "g_tresmillow012",
+      "position": [
+        -63.14,
+        34.52
+      ],
+      "items": [
+        {
+          "resref": "a_gloves_01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "106per",
+      "area": "106per",
+      "container": "LowBroknDrd",
+      "template": "g_tresdrd004",
+      "position": [
+        -0.66,
+        73.66
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdrepeqp001",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "106per",
+      "area": "106per",
+      "container": "MilLowFootLker",
+      "template": "g_tresmillow009",
+      "position": [
+        -5.2,
+        70.7
+      ],
+      "items": [
+        {
+          "resref": "compont_00001",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "module": "106per",
+      "area": "106per",
+      "container": "MilLowFootLker",
+      "template": "g_tresmillow010",
+      "position": [
+        25.15,
+        80.98
+      ],
+      "items": [
+        {
+          "resref": "g_i_progspike01",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "module": "106per",
+      "area": "106per",
+      "container": "MilLowFootLker",
+      "template": "g_tresmillow008",
+      "position": [
+        8.58,
+        69.07
+      ],
+      "items": [
+        {
+          "resref": "g_w_sonicgren01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "106per",
+      "area": "106per",
+      "container": "MilLowPlstcCylin",
+      "template": "g_tresmillow011",
+      "position": [
+        -31.5,
+        115.64
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdrepeqp001",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "106per",
+      "area": "106per",
+      "container": "Cylinder2",
+      "template": "g_tresmilhig008",
+      "position": [
+        13.31,
+        82.84
+      ],
+      "items": [
+        {
+          "resref": "compont_00001",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "106per",
+      "area": "106per",
+      "container": "Cylinder1",
+      "template": "g_tresmilhig007",
+      "position": [
+        16.54,
+        76.18
+      ],
+      "items": [
+        {
+          "resref": "d_device_03",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "106per",
+      "area": "106per",
+      "container": "MilLowPlstcCylin",
+      "template": "g_tresmillow012",
+      "position": [
+        5.62,
+        35.82
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdrepeqp001",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "106per",
+      "area": "106per",
+      "container": "MilLowPlstcCylin",
+      "template": "g_tresmillow012",
+      "position": [
+        -5.33,
+        35.8
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdrepeqp001",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "106per",
+      "area": "106per",
+      "container": "LowBroknDrd",
+      "template": "g_tresdrd005",
+      "position": [
+        -39.4,
+        2.27
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdrepeqp001",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "106per",
+      "area": "106per",
+      "container": "LowBroknDrd",
+      "template": "g_tresdrd005",
+      "position": [
+        -24.78,
+        10.92
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdrepeqp001",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "106per",
+      "area": "106per",
+      "container": "MilLowFootLker",
+      "template": "g_tresmillow015",
+      "position": [
+        -49.04,
+        0.23
+      ],
+      "items": [
+        {
+          "resref": "g_w_sonicgren01",
+          "count": 1
+        },
+        {
+          "resref": "compont_003",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "106per",
+      "area": "106per",
+      "container": "MilLowMetalBox",
+      "template": "g_tresmillow017",
+      "position": [
+        46.67,
+        7.97
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdrepeqp001",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "106per",
+      "area": "106per",
+      "container": "MilLowMetalBox",
+      "template": "g_tresmillow017",
+      "position": [
+        39.87,
+        8.93
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdrepeqp001",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "106per",
+      "area": "106per",
+      "container": "LowBroknDrd",
+      "template": "g_tresdrd005",
+      "position": [
+        12.45,
+        35.04
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdrepeqp001",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "151har",
+      "area": "151har",
+      "container": "MilLowPlstcCylin",
+      "template": "g_tresmillow008",
+      "position": [
+        32.42,
+        137.13
+      ],
+      "items": [
+        {
+          "resref": "g_i_parts01",
+          "count": 2
+        },
+        {
+          "resref": "g_i_progspike01",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "152har",
+      "area": "152har",
+      "container": "MilLowFootLker",
+      "template": "g_tresmillow007",
+      "position": [
+        6.42,
+        12.38
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        },
+        {
+          "resref": "medpcdatapad",
+          "count": 1
+        },
+        {
+          "resref": "a_band_c01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "152har",
+      "area": "152har",
+      "container": "RSldCrps",
+      "template": "rsldcrps001",
+      "position": [
+        -7.08,
+        -17.12
+      ],
+      "items": [
+        {
+          "resref": "g_i_credits004",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "152har",
+      "area": "152har",
+      "container": "RSldCrps",
+      "template": "rsldcrps004",
+      "position": [
+        15.13,
+        -8.92
+      ],
+      "items": [
+        {
+          "resref": "g_i_credits002",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "152har",
+      "area": "152har",
+      "container": "RSldCrps",
+      "template": "rsldcrps003",
+      "position": [
+        78.09,
+        -19.78
+      ],
+      "items": [
+        {
+          "resref": "g_i_credits002",
+          "count": 1
+        },
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "152har",
+      "area": "152har",
+      "container": "MilLowPlstcCylin",
+      "template": "g_tresmillow008",
+      "position": [
+        0.55,
+        -21.15
+      ],
+      "items": [
+        {
+          "resref": "chem_002",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "152har",
+      "area": "152har",
+      "container": "MilLowPlstcCylin",
+      "template": "g_tresmillow008",
+      "position": [
+        8.48,
+        -33.39
+      ],
+      "items": [
+        {
+          "resref": "chem_002",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "152har",
+      "area": "152har",
+      "container": "MilLowPlstcCylin",
+      "template": "g_tresmillow008",
+      "position": [
+        17.19,
+        -21.17
+      ],
+      "items": [
+        {
+          "resref": "chem_002",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "152har",
+      "area": "152har",
+      "container": "MilLowPlstcCylin",
+      "template": "g_tresmillow008",
+      "position": [
+        33.12,
+        -33.4
+      ],
+      "items": [
+        {
+          "resref": "chem_002",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "152har",
+      "area": "152har",
+      "container": "MilLowPlstcCylin",
+      "template": "g_tresmillow008",
+      "position": [
+        53.04,
+        -21.2
+      ],
+      "items": [
+        {
+          "resref": "chem_002",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "152har",
+      "area": "152har",
+      "container": "MilLowPlstcCylin",
+      "template": "g_tresmillow009",
+      "position": [
+        2.43,
+        -71.64
+      ],
+      "items": [
+        {
+          "resref": "compont_00001",
+          "count": 2
+        },
+        {
+          "resref": "g_i_parts01",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "152har",
+      "area": "152har",
+      "container": "RSldCrps",
+      "template": "rsldcrps002",
+      "position": [
+        -9.05,
+        -23.34
+      ],
+      "items": [
+        {
+          "resref": "g_i_credits004",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "152har",
+      "area": "152har",
+      "container": "RSldCrps",
+      "template": "rsldcrps005",
+      "position": [
+        51.47,
+        -51.42
+      ],
+      "items": [
+        {
+          "resref": "g_i_credits004",
+          "count": 1
+        },
+        {
+          "resref": "hk50datapad",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "153har",
+      "area": "153har",
+      "container": "CivilFootLker",
+      "template": "g_trescivil004",
+      "position": [
+        59.62,
+        26.36
+      ],
+      "items": [
+        {
+          "resref": "g_i_progspike01",
+          "count": 4
+        },
+        {
+          "resref": "g_i_parts01",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "module": "153har",
+      "area": "153har",
+      "container": "MilLowFootLker",
+      "template": "g_tresmillow010",
+      "position": [
+        61.46,
+        3.05
+      ],
+      "items": [
+        {
+          "resref": "w_melee_05",
+          "count": 1
+        }
+      ]
+    }
+  ],
+  "credits": {
+    "light": {
+      "credits": 0,
+      "light_points": 44,
+      "dark_points": 1,
+      "influence": {
+        "0": 32,
+        "6": -8,
+        "8": 80
+      }
+    },
+    "dark": {
+      "credits": 0,
+      "light_points": 1,
+      "dark_points": 56,
+      "influence": {
+        "0": 16,
+        "6": 40,
+        "8": -32
+      }
+    },
+    "sources": [
+      {
+        "dialog": "kreia",
+        "module": "005ebo",
+        "light": {
+          "credits": 0,
+          "light_points": 19,
+          "dark_points": 0,
+          "influence": {
+            "6": -16
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 27,
+          "influence": {
+            "6": 32
+          }
+        }
+      },
+      {
+        "dialog": "t3m4",
+        "module": "005ebo",
+        "light": {
+          "credits": 0,
+          "light_points": 11,
+          "dark_points": 1,
+          "influence": {
+            "8": 72
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 1,
+          "dark_points": 14,
+          "influence": {
+            "8": -40
+          }
+        }
+      },
+      {
+        "dialog": "101atton",
+        "module": "101per",
+        "light": {
+          "credits": 0,
+          "light_points": 4,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "101kreia",
+        "module": "101per",
+        "light": {
+          "credits": 0,
+          "light_points": 1,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 2
+        }
+      },
+      {
+        "dialog": "atton",
+        "module": "102per",
+        "light": {
+          "credits": 0,
+          "light_points": 8,
+          "dark_points": 0,
+          "influence": {
+            "0": 24
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 9,
+          "influence": {
+            "0": 8
+          }
+        }
+      },
+      {
+        "dialog": "103atton",
+        "module": "103per",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "8": 8
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "8": 8
+          }
+        }
+      },
+      {
+        "dialog": "151kreia",
+        "module": "151har",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "6": 8
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "6": 8
+          }
+        }
+      },
+      {
+        "dialog": "153atton",
+        "module": "153har",
+        "light": {
+          "credits": 0,
+          "light_points": 1,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 1
+        }
+      },
+      {
+        "dialog": "attonpre",
+        "module": "153har",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "0": 8
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "0": 8
+          }
+        }
+      }
+    ],
+    "note": "tools/questdb/credits.py: the credits and alignment points a full run of the chapter picks up from its conversations and scripts, for a light-side and a dark-side player (gambling left out). Worked out from the files, not played"
+  }
+}

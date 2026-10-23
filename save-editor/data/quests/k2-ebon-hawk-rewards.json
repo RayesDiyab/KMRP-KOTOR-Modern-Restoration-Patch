@@ -1,0 +1,266 @@
+{
+  "game": "K2",
+  "planet": "Ebon Hawk",
+  "generated_by": "tools/questdb/rewards.py",
+  "checked": false,
+  "xp_at_end": 188385,
+  "xp_chapter": 3000,
+  "xp_start": 185385,
+  "xp_note": "full-run scenario data/xp/k2-ebon-hawk-path.json from the Korriban rewards' xp_at_end, 185385 XP: 003ebo 188385",
+  "xp_chapter_note": "the same scenario from a new character's 0 XP: 3000",
+  "enemies_killed": 0,
+  "drops": [],
+  "templates_missing": [],
+  "containers": [],
+  "credits": {
+    "light": {
+      "credits": -1500,
+      "light_points": 123,
+      "dark_points": 1,
+      "influence": {
+        "0": 24,
+        "4": 40,
+        "5": -32,
+        "6": -16,
+        "7": 64,
+        "8": 72,
+        "9": 48,
+        "10": -32,
+        "11": 48
+      }
+    },
+    "dark": {
+      "credits": 2500,
+      "light_points": 6,
+      "dark_points": 137,
+      "influence": {
+        "0": 8,
+        "4": 40,
+        "5": 56,
+        "6": 32,
+        "8": -40,
+        "9": -24,
+        "10": 40,
+        "11": -40
+      }
+    },
+    "sources": [
+      {
+        "dialog": "atton",
+        "module": "003ebo",
+        "light": {
+          "credits": 0,
+          "light_points": 8,
+          "dark_points": 0,
+          "influence": {
+            "0": 24
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 9,
+          "influence": {
+            "0": 8
+          }
+        }
+      },
+      {
+        "dialog": "attondem",
+        "module": "003ebo",
+        "light": {
+          "credits": 0,
+          "light_points": 9,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 6
+        }
+      },
+      {
+        "dialog": "disciple",
+        "module": "003ebo",
+        "light": {
+          "credits": 0,
+          "light_points": 9,
+          "dark_points": 0,
+          "influence": {
+            "11": 56
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 12,
+          "influence": {
+            "11": -40
+          }
+        }
+      },
+      {
+        "dialog": "g0t0",
+        "module": "003ebo",
+        "light": {
+          "credits": 0,
+          "light_points": 5,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 4000,
+          "light_points": 0,
+          "dark_points": 6
+        }
+      },
+      {
+        "dialog": "handmaiden",
+        "module": "003ebo",
+        "light": {
+          "credits": 0,
+          "light_points": 24,
+          "dark_points": 0,
+          "influence": {
+            "4": 40,
+            "9": 8
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 2,
+          "dark_points": 26,
+          "influence": {
+            "4": 40,
+            "9": -8
+          }
+        }
+      },
+      {
+        "dialog": "hanharr",
+        "module": "003ebo",
+        "light": {
+          "credits": 0,
+          "light_points": 7,
+          "dark_points": 0,
+          "influence": {
+            "10": -32,
+            "11": -8
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 11,
+          "influence": {
+            "10": 40
+          }
+        }
+      },
+      {
+        "dialog": "hk47",
+        "module": "003ebo",
+        "light": {
+          "credits": 0,
+          "light_points": 9,
+          "dark_points": 0,
+          "influence": {
+            "5": -32
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 10,
+          "influence": {
+            "5": 56
+          }
+        }
+      },
+      {
+        "dialog": "kreia",
+        "module": "003ebo",
+        "light": {
+          "credits": 0,
+          "light_points": 19,
+          "dark_points": 0,
+          "influence": {
+            "6": -16
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 27,
+          "influence": {
+            "6": 32
+          }
+        }
+      },
+      {
+        "dialog": "mira",
+        "module": "003ebo",
+        "light": {
+          "credits": 0,
+          "light_points": 13,
+          "dark_points": 0,
+          "influence": {
+            "7": 64
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 2,
+          "dark_points": 10
+        }
+      },
+      {
+        "dialog": "t3m4",
+        "module": "003ebo",
+        "light": {
+          "credits": 0,
+          "light_points": 11,
+          "dark_points": 1,
+          "influence": {
+            "8": 72
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 1,
+          "dark_points": 14,
+          "influence": {
+            "8": -40
+          }
+        }
+      },
+      {
+        "dialog": "visasmarr",
+        "module": "003ebo",
+        "light": {
+          "credits": 0,
+          "light_points": 9,
+          "dark_points": 0,
+          "influence": {
+            "9": 40
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 1,
+          "dark_points": 6,
+          "influence": {
+            "9": -16
+          }
+        }
+      }
+    ],
+    "note": "tools/questdb/credits.py: the credits and alignment points a full run of the chapter picks up from its conversations and scripts, for a light-side and a dark-side player (gambling left out). Worked out from the files, not played",
+    "fixed": [
+      {
+        "credits": -1500,
+        "note": "the droid's chassis (hkpart02, item Cost 1500) has no source but a store: the store scripts (a_stockstore in 208tel, a_stock_* on the other planets) stock the next missing part while RebuildHK47 is open; at m_chano (208tel, MarkUp 100) it costs 1500. The other three parts can be found (hkpart04 on a 101per HK-50, hkpart03 on a 261tel HK-50, hkpart01 on npc_akkere in 601dan)",
+        "slot": 5
+      }
+    ]
+  }
+}

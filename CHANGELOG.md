@@ -171,6 +171,33 @@ proxy, and it applies the executable changes above as well.
   moved to a narrow rail on the right with a switch between them. Revert and Save Changes
   moved to the top right beside the settings button; the bottom bar's backup folder went into
   Settings, so every tab is taller.
+- **Skip Ahead covers the whole of KotOR 1 and leaves the skipped areas played through**
+  (2026-10-23; [save-editor.md](save-editor/docs/save-editor.md)). Every chapter from the
+  Endar Spire to the Star Forge is mapped from the game's own scripts and dialogs; skipping to
+  one plays every earlier chapter first, in order: quests, story values, star maps, items,
+  credits, companions, the Jedi class the player picks, the cumulative XP of a full run. The
+  areas a player can return to are written into the save as a played area is stored, one-time
+  enemies gone, doors open, containers looted, first-visit flags set, so going back shows the
+  chapter played. Checked by reading the written saves back; **only the Endar Spire has been
+  seen in the game.**
+- **Skip Ahead leaves a save as a real run would, and pays nothing twice** (2026-10-23).
+  The skipped chapters' quests are closed so their people do not offer them again, areas
+  already visited are brought to the played state, and what the save already had (looted
+  containers, killed enemies, finished quests, bought companions, held items) is not given
+  again. KotOR 2 also gets influence, the masters' teachings, the prestige class and, as a
+  choice, companions trained as Jedi without their conversations.
+- **Skip Ahead covers KotOR 2** (2026-10-23; [save-editor.md](save-editor/docs/save-editor.md)).
+  Eleven chapters from Peragus to Malachor V and the Ebon Hawk, mapped from the game's files:
+  quests, story values, the masters found, companions by gender and side, loot, credits for
+  either side, and the XP of a full run by the game's own kill-XP rule read from
+  swkotor2.exe. Not yet seen in the game; party influence and the masters' teachings are not
+  applied yet.
+- **Skip Ahead pays the credits and asks light or dark** (2026-10-23). Each chapter now gives
+  the credits its quests and conversations pay a full run, worked out per conversation for a
+  light-side and a dark-side player, less the payments the main path needs, and moves the
+  player's alignment that way. Where the story branches the confirmation asks for the side:
+  the dark side kills slot 5 on Dantooine, brings slot 0 back at the Unknown World and loses
+  slots 4, 5, 2 and 6, and plays the dark ending. Not yet seen in the game.
 - **The Save Editor travels anywhere and skips ahead in the story** (2026-10-23;
   [save-editor.md](save-editor/docs/save-editor.md)). The Map tab lists every area of the
   game by planet; Travel Here makes the game itself take the player there right after the

@@ -1,0 +1,80 @@
+{
+  "game": "K2",
+  "planet": "Ravager",
+  "generated_by": "tools/questdb/rewards.py",
+  "checked": false,
+  "xp_at_end": 202160,
+  "xp_chapter": 8575,
+  "xp_start": 187385,
+  "xp_note": "full-run scenario data/xp/k2-ravager-path.json from the The Jedi Masters rewards' xp_at_end, 187385 XP: 851nih 197210, 852nih 202160",
+  "xp_chapter_note": "the same scenario from a new character's 0 XP: 8575",
+  "enemies_killed": 61,
+  "drops": [],
+  "templates_missing": [],
+  "containers": [],
+  "credits": {
+    "light": {
+      "credits": 0,
+      "light_points": 0,
+      "dark_points": 0,
+      "influence": {
+        "9": 32,
+        "10": 8
+      }
+    },
+    "dark": {
+      "credits": 0,
+      "light_points": 0,
+      "dark_points": 6,
+      "influence": {
+        "9": 32,
+        "10": 8
+      }
+    },
+    "sources": [
+      {
+        "dialog": "000react",
+        "module": "851nih",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "9": 24,
+            "10": 8
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "9": 24,
+            "10": 8
+          }
+        }
+      },
+      {
+        "dialog": "852nih",
+        "module": "852nih",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0,
+          "influence": {
+            "9": 8
+          }
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 6,
+          "influence": {
+            "9": 8
+          }
+        }
+      }
+    ],
+    "note": "tools/questdb/credits.py: the credits and alignment points a full run of the chapter picks up from its conversations and scripts, for a light-side and a dark-side player (gambling left out). Worked out from the files, not played"
+  }
+}

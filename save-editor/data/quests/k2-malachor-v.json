@@ -1,0 +1,205 @@
+{
+ "game": "K2",
+ "planet": "Malachor V",
+ "generated_by": "tools/questdb/build.py",
+ "checked": false,
+ "quests": [
+  {
+   "tag": "MassShadowGenerator",
+   "stages": [
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "901mal",
+       "via": {
+        "dialog": "901bao",
+        "node": 0,
+        "speaker": "BaoDur",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "MassShadowGenerator",
+          10
+         ]
+        },
+        {
+         "set_global_number": [
+          "901MAL_REMOTE",
+          1
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 20,
+     "end": false,
+     "steps": [
+      {
+       "module": "901mal",
+       "via": {
+        "dialog": "console",
+        "node": 5,
+        "speaker": "Console",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "MassShadowGenerator",
+          20
+         ]
+        },
+        {
+         "set_global_number": [
+          "901MAL_Mass_Shadow",
+          1
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 250
+    },
+    {
+     "stage": 30,
+     "end": false,
+     "steps": [
+      {
+       "module": "901mal",
+       "via": {
+        "dialog": "console",
+        "node": 4,
+        "speaker": "Console",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "MassShadowGenerator",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "901MAL_Mass_Shadow",
+          2
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 250
+    },
+    {
+     "stage": 40,
+     "end": false,
+     "steps": [
+      {
+       "module": "901mal",
+       "via": {
+        "dialog": "console",
+        "node": 3,
+        "speaker": "Console",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "MassShadowGenerator",
+          40
+         ]
+        },
+        {
+         "set_global_number": [
+          "901MAL_Mass_Shadow",
+          3
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 250
+    },
+    {
+     "stage": 85,
+     "end": true,
+     "steps": [
+      {
+       "module": "902mal",
+       "via": {
+        "dialog": "sensorfi",
+        "node": 38,
+        "speaker": "",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "other": "PlayMovie(\"MalMov09\", 0)"
+        },
+        {
+         "other": "moves the party to module \"903MAL\""
+        },
+        {
+         "journal": [
+          "MassShadowGenerator",
+          85
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 90,
+     "end": true,
+     "steps": []
+    },
+    {
+     "stage": 99,
+     "end": true,
+     "steps": [
+      {
+       "module": "901mal",
+       "via": {
+        "dialog": "console",
+        "node": 2,
+        "speaker": "Console",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "MassShadowGenerator",
+          99
+         ]
+        },
+        {
+         "set_global_number": [
+          "901MAL_Mass_Shadow",
+          4
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 250
+    }
+   ],
+   "notes": "stage 20: dialog console gives the same steps in 902mal stage 30: dialog console gives the same steps in 902mal stage 40: dialog console gives the same steps in 902mal stage 99: dialog console gives the same steps in 902mal UNCERTAIN: stage 20: the condition script c_global_set|0,0,0,0,0,901MAL_REMOTE on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 20: the condition script c_chkmassshad|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 30: the condition script c_global_set|0,0,0,0,0,901MAL_REMOTE on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 30: the condition script c_chkmassshad|1,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 40: the condition script c_global_set|0,0,0,0,0,901MAL_REMOTE on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 40: the condition script c_chkmassshad|2,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 85: no creature, placeable or door template in 902mal names dialog sensorfi, so its speaker is unknown; scripts that name it: a_sensordlgfire UNCERTAIN: stage 90 has no setter in the Malachor V files (no dialog node or script sets it) UNCERTAIN: stage 99: the condition script c_global_set|0,0,0,0,0,901MAL_REMOTE on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 99: the condition script c_chkmassshad|3,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured",
+   "own": true,
+   "run_ending": 85
+  }
+ ]
+}

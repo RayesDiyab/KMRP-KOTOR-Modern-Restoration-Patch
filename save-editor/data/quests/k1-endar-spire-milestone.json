@@ -1,0 +1,2450 @@
+{
+ "game": "K1",
+ "planet": "Endar Spire",
+ "order": 1,
+ "chapter_title": "The Endar Spire: escaping the ship in an escape pod",
+ "generated_by": "tools/questdb/build.py --milestone",
+ "checked": false,
+ "about": "Story state every completed run of the planet ends with, for a skip-to-the-end feature. Values marked certain = false were worked out by reading the scripts, not by playing.",
+ "journal": [
+  {
+   "tag": "end_attack",
+   "stage": 99,
+   "set_by": "dialog end_pod R1 in end_m01ab"
+  }
+ ],
+ "globals": [
+  {
+   "name": "END_BRIDGE_COMBAT",
+   "type": "Boolean",
+   "value": false,
+   "certain": true,
+   "note": "only k_pend_door07 (scripts.bif) sets it TRUE and nothing in the end_ modules runs k_pend_door07; k_pend_sith_d sets it FALSE. It must stay FALSE: k_ai_master pauses the game and shows a hint when the player is hurt while it is TRUE",
+   "read_after_planet": [
+    {
+     "where": "Override",
+     "script": "k_ai_master",
+     "named_outside_planet": 34,
+     "named_by_examples": [
+      "danm14ac",
+      "global script k_def_attacked01",
+      "global script k_def_blocked01",
+      "global script k_def_combend01"
+     ]
+    }
+   ],
+   "writers": []
+  },
+  {
+   "name": "END_BRIDGE_SEALED",
+   "type": "Boolean",
+   "value": true,
+   "certain": false,
+   "note": "TRUE when K1CP's bridge scene runs (cp_end_traskbrdg E0, cp_end_bridgecs), which K1 Community Patch adds; FALSE on the unpatched route (end_trask01 R1)",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "set": true,
+     "script": "cp_end_bridgecs",
+     "module": "end_m01aa",
+     "from": [
+      "cp_end_traskbrdg E0 script"
+     ],
+     "critical": true
+    }
+   ]
+  },
+  {
+   "name": "END_CARTH_DLG",
+   "type": "Number",
+   "value": 6,
+   "certain": false,
+   "note": "the state machine of tag Carth in end_m01ab: end_door04 sets 5 (k_pend_door20), the first line adds 1 (k_pend_carth17); lines E3/E4 add 1 more if they play (7). Nothing after the Endar Spire reads it",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "add": 1,
+     "script": "k_pend_cadlg_inc",
+     "module": "end_m01aa",
+     "from": [
+      "end_trask01 E32 script"
+     ],
+     "critical": false
+    },
+    {
+     "set": 4,
+     "script": "k_pend_sith_7",
+     "module": "end_m01ab",
+     "from": [
+      "end_repsol003.utc ScriptDeath (end_sithsol01)"
+     ],
+     "branch": "if a helper function's result; GetIsObjectValid(GetObjectByTag(\"end_sith04\", 0)); GetIsDead(GetObjectByTag(...",
+     "critical": false
+    },
+    {
+     "set": 5,
+     "script": "k_pend_door20",
+     "module": "end_m01ab",
+     "from": [
+      "end_door04.utd OnOpen (end_door04)"
+     ],
+     "critical": true
+    },
+    {
+     "set": 1,
+     "script": "k_pend_carth_t02",
+     "module": "end_m01ab",
+     "from": [
+      "end_trig_carth02.utt ScriptOnEnter (end_trig_carth02)"
+     ],
+     "branch": "if not (1 && GetIsObjectValid(OBJECT_SELF)); a helper function's result is 0",
+     "critical": true
+    },
+    {
+     "set": 1,
+     "script": "k_pend_carth_t02",
+     "module": "end_m01ab",
+     "from": [
+      "end_trig_carth02.utt ScriptOnEnter (end_trig_carth02)"
+     ],
+     "branch": "if GetIsObjectValid(OBJECT_SELF); a helper function's result is 0",
+     "critical": true
+    },
+    {
+     "add": 1,
+     "script": "k_pend_carth17",
+     "module": "end_m01ab",
+     "from": [
+      "end_carth001 E1 script"
+     ],
+     "critical": true
+    },
+    {
+     "add": 1,
+     "script": "k_pend_cadlg_inc",
+     "module": "end_m01ab",
+     "from": [
+      "end_carth001 E3 script",
+      "end_carth001 E4 script"
+     ],
+     "critical": false
+    },
+    {
+     "set": 4,
+     "script": "k_pend_carth13",
+     "module": "end_m01ab",
+     "from": [
+      "end_carth001 E6 script"
+     ],
+     "critical": false
+    }
+   ]
+  },
+  {
+   "name": "END_HURT_WARN",
+   "type": "Boolean",
+   "value": false,
+   "certain": true,
+   "note": "only k_ai_master / k_hen_damage01 set it, and only while END_BRIDGE_COMBAT is TRUE",
+   "read_after_planet": [
+    {
+     "where": "Override",
+     "script": "k_ai_master",
+     "named_outside_planet": 34,
+     "named_by_examples": [
+      "danm14ac",
+      "global script k_def_attacked01",
+      "global script k_def_blocked01",
+      "global script k_def_combend01"
+     ]
+    }
+   ],
+   "writers": []
+  },
+  {
+   "name": "END_PC_ON_BRIDGE",
+   "type": "Boolean",
+   "value": false,
+   "certain": false,
+   "note": "trigger end_sealbridge sets TRUE on entry and FALSE on exit; the player leaves the bridge to reach end_door19",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "set": true,
+     "script": "k_pend_bridge06",
+     "module": "end_m01aa",
+     "from": [
+      "end_sealbridge.utt ScriptOnEnter (end_sealbridge)"
+     ],
+     "branch": "if (GetEnteringObject() == player); not (GetEnteringObject() == a helper function's result)",
+     "critical": false
+    },
+    {
+     "set": true,
+     "script": "k_pend_bridge06",
+     "module": "end_m01aa",
+     "from": [
+      "end_sealbridge.utt ScriptOnEnter (end_sealbridge)"
+     ],
+     "branch": "if (GetEnteringObject() == player); (GetEnteringObject() == a helper function's result)",
+     "critical": false
+    },
+    {
+     "set": false,
+     "script": "k_pend_bridge07",
+     "module": "end_m01aa",
+     "from": [
+      "end_sealbridge.utt ScriptOnExit (end_sealbridge)"
+     ],
+     "branch": "if (GetExitingObject() == player); not (GetExitingObject() == a helper function's result)",
+     "critical": false
+    },
+    {
+     "set": false,
+     "script": "k_pend_bridge07",
+     "module": "end_m01aa",
+     "from": [
+      "end_sealbridge.utt ScriptOnExit (end_sealbridge)"
+     ],
+     "branch": "if (GetExitingObject() == player); (GetExitingObject() == a helper function's result)",
+     "critical": false
+    }
+   ]
+  },
+  {
+   "name": "END_ROOM3_DEAD",
+   "type": "Number",
+   "value": 2,
+   "certain": false,
+   "note": "kill counter: two placed Sith carry its scripts (end_sith2, end_sith3)",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "add": 1,
+     "script": "k_pend_room3_01",
+     "module": "end_m01aa",
+     "from": [
+      "end_repsol004.utc ScriptUserDefine (end_sith2)"
+     ],
+     "branch": "if END_ROOM3_DEAD < 1",
+     "critical": true
+    },
+    {
+     "add": 1,
+     "script": "k_pend_room3_01",
+     "module": "end_m01aa",
+     "from": [
+      "end_repsol004.utc ScriptUserDefine (end_sith2)"
+     ],
+     "branch": "if END_ROOM3_DEAD >= 1",
+     "critical": true
+    },
+    {
+     "add": 1,
+     "script": "k_pend_ud_cut1a",
+     "module": "end_m01aa",
+     "from": [
+      "end_repsol005.utc ScriptUserDefine (end_sith3)"
+     ],
+     "branch": "if END_ROOM3_DEAD < 1",
+     "critical": true
+    },
+    {
+     "add": 1,
+     "script": "k_pend_ud_cut1a",
+     "module": "end_m01aa",
+     "from": [
+      "end_repsol005.utc ScriptUserDefine (end_sith3)"
+     ],
+     "branch": "if END_ROOM3_DEAD >= 1",
+     "critical": true
+    }
+   ]
+  },
+  {
+   "name": "END_ROOM5_DEAD",
+   "type": "Number",
+   "value": 3,
+   "certain": false,
+   "note": "kill counter: three placed Sith carry k_pend_sith2_d (end_cut2_sith1, 2, 4); end_door16 opens at 3",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "add": 1,
+     "script": "k_pend_sith2_d",
+     "module": "end_m01aa",
+     "from": [
+      "end_repsol007.utc ScriptUserDefine (end_cut2_sith2)",
+      "end_repsol006.utc ScriptUserDefine (end_cut2_sith1)",
+      "end_repsol009.utc ScriptUserDefine (end_cut2_sith4)"
+     ],
+     "branch": "if (GetGlobalNumber(\"END_ROOM5_DEAD\") + 1) at most 2; user-defined event is 1007",
+     "critical": true
+    },
+    {
+     "add": 1,
+     "script": "k_pend_sith2_d",
+     "module": "end_m01aa",
+     "from": [
+      "end_repsol007.utc ScriptUserDefine (end_cut2_sith2)",
+      "end_repsol006.utc ScriptUserDefine (end_cut2_sith1)",
+      "end_repsol009.utc ScriptUserDefine (end_cut2_sith4)"
+     ],
+     "branch": "if user-defined event is 1007; (GetGlobalNumber(\"END_ROOM5_DEAD\") + 1) at least 3",
+     "critical": true
+    }
+   ]
+  },
+  {
+   "name": "END_ROOM7_DEAD",
+   "type": "Number",
+   "value": 2,
+   "certain": false,
+   "note": "kill counter: two placed Sith carry k_pend_room7_01; end_door15 needs 2",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "add": 1,
+     "script": "k_pend_room7_01",
+     "module": "end_m01aa",
+     "from": [
+      "n_sithsoldier003.utc ScriptUserDefine (SithSoldier)"
+     ],
+     "branch": "if (GetGlobalNumber(\"END_ROOM7_DEAD\") + 1) at most 1; user-defined event is 1007",
+     "critical": true
+    },
+    {
+     "add": 1,
+     "script": "k_pend_room7_01",
+     "module": "end_m01aa",
+     "from": [
+      "n_sithsoldier003.utc ScriptUserDefine (SithSoldier)"
+     ],
+     "branch": "if user-defined event is 1007; (GetGlobalNumber(\"END_ROOM7_DEAD\") + 1) at least 2",
+     "critical": true
+    }
+   ]
+  },
+  {
+   "name": "END_ROOM8_DEAD",
+   "type": "Number",
+   "value": 2,
+   "certain": false,
+   "note": "kill counter: the two reinforcements end_reinforce1 and 2, spawned by k_pend_reinfrc03 (end_cut04 E4, after the cutscene); the bridge door needs 2",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "add": 1,
+     "script": "k_pend_reinfrc08",
+     "module": "end_m01aa",
+     "from": [
+      "end_reinforce2.utc ScriptUserDefine (end_reinforce2) spawned by k_pend_reinfrc03"
+     ],
+     "branch": "if user-defined event is 1007",
+     "critical": true
+    },
+    {
+     "add": 1,
+     "script": "k_pend_reinfrc09",
+     "module": "end_m01aa",
+     "from": [
+      "end_reinforce1.utc ScriptUserDefine (end_reinforce1) spawned by k_pend_reinfrc03"
+     ],
+     "branch": "if user-defined event is 1007",
+     "critical": true
+    }
+   ]
+  },
+  {
+   "name": "END_SITH_DEAD",
+   "type": "Number",
+   "value": 5,
+   "certain": false,
+   "note": "kill counter: five placed troopers in end_m01ab carry k_pend_sith_d (end_sith01 x4, end_sith04); the end_m01aa copy of k_pend_sith_d belongs to end_repsol002, which no area places or spawns",
+   "read_after_planet": [],
+   "read_only_by_planet_scripts": [
+    "k_pend_door08"
+   ],
+   "writers": [
+    {
+     "add": 1,
+     "script": "k_pend_sith_d",
+     "module": "end_m01ab",
+     "from": [
+      "g_sithtroop002.utc ScriptUserDefine (end_sith01)",
+      "g_sithtroop004.utc ScriptUserDefine (end_sith04)"
+     ],
+     "branch": "if END_SITH_DEAD < 5",
+     "critical": true
+    },
+    {
+     "add": 1,
+     "script": "k_pend_sith_d",
+     "module": "end_m01ab",
+     "from": [
+      "g_sithtroop002.utc ScriptUserDefine (end_sith01)",
+      "g_sithtroop004.utc ScriptUserDefine (end_sith04)"
+     ],
+     "branch": "if END_SITH_DEAD >= 5",
+     "critical": true
+    }
+   ]
+  },
+  {
+   "name": "END_TRASK_DLG",
+   "type": "Number",
+   "value": 31,
+   "certain": false,
+   "note": "the state machine of end_trask. 31 is the value the bridge needs (journal stage 30 needs it; k_pend_door15, k_pend_door20 and K1CP's cp_end_trasksp_d set it). Opening the end_m01ab container adds 1 each time (k_pend_chest01), and the bridge fight's k_pend_sith_d may set 28 if it runs after; nothing after the Endar Spire reads it",
+   "read_after_planet": [],
+   "read_only_by_planet_scripts": [
+    "k_pend_door02",
+    "k_pend_door04",
+    "k_pend_door06"
+   ],
+   "writers": [
+    {
+     "set": -1,
+     "script": "k_pend_activate",
+     "module": "end_m01aa",
+     "from": [
+      "module.ifo Mod_OnActvtItem"
+     ],
+     "branch": "if END_TRASK_DLG == 15",
+     "critical": false
+    },
+    {
+     "set": 1,
+     "script": "k_pend_trask_d",
+     "module": "end_m01aa",
+     "from": [
+      "end_trask.utc ScriptUserDefine (end_trask)"
+     ],
+     "branch": "if END_TRASK_DLG == 2",
+     "critical": false
+    },
+    {
+     "set": 4,
+     "script": "k_pend_trask_d",
+     "module": "end_m01aa",
+     "from": [
+      "end_trask.utc ScriptUserDefine (end_trask)"
+     ],
+     "branch": "if a helper function's result; user-defined event is 200",
+     "critical": false
+    },
+    {
+     "set": 14,
+     "script": "k_pend_room3_01",
+     "module": "end_m01aa",
+     "from": [
+      "end_repsol004.utc ScriptUserDefine (end_sith2)"
+     ],
+     "branch": "if END_ROOM3_DEAD >= 1",
+     "critical": true
+    },
+    {
+     "set": 14,
+     "script": "k_pend_ud_cut1a",
+     "module": "end_m01aa",
+     "from": [
+      "end_repsol005.utc ScriptUserDefine (end_sith3)"
+     ],
+     "branch": "if END_ROOM3_DEAD >= 1",
+     "critical": true
+    },
+    {
+     "set": 2,
+     "script": "k_pend_chest02",
+     "module": "end_m01aa",
+     "from": [
+      "footlker001.utp OnInvDisturbed (end_locker01)"
+     ],
+     "branch": "if END_TRASK_DLG < 2",
+     "critical": false
+    },
+    {
+     "set": 31,
+     "script": "cp_end_trasksp_d",
+     "module": "end_m01aa",
+     "from": [
+      "cp_end_trasksp.utp OnUserDefined (cp_end_trasksp)"
+     ],
+     "branch": "if user-defined event is 100; GetXP(player) at least 1000",
+     "critical": true
+    },
+    {
+     "set": 31,
+     "script": "cp_end_trasksp_d",
+     "module": "end_m01aa",
+     "from": [
+      "cp_end_trasksp.utp OnUserDefined (cp_end_trasksp)"
+     ],
+     "branch": "if user-defined event is 100; GetXP(player) at most 999",
+     "critical": true
+    },
+    {
+     "set": 8,
+     "script": "k_pend_door01",
+     "module": "end_m01aa",
+     "from": [
+      "sw_door_test001.utd OnFailToOpen (end_door01)"
+     ],
+     "branch": "if (GetPartyMemberByIndex(0) == a helper function's result)",
+     "resolves_to": "chitin:scripts.bif",
+     "critical": true
+    },
+    {
+     "set": 31,
+     "script": "k_pend_door20",
+     "module": "end_m01aa",
+     "from": [
+      "end_door08.utd OnFailToOpen (end_door08)"
+     ],
+     "branch": "if END_BRIDGE_SEALED is FALSE; END_ROOM8_DEAD >= 2; END_TRASK_DLG >= 16; END_TRASK_DLG != 16",
+     "critical": true
+    },
+    {
+     "set": 31,
+     "script": "k_pend_door20",
+     "module": "end_m01aa",
+     "from": [
+      "end_door08.utd OnFailToOpen (end_door08)"
+     ],
+     "branch": "if END_BRIDGE_SEALED is FALSE; END_ROOM8_DEAD >= 2; END_TRASK_DLG >= 16; END_TRASK_DLG == 16",
+     "critical": true
+    },
+    {
+     "set": 17,
+     "script": "k_pend_door20",
+     "module": "end_m01aa",
+     "from": [
+      "end_door08.utd OnFailToOpen (end_door08)"
+     ],
+     "branch": "if END_BRIDGE_SEALED is FALSE; END_ROOM8_DEAD >= 2; END_TRASK_DLG >= 16; END_TRASK_DLG == 16",
+     "critical": true
+    },
+    {
+     "set": 31,
+     "script": "k_pend_door20",
+     "module": "end_m01aa",
+     "from": [
+      "end_door08.utd OnFailToOpen (end_door08)"
+     ],
+     "branch": "if END_BRIDGE_SEALED is FALSE; END_ROOM8_DEAD >= 2; END_TRASK_DLG < 16",
+     "critical": true
+    },
+    {
+     "set": 16,
+     "script": "k_pend_door20",
+     "module": "end_m01aa",
+     "from": [
+      "end_door08.utd OnFailToOpen (end_door08)"
+     ],
+     "branch": "if END_BRIDGE_SEALED is FALSE; END_ROOM8_DEAD >= 2; END_TRASK_DLG < 16",
+     "critical": true
+    },
+    {
+     "set": 31,
+     "script": "k_pend_door15",
+     "module": "end_m01aa",
+     "from": [
+      "end_door15.utd OnFailToOpen (end_door15)"
+     ],
+     "branch": "if END_ROOM7_DEAD >= 2",
+     "critical": true
+    },
+    {
+     "set": -1,
+     "script": "k_pend_door16",
+     "module": "end_m01aa",
+     "from": [
+      "end_door16.utd OnOpen (end_door16)"
+     ],
+     "branch": "if not (1 && GetIsObjectValid(OBJECT_SELF)); a helper function's result is 0",
+     "critical": true
+    },
+    {
+     "set": -1,
+     "script": "k_pend_door16",
+     "module": "end_m01aa",
+     "from": [
+      "end_door16.utd OnOpen (end_door16)"
+     ],
+     "branch": "if GetIsObjectValid(OBJECT_SELF); a helper function's result is 0",
+     "critical": true
+    },
+    {
+     "set": 10,
+     "script": "k_pend_trig02",
+     "module": "end_m01aa",
+     "from": [
+      "end_trig02.utt ScriptOnEnter (end_trig02)"
+     ],
+     "branch": "if IsObjectPartyMember(GetEnteringObject()); not (1 && GetIsObjectValid(OBJECT_SELF)); a helper function's ...",
+     "critical": true
+    },
+    {
+     "set": 10,
+     "script": "k_pend_trig02",
+     "module": "end_m01aa",
+     "from": [
+      "end_trig02.utt ScriptOnEnter (end_trig02)"
+     ],
+     "branch": "if IsObjectPartyMember(GetEnteringObject()); GetIsObjectValid(OBJECT_SELF); a helper function's result is 0",
+     "critical": true
+    },
+    {
+     "set": 4,
+     "script": "k_pend_traskdlg3",
+     "module": "end_m01aa",
+     "from": [
+      "end_pop02 R0>E1 condition",
+      "end_trask01 R62>E46 condition",
+      "end_trask01 start E46 condition"
+     ],
+     "branch": "if END_TRASK_DLG == 3",
+     "critical": false
+    },
+    {
+     "set": -1,
+     "script": "k_pend_traskdl49",
+     "module": "end_m01aa",
+     "from": [
+      "end_room3 E4 script",
+      "end_trask01 E39 script"
+     ],
+     "critical": false
+    },
+    {
+     "set": 15,
+     "script": "k_pend_traskdl50",
+     "module": "end_m01aa",
+     "from": [
+      "end_trask01 E16 script"
+     ],
+     "critical": true
+    },
+    {
+     "set": 12,
+     "script": "k_pend_traskdl48",
+     "module": "end_m01aa",
+     "from": [
+      "end_trask01 E29 script",
+      "end_trask01 E31 script"
+     ],
+     "critical": false
+    },
+    {
+     "set": 11,
+     "script": "k_pend_traskdl47",
+     "module": "end_m01aa",
+     "from": [
+      "end_trask01 E34 script"
+     ],
+     "critical": false
+    },
+    {
+     "set": 9,
+     "script": "k_pend_traskdl45",
+     "module": "end_m01aa",
+     "from": [
+      "end_trask01 E43 script"
+     ],
+     "critical": false
+    },
+    {
+     "set": 3,
+     "script": "k_pend_traskdl43",
+     "module": "end_m01aa",
+     "from": [
+      "end_trask01 E49 script"
+     ],
+     "critical": false
+    },
+    {
+     "set": 4,
+     "script": "k_pend_traskdlg2",
+     "module": "end_m01aa",
+     "from": [
+      "end_trask01 start E49 condition"
+     ],
+     "branch": "if END_TRASK_DLG == 2",
+     "critical": false
+    },
+    {
+     "set": -1,
+     "script": "k_pend_traskdl10",
+     "module": "end_m01aa",
+     "from": [
+      "end_trask01 start E7 condition"
+     ],
+     "branch": "if END_TRASK_DLG == 15",
+     "critical": false
+    },
+    {
+     "add": 1,
+     "script": "k_pend_chest01",
+     "module": "end_m01ab",
+     "from": [
+      "footlker003.utp OnOpen (FootLker)"
+     ],
+     "branch": "if not (1 && GetIsObjectValid(OBJECT_SELF)); a helper function's result is 0",
+     "critical": false
+    },
+    {
+     "add": 1,
+     "script": "k_pend_chest01",
+     "module": "end_m01ab",
+     "from": [
+      "footlker003.utp OnOpen (FootLker)"
+     ],
+     "branch": "if GetIsObjectValid(OBJECT_SELF); a helper function's result is 0",
+     "critical": false
+    }
+   ]
+  },
+  {
+   "name": "END_TRASK_ON_BRIDGE",
+   "type": "Boolean",
+   "value": null,
+   "certain": false,
+   "note": "trigger end_sealbridge; whether end_trask was last inside depends on where he stood when he left the party. Leave unchanged",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "set": true,
+     "script": "k_pend_bridge06",
+     "module": "end_m01aa",
+     "from": [
+      "end_sealbridge.utt ScriptOnEnter (end_sealbridge)"
+     ],
+     "branch": "if not (GetEnteringObject() == player); (GetEnteringObject() == a helper function's result)",
+     "critical": false
+    },
+    {
+     "set": true,
+     "script": "k_pend_bridge06",
+     "module": "end_m01aa",
+     "from": [
+      "end_sealbridge.utt ScriptOnEnter (end_sealbridge)"
+     ],
+     "branch": "if (GetEnteringObject() == player); (GetEnteringObject() == a helper function's result)",
+     "critical": false
+    },
+    {
+     "set": false,
+     "script": "k_pend_bridge07",
+     "module": "end_m01aa",
+     "from": [
+      "end_sealbridge.utt ScriptOnExit (end_sealbridge)"
+     ],
+     "branch": "if not (GetExitingObject() == player); (GetExitingObject() == a helper function's result)",
+     "critical": false
+    },
+    {
+     "set": false,
+     "script": "k_pend_bridge07",
+     "module": "end_m01aa",
+     "from": [
+      "end_sealbridge.utt ScriptOnExit (end_sealbridge)"
+     ],
+     "branch": "if (GetExitingObject() == player); (GetExitingObject() == a helper function's result)",
+     "critical": false
+    }
+   ]
+  },
+  {
+   "name": "End_TraskTalk",
+   "type": "Number",
+   "value": 1,
+   "certain": false,
+   "note": "the first conversation with end_trask adds 1 (k_pend_traskinc on end_trask01 E55); stage 1 needs it at 0 before. A replay of that line would add again",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "add": 1,
+     "script": "k_pend_traskinc",
+     "module": "end_m01aa",
+     "from": [
+      "end_trask01 E55 script"
+     ],
+     "critical": true
+    }
+   ]
+  },
+  {
+   "name": "K_CURRENT_PLANET",
+   "type": "Number",
+   "value": 5,
+   "certain": true,
+   "note": "set once by k_pend_area01 on entering m01aa; stunt_00's k_ren_visionland reads 5 to send the escape pod to tar_m02af",
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_bant_trig",
+     "named_outside_planet": 36,
+     "named_by_examples": [
+      "danm14ab",
+      "danm14ad",
+      "kas_m22aa",
+      "kas_m22ab"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_con_atdant",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "ebo_m12aa"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_con_atkash",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "ebo_m12aa"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_con_atkorr",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "ebo_m12aa"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_con_atmann",
+     "named_outside_planet": 5,
+     "named_by_examples": [
+      "ebo_m12aa",
+      "kas_m24aa",
+      "korr_m36aa",
+      "manm28aa"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_con_attat",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "ebo_m12aa"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid01",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "danm13"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid02",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "danm14aa"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid03",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "danm14ad"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid04",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "danm14ab"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pdan_rapid05",
+     "named_outside_planet": 1,
+     "named_by_examples": [
+      "danm14ac"
+     ]
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_pebn_galaxy",
+     "named_outside_planet": 2,
+     "named_by_examples": [
+      "ebo_m12aa",
+      "ebo_m41aa"
+     ]
+    }
+   ],
+   "read_after_planet_total": 99,
+   "read_only_by_planet_scripts": [
+    "cp_mes_malexit1",
+    "k_act_nospeak",
+    "k_con_atforge",
+    "k_con_atlev",
+    "k_con_atspire",
+    "k_con_attaris",
+    "k_con_atunk",
+    "k_con_basvision",
+    "k_hcan_state10",
+    "k_hcan_state28",
+    "k_hcan_state33",
+    "k_hcan_state34",
+    "k_hcan_state35",
+    "k_hcan_state36",
+    "k_hcan_state37",
+    "k_hcan_state38",
+    "k_hcan_state39",
+    "k_hcan_state41",
+    "k_hcan_state42",
+    "k_hjuh_p09",
+    "k_hjuh_p11",
+    "k_hjuh_w01",
+    "k_hjuh_w02",
+    "k_hjuh_w03",
+    "k_hjuh_w04",
+    "k_hjuh_w05",
+    "k_hjuh_w07",
+    "k_hjuh_w08",
+    "k_hjuh_w09",
+    "k_hjuh_w10",
+    "k_hmis_planet",
+    "k_hmis_talk3lev",
+    "k_hmis_zaalbar",
+    "k_hzal_atkash1",
+    "k_hzal_atkash2",
+    "k_hzal_notkash1",
+    "k_hzal_notkash2",
+    "k_pebn_gotaris",
+    "k_pman_rapid01",
+    "k_qa",
+    "k_sup_galaxmap",
+    "k_sup_galaxymap",
+    "k_sup_gohawk",
+    "k_sup_guiopen",
+    "k_swg_bastila20",
+    "k_swg_bastila20x",
+    "k_swg_bastila27",
+    "k_swg_jolee01",
+    "k_trg_messengers",
+    "qa_trans"
+   ],
+   "writers": [
+    {
+     "set": 5,
+     "script": "k_pend_area01",
+     "module": "end_m01aa",
+     "from": [
+      "m01aa.are OnEnter"
+     ],
+     "branch": "if GetIsPC(GetEnteringObject()); not (1 && GetIsObjectValid(OBJECT_SELF)); not (GetClassByPosition(1, playe...",
+     "critical": true
+    },
+    {
+     "set": 5,
+     "script": "k_pend_area01",
+     "module": "end_m01aa",
+     "from": [
+      "m01aa.are OnEnter"
+     ],
+     "branch": "if GetIsPC(GetEnteringObject()); not (1 && GetIsObjectValid(OBJECT_SELF)); not GetHasSkill(2, player); GetC...",
+     "critical": true
+    },
+    {
+     "set": 5,
+     "script": "k_pend_area01",
+     "module": "end_m01aa",
+     "from": [
+      "m01aa.are OnEnter"
+     ],
+     "branch": "if GetIsPC(GetEnteringObject()); not (1 && GetIsObjectValid(OBJECT_SELF)); GetHasSkill(2, player); GetClass...",
+     "critical": true
+    },
+    {
+     "set": 5,
+     "script": "k_pend_area01",
+     "module": "end_m01aa",
+     "from": [
+      "m01aa.are OnEnter"
+     ],
+     "branch": "if GetIsPC(GetEnteringObject()); GetIsObjectValid(OBJECT_SELF); not (GetClassByPosition(1, player) == 2); n...",
+     "critical": true
+    },
+    {
+     "set": 5,
+     "script": "k_pend_area01",
+     "module": "end_m01aa",
+     "from": [
+      "m01aa.are OnEnter"
+     ],
+     "branch": "if GetIsPC(GetEnteringObject()); GetIsObjectValid(OBJECT_SELF); not GetHasSkill(2, player); GetClassByPosit...",
+     "critical": true
+    },
+    {
+     "set": 5,
+     "script": "k_pend_area01",
+     "module": "end_m01aa",
+     "from": [
+      "m01aa.are OnEnter"
+     ],
+     "branch": "if GetIsPC(GetEnteringObject()); GetIsObjectValid(OBJECT_SELF); GetHasSkill(2, player); GetClassByPosition(...",
+     "critical": true
+    }
+   ]
+  }
+ ],
+ "globals_never_set": [
+  "END_ROUND_WARN",
+  "End_Droid"
+ ],
+ "items": {
+  "held_at_end": [
+   {
+    "resref": "g_i_medeqpmnt01",
+    "count": 1,
+    "script": "k_pend_traskdl50",
+    "module": "end_m01aa",
+    "from": [
+     "end_trask01 E16 script"
+    ],
+    "branch": null,
+    "certain": false
+   },
+   {
+    "resref": "g_i_medeqpmnt02",
+    "count": 1,
+    "script": "k_pend_traskdl50",
+    "module": "end_m01aa",
+    "from": [
+     "end_trask01 E16 script"
+    ],
+    "branch": null,
+    "certain": false
+   }
+  ],
+  "held_note": "Given by scripts on the critical path. Not certain: the line that gives them must play, and the player can use them (they are consumables) before the end.",
+  "other_script_gifts": [],
+  "taken_optional": [
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_act_comp01",
+    "module": "end_m01aa",
+    "from": [
+     "end_comp01 E3 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE",
+    "resolves_to": "chitin:scripts.bif"
+   },
+   {
+    "item": "K_REPAIR_PART",
+    "script": "k_pend_droid12",
+    "module": "end_m01ab",
+    "from": [
+     "end_damagedroid E5 script"
+    ],
+    "branch": "if has item K_REPAIR_PART"
+   },
+   {
+    "item": "K_REPAIR_PART",
+    "script": "k_pend_droid13",
+    "module": "end_m01ab",
+    "from": [
+     "end_damagedroid E7 script"
+    ],
+    "branch": "if has item K_REPAIR_PART"
+   },
+   {
+    "item": "K_COMPUTER_SPIKE",
+    "script": "k_act_com32",
+    "module": "end_m01ab",
+    "from": [
+     "end_securitycomp E5 script"
+    ],
+    "branch": "if has item K_COMPUTER_SPIKE",
+    "resolves_to": "chitin:scripts.bif"
+   }
+  ],
+  "container_loot_optional": [
+   {
+    "module": "end_m01aa",
+    "area": "m01aa",
+    "container": "end_locker01",
+    "template": "footlker001",
+    "position": [
+     10.8,
+     21.87
+    ],
+    "items": [
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 2
+     },
+     {
+      "resref": "g_a_clothes01",
+      "count": 1
+     },
+     {
+      "resref": "g_w_shortswrd01",
+      "count": 1
+     }
+    ],
+    "created_by_script": [
+     {
+      "resref": "g_i_belt010",
+      "script": "k_pend_area01",
+      "when": [
+       "has skill SKILL_STEALTH"
+      ]
+     },
+     {
+      "resref": "g_w_blstrrfl001",
+      "script": "k_pend_area01",
+      "when": [
+       "class is CLASS_TYPE_SOLDIER"
+      ]
+     },
+     {
+      "resref": "g_i_adrnaline003",
+      "script": "k_pend_area01",
+      "when": [
+       "class is CLASS_TYPE_SOLDIER"
+      ]
+     },
+     {
+      "resref": "g_w_blstrpstl001",
+      "script": "k_pend_area01",
+      "when": [],
+      "when_any": [
+       [
+        "class is CLASS_TYPE_SCOUNDREL"
+       ],
+       [
+        "class is CLASS_TYPE_SCOUT"
+       ]
+      ]
+     },
+     {
+      "resref": "g_i_adrnaline002",
+      "script": "k_pend_area01",
+      "when": [
+       "class is CLASS_TYPE_SCOUT"
+      ]
+     },
+     {
+      "resref": "g_i_implant101",
+      "script": "k_pend_area01",
+      "when": [
+       "class is CLASS_TYPE_SCOUT"
+      ]
+     },
+     {
+      "resref": "g_i_secspike01",
+      "script": "k_pend_area01",
+      "when": [
+       "class is CLASS_TYPE_SCOUNDREL"
+      ]
+     },
+     {
+      "resref": "g_i_progspike01",
+      "script": "k_pend_area01",
+      "when": [
+       "class is CLASS_TYPE_SCOUNDREL"
+      ]
+     }
+    ]
+   },
+   {
+    "module": "end_m01aa",
+    "area": "m01aa",
+    "container": "FootLker",
+    "template": "footlker003",
+    "position": [
+     48.87,
+     60.89
+    ],
+    "items": [
+     {
+      "resref": "g_a_class4001",
+      "count": 1
+     },
+     {
+      "resref": "g_w_lngswrd01",
+      "count": 1
+     },
+     {
+      "resref": "g_w_shortswrd01",
+      "count": 1
+     },
+     {
+      "resref": "g_w_fraggren01",
+      "count": 2
+     }
+    ]
+   },
+   {
+    "module": "end_m01aa",
+    "area": "m01aa",
+    "container": "MetalBox",
+    "template": "metalbox001",
+    "position": [
+     41.58,
+     55.74
+    ],
+    "items": [
+     {
+      "resref": "g_i_credits002",
+      "count": 1
+     },
+     {
+      "resref": "g_i_medeqpmnt01",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "end_m01aa",
+    "area": "m01aa",
+    "container": "PartPile",
+    "template": "partpile001",
+    "position": [
+     16.49,
+     99.98
+    ],
+    "items": [
+     {
+      "resref": "g_i_parts01",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "end_m01aa",
+    "area": "m01aa",
+    "container": "Backpack",
+    "template": "backpack001",
+    "position": [
+     32.92,
+     136.35
+    ],
+    "items": [
+     {
+      "resref": "g_w_blstrpstl001",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "end_m01aa",
+    "area": "m01aa",
+    "container": "RSldCrps",
+    "template": "rsldcrps002",
+    "position": [
+     49.86,
+     52.95
+    ],
+    "items": [
+     {
+      "resref": "g_w_fraggren01",
+      "count": 1
+     }
+    ]
+   },
+   {
+    "module": "end_m01ab",
+    "area": "m01ab",
+    "container": "FootLker",
+    "template": "footlker003",
+    "position": [
+     74.52,
+     72.89
+    ],
+    "items": [
+     {
+      "resref": "g_i_parts01",
+      "count": 7
+     },
+     {
+      "resref": "g_i_progspike01",
+      "count": 5
+     }
+    ]
+   }
+  ],
+  "random_loot": "creature drops from the generic treasure scripts (k_pdan_trask_9, k_pend_bridge01, k_pend_reinfrc01/07) are random and not listed"
+ },
+ "party": {
+  "recruited_at_end": [],
+  "calls": [
+   {
+    "call": "AddAvailableNPCByTemplate(0, \"end_trask\")",
+    "script": "k_pend_traskdl29",
+    "module": "end_m01aa",
+    "from": [
+     "end_trask01 R54 script",
+     "end_trask01 R59 script"
+    ],
+    "branch": "if IsAvailableCreature(0) is 0",
+    "critical": true
+   },
+   {
+    "call": "ShowPartySelectionGUI(\"k_pend_reset\", 0, -1)",
+    "script": "k_pend_traskdl29",
+    "module": "end_m01aa",
+    "from": [
+     "end_trask01 R54 script",
+     "end_trask01 R59 script"
+    ],
+    "branch": "if IsAvailableCreature(0) is 0",
+    "critical": true
+   },
+   {
+    "call": "SetPartyLeader(-1)",
+    "script": "k_pend_trig02",
+    "module": "end_m01aa",
+    "from": [
+     "end_trig02.utt ScriptOnEnter (end_trig02)"
+    ],
+    "branch": "if IsObjectPartyMember(GetEnteringObject()); not (1 && GetIsObjectValid(OBJECT_SELF)); a helper function's ...",
+    "critical": true
+   },
+   {
+    "call": "SetPartyLeader(-1)",
+    "script": "k_pend_trig02",
+    "module": "end_m01aa",
+    "from": [
+     "end_trig02.utt ScriptOnEnter (end_trig02)"
+    ],
+    "branch": "if IsObjectPartyMember(GetEnteringObject()); GetIsObjectValid(OBJECT_SELF); a helper function's result is 0",
+    "critical": true
+   },
+   {
+    "call": "SetPartyLeader(-1)",
+    "script": "k_pend_room3_01",
+    "module": "end_m01aa",
+    "from": [
+     "end_repsol004.utc ScriptUserDefine (end_sith2)"
+    ],
+    "branch": "if END_ROOM3_DEAD >= 1",
+    "critical": true
+   },
+   {
+    "call": "SetPartyLeader(-1)",
+    "script": "k_pend_ud_cut1a",
+    "module": "end_m01aa",
+    "from": [
+     "end_repsol005.utc ScriptUserDefine (end_sith3)"
+    ],
+    "branch": "if END_ROOM3_DEAD >= 1",
+    "critical": true
+   },
+   {
+    "call": "SetPartyLeader(-1)",
+    "script": "k_pend_door16",
+    "module": "end_m01aa",
+    "from": [
+     "end_door16.utd OnOpen (end_door16)"
+    ],
+    "branch": "if not (1 && GetIsObjectValid(OBJECT_SELF)); a helper function's result is 0",
+    "critical": true
+   },
+   {
+    "call": "SetPartyLeader(-1)",
+    "script": "k_pend_door16",
+    "module": "end_m01aa",
+    "from": [
+     "end_door16.utd OnOpen (end_door16)"
+    ],
+    "branch": "if GetIsObjectValid(OBJECT_SELF); a helper function's result is 0",
+    "critical": true
+   },
+   {
+    "call": "SetPartyLeader(-1)",
+    "script": "k_pend_door20",
+    "module": "end_m01aa",
+    "from": [
+     "end_door08.utd OnFailToOpen (end_door08)"
+    ],
+    "branch": "if END_BRIDGE_SEALED is FALSE; END_ROOM8_DEAD >= 2; END_TRASK_DLG >= 16; END_TRASK_DLG == 16",
+    "critical": true
+   },
+   {
+    "call": "SetPartyLeader(-1)",
+    "script": "k_pend_door20",
+    "module": "end_m01aa",
+    "from": [
+     "end_door08.utd OnFailToOpen (end_door08)"
+    ],
+    "branch": "if END_BRIDGE_SEALED is FALSE; END_ROOM8_DEAD >= 2; END_TRASK_DLG < 16",
+    "critical": true
+   },
+   {
+    "call": "SetPartyLeader(-1)",
+    "script": "k_pend_traskdie1",
+    "module": "end_m01aa",
+    "from": [
+     "end_door19.utd OnFailToOpen (end_door19)"
+    ],
+    "branch": "if not a helper function's result; not (1 && GetIsObjectValid(OBJECT_SELF))",
+    "critical": true
+   },
+   {
+    "call": "RemovePartyMember(0)",
+    "script": "k_pend_traskdie1",
+    "module": "end_m01aa",
+    "from": [
+     "end_door19.utd OnFailToOpen (end_door19)"
+    ],
+    "branch": "if not a helper function's result; not (1 && GetIsObjectValid(OBJECT_SELF))",
+    "critical": true
+   },
+   {
+    "call": "RemoveAvailableNPC(0)",
+    "script": "k_pend_traskdie1",
+    "module": "end_m01aa",
+    "from": [
+     "end_door19.utd OnFailToOpen (end_door19)"
+    ],
+    "branch": "if not a helper function's result; not (1 && GetIsObjectValid(OBJECT_SELF))",
+    "critical": true
+   },
+   {
+    "call": "SetPartyLeader(-1)",
+    "script": "k_pend_traskdie1",
+    "module": "end_m01aa",
+    "from": [
+     "end_door19.utd OnFailToOpen (end_door19)"
+    ],
+    "branch": "if not a helper function's result; GetIsObjectValid(OBJECT_SELF)",
+    "critical": true
+   },
+   {
+    "call": "RemovePartyMember(0)",
+    "script": "k_pend_traskdie1",
+    "module": "end_m01aa",
+    "from": [
+     "end_door19.utd OnFailToOpen (end_door19)"
+    ],
+    "branch": "if not a helper function's result; GetIsObjectValid(OBJECT_SELF)",
+    "critical": true
+   },
+   {
+    "call": "RemoveAvailableNPC(0)",
+    "script": "k_pend_traskdie1",
+    "module": "end_m01aa",
+    "from": [
+     "end_door19.utd OnFailToOpen (end_door19)"
+    ],
+    "branch": "if not a helper function's result; GetIsObjectValid(OBJECT_SELF)",
+    "critical": true
+   },
+   {
+    "call": "SetPartyLeader(-1)",
+    "script": "k_pend_trask_d",
+    "module": "end_m01aa",
+    "from": [
+     "end_trask.utc ScriptUserDefine (end_trask)"
+    ],
+    "branch": "if END_TRASK_DLG != 0; END_TRASK_DLG != 2; END_TRASK_DLG != 3; END_TRASK_DLG != 5; END_TRASK_DLG != 19; END...",
+    "critical": false
+   },
+   {
+    "call": "SetPartyLeader(-1)",
+    "script": "k_pend_trask_d",
+    "module": "end_m01aa",
+    "from": [
+     "end_trask.utc ScriptUserDefine (end_trask)"
+    ],
+    "branch": "if END_TRASK_DLG != 0; END_TRASK_DLG != 2; END_TRASK_DLG != 3; END_TRASK_DLG != 5; END_TRASK_DLG != 19",
+    "critical": false
+   },
+   {
+    "call": "SetPartyLeader(-1)",
+    "script": "k_pend_trask_d",
+    "module": "end_m01aa",
+    "from": [
+     "end_trask.utc ScriptUserDefine (end_trask)"
+    ],
+    "branch": "if END_TRASK_DLG != 0; END_TRASK_DLG != 2; END_TRASK_DLG != 3; END_TRASK_DLG != 5",
+    "critical": false
+   },
+   {
+    "call": "SetPartyLeader(-1)",
+    "script": "k_pend_trask_d",
+    "module": "end_m01aa",
+    "from": [
+     "end_trask.utc ScriptUserDefine (end_trask)"
+    ],
+    "branch": "if END_TRASK_DLG != 0; END_TRASK_DLG != 2; END_TRASK_DLG != 3",
+    "critical": false
+   },
+   {
+    "call": "SetPartyLeader(-1)",
+    "script": "k_pend_trask_d",
+    "module": "end_m01aa",
+    "from": [
+     "end_trask.utc ScriptUserDefine (end_trask)"
+    ],
+    "branch": "if END_TRASK_DLG != 0; END_TRASK_DLG != 2",
+    "critical": false
+   },
+   {
+    "call": "SetPartyLeader(-1)",
+    "script": "k_pend_trask_d",
+    "module": "end_m01aa",
+    "from": [
+     "end_trask.utc ScriptUserDefine (end_trask)"
+    ],
+    "branch": "if END_TRASK_DLG != 0",
+    "critical": false
+   },
+   {
+    "call": "SetPartyLeader(-1)",
+    "script": "k_pend_trask_d",
+    "module": "end_m01aa",
+    "from": [
+     "end_trask.utc ScriptUserDefine (end_trask)"
+    ],
+    "branch": "if END_TRASK_DLG == 0",
+    "critical": false
+   },
+   {
+    "call": "SetPartyLeader(-1)",
+    "script": "k_pend_trask_d",
+    "module": "end_m01aa",
+    "from": [
+     "end_trask.utc ScriptUserDefine (end_trask)"
+    ],
+    "branch": "if END_TRASK_DLG == 2",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(0)",
+    "script": "k_pend_trask_d",
+    "module": "end_m01aa",
+    "from": [
+     "end_trask.utc ScriptUserDefine (end_trask)"
+    ],
+    "branch": "if user-defined event is 500",
+    "critical": false
+   },
+   {
+    "call": "RemoveAvailableNPC(0)",
+    "script": "k_pend_trask_d",
+    "module": "end_m01aa",
+    "from": [
+     "end_trask.utc ScriptUserDefine (end_trask)"
+    ],
+    "branch": "if user-defined event is 500",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(0)",
+    "script": "k_pend_trask_d",
+    "module": "end_m01aa",
+    "from": [
+     "end_trask.utc ScriptUserDefine (end_trask)"
+    ],
+    "branch": "if (GetTag(GetLastHostileActor(OBJECT_SELF)) == \"end_droid03\"); user-defined event is 1005",
+    "critical": false
+   },
+   {
+    "call": "RemoveAvailableNPC(0)",
+    "script": "k_pend_trask_d",
+    "module": "end_m01aa",
+    "from": [
+     "end_trask.utc ScriptUserDefine (end_trask)"
+    ],
+    "branch": "if (GetTag(GetLastHostileActor(OBJECT_SELF)) == \"end_droid03\"); user-defined event is 1005",
+    "critical": false
+   },
+   {
+    "call": "SetPartyLeader(-1)",
+    "script": "k_pend_door18",
+    "module": "end_m01aa",
+    "from": [
+     "end_door02.utd OnDeath (end_door02)",
+     "end_door02.utd OnOpen (end_door02)"
+    ],
+    "branch": "if not (1 && GetIsObjectValid(OBJECT_SELF)); a helper function's result is 0",
+    "critical": false
+   },
+   {
+    "call": "SetPartyLeader(-1)",
+    "script": "k_pend_door18",
+    "module": "end_m01aa",
+    "from": [
+     "end_door02.utd OnDeath (end_door02)",
+     "end_door02.utd OnOpen (end_door02)"
+    ],
+    "branch": "if GetIsObjectValid(OBJECT_SELF); a helper function's result is 0",
+    "critical": false
+   },
+   {
+    "call": "SetPartyLeader(-1)",
+    "script": "k_pend_door19",
+    "module": "end_m01aa",
+    "from": [
+     "end_door02.utd OnFailToOpen (end_door02)"
+    ],
+    "branch": "if END_TRASK_DLG == 11",
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(0)",
+    "script": "k_pend_cut27",
+    "module": "end_m01aa",
+    "from": [
+     "end_cut01 R4 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "SetPartyLeader(-1)",
+    "script": "k_pend_room5_03",
+    "module": "end_m01aa",
+    "from": [
+     "end_cut04 R4 script",
+     "end_room5 R5 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "SetPartyLeader(-1)",
+    "script": "k_pend_traskdl32",
+    "module": "end_m01aa",
+    "from": [
+     "end_trask01 R52 script"
+    ],
+    "critical": false
+   },
+   {
+    "call": "RemovePartyMember(0)",
+    "script": "k_pend_modab",
+    "module": "end_m01ab",
+    "from": [
+     "module.ifo Mod_OnModLoad"
+    ],
+    "critical": false
+   },
+   {
+    "call": "RemoveAvailableNPC(0)",
+    "script": "k_pend_modab",
+    "module": "end_m01ab",
+    "from": [
+     "module.ifo Mod_OnModLoad"
+    ],
+    "critical": false
+   },
+   {
+    "call": "SetPartyLeader(-1)",
+    "script": "k_pend_chest02",
+    "module": "end_m01ab",
+    "from": [
+     "footlker003.utp OnInvDisturbed (FootLker)"
+    ],
+    "critical": false
+   },
+   {
+    "call": "SetPartyLeader(-1)",
+    "script": "k_pend_pod02",
+    "module": "end_m01ab",
+    "from": [
+     "end_pod.utp OnUsed (end_pod)"
+    ],
+    "branch": "if not (player == GetPartyMemberByIndex(0)); not (GetIsObjectValid(OBJECT_INVALID) == 1); GetIsObjectValid(...",
+    "critical": false
+   },
+   {
+    "call": "SetPartyLeader(-1)",
+    "script": "k_pend_pod02",
+    "module": "end_m01ab",
+    "from": [
+     "end_pod.utp OnUsed (end_pod)"
+    ],
+    "branch": "if not (player == GetPartyMemberByIndex(0)); GetIsObjectValid(GetObjectByTag(\"end_pod\", 0)) is 1; GetIsObje...",
+    "critical": false
+   }
+  ],
+  "slots": [
+   {
+    "slot": 0,
+    "constant": "NPC_BASTILA",
+    "ops_in_story_order": [
+     "AddAvailableNPCByTemplate",
+     "RemovePartyMember",
+     "RemoveAvailableNPC",
+     "RemovePartyMember",
+     "RemoveAvailableNPC"
+    ],
+    "available_at_end": false
+   }
+  ],
+  "carth": {
+   "recruited_on_this_planet": false,
+   "note": "no script or dialog the Endar Spire runs adds NPC_CARTH to the party; the NPC with tag Carth (template p_carth001) is placed in end_m01ab and talks to the player, then escapes in the same pod",
+   "joins_later": [
+    {
+     "module": "tar_m02af",
+     "script": "k_ptar_addcarth",
+     "named_by": [
+      "tar02_carth022.dlg"
+     ]
+    }
+   ]
+  }
+ },
+ "next_chapter": {
+  "module": "tar_m02af",
+  "waypoint": "",
+  "chain": [
+   {
+    "module": "stunt_00",
+    "waypoint": "",
+    "movies": [
+     "01c"
+    ],
+    "by": "k_pend_pod01",
+    "in": "end_m01ab",
+    "dialogs": [
+     {
+      "dialog": "cut00_convers",
+      "started_by": [
+       "k_pdialogue",
+       "k_scene_start"
+      ]
+     }
+    ],
+    "leaves_by": {
+     "script": "k_ren_visionland",
+     "when": [
+      "K_CURRENT_PLANET == 5"
+     ]
+    }
+   },
+   {
+    "module": "tar_m02af",
+    "waypoint": "",
+    "movies": [
+     "01f"
+    ],
+    "by": "k_ren_visionland",
+    "in": "stunt_00"
+   }
+  ],
+  "entry": {
+   "area": "m02af",
+   "x": 91.2174,
+   "y": 143.5322,
+   "z": 0,
+   "dir_x": -0.7071,
+   "dir_y": -0.7071,
+   "note": "the waypoint is empty, so the game puts the party at the module's entry point from module.ifo"
+  },
+  "on_module_load": "k_pebn_pophawk"
+ },
+ "critical_path": [
+  {
+   "module": "end_m01aa",
+   "source": "k_pend_area01",
+   "what": "area m01aa OnEnter: opening movie 01A, K_CURRENT_PLANET = 5, class gear into container end_locker01"
+  },
+  {
+   "module": "end_m01aa",
+   "source": "k_pend_traskinc",
+   "what": "end_trask01 E55 (first line): End_TraskTalk + 1"
+  },
+  {
+   "module": "end_m01aa",
+   "source": "dialog end_trask01 R92",
+   "what": "journal end_attack 1"
+  },
+  {
+   "module": "end_m01aa",
+   "source": "k_pend_traskdl29",
+   "what": "end_trask01 R54 or R59: NPC slot 0 = template end_trask joins, party selection"
+  },
+  {
+   "module": "end_m01aa",
+   "source": "k_pend_door01",
+   "what": "first door (end_door01): END_TRASK_DLG = 8"
+  },
+  {
+   "module": "end_m01aa",
+   "source": "k_pend_trig02",
+   "what": "trigger end_trig02: END_TRASK_DLG = 10"
+  },
+  {
+   "module": "end_m01aa",
+   "source": "dialog end_trask01 R45",
+   "what": "journal end_attack 20, END_TRASK_DLG = 11"
+  },
+  {
+   "module": "end_m01aa",
+   "source": "dialog end_trask01 R49",
+   "what": "map loaded: journal end_attack 11"
+  },
+  {
+   "module": "end_m01aa",
+   "source": "k_pend_room3_01",
+   "what": "room 3 Sith die: END_ROOM3_DEAD, END_TRASK_DLG = 14, end_door05 unlocked"
+  },
+  {
+   "module": "end_m01aa",
+   "source": "k_pend_ud_cut1a",
+   "what": "room 3 Sith die (end_sith3): END_ROOM3_DEAD, END_TRASK_DLG = 14"
+  },
+  {
+   "module": "end_m01aa",
+   "source": "k_pend_traskdl50",
+   "what": "end_trask01 E16 after the fight: two items, END_TRASK_DLG = 15"
+  },
+  {
+   "module": "end_m01aa",
+   "source": "k_pend_sith2_d",
+   "what": "room 5 Sith die: END_ROOM5_DEAD, end_door16 unlocked"
+  },
+  {
+   "module": "end_m01aa",
+   "source": "k_pend_door16",
+   "what": "end_door16 opens: END_TRASK_DLG = -1"
+  },
+  {
+   "module": "end_m01aa",
+   "source": "k_pend_room7_01",
+   "what": "room 7 Sith die: END_ROOM7_DEAD"
+  },
+  {
+   "module": "end_m01aa",
+   "source": "k_pend_door15",
+   "what": "end_door15 (needs END_ROOM7_DEAD >= 2 and level 2): END_TRASK_DLG = 31"
+  },
+  {
+   "module": "end_m01aa",
+   "source": "k_pend_reinfrc03",
+   "what": "cutscene end_cut04 E4: spawns end_reinforce1 and 2"
+  },
+  {
+   "module": "end_m01aa",
+   "source": "k_pend_reinfrc08",
+   "what": "reinforcement dies: END_ROOM8_DEAD"
+  },
+  {
+   "module": "end_m01aa",
+   "source": "k_pend_reinfrc09",
+   "what": "reinforcement dies: END_ROOM8_DEAD"
+  },
+  {
+   "module": "end_m01aa",
+   "source": "k_pend_door20",
+   "what": "bridge door end_door08: bridge fight, END_TRASK_DLG = 31"
+  },
+  {
+   "module": "end_m01aa",
+   "source": "cp_end_trasksp_d",
+   "what": "K1CP bridge scene: END_TRASK_DLG = 31, dialog cp_end_traskbrdg"
+  },
+  {
+   "module": "end_m01aa",
+   "source": "cp_end_bridgecs",
+   "what": "K1CP: bridge sealed (END_BRIDGE_SEALED = TRUE), journal end_attack 30"
+  },
+  {
+   "module": "end_m01aa",
+   "source": "k_pend_traskdie1",
+   "what": "end_door19: slot 0 (end_trask) leaves the party"
+  },
+  {
+   "module": "end_m01ab",
+   "source": "k_pend_carth_t02",
+   "what": "trigger end_trig_carth02: END_CARTH_DLG = 1"
+  },
+  {
+   "module": "end_m01ab",
+   "source": "k_pend_sith_d",
+   "what": "Sith troopers die: END_SITH_DEAD, end_door04 unlocked"
+  },
+  {
+   "module": "end_m01ab",
+   "source": "k_pend_door20",
+   "what": "end_door04 opens: END_CARTH_DLG = 5"
+  },
+  {
+   "module": "end_m01ab",
+   "source": "k_pend_carth17",
+   "what": "end_carth001 E1: END_CARTH_DLG + 1"
+  },
+  {
+   "module": "end_m01ab",
+   "source": "dialog end_pod R1",
+   "what": "escape pod: journal end_attack 99, 350 XP, k_pend_pod01 StartNewModule STUNT_00"
+  }
+ ],
+ "critical_path_note": "Curated in milestone.py from the scripts, the dialogs and the area layout; the order is inferred, not played. Writers marked critical = true belong to these scripts.",
+ "uncertain": [
+  "script k_hen_spawn01 in end_m01aa was too large to follow completely; some of its effects may be missing",
+  "script k_pdan_trask_9 in end_m01aa was too large to follow completely; some of its effects may be missing",
+  "script k_def_spawn01 in end_m01aa was too large to follow completely; some of its effects may be missing",
+  "script k_pend_room3_02 in end_m01aa was too large to follow completely; some of its effects may be missing",
+  "script k_pend_sith_9 in end_m01aa was too large to follow completely; some of its effects may be missing",
+  "script k_pend_bridge01 in end_m01aa was too large to follow completely; some of its effects may be missing",
+  "script k_act_walkways2 in end_m01aa was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in end_m01aa was too large to follow completely; some of its effects may be missing",
+  "script k_pend_reinfrc01 in end_m01aa was too large to follow completely; some of its effects may be missing",
+  "script k_pend_reinfrc07 in end_m01aa was too large to follow completely; some of its effects may be missing",
+  "script k_pend_sith_9 in end_m01ab was too large to follow completely; some of its effects may be missing",
+  "script k_def_rependd in end_m01ab was too large to follow completely; some of its effects may be missing",
+  "script k_def_repairsp in end_m01ab was too large to follow completely; some of its effects may be missing",
+  "script k_def_spawn01 in end_m01ab was too large to follow completely; some of its effects may be missing",
+  "script test01 in end_m01ab was too large to follow completely; some of its effects may be missing",
+  "script k_act_walkways2 in end_m01ab was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in end_m01ab was too large to follow completely; some of its effects may be missing",
+  "global END_BRIDGE_SEALED = true: TRUE when K1CP's bridge scene runs (cp_end_traskbrdg E0, cp_end_bridgecs), which K1 Community Patch adds; FALSE on the unpatched route (end_trask01 R1)",
+  "global END_CARTH_DLG = 6: the state machine of tag Carth in end_m01ab: end_door04 sets 5 (k_pend_door20), the first line adds 1 (k_pend_carth17); lines E3/E4 add 1 more if they play (7). Nothing after the Endar Spire reads it",
+  "global END_PC_ON_BRIDGE = false: trigger end_sealbridge sets TRUE on entry and FALSE on exit; the player leaves the bridge to reach end_door19",
+  "global END_ROOM3_DEAD = 2: kill counter: two placed Sith carry its scripts (end_sith2, end_sith3)",
+  "global END_ROOM5_DEAD = 3: kill counter: three placed Sith carry k_pend_sith2_d (end_cut2_sith1, 2, 4); end_door16 opens at 3",
+  "global END_ROOM7_DEAD = 2: kill counter: two placed Sith carry k_pend_room7_01; end_door15 needs 2",
+  "global END_ROOM8_DEAD = 2: kill counter: the two reinforcements end_reinforce1 and 2, spawned by k_pend_reinfrc03 (end_cut04 E4, after the cutscene); the bridge door needs 2",
+  "global END_SITH_DEAD = 5: kill counter: five placed troopers in end_m01ab carry k_pend_sith_d (end_sith01 x4, end_sith04); the end_m01aa copy of k_pend_sith_d belongs to end_repsol002, which no area places or spawns",
+  "global END_TRASK_DLG = 31: the state machine of end_trask. 31 is the value the bridge needs (journal stage 30 needs it; k_pend_door15, k_pend_door20 and K1CP's cp_end_trasksp_d set it). Opening the end_m01ab container adds 1 each time (k_pend_chest01), and the bridge fight's k_pend_sith_d may set 28 if it runs after; nothing after the Endar Spire reads it",
+  "global END_TRASK_ON_BRIDGE = null: trigger end_sealbridge; whether end_trask was last inside depends on where he stood when he left the party. Leave unchanged",
+  "global End_TraskTalk = 1: the first conversation with end_trask adds 1 (k_pend_traskinc on end_trask01 E55); stage 1 needs it at 0 before. A replay of that line would add again",
+  "k_pend_area01 in end_m01aa calls CreateItemOnObject with an empty template on end_locker01 (creates nothing)",
+  "party: NPC_CARTH is not recruited on the Endar Spire (he becomes available in tar_m02af (k_ptar_addcarth)); the party at the end is the player alone"
+ ],
+ "cleared": [
+  {
+   "module": "end_m01aa",
+   "area": "m01aa",
+   "returnable": false,
+   "remove": [
+    {
+     "tag": "end_sith2",
+     "template": "end_repsol004",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag end_sith2, faction 2 (friendly_1), level 1; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "end_sith3",
+     "template": "end_repsol005",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag end_sith3, faction 2 (friendly_1), level 1; a script moves its tag to a hostile faction"
+    },
+    {
+     "tag": "sithsoldier",
+     "template": "n_sithsoldier003",
+     "count": 2,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "end_gensith",
+     "template": "n_sithsoldier004",
+     "count": 2,
+     "why": "placed hostile",
+     "certain": true
+    }
+   ],
+   "spawned_and_killed": [
+    {
+     "template": "end_bridgesith1",
+     "tag": "end_bridgesith1"
+    },
+    {
+     "template": "end_bridgesith2",
+     "tag": "end_bridgesith2"
+    },
+    {
+     "template": "end_reinforce3",
+     "tag": "end_reinforce3"
+    },
+    {
+     "template": "end_reinforce4",
+     "tag": "end_reinforce4"
+    }
+   ],
+   "doors": [
+    {
+     "tag": "end_door01",
+     "template": "sw_door_test001",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open it",
+     "scripts": [
+      "k_pend_traskdl40"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "end_door05",
+     "template": "end_door05",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_pend_room3_01",
+      "k_pend_ud_cut1a"
+     ],
+     "certain": true
+    },
+    {
+     "tag": "end_door07",
+     "template": "end_door07",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open it",
+     "scripts": [
+      "k_pend_cut01"
+     ],
+     "certain": false
+    },
+    {
+     "tag": "end_door10",
+     "template": "end_door011",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "end_door10_cut2",
+     "template": "end_door012_2",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "end_door16",
+     "template": "end_door16",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_pend_sith2_d"
+     ],
+     "certain": true
+    },
+    {
+     "tag": "end_door19",
+     "template": "end_door19",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open/unlock it",
+     "scripts": [
+      "k_pend_cut32"
+     ],
+     "certain": false
+    }
+   ],
+   "containers_looted": [
+    "Backpack",
+    "FootLker",
+    "MetalBox",
+    "PartPile",
+    "RSldCrps",
+    "end_locker01"
+   ],
+   "locals": [
+    {
+     "object": "area",
+     "index": 9,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pend_area01"
+     ],
+     "area": "m01aa",
+     "set_by": {
+      "1": [
+       "k_pend_area01"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 9,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pend_bridge04"
+     ],
+     "tag": "bridgeexplosion1",
+     "set_by": {
+      "1": [
+       "k_pend_bridge04"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 9,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pend_bridge05"
+     ],
+     "tag": "bridgeexplosion2",
+     "set_by": {
+      "1": [
+       "k_pend_bridge05"
+      ]
+     }
+    },
+    {
+     "object": "door",
+     "index": 9,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pend_door18"
+     ],
+     "tag": "end_door02",
+     "set_by": {
+      "1": [
+       "k_pend_door18"
+      ]
+     }
+    },
+    {
+     "object": "door",
+     "index": 9,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pend_room5_02"
+     ],
+     "tag": "end_door10_cut2",
+     "set_by": {
+      "1": [
+       "k_pend_room5_02"
+      ]
+     }
+    },
+    {
+     "object": "door",
+     "index": 9,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pend_door16"
+     ],
+     "tag": "end_door16",
+     "set_by": {
+      "1": [
+       "k_pend_door16"
+      ]
+     }
+    },
+    {
+     "object": "door",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pend_traskdie1"
+     ],
+     "tag": "end_door19",
+     "set_by": {
+      "1": [
+       "k_pend_traskdie1"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_plc_tresmilhig"
+     ],
+     "tag": "end_explosion",
+     "set_by": {
+      "1": [
+       "k_plc_tresmilhig"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 9,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pend_reinfrc06"
+     ],
+     "tag": "end_reinfrc",
+     "set_by": {
+      "1": [
+       "k_pend_reinfrc06"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 9,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pend_trig02"
+     ],
+     "tag": "end_trig02",
+     "set_by": {
+      "1": [
+       "k_pend_trig02"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "k_pend_explode",
+      "k_pend_explodrd"
+     ],
+     "tag": "end_trig_expld01",
+     "set_by": {
+      "0": [
+       "k_pend_explode"
+      ],
+      "1": [
+       "k_pend_explode",
+       "k_pend_explodrd"
+      ]
+     }
+    }
+   ],
+   "uncertain": [
+    "end_m01aa: placed creature end_cut2_sith1 (template end_repsol006) is hostile but its template cannot die (Plot or Min1HP); left in place",
+    "end_m01aa: placed creature end_cut2_sith2 (template end_repsol007) is hostile but its template cannot die (Plot or Min1HP); left in place",
+    "end_m01aa: placed creature end_cut2_sith4 (template end_repsol009) is hostile but its template cannot die (Plot or Min1HP); left in place",
+    "end_m01aa: door end_door02 is locked (plot door) and no script here opens it; left as it is",
+    "end_m01aa: door end_door06 is locked (needs a key) and no script here opens it; left as it is",
+    "end_m01aa: door end_door08 is locked (needs a key) and no script here opens it; left as it is",
+    "end_m01aa: door end_door15 is locked (needs a key) and no script here opens it; left as it is",
+    "end_m01aa: local boolean index 0 on end_trig_expld01 = true is not certain (set to more than one value)"
+   ]
+  },
+  {
+   "module": "end_m01ab",
+   "area": "m01ab",
+   "returnable": false,
+   "remove": [
+    {
+     "tag": "end_sithsol01",
+     "template": "end_repsol003",
+     "count": 2,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "end_sith01",
+     "template": "g_sithtroop002",
+     "count": 4,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "end_sith03",
+     "template": "g_sithtroop003",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "end_sith04",
+     "template": "g_sithtroop004",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    }
+   ],
+   "spawned_and_killed": [],
+   "doors": [
+    {
+     "tag": "end_door01",
+     "template": "end_door002",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "end_door04",
+     "template": "end_door04",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_pend_sith_d"
+     ],
+     "certain": true
+    },
+    {
+     "tag": "end_door05",
+     "template": "end_door05",
+     "open": true,
+     "unlocked": true,
+     "why": "a script unlock it",
+     "scripts": [
+      "k_pend_door11",
+      "k_pend_droid10"
+     ],
+     "certain": false
+    }
+   ],
+   "containers_looted": [
+    "FootLker"
+   ],
+   "locals": [
+    {
+     "object": "area",
+     "index": 9,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pend_1b_area"
+     ],
+     "area": "m01ab",
+     "set_by": {
+      "1": [
+       "k_pend_1b_area"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "k_pend_explode02"
+     ],
+     "tag": "end_trig10",
+     "set_by": {
+      "0": [
+       "k_pend_explode02"
+      ],
+      "1": [
+       "k_pend_explode02"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 9,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pend_carth_t02"
+     ],
+     "tag": "end_trig_carth02",
+     "set_by": {
+      "1": [
+       "k_pend_carth_t02"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_pend_chest01"
+     ],
+     "tag": "footlker",
+     "set_by": {
+      "1": [
+       "k_pend_chest01"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "g_zoncata01",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 10,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_zon_catalog"
+     ],
+     "tag": "g_zoncata02",
+     "set_by": {
+      "1": [
+       "k_zon_catalog"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 0,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_trg_stealth"
+     ],
+     "tag": "k_stlthawrd",
+     "set_by": {
+      "1": [
+       "k_trg_stealth"
+      ]
+     }
+    }
+   ],
+   "uncertain": [
+    "end_m01ab: door end_door06 is locked (needs a key) and no script here opens it; left as it is",
+    "end_m01ab: door end_door07 is locked (needs a key) and no script here opens it; left as it is",
+    "end_m01ab: local boolean index 10 on end_trig10 = true is not certain (set to more than one value)"
+   ]
+  }
+ ],
+ "cleared_note": "How each module looks after a full run, for an editor that stores the area as played: remove (tag, template), doors (tag: open, unlocked), containers_looted (container tags the rewards file empties), locals (the area's, the module's and placed objects' local variables their own scripts read to tell a first visit from a return, with the value a played area holds; index = the engine's local slot). returnable = false: the player never comes back to the module. See tools/questdb/cleared.py."
+}

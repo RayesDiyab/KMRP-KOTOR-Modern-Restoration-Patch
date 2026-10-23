@@ -312,12 +312,44 @@ export component AppWindow inherits Window {
 
     // Skip Ahead: what will change, then confirm.
     if App.overlay == 10: Overlay {
-        panel-width: 720px;
-        panel-height: 420px;
+        panel-width: 760px;
+        panel-height: 460px + (App.skip-jedi ? 100px : 0px) + (App.skip-side ? 100px : 0px) + (App.skip-prestige ? 100px : 0px) + (App.skip-train ? 120px : 0px);
         VerticalLayout {
             spacing: 14px;
             Text { text: App.skip-title; font-family: Theme.title-font; font-size: 28px * Theme.ts; color: Theme.text; wrap: word-wrap; }
             Note { text: App.skip-summary; font-size: 14px * Theme.ts; color: Theme.muted; vertical-stretch: 1; }
+            if App.skip-jedi: Label { text: "YOUR JEDI CLASS"; }
+            if App.skip-jedi: Choice {
+                height: 42px;
+                font-size: 15px * Theme.ts;
+                options: ["Jedi Guardian", "Jedi Sentinel", "Jedi Consular"];
+                current: App.skip-class;
+                picked(k) => { App.skip-class = k; }
+            }
+            if App.skip-side: Label { text: "YOUR PATH"; }
+            if App.skip-side: Choice {
+                height: 42px;
+                font-size: 15px * Theme.ts;
+                options: ["Light side", "Dark side"];
+                current: App.skip-dark;
+                picked(k) => { App.skip-dark = k; }
+            }
+            if App.skip-prestige: Label { text: "YOUR PRESTIGE CLASS"; }
+            if App.skip-prestige: Choice {
+                height: 42px;
+                font-size: 15px * Theme.ts;
+                options: App.skip-dark == 1 ? ["Sith Marauder", "Sith Assassin", "Sith Lord", "Not now"] : ["Jedi Weapon Master", "Jedi Watchman", "Jedi Master", "Not now"];
+                current: App.skip-prestige-pick;
+                picked(k) => { App.skip-prestige-pick = k; }
+            }
+            if App.skip-train: Label { text: "COMPANIONS TRAINED AS JEDI"; }
+            if App.skip-train: Choice {
+                height: 42px;
+                font-size: 15px * Theme.ts;
+                options: ["Yes, without their conversations", "No, I'll talk to them in the game"];
+                current: App.skip-train-pick;
+                picked(k) => { App.skip-train-pick = k; }
+            }
             Note { font-size: 13px * Theme.ts; text: "Nothing is written until Save Changes, and a backup of the save is made first."; }
             HorizontalLayout {
                 spacing: 14px;

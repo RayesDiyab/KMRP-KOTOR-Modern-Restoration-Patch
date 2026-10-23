@@ -1,0 +1,777 @@
+{
+  "game": "K1",
+  "planet": "Dantooine",
+  "generated_by": "tools/questdb/rewards.py",
+  "checked": false,
+  "xp_at_end": 53690,
+  "xp_chapter": 30010,
+  "xp_start": 30920,
+  "xp_note": "full-run scenario data/xp/k1-dantooine-path.json from the Taris rewards' xp_at_end, 30920 XP: danm13 36000, danm14aa 37080, danm14ab 37865, danm14ac 42710, danm14ad 47450, danm14ae 48320, danm16 52640, danm15 53690",
+  "xp_chapter_note": "the same scenario from a new character's 0 XP: 30010",
+  "enemies_killed": 76,
+  "drops": [
+    {
+      "resref": "g_i_belt003",
+      "count": 1,
+      "from": [
+        "dan14ad_mand02"
+      ]
+    },
+    {
+      "resref": "g_i_drdmdplat001",
+      "count": 1,
+      "from": [
+        "dan16_droid03"
+      ]
+    },
+    {
+      "resref": "g_i_drdshld001",
+      "count": 1,
+      "from": [
+        "dan16_droid05"
+      ]
+    },
+    {
+      "resref": "g_i_drdtrgcom001",
+      "count": 1,
+      "from": [
+        "dan16_droid05"
+      ]
+    },
+    {
+      "resref": "g_i_frarmbnds05",
+      "count": 1,
+      "from": [
+        "dan14ac_mand01"
+      ]
+    },
+    {
+      "resref": "g_i_gauntlet02",
+      "count": 1,
+      "from": [
+        "dan14ac_mand01"
+      ]
+    },
+    {
+      "resref": "g_i_gauntlet04",
+      "count": 1,
+      "from": [
+        "dan14ad_mand01"
+      ]
+    },
+    {
+      "resref": "g_mandat2",
+      "count": 1,
+      "from": [
+        "dan14ac_mand02"
+      ]
+    },
+    {
+      "resref": "g_w_vbrdblswd01",
+      "count": 1,
+      "from": [
+        "dan14ac_mand01"
+      ]
+    }
+  ],
+  "templates_missing": [],
+  "containers": [
+    {
+      "module": "danm13",
+      "area": "m13aa",
+      "container": "FootLker",
+      "template": "footlker002",
+      "position": [
+        54.8,
+        69.05
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        },
+        {
+          "resref": "g_i_medeqpmnt04",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "danm14ab",
+      "area": "m14ab",
+      "container": "EqupPack",
+      "template": "equppack001",
+      "position": [
+        193.95,
+        159.38
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 2
+        },
+        {
+          "resref": "g_i_progspike01",
+          "count": 2
+        },
+        {
+          "resref": "g_i_drdrepeqp001",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "danm14ac",
+      "area": "m14ac",
+      "container": "Backpack",
+      "template": "backpack001",
+      "position": [
+        365.81,
+        358.41
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt02",
+          "count": 1
+        },
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 2
+        },
+        {
+          "resref": "g_i_drdrepeqp002",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "danm14ac",
+      "area": "m14ac",
+      "container": "Invisible",
+      "template": "invisible002",
+      "position": [
+        438.99,
+        376.74
+      ],
+      "items": [
+        {
+          "resref": "g_i_cmbtshot001",
+          "count": 2
+        },
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 2
+        },
+        {
+          "resref": "g_i_upgrade006",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "danm14ac",
+      "area": "m14ac",
+      "container": "Invisible",
+      "template": "invisible003",
+      "position": [
+        432.73,
+        376.21
+      ],
+      "items": [
+        {
+          "resref": "g_i_frarmbnds05",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "danm14ad",
+      "area": "m14ad",
+      "container": "FootLker",
+      "template": "footlker001",
+      "position": [
+        477.94,
+        108.43
+      ],
+      "items": [
+        {
+          "resref": "g_i_credits004",
+          "count": 1
+        },
+        {
+          "resref": "g_i_trapkit005",
+          "count": 2
+        },
+        {
+          "resref": "g_i_trapkit002",
+          "count": 1
+        },
+        {
+          "resref": "g_i_trapkit008",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "danm14ad",
+      "area": "m14ad",
+      "container": "MetalBox",
+      "template": "metalbox001",
+      "position": [
+        473.66,
+        106.22
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdrepeqp001",
+          "count": 1
+        },
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "danm14ad",
+      "area": "m14ad",
+      "container": "GroundBagMetalCase",
+      "template": "bag003",
+      "position": [
+        478.8,
+        109.93
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdrepeqp001",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "danm14ad",
+      "area": "m14ad",
+      "container": "EqupPack",
+      "template": "equppack001",
+      "position": [
+        481.1,
+        113.18
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "danm14ae",
+      "area": "m14ae",
+      "container": "Invisible",
+      "template": "invisible001",
+      "position": [
+        117.69,
+        186.16
+      ],
+      "items": [
+        {
+          "resref": "g_i_implant102",
+          "count": 1
+        },
+        {
+          "resref": "g_i_upgrade008",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "danm15",
+      "area": "m15aa",
+      "container": "Invisible",
+      "template": "invisible002",
+      "position": [
+        117.23,
+        136.06
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdmtnsen001",
+          "count": 1
+        },
+        {
+          "resref": "g_i_drdltplat002",
+          "count": 1
+        },
+        {
+          "resref": "g_i_drdshld005",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "danm15",
+      "area": "m15aa",
+      "container": "dan13_nemobody",
+      "template": "dan13_nemobody",
+      "position": [
+        142.74,
+        131.06
+      ],
+      "items": [
+        {
+          "resref": "g_a_kghtrobe04",
+          "count": 1
+        },
+        {
+          "resref": "g_w_sbrcrstl12",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "danm16",
+      "area": "m16aa",
+      "container": "LockerLg",
+      "template": "lockerlg001",
+      "position": [
+        48.21,
+        60.2
+      ],
+      "items": [
+        {
+          "resref": "g_w_sonicrfl01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "danm16",
+      "area": "m16aa",
+      "container": "FootLker",
+      "template": "footlker001",
+      "position": [
+        40.7,
+        64.04
+      ],
+      "items": [
+        {
+          "resref": "g_i_mask01",
+          "count": 1
+        },
+        {
+          "resref": "g_w_fraggren01",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "danm16",
+      "area": "m16aa",
+      "container": "FootLker",
+      "template": "footlker002",
+      "position": [
+        60.16,
+        58.78
+      ],
+      "items": [
+        {
+          "resref": "g_i_drdrepeqp001",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "module": "danm16",
+      "area": "m16aa",
+      "container": "FootLker",
+      "template": "footlker003",
+      "position": [
+        58.9,
+        58.78
+      ],
+      "items": [
+        {
+          "resref": "g_i_progspike01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "danm16",
+      "area": "m16aa",
+      "container": "FootLker",
+      "template": "footlker004",
+      "position": [
+        55.74,
+        63.98
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        },
+        {
+          "resref": "g_i_credits003",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "danm16",
+      "area": "m16aa",
+      "container": "FootLker",
+      "template": "footlker007",
+      "position": [
+        37.91,
+        74.18
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        },
+        {
+          "resref": "g_i_credits003",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "danm16",
+      "area": "m16aa",
+      "container": "FootLker",
+      "template": "footlker008",
+      "position": [
+        31.52,
+        56.4
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt01",
+          "count": 1
+        },
+        {
+          "resref": "g_i_credits003",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "danm16",
+      "area": "m16aa",
+      "container": "FootLker",
+      "template": "footlker009",
+      "position": [
+        35.02,
+        63.93
+      ],
+      "items": [
+        {
+          "resref": "g_i_medeqpmnt02",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "danm16",
+      "area": "m16aa",
+      "container": "FootLker",
+      "template": "footlker010",
+      "position": [
+        32.92,
+        79.62
+      ],
+      "items": [
+        {
+          "resref": "g_i_parts01",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "danm16",
+      "area": "m16aa",
+      "container": "FootLker",
+      "template": "footlker011",
+      "position": [
+        40.7,
+        62.6
+      ],
+      "items": [
+        {
+          "resref": "g_i_implant102",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "module": "danm16",
+      "area": "m16aa",
+      "container": "FootLker",
+      "template": "footlker013",
+      "position": [
+        57.73,
+        77.69
+      ],
+      "items": [
+        {
+          "resref": "dan16_key001",
+          "count": 1
+        }
+      ]
+    }
+  ],
+  "credits": {
+    "light": {
+      "credits": 2900,
+      "light_points": 11,
+      "dark_points": 9
+    },
+    "dark": {
+      "credits": 3000,
+      "light_points": 0,
+      "dark_points": 92
+    },
+    "sources": [
+      {
+        "dialog": "dan13_crattis",
+        "module": "danm13",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 4
+        }
+      },
+      {
+        "dialog": "dan13_elise",
+        "module": "danm13",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "dan13_vandar",
+        "module": "danm13",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 10
+        }
+      },
+      {
+        "dialog": "dan13_vrook",
+        "module": "danm13",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "dan13_zhar",
+        "module": "danm13",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "ebo46_lurarka",
+        "module": "danm13",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 100,
+          "light_points": 0,
+          "dark_points": 6
+        }
+      },
+      {
+        "dialog": "dan14_elise",
+        "module": "danm14aa",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "dan14_jon",
+        "module": "danm14aa",
+        "light": {
+          "credits": 1000,
+          "light_points": 3,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 1000,
+          "light_points": 0,
+          "dark_points": 7
+        }
+      },
+      {
+        "dialog": "dan14_mdroid",
+        "module": "danm14ab",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 4
+        }
+      },
+      {
+        "dialog": "dan_zuulan",
+        "module": "danm14ab",
+        "light": {
+          "credits": 200,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "dan14_bolook",
+        "module": "danm14ac",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      },
+      {
+        "dialog": "dan14_juhani",
+        "module": "danm14ac",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 12
+        }
+      },
+      {
+        "dialog": "cp_dan14_sdroid",
+        "module": "danm14ad",
+        "light": {
+          "credits": 600,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 600,
+          "light_points": 0,
+          "dark_points": 0
+        }
+      },
+      {
+        "dialog": "dan14_c869",
+        "module": "danm14ad",
+        "light": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 6
+        }
+      },
+      {
+        "dialog": "dan14_cutscene",
+        "module": "danm14ad",
+        "light": {
+          "credits": 1000,
+          "light_points": 3,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 1000,
+          "light_points": 0,
+          "dark_points": 16
+        }
+      },
+      {
+        "dialog": "dan16_nurik",
+        "module": "danm16",
+        "light": {
+          "credits": 100,
+          "light_points": 3,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 300,
+          "light_points": 0,
+          "dark_points": 6
+        }
+      },
+      {
+        "dialog": "dan16_rahasia",
+        "module": "danm16",
+        "light": {
+          "credits": 0,
+          "light_points": 2,
+          "dark_points": 0
+        },
+        "dark": {
+          "credits": 0,
+          "light_points": 0,
+          "dark_points": 3
+        }
+      }
+    ],
+    "note": "tools/questdb/credits.py: the credits and alignment points a full run of the chapter picks up from its conversations and scripts, for a light-side and a dark-side player (gambling left out). Worked out from the files, not played"
+  }
+}

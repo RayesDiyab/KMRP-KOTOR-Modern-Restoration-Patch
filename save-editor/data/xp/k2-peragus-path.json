@@ -1,0 +1,516 @@
+{
+ "game": "K2",
+ "what": "A full Peragus run: kills (hostile creatures and active encounters of each module), then the quest XP met in that module, in module order. Written by tools/xp/make_path.py; read by tools/xp/calc.py --scenario.",
+ "checked": false,
+ "assumptions": [
+  "Every creature data/xp/k2-enemies.json marks hostile is killed; creatures a script may turn hostile (hostile = maybe) are left out; creatures whose template cannot die (Plot, Min1HP) are left out.",
+  "Active encounters spawn as calc.py replays the engine's spawn list for a party of three (mean of 200 seeded runs); encounters that respawn are counted once.",
+  "Only the chapter's own quests (build.py PLANETS tag_prefix) count; a quest of another chapter that this chapter's files also set is counted by its own chapter.",
+  "Each quest follows one route to one ending (the lowest ending stage the quest database reaches unless make_path.py ENDINGS names another); a stage gives its journal XP and the largest XP of one of its steps.",
+  "Not counted: plot XP on dialog lines that set no journal stage, level-scaled computer and repair XP, stealth XP.",
+  "KotOR 2's kill XP follows swkotor2.exe 1.0.2 (calc.py use_game): its own tables, and a creature with an autobalance row (MultiplierSet) counted at the player's level when it spawns plus the row's crmod: a placed creature at the player's level on entering the module, a script's at the level of the kill. Encounter creatures are counted at their rating."
+ ],
+ "modules": [
+  {
+   "module": "001ebo",
+   "steps": [
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "tutorial_garage stage 20: journal 50"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "tutorial_garage stage 90: journal 100"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "tutorial_heal_pc stage 20: journal 50"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "tutorial_heal_pc stage 90: journal 100"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 210,
+     "what": "tutorial_3CFD stage 90: journal 100, step 110"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 500,
+     "what": "tutorial_fix_ebo stage 70: journal 500"
+    }
+   ]
+  },
+  {
+   "module": "002ebo",
+   "steps": [
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "tutorial_fix_ebo stage 30: journal 100"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 200,
+     "what": "tutorial_fix_ebo stage 50: journal 200"
+    }
+   ]
+  },
+  {
+   "module": "101per",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 8,
+     "what": "101per g_assassindrd002 (placed)",
+     "multiplier_set": 2,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 1,
+     "what": "101per g_assassindrd003 (placed)",
+     "multiplier_set": 2,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 6,
+     "what": "101per g_assassindrd005 (placed)",
+     "multiplier_set": 2,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 1,
+     "what": "101per g_floatingmin002 (script)"
+    },
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 2,
+     "what": "101per n_sithsoldier001 (script)",
+     "multiplier_set": 3,
+     "spawned_on_entry": false
+    },
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "MedBayMur stage 10, step 50"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 150,
+     "what": "MedBayMur stage 20: journal 100, step 50"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 500,
+     "what": "MedBayMur stage 99: journal 500"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "VoiceprintProtocol stage 30: journal 50"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "VoiceprintProtocol stage 40: journal 50"
+    }
+   ]
+  },
+  {
+   "module": "102per",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 9,
+     "what": "102per g_assassindrd002 (placed)",
+     "multiplier_set": 2,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 3,
+     "what": "102per g_assassindrd003 (placed)",
+     "multiplier_set": 2,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 2,
+     "what": "102per g_assassindrd005 (placed)",
+     "multiplier_set": 2,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 6,
+     "what": "102per g_assassindrd006 (placed)",
+     "multiplier_set": 2,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 7,
+     "what": "102per g_assassindrd007 (placed)",
+     "multiplier_set": 2,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 5,
+     "what": "102per g_assassindrd008 (placed)",
+     "multiplier_set": 2,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 4,
+     "what": "102per g_assassindrd009 (placed)",
+     "multiplier_set": 3,
+     "spawned_on_entry": true
+    }
+   ]
+  },
+  {
+   "module": "103per",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 6,
+     "what": "103per g_assassindrd002 (placed)",
+     "multiplier_set": 2,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 1,
+     "what": "103per g_assassindrd003 (placed)",
+     "multiplier_set": 2,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 1,
+     "what": "103per g_assassindrd004 (placed)",
+     "multiplier_set": 2,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 6,
+     "what": "103per g_assassindrd005 (placed)",
+     "multiplier_set": 2,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 1,
+     "what": "103per g_assassindrd006 (placed)",
+     "multiplier_set": 2,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 4,
+     "what": "103per g_assassindrd009 (placed)",
+     "multiplier_set": 3,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 1,
+     "what": "103per g_droid_mine_005 (placed)",
+     "multiplier_set": 3,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 3,
+     "what": "103per g_droid_mine_006 (placed)",
+     "multiplier_set": 3,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 4,
+     "what": "103per g_floatingmin001 (placed)"
+    },
+    {
+     "do": "encounter",
+     "template": "103drdambush",
+     "rec": 4,
+     "max": 4,
+     "difficulty_index": 1,
+     "templates": [
+      [
+       "g_droid_mine_02",
+       2.0,
+       0,
+       2.0
+      ]
+     ],
+     "what": "103per encounter 103drdambush"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "MedBayMur stage 30: journal 100"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "MedBayMur stage 40: journal 100"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "RecentHistory stage 30: journal 100"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "RecentHistory stage 40: journal 100"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 250,
+     "what": "RescuePC stage 99: journal 250"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "RescueT3 stage 99: journal 100"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "VoiceprintProtocol stage 20: journal 50"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "VoiceprintProtocol stage 50: journal 50"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 250,
+     "what": "VoiceprintProtocol stage 98: journal 250"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 250,
+     "what": "VoiceprintProtocol stage 99: journal 250"
+    }
+   ]
+  },
+  {
+   "module": "104per",
+   "steps": []
+  },
+  {
+   "module": "105per",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 5,
+     "what": "105per c_drdspyder001 (placed)",
+     "multiplier_set": 3,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 2,
+     "what": "105per g_assassindrd002 (placed)",
+     "multiplier_set": 2,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 3,
+     "what": "105per g_assassindrd005 (placed)",
+     "multiplier_set": 2,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 6,
+     "what": "105per g_assassindrd007 (placed)",
+     "multiplier_set": 2,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 1,
+     "what": "105per g_assassindrd009 (placed)",
+     "multiplier_set": 3,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 4,
+     "what": "105per g_turretbl010 (placed)",
+     "multiplier_set": 2,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "plot_xp",
+     "xp": 250,
+     "what": "TurboliftLockdown stage 99, step 250"
+    }
+   ]
+  },
+  {
+   "module": "151har",
+   "steps": [
+    {
+     "do": "plot_xp",
+     "xp": 250,
+     "what": "OrbitalDriftCharts stage 99, step 250"
+    }
+   ]
+  },
+  {
+   "module": "152har",
+   "steps": [
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "RecentHistory stage 50: journal 100"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 100,
+     "what": "RecentHistory stage 60: journal 100"
+    }
+   ]
+  },
+  {
+   "module": "153har",
+   "steps": []
+  },
+  {
+   "module": "106per",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 6,
+     "what": "106per c_drdspyder001 (placed)",
+     "multiplier_set": 3,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 10,
+     "what": "106per g_assassindrd002 (placed)",
+     "multiplier_set": 2,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 1,
+     "what": "106per g_assassindrd003 (placed)",
+     "multiplier_set": 3,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 2,
+     "what": "106per g_droid_mine_024 (placed)",
+     "multiplier_set": 3,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 3,
+     "what": "106per g_droid_mine_025 (placed)",
+     "multiplier_set": 3,
+     "spawned_on_entry": true
+    },
+    {
+     "do": "plot_xp",
+     "xp": 500,
+     "what": "RecentHistory stage 99: journal 500"
+    }
+   ]
+  },
+  {
+   "module": "107per",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 0.0,
+     "count": 4,
+     "what": "107per g_sithtroop009 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 0.0,
+     "count": 1,
+     "what": "107per g_sithtroop008 (script)"
+    }
+   ]
+  },
+  {
+   "module": "005ebo",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 1,
+     "what": "005ebo g_sithtroop008 (script)",
+     "multiplier_set": 2,
+     "spawned_on_entry": false
+    },
+    {
+     "do": "plot_xp",
+     "xp": 1000,
+     "what": "RecoverEbonHawk stage 99: journal 1000"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 1000,
+     "what": "RecoverEbonHawk stage 99: journal 1000 (003ebo, dialog 003atton E39)"
+    }
+   ]
+  }
+ ]
+}

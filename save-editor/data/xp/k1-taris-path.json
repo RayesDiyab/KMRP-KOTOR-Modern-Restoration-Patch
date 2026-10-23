@@ -1,0 +1,1271 @@
+{
+ "game": "K1",
+ "what": "A full Taris run: kills (hostile creatures and active encounters of each module), then the quest XP met in that module, in module order. Written by tools/xp/make_path.py; read by tools/xp/calc.py --scenario.",
+ "checked": false,
+ "assumptions": [
+  "Every creature data/xp/k1-enemies.json marks hostile is killed; creatures a script may turn hostile (hostile = maybe) are left out; creatures whose template cannot die (Plot, Min1HP) are left out.",
+  "Active encounters spawn as calc.py replays the engine's spawn list for a party of three (mean of 200 seeded runs); encounters that respawn are counted once.",
+  "Only the chapter's own quests (build.py PLANETS tag_prefix) count; a quest of another chapter that this chapter's files also set is counted by its own chapter.",
+  "Each quest follows one route to one ending (the lowest ending stage the quest database reaches unless make_path.py ENDINGS names another); a stage gives its journal XP and the largest XP of one of its steps.",
+  "Not counted: plot XP on dialog lines that set no journal stage, level-scaled computer and repair XP, stealth XP."
+ ],
+ "modules": [
+  {
+   "module": "tar_m02af",
+   "steps": []
+  },
+  {
+   "module": "tar_m02aa",
+   "steps": []
+  },
+  {
+   "module": "tar_m02ab",
+   "steps": [
+    {
+     "do": "plot_xp",
+     "xp": 250,
+     "what": "tar_buydroid stage 99, step 250"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 350,
+     "what": "tar_bastsearch stage 20, step 350"
+    }
+   ]
+  },
+  {
+   "module": "tar_m02ac",
+   "steps": [
+    {
+     "do": "plot_xp",
+     "xp": 200,
+     "what": "tar_rakghoulserum stage 10, step 200"
+    }
+   ]
+  },
+  {
+   "module": "tar_m02ad",
+   "steps": [
+    {
+     "do": "plot_xp",
+     "xp": 110,
+     "what": "tar_largobounty stage 10, step 110"
+    }
+   ]
+  },
+  {
+   "module": "tar_m02ae",
+   "steps": [
+    {
+     "do": "plot_xp",
+     "xp": 55,
+     "what": "tar_duelring stage 10, step 55"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 80,
+     "what": "tar_duelring stage 20, step 80"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 105,
+     "what": "tar_duelring stage 30, step 105"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 125,
+     "what": "tar_duelring stage 40, step 125"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 155,
+     "what": "tar_duelring stage 50, step 155"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 105,
+     "what": "tar_duelring stage 99, step 105"
+    }
+   ]
+  },
+  {
+   "module": "tar_m03aa",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 2,
+     "what": "tar_m03aa tar03_blackv040 (placed)"
+    },
+    {
+     "do": "encounter",
+     "template": "g_blckvulgrou001",
+     "rec": 2,
+     "max": 3,
+     "difficulty_index": 3,
+     "templates": [
+      [
+       "tar03_blackv037",
+       2.0,
+       0,
+       2.0
+      ],
+      [
+       "tar03_blackv038",
+       2.0,
+       0,
+       2.0
+      ],
+      [
+       "tar03_blackv039",
+       3.0,
+       1,
+       3.0
+      ]
+     ],
+     "what": "tar_m03aa encounter g_blckvulgrou001"
+    },
+    {
+     "do": "encounter",
+     "template": "g_blckvulgrou001",
+     "rec": 2,
+     "max": 3,
+     "difficulty_index": 3,
+     "templates": [
+      [
+       "tar03_blackv037",
+       2.0,
+       0,
+       2.0
+      ],
+      [
+       "tar03_blackv038",
+       2.0,
+       0,
+       2.0
+      ],
+      [
+       "tar03_blackv039",
+       3.0,
+       1,
+       3.0
+      ]
+     ],
+     "what": "tar_m03aa encounter g_blckvulgrou001"
+    },
+    {
+     "do": "encounter",
+     "template": "g_blckvulgrou001",
+     "rec": 2,
+     "max": 3,
+     "difficulty_index": 3,
+     "templates": [
+      [
+       "tar03_blackv037",
+       2.0,
+       0,
+       2.0
+      ],
+      [
+       "tar03_blackv038",
+       2.0,
+       0,
+       2.0
+      ],
+      [
+       "tar03_blackv039",
+       3.0,
+       1,
+       3.0
+      ]
+     ],
+     "what": "tar_m03aa encounter g_blckvulgrou001"
+    },
+    {
+     "do": "encounter",
+     "template": "g_blckvulgrou001",
+     "rec": 2,
+     "max": 3,
+     "difficulty_index": 3,
+     "templates": [
+      [
+       "tar03_blackv037",
+       2.0,
+       0,
+       2.0
+      ],
+      [
+       "tar03_blackv038",
+       2.0,
+       0,
+       2.0
+      ],
+      [
+       "tar03_blackv039",
+       3.0,
+       1,
+       3.0
+      ]
+     ],
+     "what": "tar_m03aa encounter g_blckvulgrou001"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 630,
+     "what": "tar_bastsearch stage 55, step 630"
+    }
+   ]
+  },
+  {
+   "module": "tar_m03ab",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 1,
+     "what": "tar_m03ab tar03_blackv034 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 1,
+     "what": "tar_m03ab tar03_blackv035 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 1,
+     "what": "tar_m03ab tar03_blackv043 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 1,
+     "what": "tar_m03ab tar03_blackv044 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 1,
+     "what": "tar_m03ab tar03_blackv045 (placed)"
+    },
+    {
+     "do": "encounter",
+     "template": "g_blckvulgrou001",
+     "rec": 2,
+     "max": 3,
+     "difficulty_index": 2,
+     "templates": [
+      [
+       "tar03_blackv037",
+       2.0,
+       0,
+       2.0
+      ],
+      [
+       "tar03_blackv038",
+       2.0,
+       0,
+       2.0
+      ],
+      [
+       "tar03_blackv039",
+       2.0,
+       0,
+       2.0
+      ]
+     ],
+     "what": "tar_m03ab encounter g_blckvulgrou001"
+    },
+    {
+     "do": "encounter",
+     "template": "g_blckvulgrou001",
+     "rec": 2,
+     "max": 3,
+     "difficulty_index": 2,
+     "templates": [
+      [
+       "tar03_blackv037",
+       2.0,
+       0,
+       2.0
+      ],
+      [
+       "tar03_blackv038",
+       2.0,
+       0,
+       2.0
+      ],
+      [
+       "tar03_blackv039",
+       2.0,
+       0,
+       2.0
+      ]
+     ],
+     "what": "tar_m03ab encounter g_blckvulgrou001"
+    },
+    {
+     "do": "encounter",
+     "template": "g_blckvulgrou002",
+     "rec": 2,
+     "max": 3,
+     "difficulty_index": 3,
+     "templates": [
+      [
+       "tar03_blackv040",
+       2.0,
+       0,
+       2.0
+      ],
+      [
+       "tar03_blackv041",
+       2.0,
+       0,
+       2.0
+      ],
+      [
+       "tar03_blackv042",
+       3.0,
+       1,
+       3.0
+      ]
+     ],
+     "what": "tar_m03ab encounter g_blckvulgrou002"
+    }
+   ]
+  },
+  {
+   "module": "tar_m03ad",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 1,
+     "what": "tar_m03ad tar03_blackv034 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 1,
+     "what": "tar_m03ad tar03_blackv035 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 1,
+     "what": "tar_m03ad tar03_blackv036 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 5.0,
+     "count": 1,
+     "what": "tar_m03ad tar03_blackv043 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 1,
+     "what": "tar_m03ad tar03_blackv044 (placed)"
+    },
+    {
+     "do": "encounter",
+     "template": "g_blckvulgrou001",
+     "rec": 2,
+     "max": 3,
+     "difficulty_index": 2,
+     "templates": [
+      [
+       "tar03_blackv037",
+       2.0,
+       0,
+       2.0
+      ],
+      [
+       "tar03_blackv038",
+       2.0,
+       0,
+       2.0
+      ],
+      [
+       "tar03_blackv039",
+       2.0,
+       0,
+       2.0
+      ]
+     ],
+     "what": "tar_m03ad encounter g_blckvulgrou001"
+    },
+    {
+     "do": "encounter",
+     "template": "g_blckvulgrou001",
+     "rec": 2,
+     "max": 3,
+     "difficulty_index": 2,
+     "templates": [
+      [
+       "tar03_blackv037",
+       2.0,
+       0,
+       2.0
+      ],
+      [
+       "tar03_blackv038",
+       2.0,
+       0,
+       2.0
+      ],
+      [
+       "tar03_blackv039",
+       2.0,
+       0,
+       2.0
+      ]
+     ],
+     "what": "tar_m03ad encounter g_blckvulgrou001"
+    },
+    {
+     "do": "encounter",
+     "template": "g_blckvulgrou001",
+     "rec": 2,
+     "max": 3,
+     "difficulty_index": 2,
+     "templates": [
+      [
+       "tar03_blackv037",
+       2.0,
+       0,
+       2.0
+      ],
+      [
+       "tar03_blackv038",
+       2.0,
+       0,
+       2.0
+      ],
+      [
+       "tar03_blackv039",
+       2.0,
+       0,
+       2.0
+      ]
+     ],
+     "what": "tar_m03ad encounter g_blckvulgrou001"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 480,
+     "what": "tar_matrik stage 30, step 480"
+    }
+   ]
+  },
+  {
+   "module": "tar_m03ae",
+   "steps": [
+    {
+     "do": "plot_xp",
+     "xp": 105,
+     "what": "tar_bendakbounty stage 99, step 105"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 105,
+     "what": "tar_diabounty stage 98, step 105"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 55,
+     "what": "tar_matrik stage 40, step 55"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 105,
+     "what": "tar_selvenbounty stage 99, step 105"
+    }
+   ]
+  },
+  {
+   "module": "tar_m04aa",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 3,
+     "what": "tar_m04aa tar04_rakghou001 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 5.0,
+     "count": 1,
+     "what": "tar_m04aa tar04_rakghou002 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 12,
+     "what": "tar_m04aa tar04_rakghoulr (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 2,
+     "what": "tar_m04aa tar04_rakghou001 (script)"
+    },
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 2,
+     "what": "tar_m04aa tar04_rakghoul (script)"
+    },
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 2,
+     "what": "tar_m04aa tar04_rakghoulr (script)"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 60,
+     "what": "tar_infectedoutcasts stage 98, step 60"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 175,
+     "what": "tar_rukilapprentice stage 99, step 175"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 325,
+     "what": "tar_promisedland stage 30, step 325"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 330,
+     "what": "tar_bastsearch stage 35, step 330"
+    }
+   ]
+  },
+  {
+   "module": "tar_m05aa",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 1,
+     "what": "tar_m05aa tar04_gamelite0 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 2,
+     "what": "tar_m05aa tar04_gamelite1 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 1,
+     "what": "tar_m05aa tar04_gamraid001 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 1,
+     "what": "tar_m05aa tar04_gamraider0 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 1,
+     "what": "tar_m05aa tar04_gamraider1 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 1,
+     "what": "tar_m05aa tar04_gamraidlea (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 3,
+     "what": "tar_m05aa tar04_rakghou001 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 9,
+     "what": "tar_m05aa tar04_rakghoulr (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 3,
+     "what": "tar_m05aa tar05_gammore007 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 1,
+     "what": "tar_m05aa tar05_gammore008 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 1,
+     "what": "tar_m05aa tar05_gammore009 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 3,
+     "what": "tar_m05aa tar05_gammorean (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 1,
+     "what": "tar_m05aa tar04_rakghou001 (script)"
+    },
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 1,
+     "what": "tar_m05aa tar04_rakghoulr (script)"
+    },
+    {
+     "do": "encounter",
+     "template": "g_rakghlgroup002",
+     "rec": 4,
+     "max": 6,
+     "difficulty_index": 2,
+     "templates": [
+      [
+       "tar04_rakghoulr",
+       2.0,
+       0,
+       2.0
+      ],
+      [
+       "tar04_rakghou001",
+       3.0,
+       1,
+       3.0
+      ]
+     ],
+     "what": "tar_m05aa encounter g_rakghlgroup002"
+    },
+    {
+     "do": "encounter",
+     "template": "g_rakghlgroup002",
+     "rec": 4,
+     "max": 6,
+     "difficulty_index": 2,
+     "templates": [
+      [
+       "tar04_rakghoulr",
+       2.0,
+       0,
+       2.0
+      ],
+      [
+       "tar04_rakghou001",
+       3.0,
+       1,
+       3.0
+      ]
+     ],
+     "what": "tar_m05aa encounter g_rakghlgroup002"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 630,
+     "what": "tar_bastsearch stage 40, step 630"
+    }
+   ]
+  },
+  {
+   "module": "tar_m05ab",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 1,
+     "what": "tar_m05ab tar04_gamraider0 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 1,
+     "what": "tar_m05ab tar04_gamraider1 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 1,
+     "what": "tar_m05ab tar04_gamraidlea (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 1,
+     "what": "tar_m05ab tar05_assault001 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 2,
+     "what": "tar_m05ab tar05_gamab (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 2,
+     "what": "tar_m05ab tar05_kathhound (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 3,
+     "what": "tar_m05ab tar05_rakghoul (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 10.0,
+     "count": 1,
+     "what": "tar_m05ab tar05_stampy (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 2,
+     "what": "tar_m05ab tar05_vulkar (placed)"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 200,
+     "what": "tar_rancor stage 99, step 200"
+    }
+   ]
+  },
+  {
+   "module": "tar_m10aa",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 1,
+     "what": "tar_m10aa tar10_bartender (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 2,
+     "what": "tar_m10aa tar10_bouncer (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 1,
+     "what": "tar_m10aa tar10_bouncer001 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 2,
+     "what": "tar_m10aa tar10_ptdrd006 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 1,
+     "what": "tar_m10aa tar10_ptdrd03 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 1,
+     "what": "tar_m10aa tar10_ptdrd04 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 3,
+     "what": "tar_m10aa tar10_thermturre (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 1,
+     "what": "tar_m10aa tar10_vulkarcook (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 1,
+     "what": "tar_m10aa tar10_vulkarp002 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 1,
+     "what": "tar_m10aa tar10_vulkarpt01 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 2,
+     "what": "tar_m10aa tar10_vulkpoo001 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 2,
+     "what": "tar_m10aa tar10_vulkpoo002 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 2,
+     "what": "tar_m10aa tar10_vulkpoo003 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 1,
+     "what": "tar_m10aa tar10_vulkpoo005 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 1,
+     "what": "tar_m10aa tar10_vulkpool (placed)"
+    }
+   ]
+  },
+  {
+   "module": "tar_m10ab",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 2,
+     "what": "tar_m10ab tar10_lockturret (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 0.5,
+     "count": 1,
+     "what": "tar_m10ab tar10_vulk10ab2 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 0.5,
+     "count": 1,
+     "what": "tar_m10ab tar10_vulk10ab3 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 0.5,
+     "count": 2,
+     "what": "tar_m10ab tar10_vulk10ab4 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 0.33000001311302185,
+     "count": 13,
+     "what": "tar_m10ab tar10_vulkguard (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 0.33000001311302185,
+     "count": 1,
+     "what": "tar_m10ab tar10_vulkmech00 (placed)"
+    },
+    {
+     "do": "encounter",
+     "template": "vulkarencounter",
+     "rec": 2,
+     "max": 4,
+     "difficulty_index": 1,
+     "templates": [
+      [
+       "tar10_vulkare001",
+       0.5,
+       0,
+       0.5
+      ],
+      [
+       "tar10_vulkarenc0",
+       0.5,
+       0,
+       0.5
+      ],
+      [
+       "tar10_vulkarenc1",
+       0.5,
+       0,
+       0.5
+      ]
+     ],
+     "what": "tar_m10ab encounter vulkarencounter"
+    },
+    {
+     "do": "encounter",
+     "template": "vulkarencounter",
+     "rec": 2,
+     "max": 4,
+     "difficulty_index": 1,
+     "templates": [
+      [
+       "tar10_vulkare001",
+       0.5,
+       0,
+       0.5
+      ],
+      [
+       "tar10_vulkarenc0",
+       0.5,
+       0,
+       0.5
+      ],
+      [
+       "tar10_vulkarenc1",
+       0.5,
+       0,
+       0.5
+      ]
+     ],
+     "what": "tar_m10ab encounter vulkarencounter"
+    },
+    {
+     "do": "encounter",
+     "template": "vulkarencounter",
+     "rec": 2,
+     "max": 4,
+     "difficulty_index": 1,
+     "templates": [
+      [
+       "tar10_vulkare001",
+       0.5,
+       0,
+       0.5
+      ],
+      [
+       "tar10_vulkarenc0",
+       0.5,
+       0,
+       0.5
+      ],
+      [
+       "tar10_vulkarenc1",
+       0.5,
+       0,
+       0.5
+      ]
+     ],
+     "what": "tar_m10ab encounter vulkarencounter"
+    },
+    {
+     "do": "encounter",
+     "template": "vulkarencounter",
+     "rec": 2,
+     "max": 4,
+     "difficulty_index": 1,
+     "templates": [
+      [
+       "tar10_vulkare001",
+       0.5,
+       0,
+       0.5
+      ],
+      [
+       "tar10_vulkarenc0",
+       0.5,
+       0,
+       0.5
+      ],
+      [
+       "tar10_vulkarenc1",
+       0.5,
+       0,
+       0.5
+      ]
+     ],
+     "what": "tar_m10ab encounter vulkarencounter"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 110,
+     "what": "tar_vulkarbase stage 15, step 110"
+    }
+   ]
+  },
+  {
+   "module": "tar_m10ac",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 1,
+     "what": "tar_m10ac tar10_garagehead (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 2,
+     "what": "tar_m10ac tar10_vulkgan001 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 3,
+     "what": "tar_m10ac tar10_vulkgang (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 1,
+     "what": "tar_m10ac tar10_vulkgua001 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 1,
+     "what": "tar_m10ac tar10_vulkgua002 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 1,
+     "what": "tar_m10ac tar10_vulkgua003 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 1,
+     "what": "tar_m10ac tar10_vulkgua004 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 2,
+     "what": "tar_m10ac tar10_vulkguard (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 1,
+     "what": "tar_m10ac tar10_vulkpat001 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 5.0,
+     "count": 1,
+     "what": "tar_m10ac tar10_vulkpat002 (placed)"
+    },
+    {
+     "do": "encounter",
+     "template": "vulkarencounter",
+     "rec": 2,
+     "max": 4,
+     "difficulty_index": 1,
+     "templates": [
+      [
+       "tar10_vulkare001",
+       3.0,
+       0,
+       3.0
+      ],
+      [
+       "tar10_vulkarenc0",
+       3.0,
+       0,
+       3.0
+      ],
+      [
+       "tar10_vulkarenc1",
+       3.0,
+       0,
+       3.0
+      ]
+     ],
+     "what": "tar_m10ac encounter vulkarencounter"
+    }
+   ]
+  },
+  {
+   "module": "tar_m03af",
+   "steps": []
+  },
+  {
+   "module": "tar_m11aa",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 1,
+     "what": "tar_m11aa tar11_assaultdrd (placed)"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 630,
+     "what": "tar_bastsearch stage 50, step 630"
+    }
+   ]
+  },
+  {
+   "module": "tar_m11ab",
+   "steps": []
+  },
+  {
+   "module": "tar_m09aa",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 1,
+     "what": "tar_m09aa g_sithcomm003 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 2,
+     "what": "tar_m09aa n_sithcomf001 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 2,
+     "what": "tar_m09aa n_sithcomf002 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 1,
+     "what": "tar_m09aa tar09_medicaldrd (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 10.0,
+     "count": 1,
+     "what": "tar_m09aa tar09_shielddrd (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 1,
+     "what": "tar_m09aa tar09_shieldtech (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 4,
+     "what": "tar_m09aa tar09_sith092 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 6,
+     "what": "tar_m09aa tar09_sith093 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 2.0,
+     "count": 4,
+     "what": "tar_m09aa tar09_turret (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 10,
+     "what": "tar_m09aa tar09_wardrd (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 3,
+     "what": "tar_m09aa tar09_wardrd (script)"
+    }
+   ]
+  },
+  {
+   "module": "tar_m09ab",
+   "steps": []
+  },
+  {
+   "module": "tar_m08aa",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 1,
+     "what": "tar_m08aa tar08_davbounty (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 6,
+     "what": "tar_m08aa tar08_davguad001 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 2,
+     "what": "tar_m08aa tar08_davguad002 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 1,
+     "what": "tar_m08aa tar08_davguad003 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 3,
+     "what": "tar_m08aa tar08_davguad004 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 4,
+     "what": "tar_m08aa tar08_davguad005 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 4,
+     "what": "tar_m08aa tar08_davguad006 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 1,
+     "what": "tar_m08aa tar08_davguad007 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 1,
+     "what": "tar_m08aa tar08_davprobe (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 1,
+     "what": "tar_m08aa tar08_davward (placed)"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 600,
+     "what": "tar_escape stage 99, step 600"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 600,
+     "what": "tar_planetinfo stage 99, step 600"
+    }
+   ]
+  }
+ ]
+}

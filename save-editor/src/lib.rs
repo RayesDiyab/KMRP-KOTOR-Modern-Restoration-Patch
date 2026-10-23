@@ -13,4 +13,5 @@ pub mod quests;
 pub mod questdb;
 pub mod games;
 pub mod save;
+pub mod stored;
 pub mod text;

@@ -1,0 +1,1026 @@
+{
+ "game": "K2",
+ "planet": "Ravager",
+ "order": 9,
+ "chapter_title": "The Ravager: destroying the flagship and its master",
+ "generated_by": "tools/questdb/build.py --milestone",
+ "checked": false,
+ "about": "Story state every completed run of the chapter ends with, for a skip-to-the-end feature. Curated in tools/questdb/chapters.py; values marked certain = false were worked out by reading the scripts or seen in one real save, not proven for every run.",
+ "journal": [
+  {
+   "tag": "destroyravager",
+   "stage": 99,
+   "set_by": "dialog 222tel E3 (851nih): the ship blown up"
+  },
+  {
+   "tag": "defeatdarthnihilus",
+   "stage": 99,
+   "set_by": "k_nihilus_ud (852nih): the lord defeated"
+  }
+ ],
+ "journal_remove": [],
+ "globals": [
+  {
+   "name": "000_Visas_Dead",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "1 only after the sacrifice (a_start_ending); read by the last chapter's dialog 904kreia (R159 / R160 / R161)",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "set": 1,
+     "script": "a_start_ending",
+     "module": "852nih",
+     "from": [
+      "ExecuteScript from k_nihilus_ud"
+     ],
+     "branch": "if 852NIH_VisasSacrifice == 1",
+     "critical": true
+    }
+   ]
+  },
+  {
+   "name": "851NIH_Bomb_Ravager",
+   "type": "Number",
+   "value": 3,
+   "certain": true,
+   "note": "the order is fixed by dialog 851dem: the third charge (E7, then R10 / R11 / R12 a_fire851expdlg) sets 1, the core from the missile bay (851mis R3) sets 2, and the fourth charge (E8, reached from R2 only once local 32 is set) sets 3, its last writer; 222tel's start E3 and 852nih R72 need more than 2",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "set": 3,
+     "script": "a_global_set|3,0,0,0,0,851nih_bomb_ravager",
+     "module": "851nih",
+     "from": [
+      "851dem E8 script"
+     ],
+     "resolves_to": "chitin:scripts.bif",
+     "critical": false
+    },
+    {
+     "set": 2,
+     "script": "a_global_set|2,0,0,0,0,851nih_bomb_ravager",
+     "module": "851nih",
+     "from": [
+      "851mis R3 script"
+     ],
+     "resolves_to": "chitin:scripts.bif",
+     "critical": false
+    },
+    {
+     "set": 1,
+     "script": "a_fire851expdlg|0,0,0,0,0,",
+     "module": "851nih",
+     "from": [
+      "851dem R10 script",
+      "851dem R11 script",
+      "851dem R12 script"
+     ],
+     "critical": true
+    }
+   ]
+  },
+  {
+   "name": "851NIH_BOMBSITE",
+   "type": "Number",
+   "value": 4,
+   "certain": false,
+   "note": "the bomb-site triggers tr_851demone..four set 1..4 on entering each site, so the value is the site entered last; whether the sites can only be reached in that order was not worked out",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "set": 1,
+     "script": "tr_851demone",
+     "module": "851nih",
+     "from": [
+      "newgeneric007.utt ScriptOnEnter (tr_851dem)"
+     ],
+     "branch": "if 851NIH_Bomb_Ravager != 1",
+     "critical": false
+    },
+    {
+     "set": 1,
+     "script": "tr_851demone",
+     "module": "851nih",
+     "from": [
+      "newgeneric007.utt ScriptOnEnter (tr_851dem)"
+     ],
+     "branch": "if 851NIH_Bomb_Ravager == 1",
+     "critical": false
+    },
+    {
+     "set": 2,
+     "script": "tr_851demtwo",
+     "module": "851nih",
+     "from": [
+      "newgeneric008.utt ScriptOnEnter (tr_851dem)"
+     ],
+     "branch": "if 851NIH_Bomb_Ravager != 1",
+     "critical": false
+    },
+    {
+     "set": 2,
+     "script": "tr_851demtwo",
+     "module": "851nih",
+     "from": [
+      "newgeneric008.utt ScriptOnEnter (tr_851dem)"
+     ],
+     "branch": "if 851NIH_Bomb_Ravager == 1",
+     "critical": false
+    },
+    {
+     "set": 3,
+     "script": "tr_851demthree",
+     "module": "851nih",
+     "from": [
+      "newgeneric009.utt ScriptOnEnter (tr_851dem)"
+     ],
+     "branch": "if 851NIH_Bomb_Ravager != 1",
+     "critical": false
+    },
+    {
+     "set": 3,
+     "script": "tr_851demthree",
+     "module": "851nih",
+     "from": [
+      "newgeneric009.utt ScriptOnEnter (tr_851dem)"
+     ],
+     "branch": "if 851NIH_Bomb_Ravager == 1",
+     "critical": false
+    },
+    {
+     "set": 4,
+     "script": "tr_851demfour",
+     "module": "851nih",
+     "from": [
+      "newgeneric010.utt ScriptOnEnter (tr_851dem)"
+     ],
+     "branch": "if 851NIH_Bomb_Ravager != 1",
+     "critical": false
+    },
+    {
+     "set": 4,
+     "script": "tr_851demfour",
+     "module": "851nih",
+     "from": [
+      "newgeneric010.utt ScriptOnEnter (tr_851dem)"
+     ],
+     "branch": "if 851NIH_Bomb_Ravager == 1",
+     "critical": false
+    }
+   ]
+  },
+  {
+   "name": "851NIH_Missile_Bay",
+   "type": "Number",
+   "value": 2,
+   "certain": true,
+   "note": "dialog 851mis R3, its last writer (851com E2 sets 1 before); the core it frees is the fourth charge, so every run passes it",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "set": 1,
+     "script": "a_global_set|1,0,0,0,0,851nih_missile_bay",
+     "module": "851nih",
+     "from": [
+      "851com E2 script"
+     ],
+     "resolves_to": "chitin:scripts.bif",
+     "critical": false
+    },
+    {
+     "set": 2,
+     "script": "a_global_set|2,0,0,0,0,851nih_missile_bay",
+     "module": "851nih",
+     "from": [
+      "851mis R3 script"
+     ],
+     "resolves_to": "chitin:scripts.bif",
+     "critical": false
+    }
+   ]
+  },
+  {
+   "name": "852NIH_Nihilus_Dead",
+   "type": "Number",
+   "value": 1,
+   "certain": true,
+   "note": "a_start_ending (852nih); dialog 222tel's start E3 in 851nih and the trigger tr_852mand read it",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "set": 1,
+     "script": "a_start_ending",
+     "module": "852nih",
+     "from": [
+      "ExecuteScript from k_nihilus_ud"
+     ],
+     "branch": "if 852NIH_VisasSacrifice != 1",
+     "critical": true
+    },
+    {
+     "set": 1,
+     "script": "a_start_ending",
+     "module": "852nih",
+     "from": [
+      "ExecuteScript from k_nihilus_ud"
+     ],
+     "branch": "if 852NIH_VisasSacrifice == 1",
+     "critical": true
+    }
+   ]
+  },
+  {
+   "name": "852NIH_VisasSacrifice",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "1 only when slot 9 offers her life (dialog 852nih E20), a choice the full run does not take",
+   "read_after_planet": [],
+   "writers": [
+    {
+     "set": 1,
+     "script": "a_global_set|1,0,0,0,0,852nih_visassacrifice",
+     "module": "852nih",
+     "from": [
+      "852nih E20 script"
+     ],
+     "resolves_to": "chitin:scripts.bif",
+     "critical": false
+    }
+   ]
+  },
+  {
+   "name": "907MAL_CUTSCENE",
+   "type": "Number",
+   "value": 2,
+   "certain": true,
+   "note": "a_escape_851 (101PER_Revan_End 1) or 205tel's a_901jump: 907mal's entry script k_907_enter plays the scene of cutscene 2 (dialog krecut1)",
+   "read_after_planet": [
+    {
+     "where": "modules/907mal_s.rim",
+     "script": "a_cleanup"
+    },
+    {
+     "where": "modules/907mal_s.rim",
+     "script": "k_907_enter"
+    }
+   ],
+   "writers": [
+    {
+     "set": 2,
+     "script": "a_escape_851|0,0,0,0,0,",
+     "module": "851nih",
+     "from": [
+      "222tel R5 script"
+     ],
+     "branch": "if 101PER_Revan_End == 1",
+     "critical": true
+    }
+   ]
+  },
+  {
+   "name": "",
+   "type": "unknown",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged; not in globalcat.2da, so a save does not keep it",
+   "values_written": [
+    1
+   ],
+   "writers_total": 1,
+   "writers": [
+    {
+     "script": "a_global_set|1,0,0,0,0,",
+     "module": "851nih",
+     "set": 1
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "modules/602dan_s.rim",
+     "script": "a_jedi_redeem"
+    },
+    {
+     "where": "modules/602dan_s.rim",
+     "script": "c_chk_wounded"
+    }
+   ]
+  },
+  {
+   "name": "000_RareItemChance",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    0,
+    100
+   ],
+   "writers_total": 21,
+   "writers": [
+    {
+     "script": "k_def_spawn01",
+     "module": "851nih",
+     "set": 0,
+     "branch": "if G_PC_LEVEL != 1; G_PC_LEVEL >= 4"
+    },
+    {
+     "script": "k_def_spn_t_less",
+     "module": "851nih",
+     "set": 0,
+     "branch": "if G_PC_LEVEL != 1; G_PC_LEVEL >= 4"
+    },
+    {
+     "script": "k_def_grenspn",
+     "module": "851nih",
+     "set": 0,
+     "branch": "if G_PC_LEVEL != 1; G_PC_LEVEL >= 4"
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_def_ambmobtrea"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_def_grenspn"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_def_repairsptr"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_def_spawn01"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_def_spn_t_drd"
+    },
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_def_spn_t_jedi"
+    }
+   ],
+   "read_after_planet_total": 167
+  },
+  {
+   "name": "000_React",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    2
+   ],
+   "writers_total": 4,
+   "writers": [
+    {
+     "script": "a_gbl_dreact|2,0,0,0,0,",
+     "module": "851nih",
+     "set": 2,
+     "branch": "if GetIsObjectValid(GetObjectByTag(\"invis_reaction\", 0)); GetPartyMemberCount() at least 2"
+    },
+    {
+     "script": "a_gbl_dreact|2,0,0,0,0,",
+     "module": "851nih",
+     "set": 2,
+     "branch": "if not GetIsObjectValid(GetObjectByTag(\"invis_reaction\", 0)); GetPartyMemberCount() at least 2"
+    },
+    {
+     "script": "a_gbl_react",
+     "module": "851nih",
+     "expr": "GetRunScriptVar()",
+     "branch": "if GetIsObjectValid(GetObjectByTag(\"invis_reaction\", 0)); GetRunScriptVar() from 0 to 2; GetPartyMemberCoun..."
+    }
+   ]
+  },
+  {
+   "name": "711KOR_Party_Dead",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [],
+   "writers_total": 8,
+   "writers": [
+    {
+     "script": "k_oei_userdef",
+     "module": "851nih",
+     "add": 1,
+     "branch": "if GetIsObjectValid(OBJECT_SELF); not (GetTag(OBJECT_SELF) == \"atton\"); not (GetTag(OBJECT_SELF) == \"baodur..."
+    },
+    {
+     "script": "k_oei_userdef",
+     "module": "851nih",
+     "add": 1,
+     "branch": "if GetIsObjectValid(OBJECT_SELF); not (GetTag(OBJECT_SELF) == \"atton\"); (GetTag(OBJECT_SELF) == \"baodur\"); ..."
+    },
+    {
+     "script": "k_oei_userdef",
+     "module": "851nih",
+     "add": 1,
+     "branch": "if GetIsObjectValid(OBJECT_SELF); (GetTag(OBJECT_SELF) == \"atton\"); (GetModuleName() == \"711KOR\"); not ((Ge..."
+    }
+   ],
+   "read_after_planet": [
+    {
+     "where": "chitin:scripts.bif",
+     "script": "k_oei_userdef"
+    }
+   ]
+  },
+  {
+   "name": "853NIH_CUTSCENE",
+   "type": "Number",
+   "value": null,
+   "certain": false,
+   "note": "side content or bookkeeping: no end value is set; the editor leaves it unchanged",
+   "values_written": [
+    0,
+    1,
+    2
+   ],
+   "writers_total": 3,
+   "writers": [
+    {
+     "script": "853nih_enter",
+     "module": "853nih",
+     "set": 0,
+     "branch": "if 853NIH_CUTSCENE == 0"
+    },
+    {
+     "script": "853nih_enter",
+     "module": "853nih",
+     "set": 1,
+     "branch": "if 853NIH_CUTSCENE == 1"
+    },
+    {
+     "script": "853nih_enter",
+     "module": "853nih",
+     "set": 2,
+     "branch": "if 853NIH_CUTSCENE == 2"
+    }
+   ]
+  }
+ ],
+ "globals_never_set": [],
+ "items": {
+  "held_at_end": [],
+  "held_note": "Given by scripts on the critical path (tools/questdb/chapters.py).",
+  "other_script_gifts": [
+   {
+    "item": "nihilusmask",
+    "count": 1,
+    "script": "a_give_item|1,0,0,0,0,nihilusmask",
+    "module": "852nih"
+   }
+  ],
+  "taken_optional": [],
+  "container_loot_optional": [],
+  "random_loot": "creature drops rolled by the generic treasure scripts at death are random and not listed"
+ },
+ "party": {
+  "recruit": [],
+  "remove": [],
+  "recruited_at_end": [],
+  "recruit_note": "Apply as the game's own AddAvailableNPCByTemplate(slot, template): the slot's AVAILNPC<slot> creature in the save is built from the template (templates.bif, Override or the named module)",
+  "calls": [
+   {
+    "call": "RemovePartyMember(9)",
+    "script": "a_nihilus|14,0,0,0,0,",
+    "module": "852nih",
+    "from": [
+     "852nih E25 script"
+    ],
+    "critical": true
+   },
+   {
+    "call": "RemoveAvailableNPC(9)",
+    "script": "a_sacrifice|3,0,0,0,0,",
+    "module": "852nih",
+    "from": [
+     "852sacri R14 script"
+    ],
+    "critical": false
+   }
+  ],
+  "slots": []
+ },
+ "next_chapter": {
+  "module": "205tel",
+  "waypoint": "",
+  "chain": [
+   {
+    "module": "205tel",
+    "waypoint": "",
+    "movies": [],
+    "by": "a_escape_851|0,0,0,0,0,",
+    "in": "851nih"
+   }
+  ],
+  "entry": {
+   "area": "204tel",
+   "x": -48.9612,
+   "y": -5.2089,
+   "z": 0,
+   "dir_x": -1.0,
+   "dir_y": 0.0,
+   "note": "the waypoint is empty, so the game puts the party at the module's entry point from module.ifo"
+  },
+  "note": "a_escape_851 (dialog 222tel R5): movie MalMov05, then StartNewModule 205TEL when 101PER_Revan_End is not 1 (Peragus's answer); 205tel's dialog carthend ends with a_901jump (movies TelMov02, HypMov01, MalMov07, MalMov08; 907MAL_CUTSCENE 2; StartNewModule 907MAL). When 101PER_Revan_End is 1 the same script plays those movies itself and moves straight to 907MAL"
+ },
+ "critical_path": [
+  {
+   "module": "851nih",
+   "source": "dialog 851mand E0",
+   "what": "the boarding: journal destroyravager 10"
+  },
+  {
+   "module": "851nih",
+   "source": "dialog 851mand R0",
+   "what": "journal defeatdarthnihilus 10"
+  },
+  {
+   "module": "851nih",
+   "source": "a_fire851expdlg|0,0,0,0,0,",
+   "what": "dialog 851dem R10: 851NIH_Bomb_Ravager 1"
+  },
+  {
+   "module": "851nih",
+   "source": "dialog 851mis R3",
+   "what": "851NIH_Bomb_Ravager 2, 851NIH_Missile_Bay 2"
+  },
+  {
+   "module": "851nih",
+   "source": "dialog 851dem E8",
+   "what": "851NIH_Bomb_Ravager 3"
+  },
+  {
+   "module": "852nih",
+   "source": "a_nihilus|14,0,0,0,0,",
+   "what": "dialog 852nih E25: slot 9 out of the party and unselectable"
+  },
+  {
+   "module": "852nih",
+   "source": "k_nihilus_ud",
+   "what": "the lord beaten: journal defeatdarthnihilus 99, a_start_ending"
+  },
+  {
+   "module": "852nih",
+   "source": "a_start_ending",
+   "what": "852NIH_Nihilus_Dead 1, dialog 852end"
+  },
+  {
+   "module": "851nih",
+   "source": "dialog 222tel E3",
+   "what": "the way out: journal destroyravager 99"
+  },
+  {
+   "module": "851nih",
+   "source": "a_escape_851|0,0,0,0,0,",
+   "what": "dialog 222tel R5: movie MalMov05, StartNewModule 205TEL (or 907MAL when 101PER_Revan_End is 1)"
+  }
+ ],
+ "critical_path_note": "Curated in tools/questdb/chapters.py; the order is inferred, not played. Writers marked critical = true belong to these scripts.",
+ "uncertain": [
+  "script k_def_spawn01 in 851nih was too large to follow completely; some of its effects may be missing",
+  "script k_def_spn_t_less in 851nih was too large to follow completely; some of its effects may be missing",
+  "script k_def_grenspn in 851nih was too large to follow completely; some of its effects may be missing",
+  "script k_plc_treas_less in 851nih was too large to follow completely; some of its effects may be missing",
+  "script k_plc_treas_more in 851nih was too large to follow completely; some of its effects may be missing",
+  "script k_plc_treas_norm in 851nih was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in 851nih was too large to follow completely; some of its effects may be missing",
+  "script k_hen_manddlg in 851nih was too large to follow completely; some of its effects may be missing",
+  "script k_oei_spawn in 851nih was too large to follow completely; some of its effects may be missing",
+  "script k_oei_userdef in 851nih was too large to follow completely; some of its effects may be missing",
+  "script k_hen_visasdlg in 851nih was too large to follow completely; some of its effects may be missing",
+  "script k_def_spawn01 in 852nih was too large to follow completely; some of its effects may be missing",
+  "script k_def_spawn01_ni in 852nih was too large to follow completely; some of its effects may be missing",
+  "script k_def_spn_t_jedi in 852nih was too large to follow completely; some of its effects may be missing",
+  "script k_plc_treas_less in 852nih was too large to follow completely; some of its effects may be missing",
+  "script k_plc_treas_norm in 852nih was too large to follow completely; some of its effects may be missing",
+  "script k_plc_treas_more in 852nih was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in 852nih was too large to follow completely; some of its effects may be missing",
+  "script k_def_spawn01 in 853nih was too large to follow completely; some of its effects may be missing",
+  "script k_hen_visasdlg in 853nih was too large to follow completely; some of its effects may be missing",
+  "script k_oei_spawn in 853nih was too large to follow completely; some of its effects may be missing",
+  "script k_oei_userdef in 853nih was too large to follow completely; some of its effects may be missing",
+  "script k_ai_master in 853nih was too large to follow completely; some of its effects may be missing",
+  "global  is not in globalcat.2da, so a save does not keep it",
+  "global 851NIH_BOMBSITE = 4: the bomb-site triggers tr_851demone..four set 1..4 on entering each site, so the value is the site entered last; whether the sites can only be reached in that order was not worked out",
+  "851nih: creature mandaloriancs is destroyed by a_openingcs|4,0,0,0,0,, which is not on the curated critical path; it may belong to a side quest",
+  "851nih: door sithdoor is locked (needs a key) and no script here opens it; left as it is",
+  "851nih: door sithdoor2 is locked (needs a key) and no script here opens it; left as it is",
+  "851nih: local boolean index 30 on tr_851dem = true is not certain (set to more than one value)",
+  "852nih: placed creature darthnihilus (template n_darthnihilu001) is hostile but its template cannot die (Plot or Min1HP); left in place",
+  "852nih: creature darthnihilus is destroyed by a_end|4,0,0,0,0,, a_sacrifice|4,0,0,0,0,, which is not on the curated critical path; it may belong to a side quest"
+ ],
+ "cleared": [
+  {
+   "module": "851nih",
+   "area": "851nih",
+   "returnable": false,
+   "remove": [
+    {
+     "tag": "g_sithcomm01",
+     "template": "g_sithcomm002",
+     "count": 2,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "g_sithcomm02",
+     "template": "g_sithcomm003",
+     "count": 1,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "g_sithtroop02",
+     "template": "g_sithtroop003",
+     "count": 6,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "g_sithtroop04",
+     "template": "g_sithtroop005",
+     "count": 2,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "g_sithtroop07",
+     "template": "g_sithtroop008",
+     "count": 2,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "sithsoldier",
+     "template": "n_sithcmndo004",
+     "count": 28,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "sithsoldier",
+     "template": "n_sithsoldier002",
+     "count": 4,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "tobin",
+     "template": "npc_tobin",
+     "count": 1,
+     "why": "placed, a script turns it hostile",
+     "certain": false,
+     "evidence": "tag tobin, faction 5 (neutral), level 12; its own or its dialog's script changes faction: a_hostile"
+    },
+    {
+     "tag": "mandaloriancs",
+     "template": "n_mandalorian001",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "a_openingcs|4,0,0,0,0,"
+     ],
+     "certain": false
+    }
+   ],
+   "spawned_and_killed": [],
+   "doors": [
+    {
+     "tag": "ravagerdoor01",
+     "template": "door_nih002",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "visasdoor",
+     "template": "sw_door_sith004",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open it",
+     "scripts": [
+      "a_visas_cs1|1,0,0,0,0,",
+      "tr_visas_med2"
+     ],
+     "certain": false
+    }
+   ],
+   "containers_looted": [],
+   "locals": [
+    {
+     "object": "placeable",
+     "index": 55,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_contain_bash",
+      "k_contain_unlock"
+     ],
+     "tag": "locker_nihlus",
+     "set_by": {
+      "1": [
+       "k_contain_bash",
+       "k_contain_unlock"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 57,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_contain_unlock",
+      "k_plc_treas_less",
+      "k_plc_treas_more",
+      "k_plc_treas_norm"
+     ],
+     "tag": "locker_nihlus",
+     "set_by": {
+      "1": [
+       "k_contain_unlock",
+       "k_plc_treas_less",
+       "k_plc_treas_more",
+       "k_plc_treas_norm"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 55,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "851nih_enter"
+     ],
+     "tag": "ravagerintro",
+     "set_by": {
+      "1": [
+       "851nih_enter"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 30,
+     "type": "boolean",
+     "value": true,
+     "certain": false,
+     "read_by": [
+      "tr_851demfour",
+      "tr_851demone",
+      "tr_851demthree",
+      "tr_851demtwo"
+     ],
+     "tag": "tr_851dem",
+     "set_by": {
+      "0": [
+       "tr_851demfour",
+       "tr_851demone",
+       "tr_851demthree",
+       "tr_851demtwo"
+      ],
+      "1": [
+       "tr_851demfour",
+       "tr_851demone",
+       "tr_851demthree",
+       "tr_851demtwo"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 55,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "tr_visas_med"
+     ],
+     "tag": "tr_visas_med",
+     "set_by": {
+      "1": [
+       "tr_visas_med"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 55,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "tr_visas_med2"
+     ],
+     "tag": "tr_visas_med2",
+     "set_by": {
+      "1": [
+       "tr_visas_med2"
+      ]
+     }
+    }
+   ],
+   "uncertain": [
+    "851nih: creature mandaloriancs is destroyed by a_openingcs|4,0,0,0,0,, which is not on the curated critical path; it may belong to a side quest",
+    "851nih: door sithdoor is locked (needs a key) and no script here opens it; left as it is",
+    "851nih: door sithdoor2 is locked (needs a key) and no script here opens it; left as it is",
+    "851nih: local boolean index 30 on tr_851dem = true is not certain (set to more than one value)"
+   ]
+  },
+  {
+   "module": "852nih",
+   "area": "852nih",
+   "returnable": false,
+   "remove": [
+    {
+     "tag": "darkjedi",
+     "template": "g_dark_jed01f001",
+     "count": 2,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "darkjedi",
+     "template": "g_dark_jed01m001",
+     "count": 2,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "g_sithtroop02",
+     "template": "g_sithtroop003",
+     "count": 6,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "g_sithtroop03",
+     "template": "g_sithtroop004",
+     "count": 6,
+     "why": "placed hostile",
+     "certain": true
+    },
+    {
+     "tag": "darthnihilus",
+     "template": "n_darthnihilu001",
+     "kind": "creature",
+     "why": "destroyed by script",
+     "scripts": [
+      "a_end|4,0,0,0,0,",
+      "a_sacrifice|4,0,0,0,0,"
+     ],
+     "certain": false
+    }
+   ],
+   "spawned_and_killed": [],
+   "doors": [
+    {
+     "tag": "bridge",
+     "template": "door_nih002",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open it",
+     "scripts": [
+      "a_start_ending"
+     ],
+     "certain": true
+    },
+    {
+     "tag": "ravagerdoor01",
+     "template": "door_nih003",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    }
+   ],
+   "containers_looted": [],
+   "locals": [
+    {
+     "object": "trigger",
+     "index": 30,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_852nih"
+     ],
+     "tag": "852nih",
+     "set_by": {
+      "1": [
+       "k_852nih"
+      ]
+     }
+    },
+    {
+     "object": "trigger",
+     "index": 30,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_852visas"
+     ],
+     "tag": "852visas",
+     "set_by": {
+      "1": [
+       "k_852visas"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 55,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_contain_bash",
+      "k_contain_unlock"
+     ],
+     "tag": "locker_nihlus",
+     "set_by": {
+      "1": [
+       "k_contain_bash",
+       "k_contain_unlock"
+      ]
+     }
+    },
+    {
+     "object": "placeable",
+     "index": 57,
+     "type": "boolean",
+     "value": true,
+     "certain": true,
+     "read_by": [
+      "k_contain_unlock",
+      "k_plc_treas_less",
+      "k_plc_treas_more",
+      "k_plc_treas_norm"
+     ],
+     "tag": "locker_nihlus",
+     "set_by": {
+      "1": [
+       "k_contain_unlock",
+       "k_plc_treas_less",
+       "k_plc_treas_more",
+       "k_plc_treas_norm"
+      ]
+     }
+    }
+   ],
+   "uncertain": [
+    "852nih: placed creature darthnihilus (template n_darthnihilu001) is hostile but its template cannot die (Plot or Min1HP); left in place",
+    "852nih: creature darthnihilus is destroyed by a_end|4,0,0,0,0,, a_sacrifice|4,0,0,0,0,, which is not on the curated critical path; it may belong to a side quest"
+   ]
+  },
+  {
+   "module": "853nih",
+   "area": "853nih",
+   "returnable": false,
+   "remove": [],
+   "spawned_and_killed": [],
+   "doors": [
+    {
+     "tag": "sithdoor2",
+     "template": "sw_door_sith2",
+     "open": true,
+     "unlocked": true,
+     "why": "not locked; a full run walks through it",
+     "certain": false
+    },
+    {
+     "tag": "visasdoor",
+     "template": "sw_door_sith003",
+     "open": true,
+     "unlocked": true,
+     "why": "a script open it",
+     "scripts": [
+      "a_visas_cs|0,0,0,0,0,"
+     ],
+     "certain": false
+    }
+   ],
+   "containers_looted": [],
+   "locals": [],
+   "uncertain": []
+  }
+ ],
+ "cleared_note": "How each module looks after a full run, for an editor that stores the area as played: remove (tag, template), doors (tag: open, unlocked), containers_looted (container tags the rewards file empties), locals (the area's, the module's and placed objects' local variables their own scripts read to tell a first visit from a return, with the value a played area holds; index = the engine's local slot). returnable = false: the player never comes back to the module. See tools/questdb/cleared.py.",
+ "returnable_note": "the ship is destroyed when the chapter ends; 853nih is never loaded"
+}

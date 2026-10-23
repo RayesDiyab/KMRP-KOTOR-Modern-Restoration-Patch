@@ -1,0 +1,8070 @@
+{
+ "game": "K1",
+ "planet": "Taris",
+ "generated_by": "tools/questdb/build.py",
+ "checked": false,
+ "quests": [
+  {
+   "tag": "tar_rancor",
+   "stages": [
+    {
+     "stage": 1,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m05aa",
+       "via": {
+        "dialog": "missdoor_dlg",
+        "node": 28,
+        "speaker": "Mission",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_rancor",
+          1
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 99,
+     "end": true,
+     "steps": [
+      {
+       "module": "tar_m05ab",
+       "via": {
+        "script": "k_ptar_rancjourn"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_rancor",
+          99
+         ]
+        }
+       ],
+       "branch": "way 1: script k_ptar_rancjourn in tar_m05ab"
+      },
+      {
+       "module": "tar_m05ab",
+       "via": {
+        "script": "k_ptar_rancor_hb"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_rancor",
+          99
+         ]
+        }
+       ],
+       "branch": "way 2: script k_ptar_rancor_hb in tar_m05ab"
+      },
+      {
+       "module": "tar_m05ab",
+       "via": {
+        "script": "k_ptar_rancordie"
+       },
+       "needs": [],
+       "does": [
+        {
+         "other": "destroys item g_w_thermldet01 held by tar05_corpsepile"
+        },
+        {
+         "journal": [
+          "tar_rancor",
+          99
+         ]
+        },
+        {
+         "xp": 200
+        },
+        {
+         "other": "destroys item g_w_fraggren01 held by tar05_corpsepile"
+        }
+       ],
+       "branch": "way 3: script k_ptar_rancordie in tar_m05ab"
+      }
+     ]
+    }
+   ],
+   "notes": "stage 1: dialog missdoor_dlg is used by several objects in tar_m05aa: ptar_missdoor0, ptar_missdoor1, tar05_celltalker stage 1: missdoor_dlg E28 can be reached from 2 places; needs follow the shortest path stage 99: k_ptar_rancor_hb (stage 99) also depends on: (user-defined event == 1007) stage 99 can be reached in 3 ways; each step's branch starts with its way UNCERTAIN: stage 99: script k_ptar_rancordie is in tar_m05ab but nothing in the module's files names it (may be started by another script)",
+   "own": true,
+   "run_ending": 99
+  },
+  {
+   "tag": "tar_bendakbounty",
+   "stages": [
+    {
+     "stage": 1,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_zax031",
+        "node": 20,
+        "speaker": "Zax031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_ZaxBounty",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_bendakbounty",
+          1
+         ]
+        }
+       ]
+      },
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_zax031",
+        "node": 20,
+        "speaker": "Zax031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_ZaxBounty",
+         "is": false
+        },
+        {
+         "global_number": "Tar_SelBoun",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "global_number": "Tar_Matrik",
+         "op": "!=",
+         "value": 0
+        }
+       ],
+       "does": [
+        {
+         "set_global_bool": [
+          "Tar_ZaxBounty",
+          true
+         ]
+        },
+        {
+         "set_global_bool": [
+          "Tar_DiaBounty",
+          true
+         ]
+        },
+        {
+         "set_global_number": [
+          "tar_benbount",
+          1
+         ]
+        }
+       ],
+       "branch": "before this line: if Tar_SelBoun != 0; Tar_Matrik != 0"
+      },
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_zax031",
+        "node": 20,
+        "speaker": "Zax031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_ZaxBounty",
+         "is": false
+        },
+        {
+         "global_number": "Tar_SelBoun",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "global_number": "Tar_Matrik",
+         "op": "==",
+         "value": 0
+        }
+       ],
+       "does": [
+        {
+         "set_global_bool": [
+          "Tar_ZaxBounty",
+          true
+         ]
+        },
+        {
+         "set_global_bool": [
+          "Tar_DiaBounty",
+          true
+         ]
+        },
+        {
+         "set_global_number": [
+          "Tar_Matrik",
+          10
+         ]
+        },
+        {
+         "set_global_number": [
+          "tar_benbount",
+          1
+         ]
+        }
+       ],
+       "branch": "before this line: if Tar_SelBoun != 0; Tar_Matrik == 0"
+      },
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_zax031",
+        "node": 20,
+        "speaker": "Zax031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_ZaxBounty",
+         "is": false
+        },
+        {
+         "global_number": "Tar_SelBoun",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "global_number": "Tar_Matrik",
+         "op": "!=",
+         "value": 0
+        }
+       ],
+       "does": [
+        {
+         "set_global_bool": [
+          "Tar_ZaxBounty",
+          true
+         ]
+        },
+        {
+         "set_global_number": [
+          "Tar_SelBoun",
+          10
+         ]
+        },
+        {
+         "set_global_bool": [
+          "Tar_DiaBounty",
+          true
+         ]
+        },
+        {
+         "set_global_number": [
+          "tar_benbount",
+          1
+         ]
+        }
+       ],
+       "branch": "before this line: if Tar_SelBoun == 0; Tar_Matrik != 0"
+      },
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_zax031",
+        "node": 20,
+        "speaker": "Zax031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_ZaxBounty",
+         "is": false
+        },
+        {
+         "global_number": "Tar_SelBoun",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "global_number": "Tar_Matrik",
+         "op": "==",
+         "value": 0
+        }
+       ],
+       "does": [
+        {
+         "set_global_bool": [
+          "Tar_ZaxBounty",
+          true
+         ]
+        },
+        {
+         "set_global_number": [
+          "Tar_SelBoun",
+          10
+         ]
+        },
+        {
+         "set_global_bool": [
+          "Tar_DiaBounty",
+          true
+         ]
+        },
+        {
+         "set_global_number": [
+          "Tar_Matrik",
+          10
+         ]
+        },
+        {
+         "set_global_number": [
+          "tar_benbount",
+          1
+         ]
+        }
+       ],
+       "branch": "before this line: if Tar_SelBoun == 0; Tar_Matrik == 0"
+      }
+     ]
+    },
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_bendak021",
+        "node": 9,
+        "speaker": "Bendakstar021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_BenChall",
+         "op": "==",
+         "value": 10
+        },
+        {
+         "global_number": "Tar_BenBount",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_bendakbounty",
+          10
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 66,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "script": "k_ptar_bendak_ud"
+       },
+       "needs": [
+        {
+         "global_number": "tar_duel",
+         "op": "==",
+         "value": 6
+        },
+        {
+         "global_bool": "Tar_ZaxBounty",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_bendakbounty",
+          66
+         ]
+        },
+        {
+         "set_global_number": [
+          "tar_duel",
+          7
+         ]
+        },
+        {
+         "set_global_bool": [
+          "TAR_DUELOVER",
+          true
+         ]
+        },
+        {
+         "set_global_bool": [
+          "TAR_DUELLOST",
+          false
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 99,
+     "end": true,
+     "steps": [
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_zax031",
+        "node": 5,
+        "speaker": "Zax031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Duel",
+         "op": "==",
+         "value": 7
+        },
+        {
+         "global_number": "Tar_BenBount",
+         "op": "!=",
+         "value": 99
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_bendakbounty",
+          99
+         ]
+        },
+        {
+         "xp": 105
+        },
+        {
+         "set_global_number": [
+          "Tar_BenBount",
+          99
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "notes": "stage 1: tar03_zax031 E20 can be reached from 3 places; needs follow the shortest path stage 66: k_ptar_bendak_ud (stage 66) also depends on: (user-defined event == 1007) stage 99: conditional k_ptar_zaxboun passes in 50 different cases; only the tests shared by all are listed as needs. Cases: Tar_Dia != 40, Tar_Duel != 7, Tar_Matrik != 30, Tar_Matrik != 40, Tar_LargoBoun != 30, ... | Tar_Dia != 40, Tar_Duel != 7, Tar_Matrik != 30, Tar_Matrik != 40, Tar_LargoBoun == 30, ... | Tar_Dia != 40, Tar_Duel != 7, Tar_Matrik == 40, Tar_LargoBoun != 30, Tar_SelBoun != 20 | ... UNCERTAIN: stage 66: script k_ptar_bendak_ud was too large to follow completely; effects may be missing",
+   "own": true,
+   "run_ending": 99
+  },
+  {
+   "tag": "k_swg_canderous",
+   "stages": [
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar03_cand031",
+        "node": 28,
+        "speaker": "Canderous031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "TAR_CANDMEET",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "ptar_shieldcodes"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "k_swg_canderous",
+          10
+         ]
+        },
+        {
+         "other": "AddAvailableNPCByTemplate(1, \"p_cand\")"
+        },
+        {
+         "other": "ShowPartySelectionGUI(\"k_ptar_godaviks\", 1, -1)"
+        }
+       ],
+       "branch": "way 1: Canderous031, dialog tar03_cand031 E28 in tar_m02ae"
+      },
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_cand031",
+        "node": 40,
+        "speaker": "Canderous031",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "k_swg_canderous",
+          10
+         ]
+        },
+        {
+         "other": "AddAvailableNPCByTemplate(1, \"p_cand\")"
+        },
+        {
+         "other": "ShowPartySelectionGUI(\"k_ptar_godaviks\", 1, -1)"
+        }
+       ],
+       "branch": "way 2: Canderous031, dialog tar03_cand031 E40 in tar_m03ae"
+      }
+     ]
+    }
+   ],
+   "notes": "This quest is not a Taris quest by its tag; only the stages set on Taris are listed. Other planets also set its stages. stage 10 can be reached in 2 ways; each step's branch starts with its way"
+  },
+  {
+   "tag": "tar_diabounty",
+   "stages": [
+    {
+     "stage": 1,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_zax031",
+        "node": 22,
+        "speaker": "Zax031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_ZaxBounty",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_diabounty",
+          1
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 20,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02aa",
+       "via": {
+        "dialog": "tar02_dia022",
+        "node": 15,
+        "speaker": "Dia022",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Dia",
+         "op": "<=",
+         "value": 10
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_diabounty",
+          20
+         ]
+        },
+        {
+         "set_global_number": [
+          "Tar_Dia",
+          20
+         ]
+        },
+        {
+         "set_global_bool": [
+          "Tar_DiaBounty",
+          true
+         ]
+        }
+       ],
+       "branch": "way 1: Dia022, dialog tar02_dia022 E15 in tar_m02aa"
+      },
+      {
+       "module": "tar_m02aa",
+       "via": {
+        "dialog": "tar02_dia022",
+        "node": 23,
+        "speaker": "Dia022",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_DiaBounty",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_diabounty",
+          20
+         ]
+        }
+       ],
+       "branch": "way 2: Dia022, dialog tar02_dia022 E23 in tar_m02aa"
+      }
+     ]
+    },
+    {
+     "stage": 30,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_holdan031",
+        "node": 6,
+        "speaker": "Holdan031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Holdan",
+         "op": "==",
+         "value": 10
+        },
+        {
+         "global_number": "Tar_Dia",
+         "op": "!=",
+         "value": 40
+        },
+        {
+         "global_number": "Tar_Dia",
+         "op": "!=",
+         "value": 99
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_diabounty",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "Tar_Dia",
+          77
+         ]
+        }
+       ]
+      },
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_holdan031",
+        "node": 6,
+        "speaker": "Holdan031",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "credits": -200
+        }
+       ],
+       "branch": "choice: reply R13"
+      },
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_holdan031",
+        "node": 6,
+        "speaker": "Holdan031",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [],
+       "branch": "choice: reply R8 or reply R7 or reply R5"
+      },
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_holdan031",
+        "node": 6,
+        "speaker": "Holdan031",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "set_global_number": [
+          "Tar_Dia",
+          77
+         ]
+        }
+       ],
+       "branch": "choice: reply R6"
+      }
+     ]
+    },
+    {
+     "stage": 40,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_holdan031",
+        "node": 14,
+        "speaker": "Holdan031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Holdan",
+         "op": "==",
+         "value": 10
+        },
+        {
+         "global_number": "Tar_Dia",
+         "op": "!=",
+         "value": 40
+        },
+        {
+         "global_number": "Tar_Dia",
+         "op": "!=",
+         "value": 99
+        },
+        {
+         "global_number": "Tar_Dia",
+         "op": "==",
+         "value": 77
+        }
+       ],
+       "does": [
+        {
+         "credits": -200
+        },
+        {
+         "journal": [
+          "tar_diabounty",
+          40
+         ]
+        }
+       ]
+      },
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_holdan031",
+        "node": 14,
+        "speaker": "Holdan031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Holdan",
+         "op": "==",
+         "value": 10
+        },
+        {
+         "global_number": "Tar_Dia",
+         "op": "!=",
+         "value": 40
+        },
+        {
+         "global_number": "Tar_Dia",
+         "op": "!=",
+         "value": 99
+        },
+        {
+         "global_number": "Tar_Dia",
+         "op": "==",
+         "value": 77
+        }
+       ],
+       "does": [
+        {
+         "light_side": 8
+        }
+       ],
+       "branch": "if player alignment at most 14"
+      },
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_holdan031",
+        "node": 14,
+        "speaker": "Holdan031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Holdan",
+         "op": "==",
+         "value": 10
+        },
+        {
+         "global_number": "Tar_Dia",
+         "op": "!=",
+         "value": 40
+        },
+        {
+         "global_number": "Tar_Dia",
+         "op": "!=",
+         "value": 99
+        },
+        {
+         "global_number": "Tar_Dia",
+         "op": "==",
+         "value": 77
+        }
+       ],
+       "does": [
+        {
+         "light_side": 6
+        }
+       ],
+       "branch": "if player alignment from 15 to 39"
+      },
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_holdan031",
+        "node": 14,
+        "speaker": "Holdan031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Holdan",
+         "op": "==",
+         "value": 10
+        },
+        {
+         "global_number": "Tar_Dia",
+         "op": "!=",
+         "value": 40
+        },
+        {
+         "global_number": "Tar_Dia",
+         "op": "!=",
+         "value": 99
+        },
+        {
+         "global_number": "Tar_Dia",
+         "op": "==",
+         "value": 77
+        }
+       ],
+       "does": [
+        {
+         "light_side": 4
+        }
+       ],
+       "branch": "if player alignment from 40 to 60"
+      },
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_holdan031",
+        "node": 14,
+        "speaker": "Holdan031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Holdan",
+         "op": "==",
+         "value": 10
+        },
+        {
+         "global_number": "Tar_Dia",
+         "op": "!=",
+         "value": 40
+        },
+        {
+         "global_number": "Tar_Dia",
+         "op": "!=",
+         "value": 99
+        },
+        {
+         "global_number": "Tar_Dia",
+         "op": "==",
+         "value": 77
+        }
+       ],
+       "does": [
+        {
+         "light_side": 2
+        }
+       ],
+       "branch": "if player alignment from 61 to 84"
+      },
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_holdan031",
+        "node": 14,
+        "speaker": "Holdan031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Holdan",
+         "op": "==",
+         "value": 10
+        },
+        {
+         "global_number": "Tar_Dia",
+         "op": "!=",
+         "value": 40
+        },
+        {
+         "global_number": "Tar_Dia",
+         "op": "!=",
+         "value": 99
+        },
+        {
+         "global_number": "Tar_Dia",
+         "op": "==",
+         "value": 77
+        }
+       ],
+       "does": [
+        {
+         "light_side": 1
+        }
+       ],
+       "branch": "if player alignment at least 85"
+      },
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_holdan031",
+        "node": 14,
+        "speaker": "Holdan031",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "set_global_number": [
+          "Tar_Dia",
+          88
+         ]
+        },
+        {
+         "set_global_number": [
+          "Tar_Holdan",
+          20
+         ]
+        }
+       ],
+       "branch": "choice: reply R14 (empty: [continue]) / if not (1 && GetIsObjectValid(OBJECT_SELF))"
+      },
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_holdan031",
+        "node": 14,
+        "speaker": "Holdan031",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "set_global_number": [
+          "Tar_Dia",
+          88
+         ]
+        },
+        {
+         "set_global_number": [
+          "Tar_Holdan",
+          20
+         ]
+        },
+        {
+         "local": [
+          "Holdan031",
+          "bool",
+          9,
+          1
+         ]
+        }
+       ],
+       "branch": "choice: reply R14 (empty: [continue]) / if GetIsObjectValid(OBJECT_SELF)"
+      }
+     ]
+    },
+    {
+     "stage": 66,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02aa",
+       "via": {
+        "script": "k_ptar_dia_ud"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_ZaxBounty",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "set_global_number": [
+          "Tar_Dia",
+          40
+         ]
+        },
+        {
+         "journal": [
+          "tar_diabounty",
+          66
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 98,
+     "end": true,
+     "steps": [
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_zax031",
+        "node": 3,
+        "speaker": "Zax031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Dia",
+         "op": "==",
+         "value": 40
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_diabounty",
+          98
+         ]
+        },
+        {
+         "xp": 105
+        },
+        {
+         "set_global_number": [
+          "Tar_Dia",
+          99
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 99,
+     "end": true,
+     "steps": [
+      {
+       "module": "tar_m02aa",
+       "via": {
+        "dialog": "tar02_dia022",
+        "node": 25,
+        "speaker": "Dia022",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Dia",
+         "op": ">=",
+         "value": 88
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_diabounty",
+          99
+         ]
+        },
+        {
+         "xp": 125
+        },
+        {
+         "set_global_number": [
+          "Tar_Dia",
+          98
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "notes": "stage 1: tar03_zax031 E22 can be reached from 2 places; needs follow the shortest path stage 20: tar02_dia022 E15 can be reached from 2 places; needs follow the shortest path stage 20 can be reached in 2 ways; each step's branch starts with its way stage 40: tar03_holdan031 E14 can be reached from 3 places; needs follow the shortest path stage 66: k_ptar_dia_ud (stage 66) also depends on: (user-defined event == 1007) stage 98: conditional k_ptar_zaxboun passes in 50 different cases; only the tests shared by all are listed as needs. Cases: Tar_Dia != 40, Tar_Duel != 7, Tar_Matrik != 30, Tar_Matrik != 40, Tar_LargoBoun != 30, ... | Tar_Dia != 40, Tar_Duel != 7, Tar_Matrik != 30, Tar_Matrik != 40, Tar_LargoBoun == 30, ... | Tar_Dia != 40, Tar_Duel != 7, Tar_Matrik == 40, Tar_LargoBoun != 30, Tar_SelBoun != 20 | ...",
+   "own": true,
+   "run_ending": 98
+  },
+  {
+   "tag": "tar_escape",
+   "stages": [
+    {
+     "stage": 1,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02aa",
+       "via": {
+        "dialog": "tar02_carbast",
+        "node": 13,
+        "speaker": "Bastila",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_escape",
+          1
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02aa",
+       "via": {
+        "dialog": "tar02_messenger",
+        "node": 4,
+        "speaker": "tar02_rodianmsg",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_escape",
+          10
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 15,
+     "end": false,
+     "steps": []
+    },
+    {
+     "stage": 20,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar03_cand031",
+        "node": 7,
+        "speaker": "Canderous031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "TAR_CANDMEET",
+         "op": "==",
+         "value": 0
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_escape",
+          20
+         ]
+        }
+       ],
+       "branch": "way 1: Canderous031, dialog tar03_cand031 E7 in tar_m02ae"
+      },
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_cand031",
+        "node": 24,
+        "speaker": "Canderous031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "TAR_CANDMEET",
+         "op": "==",
+         "value": 0
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_escape",
+          20
+         ]
+        }
+       ],
+       "branch": "way 2: Canderous031, dialog tar03_cand031 E24 in tar_m03ae"
+      }
+     ]
+    },
+    {
+     "stage": 25,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m09ab",
+       "via": {
+        "script": "tar09_acquire"
+       },
+       "needs": [
+        {
+         "item": "ptar_shieldcodes"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_escape",
+          25
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 30,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar03_cand031",
+        "node": 24,
+        "speaker": "Canderous031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "TAR_CANDMEET",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "ptar_shieldcodes"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_escape",
+          30
+         ]
+        }
+       ],
+       "branch": "way 1: Canderous031, dialog tar03_cand031 E24 in tar_m02ae"
+      },
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_cand031",
+        "node": 36,
+        "speaker": "Canderous031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "TAR_CANDMEET",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "ptar_shieldcodes"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_escape",
+          30
+         ]
+        }
+       ],
+       "branch": "way 2: Canderous031, dialog tar03_cand031 E36 in tar_m03ae"
+      }
+     ]
+    },
+    {
+     "stage": 40,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m08aa",
+       "via": {
+        "dialog": "tar08_davik081",
+        "node": 23,
+        "speaker": "Cand",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_escape",
+          40
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 50,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m08aa",
+       "via": {
+        "dialog": "k_ptar_davcom2",
+        "node": 6,
+        "speaker": "",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "K_COMPUTER_SPIKE"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_escape",
+          50
+         ]
+        },
+        {
+         "door_unlock": "tar08_hangardoor"
+        }
+       ],
+       "branch": "way 1: unknown speaker, dialog k_ptar_davcom2 E6 in tar_m08aa"
+      },
+      {
+       "module": "tar_m08aa",
+       "via": {
+        "dialog": "k_ptar_davcomp",
+        "node": 4,
+        "speaker": "",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "K_COMPUTER_SPIKE"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_escape",
+          50
+         ]
+        },
+        {
+         "set_global_bool": [
+          "Tar_HawkSec",
+          true
+         ]
+        }
+       ],
+       "branch": "way 2: unknown speaker, dialog k_ptar_davcomp E4 in tar_m08aa"
+      },
+      {
+       "module": "tar_m08aa",
+       "via": {
+        "dialog": "k_ptar_davcomp",
+        "node": 4,
+        "speaker": "",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        }
+       ],
+       "branch": "way 2: unknown speaker, dialog k_ptar_davcomp E4 in tar_m08aa / choice: reply R5 (empty: [continue]) / if not (1 && GetIsObjectValid(GetModule()))"
+      },
+      {
+       "module": "tar_m08aa",
+       "via": {
+        "dialog": "k_ptar_davcomp",
+        "node": 4,
+        "speaker": "",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        },
+        {
+         "local": [
+          "module",
+          "bool",
+          14,
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: unknown speaker, dialog k_ptar_davcomp E4 in tar_m08aa / choice: reply R5 (empty: [continue]) / if GetIsObjectValid(GetModule())"
+      },
+      {
+       "module": "tar_m08aa",
+       "via": {
+        "dialog": "k_ptar_davcomp",
+        "node": 4,
+        "speaker": "",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "K_COMPUTER_SPIKE"
+        }
+       ],
+       "does": [
+        {
+         "take_item": [
+          "K_COMPUTER_SPIKE",
+          1
+         ]
+        },
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        }
+       ],
+       "branch": "way 2: unknown speaker, dialog k_ptar_davcomp E4 in tar_m08aa / choice: reply R5 (empty: [continue]) / if has item K_COMPUTER_SPIKE"
+      },
+      {
+       "module": "tar_m08aa",
+       "via": {
+        "dialog": "k_ptar_davcomp",
+        "node": 4,
+        "speaker": "",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "K_COMPUTER_SPIKE"
+        }
+       ],
+       "does": [
+        {
+         "take_item": [
+          "K_COMPUTER_SPIKE",
+          1
+         ]
+        },
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        },
+        {
+         "local": [
+          "module",
+          "bool",
+          14,
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: unknown speaker, dialog k_ptar_davcomp E4 in tar_m08aa / choice: reply R5 (empty: [continue]) / if has item K_COMPUTER_SPIKE"
+      },
+      {
+       "module": "tar_m08aa",
+       "via": {
+        "dialog": "tar08_hudrow081",
+        "node": 12,
+        "speaker": "Hudrow081",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_escape",
+          50
+         ]
+        },
+        {
+         "set_global_bool": [
+          "Tar_HawkSec",
+          true
+         ]
+        }
+       ],
+       "branch": "way 3: Hudrow081, dialog tar08_hudrow081 E12 in tar_m08aa"
+      },
+      {
+       "module": "tar_m08aa",
+       "via": {
+        "dialog": "tar08_hudrow081",
+        "node": 12,
+        "speaker": "Hudrow081",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [],
+       "branch": "way 3: Hudrow081, dialog tar08_hudrow081 E12 in tar_m08aa / choice: reply R21 or reply R20"
+      },
+      {
+       "module": "tar_m08aa",
+       "via": {
+        "dialog": "tar08_hudrow081",
+        "node": 12,
+        "speaker": "Hudrow081",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 1
+        }
+       ],
+       "branch": "way 3: Hudrow081, dialog tar08_hudrow081 E12 in tar_m08aa / choice: reply R14 / if player alignment at most 39"
+      },
+      {
+       "module": "tar_m08aa",
+       "via": {
+        "dialog": "tar08_hudrow081",
+        "node": 12,
+        "speaker": "Hudrow081",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 2
+        }
+       ],
+       "branch": "way 3: Hudrow081, dialog tar08_hudrow081 E12 in tar_m08aa / choice: reply R14 / if player alignment from 40 to 60"
+      },
+      {
+       "module": "tar_m08aa",
+       "via": {
+        "dialog": "tar08_hudrow081",
+        "node": 12,
+        "speaker": "Hudrow081",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 4
+        }
+       ],
+       "branch": "way 3: Hudrow081, dialog tar08_hudrow081 E12 in tar_m08aa / choice: reply R14 / if player alignment from 61 to 84"
+      },
+      {
+       "module": "tar_m08aa",
+       "via": {
+        "dialog": "tar08_hudrow081",
+        "node": 12,
+        "speaker": "Hudrow081",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 6
+        }
+       ],
+       "branch": "way 3: Hudrow081, dialog tar08_hudrow081 E12 in tar_m08aa / choice: reply R14 / if player alignment at least 85"
+      }
+     ]
+    },
+    {
+     "stage": 99,
+     "end": true,
+     "steps": [
+      {
+       "module": "tar_m08aa",
+       "via": {
+        "dialog": "tar08_canderous",
+        "node": 0,
+        "speaker": "Cand",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_escape",
+          99
+         ]
+        }
+       ],
+       "branch": "way 1: Cand, dialog tar08_canderous E0 in tar_m08aa"
+      },
+      {
+       "module": "tar_m08aa",
+       "via": {
+        "dialog": "tar08_ramp",
+        "node": 2,
+        "speaker": "Cand",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_escape",
+          99
+         ]
+        }
+       ],
+       "branch": "way 2: Cand, dialog tar08_ramp E2 in tar_m08aa"
+      },
+      {
+       "module": "tar_m08aa",
+       "via": {
+        "script": "k_ptar_tarisover"
+       },
+       "needs": [],
+       "does": [
+        {
+         "set_global_number": [
+          "K_CURRENT_PLANET",
+          15
+         ]
+        },
+        {
+         "set_global_bool": [
+          "Tar_Destroyed",
+          true
+         ]
+        },
+        {
+         "other": "removes the journal quest \"tar_party\""
+        },
+        {
+         "other": "removes the journal quest \"k_rapidtransit\""
+        },
+        {
+         "other": "removes the journal quest \"Tar_rancor\""
+        },
+        {
+         "other": "removes the journal quest \"end_attack\""
+        },
+        {
+         "other": "removes the journal quest \"tar_bendakbounty\""
+        },
+        {
+         "other": "removes the journal quest \"tar_diabounty\""
+        },
+        {
+         "other": "removes the journal quest \"tar_infectedoutcasts\""
+        },
+        {
+         "other": "removes the journal quest \"tar_vulkarbase\""
+        },
+        {
+         "other": "removes the journal quest \"tar_largobounty\""
+        },
+        {
+         "other": "removes the journal quest \"tar_matrik\""
+        },
+        {
+         "other": "removes the journal quest \"tar_rakghoulserum\""
+        },
+        {
+         "other": "removes the journal quest \"k_rapidtransit\""
+        },
+        {
+         "other": "removes the journal quest \"tar_rukilapprentice\""
+        },
+        {
+         "other": "removes the journal quest \"tar_selvenbounty\""
+        },
+        {
+         "other": "removes the journal quest \"tar_duelring\""
+        },
+        {
+         "other": "removes the journal quest \"tar_promisedland\""
+        },
+        {
+         "other": "removes the journal quest \"tar_bastsearch\""
+        },
+        {
+         "other": "removes the journal quest \"tar_buydroid\""
+        },
+        {
+         "journal": [
+          "tar_escape",
+          99
+         ]
+        },
+        {
+         "journal": [
+          "tar_planetinfo",
+          99
+         ]
+        },
+        {
+         "xp": 600
+        },
+        {
+         "other": "SetPartyLeader(-1)"
+        },
+        {
+         "other": "moves the party to module \"STUNT_06\""
+        }
+       ],
+       "branch": "way 3: script k_ptar_tarisover in tar_m08aa"
+      }
+     ]
+    }
+   ],
+   "notes": "stage 1: dialog tar02_carbast gives the same steps in tar_m02af stage 1: tar02_carbast E13 can be reached from 3 places; needs follow the shortest path stage 10: tar02_messenger E4 can be reached from 3 places; needs follow the shortest path stage 20: tar03_cand031 E7 can be reached from 2 places; needs follow the shortest path stage 20: tar03_cand031 E24 can be reached from 2 places; needs follow the shortest path stage 20 can be reached in 2 ways; each step's branch starts with its way stage 25: tar09_acquire (stage 25) also depends on: (GetTag(GetModuleItemAcquired()) == \"ptar_shieldcodes\") stage 30 can be reached in 2 ways; each step's branch starts with its way stage 50: condition k_con_comhack also tests: (GetNumStackedItems(GetItemPossessedBy(player, \"K_COMPUTER_SPIKE\")) >= 1) stage 50: conditional k_con_com34 passes in 2 different cases; only the tests shared by all are listed as needs. Cases: does not have item K_COMPUTER_SPIKE, (0 >= sub-result) | has item K_COMPUTER_SPIKE, (GetNumStackedItems(GetItemPossessedBy(GetFirstPC(), \"K_COMP... stage 50: conditional k_con_com33 passes in 2 different cases; only the tests shared by all are listed as needs. Cases: does not have item K_COMPUTER_SPIKE, (0 >= sub-result) | has item K_COMPUTER_SPIKE, (GetNumStackedItems(GetItemPossessedBy(GetFirstPC(), \"K_COMP... stage 50 can be reached in 3 ways; each step's branch starts with its way stage 99: k_ptar_tarisover (stage 99) also depends on: not GetIsObjectValid(GetObjectByTag(\"calo082\", 0)) stage 99 can be reached in 3 ways; each step's branch starts with its way UNCERTAIN: stage 1: no creature, placeable or door template in tar_m02aa names dialog tar02_carbast, so its speaker is unknown; scripts that name it: k_ptar_carbas_en UNCERTAIN: stage 15 has no setter in the Taris files (no dialog node or script sets it) UNCERTAIN: stage 50: no creature, placeable or door template in tar_m08aa names dialog k_ptar_davcom2, so its speaker is unknown UNCERTAIN: stage 50: no creature, placeable or door template in tar_m08aa names dialog k_ptar_davcomp, so its speaker is unknown UNCERTAIN: stage 50: no creature, placeable or door template in tar_m08aa names dialog tar08_hudrow081, so its speaker is unknown; scripts that name it: k_ptar_hudfree",
+   "own": true,
+   "run_ending": 99
+  },
+  {
+   "tag": "tar_infectedoutcasts",
+   "stages": [
+    {
+     "stage": 1,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_outwom044",
+        "node": 7,
+        "speaker": "Outcastwom44",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_infectedoutcasts",
+          1
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_victim",
+        "node": 1,
+        "speaker": "RakghoulVic00",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_infectedoutcasts",
+          10
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 98,
+     "end": true,
+     "steps": [
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_infect041",
+        "node": 19,
+        "speaker": "InfectedOutcastM",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "TAR_OUT_DISEASE",
+         "op": "==",
+         "value": 2
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_infectedoutcasts",
+          98
+         ]
+        },
+        {
+         "xp": 60
+        },
+        {
+         "other": "changes the faction of InfectedOutcastM to STANDARD_FACTION_HOSTILE_1"
+        },
+        {
+         "other": "SetLocalNumber on InfectedOutcastM: index 0 = GetLocalNumber(OBJECT_SELF, 0)"
+        },
+        {
+         "other": "SetLocalNumber on InfectedOutcastM: index 0 = (GetLocalNumber(OBJECT_SELF, 0) + a helper function's result)"
+        },
+        {
+         "other": "changes the faction of InfectedOutcastF to STANDARD_FACTION_HOSTILE_1"
+        },
+        {
+         "other": "SetLocalNumber on InfectedOutcastM: index 0 = GetLocalNumber(OBJECT_SELF, 0)"
+        },
+        {
+         "other": "SetLocalNumber on InfectedOutcastM: index 0 = (GetLocalNumber(OBJECT_SELF, 0) + a helper function's result)"
+        }
+       ],
+       "branch": "way 1: InfectedOutcastM, dialog tar04_infect041 E19 in tar_m04aa"
+      },
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_infect041",
+        "node": 19,
+        "speaker": "InfectedOutcastM",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "TAR_OUT_DISEASE",
+         "op": "==",
+         "value": 2
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 1
+        }
+       ],
+       "branch": "way 1: InfectedOutcastM, dialog tar04_infect041 E19 in tar_m04aa / before this line: if player alignment at most 39"
+      },
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_infect041",
+        "node": 19,
+        "speaker": "InfectedOutcastM",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "TAR_OUT_DISEASE",
+         "op": "==",
+         "value": 2
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 2
+        }
+       ],
+       "branch": "way 1: InfectedOutcastM, dialog tar04_infect041 E19 in tar_m04aa / before this line: if player alignment from 40 to 60"
+      },
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_infect041",
+        "node": 19,
+        "speaker": "InfectedOutcastM",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "TAR_OUT_DISEASE",
+         "op": "==",
+         "value": 2
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 4
+        }
+       ],
+       "branch": "way 1: InfectedOutcastM, dialog tar04_infect041 E19 in tar_m04aa / before this line: if player alignment from 61 to 84"
+      },
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_infect041",
+        "node": 19,
+        "speaker": "InfectedOutcastM",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "TAR_OUT_DISEASE",
+         "op": "==",
+         "value": 2
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 6
+        }
+       ],
+       "branch": "way 1: InfectedOutcastM, dialog tar04_infect041 E19 in tar_m04aa / before this line: if player alignment at least 85"
+      },
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_infectf041",
+        "node": 19,
+        "speaker": "InfectedOutcastF",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "TAR_OUT_DISEASE",
+         "op": "==",
+         "value": 2
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_infectedoutcasts",
+          98
+         ]
+        },
+        {
+         "xp": 60
+        },
+        {
+         "other": "changes the faction of InfectedOutcastM to STANDARD_FACTION_HOSTILE_1"
+        },
+        {
+         "other": "SetLocalNumber on InfectedOutcastF: index 0 = GetLocalNumber(OBJECT_SELF, 0)"
+        },
+        {
+         "other": "SetLocalNumber on InfectedOutcastF: index 0 = (GetLocalNumber(OBJECT_SELF, 0) + a helper function's result)"
+        },
+        {
+         "other": "changes the faction of InfectedOutcastF to STANDARD_FACTION_HOSTILE_1"
+        },
+        {
+         "other": "SetLocalNumber on InfectedOutcastF: index 0 = GetLocalNumber(OBJECT_SELF, 0)"
+        },
+        {
+         "other": "SetLocalNumber on InfectedOutcastF: index 0 = (GetLocalNumber(OBJECT_SELF, 0) + a helper function's result)"
+        }
+       ],
+       "branch": "way 2: InfectedOutcastF, dialog tar04_infectf041 E19 in tar_m04aa"
+      },
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_infectf041",
+        "node": 19,
+        "speaker": "InfectedOutcastF",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "TAR_OUT_DISEASE",
+         "op": "==",
+         "value": 2
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 1
+        }
+       ],
+       "branch": "way 2: InfectedOutcastF, dialog tar04_infectf041 E19 in tar_m04aa / before this line: if player alignment at most 39"
+      },
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_infectf041",
+        "node": 19,
+        "speaker": "InfectedOutcastF",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "TAR_OUT_DISEASE",
+         "op": "==",
+         "value": 2
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 2
+        }
+       ],
+       "branch": "way 2: InfectedOutcastF, dialog tar04_infectf041 E19 in tar_m04aa / before this line: if player alignment from 40 to 60"
+      },
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_infectf041",
+        "node": 19,
+        "speaker": "InfectedOutcastF",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "TAR_OUT_DISEASE",
+         "op": "==",
+         "value": 2
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 4
+        }
+       ],
+       "branch": "way 2: InfectedOutcastF, dialog tar04_infectf041 E19 in tar_m04aa / before this line: if player alignment from 61 to 84"
+      },
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_infectf041",
+        "node": 19,
+        "speaker": "InfectedOutcastF",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "TAR_OUT_DISEASE",
+         "op": "==",
+         "value": 2
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 6
+        }
+       ],
+       "branch": "way 2: InfectedOutcastF, dialog tar04_infectf041 E19 in tar_m04aa / before this line: if player alignment at least 85"
+      }
+     ]
+    },
+    {
+     "stage": 99,
+     "end": true,
+     "steps": [
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_infect041",
+        "node": 12,
+        "speaker": "InfectedOutcastM",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "TAR_OUT_DISEASE",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_infectedoutcasts",
+          99
+         ]
+        },
+        {
+         "xp": 60
+        }
+       ],
+       "branch": "way 1: InfectedOutcastM, dialog tar04_infect041 E12 in tar_m04aa"
+      },
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_infectf041",
+        "node": 12,
+        "speaker": "InfectedOutcastF",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "TAR_OUT_DISEASE",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_infectedoutcasts",
+          99
+         ]
+        },
+        {
+         "xp": 210
+        }
+       ],
+       "branch": "way 2: InfectedOutcastF, dialog tar04_infectf041 E12 in tar_m04aa"
+      }
+     ]
+    }
+   ],
+   "notes": "stage 1: tar04_outwom044 E7 can be reached from 2 places; needs follow the shortest path stage 10: dialog tar04_victim is used by several objects in tar_m04aa: RakghoulVic00, tar04_victalker stage 98 can be reached in 2 ways; each step's branch starts with its way stage 99 can be reached in 2 ways; each step's branch starts with its way UNCERTAIN: stage 99: the condition script hasserum on a dialog link does not exist in the game files; whether the engine then offers the line was not measured",
+   "own": true,
+   "run_ending": 98
+  },
+  {
+   "tag": "tar_vulkarbase",
+   "stages": [
+    {
+     "stage": 1,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m10aa",
+       "via": {
+        "script": "k_ptar_a10aa_en"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_vulkarbase",
+          1
+         ]
+        },
+        {
+         "set_global_bool": [
+          "TAR_VULKARBASE_OPEN",
+          true
+         ]
+        },
+        {
+         "other": "destroys GetFirstObjectInArea(OBJECT_SELF, 1)"
+        }
+       ],
+       "branch": "otherwise"
+      },
+      {
+       "module": "tar_m10aa",
+       "via": {
+        "script": "k_ptar_a10aa_en"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_vulkarbase",
+          1
+         ]
+        },
+        {
+         "other": "destroys GetFirstObjectInArea(OBJECT_SELF, 1)"
+        },
+        {
+         "other": "destroys GetNextObjectInArea(OBJECT_SELF, 1)"
+        }
+       ],
+       "branch": "if GetIsObjectValid(GetFirstObjectInArea(OBJECT_SELF, 1)); GetIsObjectValid(GetNextObjectInArea(OBJECT_SELF..."
+      },
+      {
+       "module": "tar_m10aa",
+       "via": {
+        "script": "k_ptar_a10aa_en"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_SwoopRace",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_vulkarbase",
+          1
+         ]
+        },
+        {
+         "local": [
+          "tar10_vulkcoward2",
+          "bool",
+          9,
+          1
+         ]
+        },
+        {
+         "set_global_bool": [
+          "TAR_VULKARBASE_OPEN",
+          true
+         ]
+        },
+        {
+         "other": "destroys GetFirstObjectInArea(OBJECT_SELF, 1)"
+        }
+       ],
+       "branch": "if Tar_SwoopRace is TRUE"
+      },
+      {
+       "module": "tar_m10aa",
+       "via": {
+        "script": "k_ptar_a10aa_en"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_SwoopRace",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_vulkarbase",
+          1
+         ]
+        },
+        {
+         "local": [
+          "tar10_vulkcoward2",
+          "bool",
+          9,
+          1
+         ]
+        },
+        {
+         "other": "destroys GetFirstObjectInArea(OBJECT_SELF, 1)"
+        },
+        {
+         "other": "destroys GetNextObjectInArea(OBJECT_SELF, 1)"
+        }
+       ],
+       "branch": "if Tar_SwoopRace is TRUE"
+      },
+      {
+       "module": "tar_m10aa",
+       "via": {
+        "script": "k_ptar_a10aa_en"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_SwoopRace",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_vulkarbase",
+          1
+         ]
+        },
+        {
+         "local": [
+          "tar10_vulkcoward",
+          "bool",
+          9,
+          1
+         ]
+        },
+        {
+         "set_global_bool": [
+          "TAR_VULKARBASE_OPEN",
+          true
+         ]
+        },
+        {
+         "other": "destroys GetFirstObjectInArea(OBJECT_SELF, 1)"
+        }
+       ],
+       "branch": "if Tar_SwoopRace is TRUE"
+      },
+      {
+       "module": "tar_m10aa",
+       "via": {
+        "script": "k_ptar_a10aa_en"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_SwoopRace",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_vulkarbase",
+          1
+         ]
+        },
+        {
+         "local": [
+          "tar10_vulkcoward",
+          "bool",
+          9,
+          1
+         ]
+        },
+        {
+         "other": "destroys GetFirstObjectInArea(OBJECT_SELF, 1)"
+        },
+        {
+         "other": "destroys GetNextObjectInArea(OBJECT_SELF, 1)"
+        }
+       ],
+       "branch": "if Tar_SwoopRace is TRUE"
+      },
+      {
+       "module": "tar_m10aa",
+       "via": {
+        "script": "k_ptar_a10aa_en"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_SwoopRace",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_vulkarbase",
+          1
+         ]
+        },
+        {
+         "local": [
+          "tar10_vulkcoward",
+          "bool",
+          9,
+          1
+         ]
+        },
+        {
+         "local": [
+          "tar10_vulkcoward2",
+          "bool",
+          9,
+          1
+         ]
+        },
+        {
+         "set_global_bool": [
+          "TAR_VULKARBASE_OPEN",
+          true
+         ]
+        },
+        {
+         "other": "destroys GetFirstObjectInArea(OBJECT_SELF, 1)"
+        }
+       ],
+       "branch": "if Tar_SwoopRace is TRUE"
+      },
+      {
+       "module": "tar_m10aa",
+       "via": {
+        "script": "k_ptar_a10aa_en"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_SwoopRace",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_vulkarbase",
+          1
+         ]
+        },
+        {
+         "local": [
+          "tar10_vulkcoward",
+          "bool",
+          9,
+          1
+         ]
+        },
+        {
+         "local": [
+          "tar10_vulkcoward2",
+          "bool",
+          9,
+          1
+         ]
+        },
+        {
+         "other": "destroys GetFirstObjectInArea(OBJECT_SELF, 1)"
+        },
+        {
+         "other": "destroys GetNextObjectInArea(OBJECT_SELF, 1)"
+        }
+       ],
+       "branch": "if Tar_SwoopRace is TRUE"
+      }
+     ]
+    },
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m10aa",
+       "via": {
+        "dialog": "tar10_vulksur2",
+        "node": 9,
+        "speaker": "tar10_vulkcoward2",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_vulkarbase",
+          10
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 15,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m10ab",
+       "via": {
+        "dialog": "tar10_heatpanel",
+        "node": 0,
+        "speaker": "Tar10ab_HeatPanel",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_vulkarbase",
+          15
+         ]
+        },
+        {
+         "set_global_number": [
+          "Tar_VulkarElevator",
+          2
+         ]
+        },
+        {
+         "take_item": [
+          "tar10_powercell",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: Tar10ab_HeatPanel, dialog tar10_heatpanel E0 in tar_m10ab"
+      },
+      {
+       "module": "tar_m10ab",
+       "via": {
+        "dialog": "tar10_heatpanel",
+        "node": 3,
+        "speaker": "Tar10ab_HeatPanel",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "tar10_powercell"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_vulkarbase",
+          15
+         ]
+        },
+        {
+         "xp": 110
+        },
+        {
+         "set_global_number": [
+          "Tar_VulkarElevator",
+          2
+         ]
+        },
+        {
+         "take_item": [
+          "tar10_powercell",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: Tar10ab_HeatPanel, dialog tar10_heatpanel E3 in tar_m10ab"
+      }
+     ]
+    },
+    {
+     "stage": 20,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m08aa",
+       "via": {
+        "dialog": "tar10_aacompdlg",
+        "node": 14,
+        "speaker": "",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_vulkarbase",
+          20
+         ]
+        }
+       ],
+       "branch": "way 1: unknown speaker, dialog tar10_aacompdlg E14 in tar_m08aa"
+      },
+      {
+       "module": "tar_m08aa",
+       "via": {
+        "dialog": "tar10_aacompdlg",
+        "node": 14,
+        "speaker": "",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        },
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        },
+        {
+         "set_global_number": [
+          "Tar_VulkarElevator",
+          1
+         ]
+        },
+        {
+         "other": "changes the faction of tar10_thermturret to STANDARD_FACTION_NEUTRAL"
+        }
+       ],
+       "branch": "way 1: unknown speaker, dialog tar10_aacompdlg E14 in tar_m08aa / choice: reply R14 (empty: [continue]) / line E15 (empty) / if not (1 && GetIsObjectValid(GetModule()))"
+      },
+      {
+       "module": "tar_m08aa",
+       "via": {
+        "dialog": "tar10_aacompdlg",
+        "node": 14,
+        "speaker": "",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        },
+        {
+         "local": [
+          "module",
+          "bool",
+          13,
+          1
+         ]
+        },
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        },
+        {
+         "local": [
+          "module",
+          "bool",
+          14,
+          1
+         ]
+        },
+        {
+         "set_global_number": [
+          "Tar_VulkarElevator",
+          1
+         ]
+        },
+        {
+         "other": "changes the faction of tar10_thermturret to STANDARD_FACTION_NEUTRAL"
+        }
+       ],
+       "branch": "way 1: unknown speaker, dialog tar10_aacompdlg E14 in tar_m08aa / choice: reply R14 (empty: [continue]) / line E15 (empty) / if GetIsObjectValid(GetModule())"
+      },
+      {
+       "module": "tar_m08aa",
+       "via": {
+        "dialog": "tar10_aacompdlg",
+        "node": 14,
+        "speaker": "",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "K_COMPUTER_SPIKE"
+        }
+       ],
+       "does": [
+        {
+         "take_item": [
+          "K_COMPUTER_SPIKE",
+          1
+         ]
+        },
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        },
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        },
+        {
+         "set_global_number": [
+          "Tar_VulkarElevator",
+          1
+         ]
+        },
+        {
+         "other": "changes the faction of tar10_thermturret to STANDARD_FACTION_NEUTRAL"
+        }
+       ],
+       "branch": "way 1: unknown speaker, dialog tar10_aacompdlg E14 in tar_m08aa / choice: reply R14 (empty: [continue]) / line E15 (empty) / if has item K_COMPUTER_SPIKE"
+      },
+      {
+       "module": "tar_m08aa",
+       "via": {
+        "dialog": "tar10_aacompdlg",
+        "node": 14,
+        "speaker": "",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "K_COMPUTER_SPIKE"
+        }
+       ],
+       "does": [
+        {
+         "take_item": [
+          "K_COMPUTER_SPIKE",
+          1
+         ]
+        },
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        },
+        {
+         "local": [
+          "module",
+          "bool",
+          13,
+          1
+         ]
+        },
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        },
+        {
+         "local": [
+          "module",
+          "bool",
+          14,
+          1
+         ]
+        },
+        {
+         "set_global_number": [
+          "Tar_VulkarElevator",
+          1
+         ]
+        },
+        {
+         "other": "changes the faction of tar10_thermturret to STANDARD_FACTION_NEUTRAL"
+        }
+       ],
+       "branch": "way 1: unknown speaker, dialog tar10_aacompdlg E14 in tar_m08aa / choice: reply R14 (empty: [continue]) / line E15 (empty) / if has item K_COMPUTER_SPIKE"
+      },
+      {
+       "module": "tar_m10aa",
+       "via": {
+        "dialog": "tar10_aacompdlg",
+        "node": 16,
+        "speaker": "VulkSec",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_vulkarbase",
+          20
+         ]
+        }
+       ],
+       "branch": "way 2: VulkSec, dialog tar10_aacompdlg E16 in tar_m10aa"
+      },
+      {
+       "module": "tar_m10aa",
+       "via": {
+        "dialog": "tar10_aacompdlg",
+        "node": 16,
+        "speaker": "VulkSec",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        },
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        },
+        {
+         "set_global_number": [
+          "Tar_VulkarElevator",
+          1
+         ]
+        },
+        {
+         "other": "changes the faction of tar10_thermturret to STANDARD_FACTION_NEUTRAL"
+        }
+       ],
+       "branch": "way 2: VulkSec, dialog tar10_aacompdlg E16 in tar_m10aa / choice: reply R18 (empty: [continue]) / line E17 (empty) / if not (1 && GetIsObjectValid(GetModule()))"
+      },
+      {
+       "module": "tar_m10aa",
+       "via": {
+        "dialog": "tar10_aacompdlg",
+        "node": 16,
+        "speaker": "VulkSec",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        },
+        {
+         "local": [
+          "module",
+          "bool",
+          13,
+          1
+         ]
+        },
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        },
+        {
+         "local": [
+          "module",
+          "bool",
+          14,
+          1
+         ]
+        },
+        {
+         "set_global_number": [
+          "Tar_VulkarElevator",
+          1
+         ]
+        },
+        {
+         "other": "changes the faction of tar10_thermturret to STANDARD_FACTION_NEUTRAL"
+        }
+       ],
+       "branch": "way 2: VulkSec, dialog tar10_aacompdlg E16 in tar_m10aa / choice: reply R18 (empty: [continue]) / line E17 (empty) / if GetIsObjectValid(GetModule())"
+      },
+      {
+       "module": "tar_m10aa",
+       "via": {
+        "dialog": "tar10_aacompdlg",
+        "node": 16,
+        "speaker": "VulkSec",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "K_COMPUTER_SPIKE"
+        }
+       ],
+       "does": [
+        {
+         "take_item": [
+          "K_COMPUTER_SPIKE",
+          1
+         ]
+        },
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        },
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        },
+        {
+         "set_global_number": [
+          "Tar_VulkarElevator",
+          1
+         ]
+        },
+        {
+         "other": "changes the faction of tar10_thermturret to STANDARD_FACTION_NEUTRAL"
+        }
+       ],
+       "branch": "way 2: VulkSec, dialog tar10_aacompdlg E16 in tar_m10aa / choice: reply R18 (empty: [continue]) / line E17 (empty) / if has item K_COMPUTER_SPIKE"
+      },
+      {
+       "module": "tar_m10aa",
+       "via": {
+        "dialog": "tar10_aacompdlg",
+        "node": 16,
+        "speaker": "VulkSec",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "K_COMPUTER_SPIKE"
+        }
+       ],
+       "does": [
+        {
+         "take_item": [
+          "K_COMPUTER_SPIKE",
+          1
+         ]
+        },
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        },
+        {
+         "local": [
+          "module",
+          "bool",
+          13,
+          1
+         ]
+        },
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        },
+        {
+         "local": [
+          "module",
+          "bool",
+          14,
+          1
+         ]
+        },
+        {
+         "set_global_number": [
+          "Tar_VulkarElevator",
+          1
+         ]
+        },
+        {
+         "other": "changes the faction of tar10_thermturret to STANDARD_FACTION_NEUTRAL"
+        }
+       ],
+       "branch": "way 2: VulkSec, dialog tar10_aacompdlg E16 in tar_m10aa / choice: reply R18 (empty: [continue]) / line E17 (empty) / if has item K_COMPUTER_SPIKE"
+      },
+      {
+       "module": "tar_m10aa",
+       "via": {
+        "dialog": "tar10_computer",
+        "node": 9,
+        "speaker": "",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "K_COMPUTER_SPIKE"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_vulkarbase",
+          20
+         ]
+        }
+       ],
+       "branch": "way 3: unknown speaker, dialog tar10_computer E9 in tar_m10aa"
+      },
+      {
+       "module": "tar_m10aa",
+       "via": {
+        "dialog": "tar10_computer",
+        "node": 9,
+        "speaker": "",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "K_COMPUTER_SPIKE"
+        }
+       ],
+       "does": [
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        },
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        },
+        {
+         "set_global_number": [
+          "Tar_VulkarElevator",
+          1
+         ]
+        },
+        {
+         "other": "changes the faction of tar10_thermturret to STANDARD_FACTION_NEUTRAL"
+        }
+       ],
+       "branch": "way 3: unknown speaker, dialog tar10_computer E9 in tar_m10aa / if not (1 && GetIsObjectValid(GetModule()))"
+      },
+      {
+       "module": "tar_m10aa",
+       "via": {
+        "dialog": "tar10_computer",
+        "node": 9,
+        "speaker": "",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "K_COMPUTER_SPIKE"
+        }
+       ],
+       "does": [
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        },
+        {
+         "local": [
+          "module",
+          "bool",
+          13,
+          1
+         ]
+        },
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        },
+        {
+         "local": [
+          "module",
+          "bool",
+          14,
+          1
+         ]
+        },
+        {
+         "set_global_number": [
+          "Tar_VulkarElevator",
+          1
+         ]
+        },
+        {
+         "other": "changes the faction of tar10_thermturret to STANDARD_FACTION_NEUTRAL"
+        }
+       ],
+       "branch": "way 3: unknown speaker, dialog tar10_computer E9 in tar_m10aa / if GetIsObjectValid(GetModule())"
+      },
+      {
+       "module": "tar_m10aa",
+       "via": {
+        "dialog": "tar10_computer",
+        "node": 9,
+        "speaker": "",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "K_COMPUTER_SPIKE"
+        }
+       ],
+       "does": [
+        {
+         "take_item": [
+          "K_COMPUTER_SPIKE",
+          1
+         ]
+        },
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        },
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        },
+        {
+         "set_global_number": [
+          "Tar_VulkarElevator",
+          1
+         ]
+        },
+        {
+         "other": "changes the faction of tar10_thermturret to STANDARD_FACTION_NEUTRAL"
+        }
+       ],
+       "branch": "way 3: unknown speaker, dialog tar10_computer E9 in tar_m10aa / if has item K_COMPUTER_SPIKE"
+      },
+      {
+       "module": "tar_m10aa",
+       "via": {
+        "dialog": "tar10_computer",
+        "node": 9,
+        "speaker": "",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "K_COMPUTER_SPIKE"
+        }
+       ],
+       "does": [
+        {
+         "take_item": [
+          "K_COMPUTER_SPIKE",
+          1
+         ]
+        },
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        },
+        {
+         "local": [
+          "module",
+          "bool",
+          13,
+          1
+         ]
+        },
+        {
+         "other": "gives XP to player: (GetHitDice(player) * 10)"
+        },
+        {
+         "local": [
+          "module",
+          "bool",
+          14,
+          1
+         ]
+        },
+        {
+         "set_global_number": [
+          "Tar_VulkarElevator",
+          1
+         ]
+        },
+        {
+         "other": "changes the faction of tar10_thermturret to STANDARD_FACTION_NEUTRAL"
+        }
+       ],
+       "branch": "way 3: unknown speaker, dialog tar10_computer E9 in tar_m10aa / if has item K_COMPUTER_SPIKE"
+      },
+      {
+       "module": "tar_m10aa",
+       "via": {
+        "dialog": "tar10_vulkelev",
+        "node": 3,
+        "speaker": "VulkEleve",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_VulkarElevator",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_vulkarbase",
+          20
+         ]
+        }
+       ],
+       "branch": "way 4: VulkEleve, dialog tar10_vulkelev E3 in tar_m10aa"
+      }
+     ]
+    },
+    {
+     "stage": 99,
+     "end": true,
+     "steps": [
+      {
+       "module": "tar_m10ac",
+       "via": {
+        "dialog": "tar10_kandon01",
+        "node": 0,
+        "speaker": "KandonArk101",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_vulkarbase",
+          99
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "notes": "stage 1: k_ptar_a10aa_en (stage 1) also depends on: GetIsObjectValid(GetFirstObjectInArea(OBJECT_SELF, 1)); GetIsObjectValid(GetNextObjectInArea(OBJECT_SELF, 1)) stage 1: k_ptar_a10aa_en (stage 1) also depends on: not (1 && GetIsObjectValid(GetObjectByTag(\"tar10_vulkcoward\", 0))); GetIsObjectValid(GetObjectByTag(\"tar10_vulkcoward2\", 0)) stage 1: k_ptar_a10aa_en (stage 1) also depends on: not (1 && GetIsObjectValid(GetObjectByTag(\"tar10_vulkcoward\", 0))); GetIsObjectValid(GetObjectByTag(\"tar10_vulkcoward2\", 0)); GetIsObjectValid(GetFirstObjectInArea(OBJECT_SELF, 1)); GetIsObjectValid(GetNextObjectInArea(OBJECT_SELF, 1)) stage 1: k_ptar_a10aa_en (stage 1) also depends on: GetIsObjectValid(GetObjectByTag(\"tar10_vulkcoward\", 0)); not (1 && GetIsObjectValid(GetObjectByTag(\"tar10_vulkcoward2\", 0))) stage 1: k_ptar_a10aa_en (stage 1) also depends on: GetIsObjectValid(GetObjectByTag(\"tar10_vulkcoward\", 0)); not (1 && GetIsObjectValid(GetObjectByTag(\"tar10_vulkcoward2\", 0))); GetIsObjectValid(GetFirstObjectInArea(OBJECT_SELF, 1)); GetIsObjectValid(GetNextObjectInArea(OBJECT_SELF, 1)) stage 1: k_ptar_a10aa_en (stage 1) also depends on: GetIsObjectValid(GetObjectByTag(\"tar10_vulkcoward\", 0)); GetIsObjectValid(GetObjectByTag(\"tar10_vulkcoward2\", 0)) stage 1: k_ptar_a10aa_en (stage 1) also depends on: GetIsObjectValid(GetObjectByTag(\"tar10_vulkcoward\", 0)); GetIsObjectValid(GetObjectByTag(\"tar10_vulkcoward2\", 0)); GetIsObjectValid(GetFirstObjectInArea(OBJECT_SELF, 1)); GetIsObjectValid(GetNextObjectInArea(OBJECT_SELF, 1)) stage 15 can be reached in 2 ways; each step's branch starts with its way stage 20: dialog tar10_aacompdlg gives the same steps in tar_m09aa, tar_m11aa stage 20: conditional k_con_com35 passes in 2 different cases; only the tests shared by all are listed as needs. Cases: does not have item K_COMPUTER_SPIKE, (0 >= sub-result) | has item K_COMPUTER_SPIKE, (GetNumStackedItems(GetItemPossessedBy(GetFirstPC(), \"K_COMP... stage 20: conditional k_con_com33 passes in 2 different cases; only the tests shared by all are listed as needs. Cases: does not have item K_COMPUTER_SPIKE, (0 >= sub-result) | has item K_COMPUTER_SPIKE, (GetNumStackedItems(GetItemPossessedBy(GetFirstPC(), \"K_COMP... stage 20: condition k_con_comhack also tests: (GetNumStackedItems(GetItemPossessedBy(player, \"K_COMPUTER_SPIKE\")) >= 1) stage 20: tar10_vulkelev E3 can be reached from 2 places; needs follow the shortest path stage 20 can be reached in 4 ways; each step's branch starts with its way stage 99: dialog tar10_kandon01 is used by several objects in tar_m10ac: KandonArk101, tar10_kandtalker UNCERTAIN: stage 20: no creature, placeable or door template in tar_m08aa names dialog tar10_aacompdlg, so its speaker is unknown UNCERTAIN: stage 20: no creature, placeable or door template in tar_m10aa names dialog tar10_computer, so its speaker is unknown",
+   "own": true,
+   "run_ending": 99
+  },
+  {
+   "tag": "tar_party",
+   "stages": [
+    {
+     "stage": 1,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_sarna021",
+        "node": 16,
+        "speaker": "Sarna021",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Sarna",
+         "op": "==",
+         "value": 40
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_party",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: Sarna021, dialog tar02_sarna021 R16 in tar_m02ae"
+      },
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_sarna021",
+        "node": 16,
+        "speaker": "Sarna021",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Sarna",
+         "op": "==",
+         "value": 40
+        }
+       ],
+       "does": [
+        {
+         "set_global_number": [
+          "Tar_Sarna",
+          99
+         ]
+        },
+        {
+         "destroy": "yungenda021"
+        }
+       ],
+       "branch": "way 1: Sarna021, dialog tar02_sarna021 R16 in tar_m02ae / if not (1 && GetIsObjectValid(GetObjectByTag(\"sarna021\", 0)))"
+      },
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_sarna021",
+        "node": 16,
+        "speaker": "Sarna021",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Sarna",
+         "op": "==",
+         "value": 40
+        }
+       ],
+       "does": [
+        {
+         "set_global_number": [
+          "Tar_Sarna",
+          99
+         ]
+        },
+        {
+         "local": [
+          "sarna021",
+          "bool",
+          9,
+          1
+         ]
+        },
+        {
+         "destroy": "yungenda021"
+        }
+       ],
+       "branch": "way 1: Sarna021, dialog tar02_sarna021 R16 in tar_m02ae / if GetIsObjectValid(GetObjectByTag(\"sarna021\", 0))"
+      },
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_sarna021",
+        "node": 59,
+        "speaker": "Sarna021",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Sarna",
+         "op": "==",
+         "value": 30
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_party",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: Sarna021, dialog tar02_sarna021 R59 in tar_m02ae"
+      },
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_sarna021",
+        "node": 59,
+        "speaker": "Sarna021",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Sarna",
+         "op": "==",
+         "value": 30
+        }
+       ],
+       "does": [
+        {
+         "set_global_number": [
+          "Tar_Sarna",
+          99
+         ]
+        },
+        {
+         "destroy": "yungenda021"
+        }
+       ],
+       "branch": "way 2: Sarna021, dialog tar02_sarna021 R59 in tar_m02ae / if not (1 && GetIsObjectValid(GetObjectByTag(\"sarna021\", 0)))"
+      },
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_sarna021",
+        "node": 59,
+        "speaker": "Sarna021",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Sarna",
+         "op": "==",
+         "value": 30
+        }
+       ],
+       "does": [
+        {
+         "set_global_number": [
+          "Tar_Sarna",
+          99
+         ]
+        },
+        {
+         "local": [
+          "sarna021",
+          "bool",
+          9,
+          1
+         ]
+        },
+        {
+         "destroy": "yungenda021"
+        }
+       ],
+       "branch": "way 2: Sarna021, dialog tar02_sarna021 R59 in tar_m02ae / if GetIsObjectValid(GetObjectByTag(\"sarna021\", 0))"
+      },
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_yungenda21",
+        "node": 12,
+        "speaker": "YunGenda021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_YunGend",
+         "op": "==",
+         "value": 40
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_party",
+          1
+         ]
+        }
+       ],
+       "branch": "way 3: YunGenda021, dialog tar02_yungenda21 E12 in tar_m02ae"
+      },
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_yungenda21",
+        "node": 60,
+        "speaker": "YunGenda021",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_YunGend",
+         "op": "==",
+         "value": 30
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_party",
+          1
+         ]
+        }
+       ],
+       "branch": "way 4: YunGenda021, dialog tar02_yungenda21 R60 in tar_m02ae"
+      },
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_yungenda21",
+        "node": 60,
+        "speaker": "YunGenda021",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_YunGend",
+         "op": "==",
+         "value": 30
+        }
+       ],
+       "does": [
+        {
+         "set_global_number": [
+          "Tar_YunGend",
+          99
+         ]
+        },
+        {
+         "destroy": "sarna021"
+        }
+       ],
+       "branch": "way 4: YunGenda021, dialog tar02_yungenda21 R60 in tar_m02ae / if not (1 && GetIsObjectValid(GetObjectByTag(\"yungenda021\", 0)))"
+      },
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_yungenda21",
+        "node": 60,
+        "speaker": "YunGenda021",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_YunGend",
+         "op": "==",
+         "value": 30
+        }
+       ],
+       "does": [
+        {
+         "set_global_number": [
+          "Tar_YunGend",
+          99
+         ]
+        },
+        {
+         "local": [
+          "yungenda021",
+          "bool",
+          9,
+          1
+         ]
+        },
+        {
+         "destroy": "sarna021"
+        }
+       ],
+       "branch": "way 4: YunGenda021, dialog tar02_yungenda21 R60 in tar_m02ae / if GetIsObjectValid(GetObjectByTag(\"yungenda021\", 0))"
+      }
+     ]
+    }
+   ],
+   "notes": "stage 1: tar02_yungenda21 E12 can be reached from 2 places; needs follow the shortest path stage 1 can be reached in 4 ways; each step's branch starts with its way",
+   "own": true
+  },
+  {
+   "tag": "tar_largobounty",
+   "stages": [
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02ad",
+       "via": {
+        "dialog": "tar02_scaredm021",
+        "node": 11,
+        "speaker": "ScaredMerc021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_largobounty",
+          10
+         ]
+        }
+       ],
+       "branch": "way 1: ScaredMerc021, dialog tar02_scaredm021 E11 in tar_m02ad"
+      },
+      {
+       "module": "tar_m02ad",
+       "via": {
+        "dialog": "tar02_scaredm021",
+        "node": 11,
+        "speaker": "ScaredMerc021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "xp": 110
+        },
+        {
+         "light_side": 10
+        }
+       ],
+       "branch": "way 1: ScaredMerc021, dialog tar02_scaredm021 E11 in tar_m02ad / choice: reply R17 / line E13 / if player alignment at most 14"
+      },
+      {
+       "module": "tar_m02ad",
+       "via": {
+        "dialog": "tar02_scaredm021",
+        "node": 11,
+        "speaker": "ScaredMerc021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "xp": 110
+        },
+        {
+         "light_side": 8
+        }
+       ],
+       "branch": "way 1: ScaredMerc021, dialog tar02_scaredm021 E11 in tar_m02ad / choice: reply R17 / line E13 / if player alignment from 15 to 39"
+      },
+      {
+       "module": "tar_m02ad",
+       "via": {
+        "dialog": "tar02_scaredm021",
+        "node": 11,
+        "speaker": "ScaredMerc021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "xp": 110
+        },
+        {
+         "light_side": 6
+        }
+       ],
+       "branch": "way 1: ScaredMerc021, dialog tar02_scaredm021 E11 in tar_m02ad / choice: reply R17 / line E13 / if player alignment from 40 to 60"
+      },
+      {
+       "module": "tar_m02ad",
+       "via": {
+        "dialog": "tar02_scaredm021",
+        "node": 11,
+        "speaker": "ScaredMerc021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "xp": 110
+        },
+        {
+         "light_side": 4
+        }
+       ],
+       "branch": "way 1: ScaredMerc021, dialog tar02_scaredm021 E11 in tar_m02ad / choice: reply R17 / line E13 / if player alignment from 61 to 84"
+      },
+      {
+       "module": "tar_m02ad",
+       "via": {
+        "dialog": "tar02_scaredm021",
+        "node": 11,
+        "speaker": "ScaredMerc021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "xp": 110
+        },
+        {
+         "light_side": 2
+        }
+       ],
+       "branch": "way 1: ScaredMerc021, dialog tar02_scaredm021 E11 in tar_m02ad / choice: reply R17 / line E13 / if player alignment at least 85"
+      },
+      {
+       "module": "tar_m02ad",
+       "via": {
+        "dialog": "tar02_scaredm021",
+        "node": 11,
+        "speaker": "ScaredMerc021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [],
+       "branch": "way 1: ScaredMerc021, dialog tar02_scaredm021 E11 in tar_m02ad / choice: reply R15"
+      },
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_zax031",
+        "node": 27,
+        "speaker": "Zax031",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_ZaxBounty",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_largobounty",
+          10
+         ]
+        }
+       ],
+       "branch": "way 2: Zax031, dialog tar03_zax031 R27 in tar_m03ae"
+      }
+     ]
+    },
+    {
+     "stage": 20,
+     "end": true,
+     "steps": [
+      {
+       "module": "tar_m02ad",
+       "via": {
+        "dialog": "tar02_scaredm021",
+        "node": 14,
+        "speaker": "ScaredMerc021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_largobounty",
+          20
+         ]
+        },
+        {
+         "set_global_number": [
+          "Tar_LargoBoun",
+          20
+         ]
+        },
+        {
+         "credits": -200
+        }
+       ]
+      },
+      {
+       "module": "tar_m02ad",
+       "via": {
+        "dialog": "tar02_scaredm021",
+        "node": 14,
+        "speaker": "ScaredMerc021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [],
+       "branch": "choice: reply R19 (empty: [continue]) / if not (1 && GetIsObjectValid(OBJECT_SELF))"
+      },
+      {
+       "module": "tar_m02ad",
+       "via": {
+        "dialog": "tar02_scaredm021",
+        "node": 14,
+        "speaker": "ScaredMerc021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "local": [
+          "ScaredMerc021",
+          "bool",
+          9,
+          1
+         ]
+        }
+       ],
+       "branch": "choice: reply R19 (empty: [continue]) / if GetIsObjectValid(OBJECT_SELF)"
+      }
+     ]
+    },
+    {
+     "stage": 65,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02ad",
+       "via": {
+        "script": "k_ptar_largo_ud"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_ZaxBounty",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "set_global_number": [
+          "Tar_LargoBoun",
+          30
+         ]
+        },
+        {
+         "journal": [
+          "tar_largobounty",
+          65
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 66,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02ad",
+       "via": {
+        "script": "k_ptar_largo_ud"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_ZaxBounty",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "set_global_number": [
+          "Tar_LargoBoun",
+          30
+         ]
+        },
+        {
+         "journal": [
+          "tar_largobounty",
+          66
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 98,
+     "end": true,
+     "steps": [
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_zax031",
+        "node": 33,
+        "speaker": "Zax031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_ZaxBounty",
+         "is": true
+        },
+        {
+         "global_number": "Tar_LargoBoun",
+         "op": "==",
+         "value": 20
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_largobounty",
+          98
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 99,
+     "end": true,
+     "steps": [
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_zax031",
+        "node": 2,
+        "speaker": "Zax031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_LargoBoun",
+         "op": "==",
+         "value": 30
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_largobounty",
+          99
+         ]
+        },
+        {
+         "xp": 105
+        },
+        {
+         "set_global_number": [
+          "Tar_LargoBoun",
+          99
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "notes": "stage 10 can be reached in 2 ways; each step's branch starts with its way stage 20: tar02_scaredm021 E14 can be reached from 2 places; needs follow the shortest path stage 65: k_ptar_largo_ud (stage 65) also depends on: (user-defined event == 1007) stage 66: k_ptar_largo_ud (stage 66) also depends on: (user-defined event == 1007) stage 99: conditional k_ptar_zaxboun passes in 50 different cases; only the tests shared by all are listed as needs. Cases: Tar_Dia != 40, Tar_Duel != 7, Tar_Matrik != 30, Tar_Matrik != 40, Tar_LargoBoun != 30, ... | Tar_Dia != 40, Tar_Duel != 7, Tar_Matrik != 30, Tar_Matrik != 40, Tar_LargoBoun == 30, ... | Tar_Dia != 40, Tar_Duel != 7, Tar_Matrik == 40, Tar_LargoBoun != 30, Tar_SelBoun != 20 | ...",
+   "own": true,
+   "run_ending": 20
+  },
+  {
+   "tag": "tar_matrik",
+   "stages": [
+    {
+     "stage": 1,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m03ad",
+       "via": {
+        "dialog": "tar03_matrik031",
+        "node": 22,
+        "speaker": "Matrik031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_ZaxBounty",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_matrik",
+          1
+         ]
+        },
+        {
+         "set_global_number": [
+          "Tar_Matrik",
+          10
+         ]
+        }
+       ],
+       "branch": "way 1: Matrik031, dialog tar03_matrik031 E22 in tar_m03ad"
+      },
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_zax031",
+        "node": 28,
+        "speaker": "Zax031",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_ZaxBounty",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_matrik",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: Zax031, dialog tar03_zax031 R28 in tar_m03ae"
+      }
+     ]
+    },
+    {
+     "stage": 20,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m03ad",
+       "via": {
+        "dialog": "tar03_matrik031",
+        "node": 29,
+        "speaker": "Matrik031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Matrik",
+         "op": "==",
+         "value": 10
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_matrik",
+          20
+         ]
+        },
+        {
+         "set_global_number": [
+          "Tar_Matrik",
+          20
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 30,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m03ad",
+       "via": {
+        "dialog": "tar03_matrik031",
+        "node": 13,
+        "speaker": "Matrik031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Matrik",
+         "op": "==",
+         "value": 20
+        },
+        {
+         "item": "ptar_permacrete"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_matrik",
+          30
+         ]
+        },
+        {
+         "xp": 480
+        }
+       ]
+      },
+      {
+       "module": "tar_m03ad",
+       "via": {
+        "dialog": "tar03_matrik031",
+        "node": 13,
+        "speaker": "Matrik031",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [],
+       "branch": "choice: reply R16 (empty: [continue]) / if not (1 && GetIsObjectValid(OBJECT_SELF))"
+      },
+      {
+       "module": "tar_m03ad",
+       "via": {
+        "dialog": "tar03_matrik031",
+        "node": 13,
+        "speaker": "Matrik031",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "local": [
+          "Matrik031",
+          "bool",
+          9,
+          1
+         ]
+        }
+       ],
+       "branch": "choice: reply R16 (empty: [continue]) / if GetIsObjectValid(OBJECT_SELF)"
+      }
+     ]
+    },
+    {
+     "stage": 40,
+     "end": true,
+     "steps": [
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_zax031",
+        "node": 6,
+        "speaker": "Zax031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Matrik",
+         "op": "==",
+         "value": 30
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_matrik",
+          40
+         ]
+        },
+        {
+         "xp": 55
+        },
+        {
+         "set_global_number": [
+          "Tar_Matrik",
+          99
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 66,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m03ad",
+       "via": {
+        "script": "k_ptar_matdeath"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_ZaxBounty",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_matrik",
+          66
+         ]
+        },
+        {
+         "set_global_number": [
+          "Tar_Matrik",
+          40
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 99,
+     "end": true,
+     "steps": [
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_zax031",
+        "node": 8,
+        "speaker": "Zax031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Matrik",
+         "op": "==",
+         "value": 40
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_matrik",
+          99
+         ]
+        },
+        {
+         "xp": 105
+        },
+        {
+         "set_global_number": [
+          "Tar_Matrik",
+          99
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "notes": "stage 1: tar03_matrik031 E22 can be reached from 4 places; needs follow the shortest path stage 1 can be reached in 2 ways; each step's branch starts with its way stage 40: conditional k_ptar_zaxboun passes in 50 different cases; only the tests shared by all are listed as needs. Cases: Tar_Dia != 40, Tar_Duel != 7, Tar_Matrik != 30, Tar_Matrik != 40, Tar_LargoBoun != 30, ... | Tar_Dia != 40, Tar_Duel != 7, Tar_Matrik != 30, Tar_Matrik != 40, Tar_LargoBoun == 30, ... | Tar_Dia != 40, Tar_Duel != 7, Tar_Matrik == 40, Tar_LargoBoun != 30, Tar_SelBoun != 20 | ... stage 99: conditional k_ptar_zaxboun passes in 50 different cases; only the tests shared by all are listed as needs. Cases: Tar_Dia != 40, Tar_Duel != 7, Tar_Matrik != 30, Tar_Matrik != 40, Tar_LargoBoun != 30, ... | Tar_Dia != 40, Tar_Duel != 7, Tar_Matrik != 30, Tar_Matrik != 40, Tar_LargoBoun == 30, ... | Tar_Dia != 40, Tar_Duel != 7, Tar_Matrik == 40, Tar_LargoBoun != 30, Tar_SelBoun != 20 | ...",
+   "own": true,
+   "run_ending": 40
+  },
+  {
+   "tag": "tar_meetCand",
+   "stages": [
+    {
+     "stage": 1,
+     "end": false,
+     "steps": []
+    },
+    {
+     "stage": 99,
+     "end": true,
+     "steps": []
+    }
+   ],
+   "notes": "UNCERTAIN: stage 1 has no setter in the Taris files (no dialog node or script sets it) UNCERTAIN: stage 99 has no setter in the Taris files (no dialog node or script sets it)",
+   "own": true,
+   "run_ending": 99
+  },
+  {
+   "tag": "k_pazaak",
+   "stages": [
+    {
+     "stage": 1,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_garouk021",
+        "node": 8,
+        "speaker": "Garouk021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "G_PazzakDeck",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "k_pazaak",
+          1
+         ]
+        },
+        {
+         "set_global_bool": [
+          "G_PazzakDeck",
+          true
+         ]
+        },
+        {
+         "give_item": [
+          "g_i_pazdeck",
+          1
+         ]
+        },
+        {
+         "credits": -50
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 99,
+     "end": true,
+     "steps": [
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_niklos021",
+        "node": 21,
+        "speaker": "Niklos021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "G_Paz_JustPlayed",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "k_pazaak",
+          99
+         ]
+        },
+        {
+         "set_global_bool": [
+          "G_Paz_JustPlayed",
+          false
+         ]
+        },
+        {
+         "set_global_number": [
+          "tar_PazUp",
+          1
+         ]
+        },
+        {
+         "other": "sets global number Tar_PazNik to a value that is not constant: (GetGlobalNumber(\"Tar_PazNik\") + 1)"
+        }
+       ],
+       "branch": "way 1: Niklos021, dialog tar02_niklos021 E21 in tar_m02ae"
+      },
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_niklos021",
+        "node": 22,
+        "speaker": "Niklos021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_PazNik",
+         "op": ">=",
+         "value": 5
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "k_pazaak",
+          99
+         ]
+        },
+        {
+         "set_global_bool": [
+          "G_Paz_JustPlayed",
+          false
+         ]
+        },
+        {
+         "set_global_number": [
+          "tar_PazUp",
+          1
+         ]
+        },
+        {
+         "other": "sets global number Tar_PazNik to a value that is not constant: (GetGlobalNumber(\"Tar_PazNik\") + 1)"
+        }
+       ],
+       "branch": "way 2: Niklos021, dialog tar02_niklos021 E22 in tar_m02ae"
+      },
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_gelrood031",
+        "node": 4,
+        "speaker": "Gelrood031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "G_Paz_JustPlayed",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "k_pazaak",
+          99
+         ]
+        },
+        {
+         "set_global_bool": [
+          "G_Paz_JustPlayed",
+          false
+         ]
+        }
+       ],
+       "branch": "way 3: Gelrood031, dialog tar03_gelrood031 E4 in tar_m03ae"
+      }
+     ]
+    }
+   ],
+   "notes": "This quest is not a Taris quest by its tag; only the stages set on Taris are listed. Other planets also set its stages. stage 1: condition k_ptar_pazdeckx also tests: (GetGold(player) >= 50) stage 99: condition k_ptar_pazwon also tests: (GetLastPazaakResult() == 1) stage 99: condition k_ptar_gelrood02 also tests: (GetLastPazaakResult() == 1) stage 99 can be reached in 3 ways; each step's branch starts with its way"
+  },
+  {
+   "tag": "tar_buydroid",
+   "stages": [
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02ab",
+       "via": {
+        "dialog": "tar02_janice021",
+        "node": 26,
+        "speaker": "Janice021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_JaniceDro",
+         "op": "<",
+         "value": 30
+        },
+        {
+         "global_bool": "Tar_Cand_T3",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_buydroid",
+          10
+         ]
+        },
+        {
+         "set_global_bool": [
+          "Tar_T3_Mention",
+          true
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 50,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar03_cand031",
+        "node": 12,
+        "speaker": "Canderous031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "TAR_CANDMEET",
+         "op": "==",
+         "value": 0
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_buydroid",
+          50
+         ]
+        },
+        {
+         "set_global_bool": [
+          "Tar_Cand_T3",
+          true
+         ]
+        }
+       ],
+       "branch": "way 1: Canderous031, dialog tar03_cand031 E12 in tar_m02ae"
+      },
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_cand031",
+        "node": 25,
+        "speaker": "Canderous031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "TAR_CANDMEET",
+         "op": "==",
+         "value": 0
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_buydroid",
+          50
+         ]
+        },
+        {
+         "set_global_bool": [
+          "Tar_Cand_T3",
+          true
+         ]
+        }
+       ],
+       "branch": "way 2: Canderous031, dialog tar03_cand031 E25 in tar_m03ae"
+      }
+     ]
+    },
+    {
+     "stage": 99,
+     "end": true,
+     "steps": [
+      {
+       "module": "tar_m02ab",
+       "via": {
+        "dialog": "tar02_janice021",
+        "node": 30,
+        "speaker": "Janice021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_Cand_T3",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_buydroid",
+          99
+         ]
+        }
+       ],
+       "branch": "way 1: Janice021, dialog tar02_janice021 E30 in tar_m02ab"
+      },
+      {
+       "module": "tar_m02ab",
+       "via": {
+        "dialog": "tar02_janice021",
+        "node": 30,
+        "speaker": "Janice021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_Cand_T3",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "xp": 250
+        },
+        {
+         "dark_side": 1
+        }
+       ],
+       "branch": "way 1: Janice021, dialog tar02_janice021 E30 in tar_m02ab / if player alignment at most 14"
+      },
+      {
+       "module": "tar_m02ab",
+       "via": {
+        "dialog": "tar02_janice021",
+        "node": 30,
+        "speaker": "Janice021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_Cand_T3",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "xp": 250
+        },
+        {
+         "dark_side": 2
+        }
+       ],
+       "branch": "way 1: Janice021, dialog tar02_janice021 E30 in tar_m02ab / if player alignment from 15 to 39"
+      },
+      {
+       "module": "tar_m02ab",
+       "via": {
+        "dialog": "tar02_janice021",
+        "node": 30,
+        "speaker": "Janice021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_Cand_T3",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "xp": 250
+        },
+        {
+         "dark_side": 4
+        }
+       ],
+       "branch": "way 1: Janice021, dialog tar02_janice021 E30 in tar_m02ab / if player alignment from 40 to 60"
+      },
+      {
+       "module": "tar_m02ab",
+       "via": {
+        "dialog": "tar02_janice021",
+        "node": 30,
+        "speaker": "Janice021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_Cand_T3",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "xp": 250
+        },
+        {
+         "dark_side": 6
+        }
+       ],
+       "branch": "way 1: Janice021, dialog tar02_janice021 E30 in tar_m02ab / if player alignment from 61 to 84"
+      },
+      {
+       "module": "tar_m02ab",
+       "via": {
+        "dialog": "tar02_janice021",
+        "node": 30,
+        "speaker": "Janice021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_Cand_T3",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "xp": 250
+        },
+        {
+         "dark_side": 8
+        }
+       ],
+       "branch": "way 1: Janice021, dialog tar02_janice021 E30 in tar_m02ab / if player alignment at least 85"
+      },
+      {
+       "module": "tar_m02ab",
+       "via": {
+        "dialog": "tar02_janice021",
+        "node": 34,
+        "speaker": "Janice021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_Cand_T3",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "credits": -2000
+        },
+        {
+         "journal": [
+          "tar_buydroid",
+          99
+         ]
+        }
+       ],
+       "branch": "way 2: Janice021, dialog tar02_janice021 E34 in tar_m02ab"
+      },
+      {
+       "module": "tar_m02ab",
+       "via": {
+        "dialog": "tar02_janice021",
+        "node": 36,
+        "speaker": "Janice021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_Cand_T3",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "credits": -2000
+        },
+        {
+         "journal": [
+          "tar_buydroid",
+          99
+         ]
+        },
+        {
+         "xp": 250
+        },
+        {
+         "set_global_number": [
+          "Tar_JaniceDro",
+          30
+         ]
+        }
+       ],
+       "branch": "way 3: Janice021, dialog tar02_janice021 E36 in tar_m02ab"
+      }
+     ]
+    }
+   ],
+   "notes": "stage 10: tar02_janice021 E26 can be reached from 2 places; needs follow the shortest path stage 10: condition k_ptar_t3sale also tests: not IsAvailableCreature(7) stage 50 can be reached in 2 ways; each step's branch starts with its way stage 99: condition k_ptar_t3sale also tests: not IsAvailableCreature(7) stage 99: tar02_janice021 E36 can be reached from 3 places; needs follow the shortest path stage 99 can be reached in 3 ways; each step's branch starts with its way UNCERTAIN: stage 99: the condition script 0 on a dialog link does not exist in the game files; whether the engine then offers the line was not measured",
+   "own": true,
+   "run_ending": 99
+  },
+  {
+   "tag": "tar_rakghoulserum",
+   "stages": [
+    {
+     "stage": 1,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02ac",
+       "via": {
+        "dialog": "tar02_zelka021",
+        "node": 67,
+        "speaker": "Zelka021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_rakghoulserum",
+          1
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 2,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02ac",
+       "via": {
+        "dialog": "tar02_gurney021",
+        "node": 5,
+        "speaker": "Gurney021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_ZelkaTk",
+         "op": "==",
+         "value": 2
+        },
+        {
+         "global_number": "TAR_RAKSERUM",
+         "op": "!=",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_rakghoulserum",
+          2
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 5,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "script": "k_ptar_acquire04"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_rakghoulserum",
+          5
+         ]
+        }
+       ],
+       "branch": "otherwise"
+      },
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "script": "k_ptar_acquire04"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_rukilapprentice",
+          50
+         ]
+        },
+        {
+         "journal": [
+          "tar_rakghoulserum",
+          5
+         ]
+        }
+       ],
+       "branch": "if (GetTag(GetModuleItemAcquired()) == \"ptar_appjournal\"); a helper function's result is 1"
+      }
+     ]
+    },
+    {
+     "stage": 10,
+     "end": true,
+     "steps": [
+      {
+       "module": "tar_m02ac",
+       "via": {
+        "dialog": "tar02_zelka021",
+        "node": 9,
+        "speaker": "Zelka021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "RakghoulSerum"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_rakghoulserum",
+          10
+         ]
+        },
+        {
+         "xp": 200
+        },
+        {
+         "set_global_number": [
+          "Tar_RakSerum",
+          1
+         ]
+        },
+        {
+         "set_global_number": [
+          "Tar_ZelkaStor",
+          5
+         ]
+        }
+       ]
+      },
+      {
+       "module": "tar_m02ac",
+       "via": {
+        "dialog": "tar02_zelka021",
+        "node": 9,
+        "speaker": "Zelka021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "RakghoulSerum"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 8
+        }
+       ],
+       "branch": "before this line: if player alignment at most 14"
+      },
+      {
+       "module": "tar_m02ac",
+       "via": {
+        "dialog": "tar02_zelka021",
+        "node": 9,
+        "speaker": "Zelka021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "RakghoulSerum"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 6
+        }
+       ],
+       "branch": "before this line: if player alignment from 15 to 39"
+      },
+      {
+       "module": "tar_m02ac",
+       "via": {
+        "dialog": "tar02_zelka021",
+        "node": 9,
+        "speaker": "Zelka021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "RakghoulSerum"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 4
+        }
+       ],
+       "branch": "before this line: if player alignment from 40 to 60"
+      },
+      {
+       "module": "tar_m02ac",
+       "via": {
+        "dialog": "tar02_zelka021",
+        "node": 9,
+        "speaker": "Zelka021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "RakghoulSerum"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 2
+        }
+       ],
+       "branch": "before this line: if player alignment from 61 to 84"
+      },
+      {
+       "module": "tar_m02ac",
+       "via": {
+        "dialog": "tar02_zelka021",
+        "node": 9,
+        "speaker": "Zelka021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "RakghoulSerum"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 1
+        }
+       ],
+       "branch": "before this line: if player alignment at least 85"
+      },
+      {
+       "module": "tar_m02ac",
+       "via": {
+        "dialog": "tar02_zelka021",
+        "node": 9,
+        "speaker": "Zelka021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "light_side": 6
+        },
+        {
+         "set_global_number": [
+          "Tar_ZelkaStor",
+          3
+         ]
+        }
+       ],
+       "branch": "choice: reply R22 / if player alignment at most 14"
+      },
+      {
+       "module": "tar_m02ac",
+       "via": {
+        "dialog": "tar02_zelka021",
+        "node": 9,
+        "speaker": "Zelka021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "light_side": 4
+        },
+        {
+         "set_global_number": [
+          "Tar_ZelkaStor",
+          3
+         ]
+        }
+       ],
+       "branch": "choice: reply R22 / if player alignment from 15 to 39"
+      },
+      {
+       "module": "tar_m02ac",
+       "via": {
+        "dialog": "tar02_zelka021",
+        "node": 9,
+        "speaker": "Zelka021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "light_side": 2
+        },
+        {
+         "set_global_number": [
+          "Tar_ZelkaStor",
+          3
+         ]
+        }
+       ],
+       "branch": "choice: reply R22 / if player alignment from 40 to 60"
+      },
+      {
+       "module": "tar_m02ac",
+       "via": {
+        "dialog": "tar02_zelka021",
+        "node": 9,
+        "speaker": "Zelka021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "light_side": 1
+        },
+        {
+         "set_global_number": [
+          "Tar_ZelkaStor",
+          3
+         ]
+        }
+       ],
+       "branch": "choice: reply R22 / otherwise"
+      },
+      {
+       "module": "tar_m02ac",
+       "via": {
+        "dialog": "tar02_zelka021",
+        "node": 9,
+        "speaker": "Zelka021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "credits": 50
+        },
+        {
+         "give_item": [
+          "g_i_medeqpmnt01",
+          2
+         ]
+        }
+       ],
+       "branch": "choice: reply R20"
+      },
+      {
+       "module": "tar_m02ac",
+       "via": {
+        "dialog": "tar02_zelka021",
+        "node": 9,
+        "speaker": "Zelka021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [],
+       "branch": "choice: reply R19 or reply R17 / line E14"
+      },
+      {
+       "module": "tar_m02ac",
+       "via": {
+        "dialog": "tar02_zelka021",
+        "node": 9,
+        "speaker": "Zelka021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "set_global_number": [
+          "Tar_ZelkaStor",
+          3
+         ]
+        }
+       ],
+       "branch": "choice: reply R17 / line E15"
+      },
+      {
+       "module": "tar_m02ac",
+       "via": {
+        "dialog": "tar02_zelka021",
+        "node": 9,
+        "speaker": "Zelka021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 1
+        }
+       ],
+       "branch": "choice: reply R11 / if player alignment at most 39"
+      },
+      {
+       "module": "tar_m02ac",
+       "via": {
+        "dialog": "tar02_zelka021",
+        "node": 9,
+        "speaker": "Zelka021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 2
+        }
+       ],
+       "branch": "choice: reply R11 / if player alignment from 40 to 60"
+      },
+      {
+       "module": "tar_m02ac",
+       "via": {
+        "dialog": "tar02_zelka021",
+        "node": 9,
+        "speaker": "Zelka021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 4
+        }
+       ],
+       "branch": "choice: reply R11 / if player alignment from 61 to 84"
+      },
+      {
+       "module": "tar_m02ac",
+       "via": {
+        "dialog": "tar02_zelka021",
+        "node": 9,
+        "speaker": "Zelka021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 6
+        }
+       ],
+       "branch": "choice: reply R11 / if player alignment at least 85"
+      }
+     ]
+    },
+    {
+     "stage": 20,
+     "end": true,
+     "steps": [
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_zax031",
+        "node": 91,
+        "speaker": "Zax031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_ZelkaTk",
+         "op": "==",
+         "value": 3
+        },
+        {
+         "global_number": "Tar_RakSerum",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "RakghoulSerum"
+        }
+       ],
+       "does": [
+        {
+         "credits": 1000
+        },
+        {
+         "journal": [
+          "tar_rakghoulserum",
+          20
+         ]
+        }
+       ]
+      },
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_zax031",
+        "node": 91,
+        "speaker": "Zax031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_ZelkaTk",
+         "op": "==",
+         "value": 3
+        },
+        {
+         "global_number": "Tar_RakSerum",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "RakghoulSerum"
+        }
+       ],
+       "does": [
+        {
+         "xp": 200
+        },
+        {
+         "take_item": [
+          "RakghoulSerum",
+          1
+         ]
+        },
+        {
+         "set_global_number": [
+          "Tar_RakSerum",
+          2
+         ]
+        },
+        {
+         "dark_side": 1
+        }
+       ],
+       "branch": "if player alignment at most 39"
+      },
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_zax031",
+        "node": 91,
+        "speaker": "Zax031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_ZelkaTk",
+         "op": "==",
+         "value": 3
+        },
+        {
+         "global_number": "Tar_RakSerum",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "RakghoulSerum"
+        }
+       ],
+       "does": [
+        {
+         "xp": 200
+        },
+        {
+         "take_item": [
+          "RakghoulSerum",
+          1
+         ]
+        },
+        {
+         "set_global_number": [
+          "Tar_RakSerum",
+          2
+         ]
+        },
+        {
+         "dark_side": 2
+        }
+       ],
+       "branch": "if player alignment from 40 to 60"
+      },
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_zax031",
+        "node": 91,
+        "speaker": "Zax031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_ZelkaTk",
+         "op": "==",
+         "value": 3
+        },
+        {
+         "global_number": "Tar_RakSerum",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "RakghoulSerum"
+        }
+       ],
+       "does": [
+        {
+         "xp": 200
+        },
+        {
+         "take_item": [
+          "RakghoulSerum",
+          1
+         ]
+        },
+        {
+         "set_global_number": [
+          "Tar_RakSerum",
+          2
+         ]
+        },
+        {
+         "dark_side": 4
+        }
+       ],
+       "branch": "if player alignment from 61 to 84"
+      },
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_zax031",
+        "node": 91,
+        "speaker": "Zax031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_ZelkaTk",
+         "op": "==",
+         "value": 3
+        },
+        {
+         "global_number": "Tar_RakSerum",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "RakghoulSerum"
+        }
+       ],
+       "does": [
+        {
+         "xp": 200
+        },
+        {
+         "take_item": [
+          "RakghoulSerum",
+          1
+         ]
+        },
+        {
+         "set_global_number": [
+          "Tar_RakSerum",
+          2
+         ]
+        },
+        {
+         "dark_side": 6
+        }
+       ],
+       "branch": "if player alignment at least 85"
+      }
+     ]
+    }
+   ],
+   "notes": "stage 2: tar02_gurney021 E5 can be reached from 5 places; needs follow the shortest path stage 5: k_ptar_acquire04 (stage 5) also depends on: (GetTag(GetModuleItemAcquired()) == \"rakghoulserum\") stage 5: k_ptar_acquire04 (stage 5) also depends on: (GetTag(GetModuleItemAcquired()) == \"ptar_appjournal\"); (a helper function's result == 1); (GetTag(GetModuleItemAcquired()) == \"rakghoulserum\") stage 20: tar03_zax031 E91 can be reached from 2 places; needs follow the shortest path",
+   "own": true,
+   "run_ending": 10
+  },
+  {
+   "tag": "k_rapidtransit",
+   "stages": [
+    {
+     "stage": 1,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02aa",
+       "via": {
+        "script": "k_ptar_extapt"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "k_rapidtransit",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script k_ptar_extapt in tar_m02aa"
+      },
+      {
+       "module": "tar_m02ac",
+       "via": {
+        "script": "k_ptar_a02ac_en"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "k_rapidtransit",
+          1
+         ]
+        },
+        {
+         "other": "spawns tar02_gana02ac"
+        },
+        {
+         "other": "spawns tar02_levinthug"
+        },
+        {
+         "other": "destroys GetFirstObjectInArea(OBJECT_SELF, 1)"
+        },
+        {
+         "other": "destroys GetNextObjectInArea(OBJECT_SELF, 1)"
+        }
+       ],
+       "branch": "way 2: script k_ptar_a02ac_en in tar_m02ac"
+      }
+     ]
+    }
+   ],
+   "notes": "This quest is not a Taris quest by its tag; only the stages set on Taris are listed. Other planets also set its stages. stage 1 can be reached in 2 ways; each step's branch starts with its way UNCERTAIN: stage 1: script k_ptar_extapt is in tar_m02aa but nothing in the module's files names it (may be started by another script)"
+  },
+  {
+   "tag": "tar_rukilapprentice",
+   "stages": [
+    {
+     "stage": 1,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_rukil",
+        "node": 35,
+        "speaker": "Rukil04",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_rukilapprentice",
+          1
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 50,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "script": "k_ptar_acquire04"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_rukilapprentice",
+          50
+         ]
+        }
+       ],
+       "branch": "if not (GetTag(GetModuleItemAcquired()) == \"rakghoulserum\")"
+      },
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "script": "k_ptar_acquire04"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_rukilapprentice",
+          50
+         ]
+        },
+        {
+         "journal": [
+          "tar_rakghoulserum",
+          5
+         ]
+        }
+       ],
+       "branch": "if (GetTag(GetModuleItemAcquired()) == \"rakghoulserum\")"
+      }
+     ]
+    },
+    {
+     "stage": 99,
+     "end": true,
+     "steps": [
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_rukil",
+        "node": 3,
+        "speaker": "Rukil04",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "ptar_appjournal"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_rukilapprentice",
+          99
+         ]
+        },
+        {
+         "xp": 175
+        },
+        {
+         "set_global_number": [
+          "Tar_Rukil",
+          10
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "notes": "stage 50: k_ptar_acquire04 (stage 50) also depends on: (GetTag(GetModuleItemAcquired()) == \"ptar_appjournal\"); (a helper function's result == 1); not (GetTag(GetModuleItemAcquired()) == \"rakghoulserum\") stage 50: k_ptar_acquire04 (stage 50) also depends on: (GetTag(GetModuleItemAcquired()) == \"ptar_appjournal\"); (a helper function's result == 1); (GetTag(GetModuleItemAcquired()) == \"rakghoulserum\")",
+   "own": true,
+   "run_ending": 99
+  },
+  {
+   "tag": "tar_selvenbounty",
+   "stages": [
+    {
+     "stage": 1,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_zax031",
+        "node": 21,
+        "speaker": "Zax031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_ZaxBounty",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_selvenbounty",
+          1
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 66,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m03ab",
+       "via": {
+        "script": "k_ptar_seldeath"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_SelBoun",
+         "op": "==",
+         "value": 10
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_selvenbounty",
+          66
+         ]
+        },
+        {
+         "set_global_number": [
+          "Tar_SelBoun",
+          20
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 99,
+     "end": true,
+     "steps": [
+      {
+       "module": "tar_m03ae",
+       "via": {
+        "dialog": "tar03_zax031",
+        "node": 4,
+        "speaker": "Zax031",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_SelBoun",
+         "op": "==",
+         "value": 20
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_selvenbounty",
+          99
+         ]
+        },
+        {
+         "xp": 105
+        },
+        {
+         "set_global_number": [
+          "Tar_SelBoun",
+          99
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "notes": "stage 1: tar03_zax031 E21 can be reached from 2 places; needs follow the shortest path stage 99: conditional k_ptar_zaxboun passes in 50 different cases; only the tests shared by all are listed as needs. Cases: Tar_Dia != 40, Tar_Duel != 7, Tar_Matrik != 30, Tar_Matrik != 40, Tar_LargoBoun != 30, ... | Tar_Dia != 40, Tar_Duel != 7, Tar_Matrik != 30, Tar_Matrik != 40, Tar_LargoBoun == 30, ... | Tar_Dia != 40, Tar_Duel != 7, Tar_Matrik == 40, Tar_LargoBoun != 30, Tar_SelBoun != 20 | ...",
+   "own": true,
+   "run_ending": 99
+  },
+  {
+   "tag": "tar_planetinfo",
+   "stages": [
+    {
+     "stage": 1,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02aa",
+       "via": {
+        "dialog": "tar02_carth022",
+        "node": 40,
+        "speaker": "",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Carth",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_planetinfo",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: unknown speaker, dialog tar02_carth022 E40 in tar_m02aa"
+      },
+      {
+       "module": "tar_m02af",
+       "via": {
+        "dialog": "tar02_carth022",
+        "node": 51,
+        "speaker": "",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_planetinfo",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: unknown speaker, dialog tar02_carth022 E51 in tar_m02af"
+      }
+     ]
+    },
+    {
+     "stage": 99,
+     "end": true,
+     "steps": [
+      {
+       "module": "tar_m08aa",
+       "via": {
+        "dialog": "tar08_canderous",
+        "node": 0,
+        "speaker": "tar08_ebonhawk",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_planetinfo",
+          99
+         ]
+        }
+       ],
+       "branch": "way 1: tar08_ebonhawk, dialog tar08_canderous R0 in tar_m08aa"
+      },
+      {
+       "module": "tar_m08aa",
+       "via": {
+        "dialog": "tar08_ramp",
+        "node": 3,
+        "speaker": "Ramp",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_planetinfo",
+          99
+         ]
+        }
+       ],
+       "branch": "way 2: Ramp, dialog tar08_ramp R3 in tar_m08aa"
+      },
+      {
+       "module": "tar_m08aa",
+       "via": {
+        "dialog": "tar08_ramp",
+        "node": 3,
+        "speaker": "Ramp",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [],
+       "branch": "way 2: Ramp, dialog tar08_ramp R3 in tar_m08aa / if GetIsObjectValid(GetObjectByTag(\"calo082\", 0))"
+      },
+      {
+       "module": "tar_m08aa",
+       "via": {
+        "dialog": "tar08_ramp",
+        "node": 3,
+        "speaker": "Ramp",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "set_global_number": [
+          "K_CURRENT_PLANET",
+          15
+         ]
+        },
+        {
+         "set_global_bool": [
+          "Tar_Destroyed",
+          true
+         ]
+        },
+        {
+         "other": "removes the journal quest \"tar_party\""
+        },
+        {
+         "other": "removes the journal quest \"k_rapidtransit\""
+        },
+        {
+         "other": "removes the journal quest \"Tar_rancor\""
+        },
+        {
+         "other": "removes the journal quest \"end_attack\""
+        },
+        {
+         "other": "removes the journal quest \"tar_bendakbounty\""
+        },
+        {
+         "other": "removes the journal quest \"tar_diabounty\""
+        },
+        {
+         "other": "removes the journal quest \"tar_infectedoutcasts\""
+        },
+        {
+         "other": "removes the journal quest \"tar_vulkarbase\""
+        },
+        {
+         "other": "removes the journal quest \"tar_largobounty\""
+        },
+        {
+         "other": "removes the journal quest \"tar_matrik\""
+        },
+        {
+         "other": "removes the journal quest \"tar_rakghoulserum\""
+        },
+        {
+         "other": "removes the journal quest \"k_rapidtransit\""
+        },
+        {
+         "other": "removes the journal quest \"tar_rukilapprentice\""
+        },
+        {
+         "other": "removes the journal quest \"tar_selvenbounty\""
+        },
+        {
+         "other": "removes the journal quest \"tar_duelring\""
+        },
+        {
+         "other": "removes the journal quest \"tar_promisedland\""
+        },
+        {
+         "other": "removes the journal quest \"tar_bastsearch\""
+        },
+        {
+         "other": "removes the journal quest \"tar_buydroid\""
+        },
+        {
+         "journal": [
+          "tar_escape",
+          99
+         ]
+        },
+        {
+         "journal": [
+          "tar_planetinfo",
+          99
+         ]
+        },
+        {
+         "xp": 600
+        },
+        {
+         "other": "SetPartyLeader(-1)"
+        },
+        {
+         "other": "moves the party to module \"STUNT_06\""
+        }
+       ],
+       "branch": "way 2: Ramp, dialog tar08_ramp R3 in tar_m08aa / if not GetIsObjectValid(GetObjectByTag(\"calo082\", 0))"
+      },
+      {
+       "module": "tar_m08aa",
+       "via": {
+        "script": "k_ptar_tarisover"
+       },
+       "needs": [],
+       "does": [
+        {
+         "set_global_number": [
+          "K_CURRENT_PLANET",
+          15
+         ]
+        },
+        {
+         "set_global_bool": [
+          "Tar_Destroyed",
+          true
+         ]
+        },
+        {
+         "other": "removes the journal quest \"tar_party\""
+        },
+        {
+         "other": "removes the journal quest \"k_rapidtransit\""
+        },
+        {
+         "other": "removes the journal quest \"Tar_rancor\""
+        },
+        {
+         "other": "removes the journal quest \"end_attack\""
+        },
+        {
+         "other": "removes the journal quest \"tar_bendakbounty\""
+        },
+        {
+         "other": "removes the journal quest \"tar_diabounty\""
+        },
+        {
+         "other": "removes the journal quest \"tar_infectedoutcasts\""
+        },
+        {
+         "other": "removes the journal quest \"tar_vulkarbase\""
+        },
+        {
+         "other": "removes the journal quest \"tar_largobounty\""
+        },
+        {
+         "other": "removes the journal quest \"tar_matrik\""
+        },
+        {
+         "other": "removes the journal quest \"tar_rakghoulserum\""
+        },
+        {
+         "other": "removes the journal quest \"k_rapidtransit\""
+        },
+        {
+         "other": "removes the journal quest \"tar_rukilapprentice\""
+        },
+        {
+         "other": "removes the journal quest \"tar_selvenbounty\""
+        },
+        {
+         "other": "removes the journal quest \"tar_duelring\""
+        },
+        {
+         "other": "removes the journal quest \"tar_promisedland\""
+        },
+        {
+         "other": "removes the journal quest \"tar_bastsearch\""
+        },
+        {
+         "other": "removes the journal quest \"tar_buydroid\""
+        },
+        {
+         "journal": [
+          "tar_escape",
+          99
+         ]
+        },
+        {
+         "journal": [
+          "tar_planetinfo",
+          99
+         ]
+        },
+        {
+         "xp": 600
+        },
+        {
+         "other": "SetPartyLeader(-1)"
+        },
+        {
+         "other": "moves the party to module \"STUNT_06\""
+        }
+       ],
+       "branch": "way 3: script k_ptar_tarisover in tar_m08aa"
+      }
+     ]
+    }
+   ],
+   "notes": "stage 1 can be reached in 2 ways; each step's branch starts with its way stage 99: k_ptar_tarisover (stage 99) also depends on: not GetIsObjectValid(GetObjectByTag(\"calo082\", 0)) stage 99 can be reached in 3 ways; each step's branch starts with its way UNCERTAIN: stage 1: no creature, placeable or door template in tar_m02aa names dialog tar02_carth022, so its speaker is unknown; scripts that name it: k_ptar_carstr_en, k_ptar_carth01x UNCERTAIN: stage 1: no creature, placeable or door template in tar_m02af names dialog tar02_carth022, so its speaker is unknown; scripts that name it: k_ptar_carstr_en",
+   "own": true,
+   "run_ending": 99
+  },
+  {
+   "tag": "tar_duelring",
+   "stages": [
+    {
+     "stage": 1,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_duelorg021",
+        "node": 29,
+        "speaker": "DuelOrgan021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_duelring",
+          1
+         ]
+        },
+        {
+         "set_global_bool": [
+          "Tar_DuelPrep",
+          true
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_duelann021",
+        "node": 24,
+        "speaker": "DuelAnnoun021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_DuelOver",
+         "is": true
+        },
+        {
+         "global_bool": "Tar_DuelLost",
+         "is": false
+        },
+        {
+         "global_number": "Tar_Duel",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_duelring",
+          10
+         ]
+        },
+        {
+         "xp": 55
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 20,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_duelann021",
+        "node": 23,
+        "speaker": "DuelAnnoun021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_DuelOver",
+         "is": true
+        },
+        {
+         "global_bool": "Tar_DuelLost",
+         "is": false
+        },
+        {
+         "global_number": "Tar_Duel",
+         "op": "==",
+         "value": 2
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_duelring",
+          20
+         ]
+        },
+        {
+         "xp": 80
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 30,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_duelann021",
+        "node": 22,
+        "speaker": "DuelAnnoun021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_DuelOver",
+         "is": true
+        },
+        {
+         "global_bool": "Tar_DuelLost",
+         "is": false
+        },
+        {
+         "global_number": "Tar_Duel",
+         "op": "==",
+         "value": 3
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_duelring",
+          30
+         ]
+        },
+        {
+         "xp": 105
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 40,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_duelann021",
+        "node": 20,
+        "speaker": "DuelAnnoun021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_DuelOver",
+         "is": true
+        },
+        {
+         "global_bool": "Tar_DuelLost",
+         "is": false
+        },
+        {
+         "global_number": "Tar_Duel",
+         "op": "==",
+         "value": 4
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_duelring",
+          40
+         ]
+        },
+        {
+         "xp": 125
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 50,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_duelann021",
+        "node": 19,
+        "speaker": "DuelAnnoun021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_DuelOver",
+         "is": true
+        },
+        {
+         "global_bool": "Tar_DuelLost",
+         "is": false
+        },
+        {
+         "global_number": "Tar_Duel",
+         "op": "==",
+         "value": 5
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_duelring",
+          50
+         ]
+        },
+        {
+         "xp": 155
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 55,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_duelorg021",
+        "node": 42,
+        "speaker": "DuelOrgan021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Duel",
+         "op": ">=",
+         "value": 5
+        },
+        {
+         "global_bool": "TAR_DUELINPROGRESS",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_duelring",
+          55
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 60,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_bendak021",
+        "node": 18,
+        "speaker": "Bendakstar021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_BenChall",
+         "op": "==",
+         "value": 10
+        }
+       ],
+       "does": [
+        {
+         "set_global_number": [
+          "Tar_BenChall",
+          20
+         ]
+        },
+        {
+         "set_global_number": [
+          "Tar_Duel",
+          6
+         ]
+        },
+        {
+         "journal": [
+          "tar_duelring",
+          60
+         ]
+        }
+       ]
+      },
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_bendak021",
+        "node": 18,
+        "speaker": "Bendakstar021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [],
+       "branch": "choice: reply R19 (empty: [continue]) / if not (1 && GetIsObjectValid(OBJECT_SELF))"
+      },
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_bendak021",
+        "node": 18,
+        "speaker": "Bendakstar021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "local": [
+          "Bendakstar021",
+          "bool",
+          9,
+          1
+         ]
+        }
+       ],
+       "branch": "choice: reply R19 (empty: [continue]) / if GetIsObjectValid(OBJECT_SELF)"
+      }
+     ]
+    },
+    {
+     "stage": 99,
+     "end": true,
+     "steps": [
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_duelann021",
+        "node": 31,
+        "speaker": "DuelAnnoun021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Duel",
+         "op": "==",
+         "value": 7
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_duelring",
+          99
+         ]
+        },
+        {
+         "xp": 105
+        }
+       ],
+       "branch": "way 1: DuelAnnoun021, dialog tar02_duelann021 E31 in tar_m02ae"
+      },
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_duelorg021",
+        "node": 43,
+        "speaker": "DuelOrgan021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Duel",
+         "op": ">=",
+         "value": 5
+        },
+        {
+         "global_bool": "TAR_DUELINPROGRESS",
+         "is": false
+        },
+        {
+         "global_number": "Tar_Duel",
+         "op": "==",
+         "value": 7
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_duelring",
+          99
+         ]
+        }
+       ],
+       "branch": "way 2: DuelOrgan021, dialog tar02_duelorg021 E43 in tar_m02ae"
+      }
+     ]
+    }
+   ],
+   "notes": "stage 10: dialog tar02_duelann021 is used by several objects in tar_m02ae: DuelAnnoun021, k_ptar_invis_speaker stage 10: condition k_ptar_duel01 also tests: (player == player) stage 20: dialog tar02_duelann021 is used by several objects in tar_m02ae: DuelAnnoun021, k_ptar_invis_speaker stage 30: dialog tar02_duelann021 is used by several objects in tar_m02ae: DuelAnnoun021, k_ptar_invis_speaker stage 40: dialog tar02_duelann021 is used by several objects in tar_m02ae: DuelAnnoun021, k_ptar_invis_speaker stage 40: condition k_ptar_duel04 also tests: (player == player) stage 50: dialog tar02_duelann021 is used by several objects in tar_m02ae: DuelAnnoun021, k_ptar_invis_speaker stage 50: condition k_ptar_duel05 also tests: (player == player) stage 55: tar02_duelorg021 E42 can be reached from 2 places; needs follow the shortest path stage 99: dialog tar02_duelann021 is used by several objects in tar_m02ae: DuelAnnoun021, k_ptar_invis_speaker stage 99: condition k_ptar_duel07 also tests: (player == player) stage 99: tar02_duelorg021 E43 can be reached from 2 places; needs follow the shortest path stage 99 can be reached in 2 ways; each step's branch starts with its way",
+   "own": true,
+   "run_ending": 99
+  },
+  {
+   "tag": "tar_promisedland",
+   "stages": [
+    {
+     "stage": 1,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_rukil",
+        "node": 6,
+        "speaker": "Rukil04",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "ptar_appjournal"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_promisedland",
+          1
+         ]
+        }
+       ]
+      },
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_rukil",
+        "node": 6,
+        "speaker": "Rukil04",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "set_global_number": [
+          "Tar_Rukil",
+          15
+         ]
+        }
+       ],
+       "branch": "choice: reply R10"
+      },
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_rukil",
+        "node": 6,
+        "speaker": "Rukil04",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [],
+       "branch": "choice: reply R7"
+      }
+     ]
+    },
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_rukil",
+        "node": 18,
+        "speaker": "Rukil04",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Rukil",
+         "op": "==",
+         "value": 15
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_promisedland",
+          10
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 20,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_igear",
+        "node": 38,
+        "speaker": "Igear",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Rukil",
+         "op": "==",
+         "value": 20
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_promisedland",
+          20
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 22,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m05aa",
+       "via": {
+        "script": "k_ptar_acquire05"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Rukil",
+         "op": ">=",
+         "value": 20
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_promisedland",
+          22
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 25,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m05aa",
+       "via": {
+        "script": "k_ptar_acquire05"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Rukil",
+         "op": ">=",
+         "value": 20
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_promisedland",
+          25
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 30,
+     "end": true,
+     "steps": [
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_igear",
+        "node": 8,
+        "speaker": "Igear",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "ptar_appjournal"
+        },
+        {
+         "global_number": "Tar_Rukil",
+         "op": ">=",
+         "value": 30
+        }
+       ],
+       "does": [
+        {
+         "credits": 100
+        },
+        {
+         "journal": [
+          "tar_promisedland",
+          30
+         ]
+        }
+       ]
+      },
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_igear",
+        "node": 8,
+        "speaker": "Igear",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "ptar_appjournal"
+        },
+        {
+         "global_number": "Tar_Rukil",
+         "op": ">=",
+         "value": 30
+        }
+       ],
+       "does": [
+        {
+         "xp": 325
+        },
+        {
+         "dark_side": 1
+        },
+        {
+         "set_global_number": [
+          "Tar_Rukil",
+          50
+         ]
+        },
+        {
+         "take_item": [
+          "ptar_appjournal",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "ptar_rukjournal",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "ptar_rukjournal",
+          1
+         ]
+        }
+       ],
+       "branch": "if player alignment at most 39"
+      },
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_igear",
+        "node": 8,
+        "speaker": "Igear",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "ptar_appjournal"
+        },
+        {
+         "global_number": "Tar_Rukil",
+         "op": ">=",
+         "value": 30
+        }
+       ],
+       "does": [
+        {
+         "xp": 325
+        },
+        {
+         "dark_side": 2
+        },
+        {
+         "set_global_number": [
+          "Tar_Rukil",
+          50
+         ]
+        },
+        {
+         "take_item": [
+          "ptar_appjournal",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "ptar_rukjournal",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "ptar_rukjournal",
+          1
+         ]
+        }
+       ],
+       "branch": "if player alignment from 40 to 60"
+      },
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_igear",
+        "node": 8,
+        "speaker": "Igear",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "ptar_appjournal"
+        },
+        {
+         "global_number": "Tar_Rukil",
+         "op": ">=",
+         "value": 30
+        }
+       ],
+       "does": [
+        {
+         "xp": 325
+        },
+        {
+         "dark_side": 4
+        },
+        {
+         "set_global_number": [
+          "Tar_Rukil",
+          50
+         ]
+        },
+        {
+         "take_item": [
+          "ptar_appjournal",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "ptar_rukjournal",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "ptar_rukjournal",
+          1
+         ]
+        }
+       ],
+       "branch": "if player alignment from 61 to 84"
+      },
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_igear",
+        "node": 8,
+        "speaker": "Igear",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "item": "ptar_appjournal"
+        },
+        {
+         "global_number": "Tar_Rukil",
+         "op": ">=",
+         "value": 30
+        }
+       ],
+       "does": [
+        {
+         "xp": 325
+        },
+        {
+         "dark_side": 6
+        },
+        {
+         "set_global_number": [
+          "Tar_Rukil",
+          50
+         ]
+        },
+        {
+         "take_item": [
+          "ptar_appjournal",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "ptar_rukjournal",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "ptar_rukjournal",
+          1
+         ]
+        }
+       ],
+       "branch": "if player alignment at least 85"
+      }
+     ]
+    },
+    {
+     "stage": 40,
+     "end": true,
+     "steps": [
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_rukil",
+        "node": 62,
+        "speaker": "Rukil04",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Rukil",
+         "op": ">=",
+         "value": 10
+        },
+        {
+         "item": "ptar_appjournal"
+        },
+        {
+         "global_number": "Tar_Rukil",
+         "op": ">=",
+         "value": 20
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_promisedland",
+          40
+         ]
+        },
+        {
+         "xp": 325
+        },
+        {
+         "other": "removes the journal quest \"tar_infectedoutcasts\""
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "notes": "stage 20: tar04_igear E38 can be reached from 3 places; needs follow the shortest path stage 22: k_ptar_acquire05 (stage 22) also depends on: (GetTag(GetModuleItemAcquired()) == \"ptar_rukjournal\"); not (GetItemStackSize(GetItemPossessedBy(player, \"ptar_rukjournal\")) >= 2); (GetItemStackSize(GetItemPossessedBy(player, \"ptar_rukjournal\")) == 1) stage 25: k_ptar_acquire05 (stage 25) also depends on: (GetTag(GetModuleItemAcquired()) == \"ptar_rukjournal\"); (GetItemStackSize(GetItemPossessedBy(player, \"ptar_rukjournal\")) >= 2) stage 30: tar04_igear E8 can be reached from 2 places; needs follow the shortest path stage 40: tar04_rukil E62 can be reached from 2 places; needs follow the shortest path",
+   "own": true,
+   "run_ending": 30
+  },
+  {
+   "tag": "tar_bastsearch",
+   "stages": [
+    {
+     "stage": 1,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02aa",
+       "via": {
+        "dialog": "tar02_carth022",
+        "node": 40,
+        "speaker": "",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Carth",
+         "op": "==",
+         "value": 1
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_bastsearch",
+          1
+         ]
+        },
+        {
+         "other": "AddAvailableNPCByTemplate(2, \"p_carth\")"
+        }
+       ],
+       "branch": "way 1: unknown speaker, dialog tar02_carth022 R40 in tar_m02aa"
+      },
+      {
+       "module": "tar_m02af",
+       "via": {
+        "dialog": "tar02_carth022",
+        "node": 47,
+        "speaker": "",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_bastsearch",
+          1
+         ]
+        },
+        {
+         "other": "AddAvailableNPCByTemplate(2, \"p_carth\")"
+        }
+       ],
+       "branch": "way 2: unknown speaker, dialog tar02_carth022 R47 in tar_m02af"
+      }
+     ]
+    },
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02ab",
+       "via": {
+        "dialog": "tar02_sithguard",
+        "node": 0,
+        "speaker": "SithGuard",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_bastsearch",
+          10
+         ]
+        },
+        {
+         "set_global_bool": [
+          "Tar_NeedUniform",
+          true
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 15,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_sarna021",
+        "node": 12,
+        "speaker": "Sarna021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Sarna",
+         "op": "==",
+         "value": 40
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_bastsearch",
+          15
+         ]
+        }
+       ],
+       "branch": "way 1: Sarna021, dialog tar02_sarna021 E12 in tar_m02ae"
+      },
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_sarna021",
+        "node": 47,
+        "speaker": "Sarna021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Sarna",
+         "op": "==",
+         "value": 30
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_bastsearch",
+          15
+         ]
+        }
+       ],
+       "branch": "way 2: Sarna021, dialog tar02_sarna021 E47 in tar_m02ae"
+      },
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_yungenda21",
+        "node": 48,
+        "speaker": "YunGenda021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_YunGend",
+         "op": "==",
+         "value": 30
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_bastsearch",
+          15
+         ]
+        }
+       ],
+       "branch": "way 3: YunGenda021, dialog tar02_yungenda21 E48 in tar_m02ae"
+      },
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_yungenda21",
+        "node": 16,
+        "speaker": "YunGenda021",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_YunGend",
+         "op": "==",
+         "value": 40
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_bastsearch",
+          15
+         ]
+        }
+       ],
+       "branch": "way 4: YunGenda021, dialog tar02_yungenda21 R16 in tar_m02ae"
+      },
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_yungenda21",
+        "node": 16,
+        "speaker": "YunGenda021",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_YunGend",
+         "op": "==",
+         "value": 40
+        }
+       ],
+       "does": [
+        {
+         "set_global_number": [
+          "Tar_YunGend",
+          99
+         ]
+        },
+        {
+         "destroy": "sarna021"
+        }
+       ],
+       "branch": "way 4: YunGenda021, dialog tar02_yungenda21 R16 in tar_m02ae / if not (1 && GetIsObjectValid(GetObjectByTag(\"yungenda021\", 0)))"
+      },
+      {
+       "module": "tar_m02ae",
+       "via": {
+        "dialog": "tar02_yungenda21",
+        "node": 16,
+        "speaker": "YunGenda021",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_YunGend",
+         "op": "==",
+         "value": 40
+        }
+       ],
+       "does": [
+        {
+         "set_global_number": [
+          "Tar_YunGend",
+          99
+         ]
+        },
+        {
+         "local": [
+          "yungenda021",
+          "bool",
+          9,
+          1
+         ]
+        },
+        {
+         "destroy": "sarna021"
+        }
+       ],
+       "branch": "way 4: YunGenda021, dialog tar02_yungenda21 R16 in tar_m02ae / if GetIsObjectValid(GetObjectByTag(\"yungenda021\", 0))"
+      }
+     ]
+    },
+    {
+     "stage": 17,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02ad",
+       "via": {
+        "dialog": "tar02_sarna021",
+        "node": 54,
+        "speaker": "Sarna021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_Sarna",
+         "op": "==",
+         "value": 99
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_bastsearch",
+          17
+         ]
+        },
+        {
+         "other": "removes the journal quest \"tar_party\""
+        }
+       ],
+       "branch": "way 1: Sarna021, dialog tar02_sarna021 E54 in tar_m02ad"
+      },
+      {
+       "module": "tar_m02ad",
+       "via": {
+        "dialog": "tar02_sarna021",
+        "node": 54,
+        "speaker": "Sarna021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [],
+       "branch": "way 1: Sarna021, dialog tar02_sarna021 E54 in tar_m02ad / choice: reply R67 (empty: [continue]) / line E55 (empty) / if not (1 && GetIsObjectValid(GetNearestObjectByTag(\"tar02_playmusic\", OBJECT_SELF, 1))); not (1 && GetIsOb..."
+      },
+      {
+       "module": "tar_m02ad",
+       "via": {
+        "dialog": "tar02_sarna021",
+        "node": 54,
+        "speaker": "Sarna021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "local": [
+          "sarna021",
+          "bool",
+          9,
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: Sarna021, dialog tar02_sarna021 E54 in tar_m02ad / choice: reply R67 (empty: [continue]) / line E55 (empty) / if not (1 && GetIsObjectValid(GetNearestObjectByTag(\"tar02_playmusic\", OBJECT_SELF, 1))); GetIsObjectValid(..."
+      },
+      {
+       "module": "tar_m02ad",
+       "via": {
+        "dialog": "tar02_sarna021",
+        "node": 54,
+        "speaker": "Sarna021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "local": [
+          "tar02_playmusic",
+          "bool",
+          0,
+          0
+         ]
+        }
+       ],
+       "branch": "way 1: Sarna021, dialog tar02_sarna021 E54 in tar_m02ad / choice: reply R67 (empty: [continue]) / line E55 (empty) / if GetIsObjectValid(GetNearestObjectByTag(\"tar02_playmusic\", OBJECT_SELF, 1)); not (1 && GetIsObjectValid(G..."
+      },
+      {
+       "module": "tar_m02ad",
+       "via": {
+        "dialog": "tar02_sarna021",
+        "node": 54,
+        "speaker": "Sarna021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "local": [
+          "tar02_playmusic",
+          "bool",
+          0,
+          0
+         ]
+        },
+        {
+         "local": [
+          "sarna021",
+          "bool",
+          9,
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: Sarna021, dialog tar02_sarna021 E54 in tar_m02ad / choice: reply R67 (empty: [continue]) / line E55 (empty) / if GetIsObjectValid(GetNearestObjectByTag(\"tar02_playmusic\", OBJECT_SELF, 1)); GetIsObjectValid(GetObjectBy..."
+      },
+      {
+       "module": "tar_m02ad",
+       "via": {
+        "dialog": "tar02_yungenda21",
+        "node": 52,
+        "speaker": "YunGenda021",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "Tar_YunGend",
+         "op": "==",
+         "value": 99
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_bastsearch",
+          17
+         ]
+        },
+        {
+         "other": "removes the journal quest \"tar_party\""
+        }
+       ],
+       "branch": "way 2: YunGenda021, dialog tar02_yungenda21 E52 in tar_m02ad"
+      },
+      {
+       "module": "tar_m02ad",
+       "via": {
+        "dialog": "tar02_yungenda21",
+        "node": 52,
+        "speaker": "YunGenda021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [],
+       "branch": "way 2: YunGenda021, dialog tar02_yungenda21 E52 in tar_m02ad / choice: reply R65 (empty: [continue]) / line E53 (empty) / if not (1 && GetIsObjectValid(GetNearestObjectByTag(\"tar02_playmusic\", OBJECT_SELF, 1))); not (1 && GetIsOb..."
+      },
+      {
+       "module": "tar_m02ad",
+       "via": {
+        "dialog": "tar02_yungenda21",
+        "node": 52,
+        "speaker": "YunGenda021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "local": [
+          "sarna021",
+          "bool",
+          9,
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: YunGenda021, dialog tar02_yungenda21 E52 in tar_m02ad / choice: reply R65 (empty: [continue]) / line E53 (empty) / if not (1 && GetIsObjectValid(GetNearestObjectByTag(\"tar02_playmusic\", OBJECT_SELF, 1))); GetIsObjectValid(..."
+      },
+      {
+       "module": "tar_m02ad",
+       "via": {
+        "dialog": "tar02_yungenda21",
+        "node": 52,
+        "speaker": "YunGenda021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "local": [
+          "tar02_playmusic",
+          "bool",
+          0,
+          0
+         ]
+        }
+       ],
+       "branch": "way 2: YunGenda021, dialog tar02_yungenda21 E52 in tar_m02ad / choice: reply R65 (empty: [continue]) / line E53 (empty) / if GetIsObjectValid(GetNearestObjectByTag(\"tar02_playmusic\", OBJECT_SELF, 1)); not (1 && GetIsObjectValid(G..."
+      },
+      {
+       "module": "tar_m02ad",
+       "via": {
+        "dialog": "tar02_yungenda21",
+        "node": 52,
+        "speaker": "YunGenda021",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "local": [
+          "tar02_playmusic",
+          "bool",
+          0,
+          0
+         ]
+        },
+        {
+         "local": [
+          "sarna021",
+          "bool",
+          9,
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: YunGenda021, dialog tar02_yungenda21 E52 in tar_m02ad / choice: reply R65 (empty: [continue]) / line E53 (empty) / if GetIsObjectValid(GetNearestObjectByTag(\"tar02_playmusic\", OBJECT_SELF, 1)); GetIsObjectValid(GetObjectBy..."
+      }
+     ]
+    },
+    {
+     "stage": 20,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m02ab",
+       "via": {
+        "dialog": "tar02_sithguard",
+        "node": 11,
+        "speaker": "SithGuard",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "TAR_DISGUISEXP",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_bastsearch",
+          20
+         ]
+        },
+        {
+         "xp": 350
+        },
+        {
+         "set_global_bool": [
+          "TAR_DISGUISEXP",
+          true
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 25,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m03aa",
+       "via": {
+        "dialog": "tar03_sithpat31",
+        "node": 2,
+        "speaker": "SithPatrol031",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_bastsearch",
+          25
+         ]
+        }
+       ],
+       "branch": "way 1: SithPatrol031, dialog tar03_sithpat31 E2 in tar_m03aa"
+      },
+      {
+       "module": "tar_m03aa",
+       "via": {
+        "dialog": "tar03_sithpat31",
+        "node": 6,
+        "speaker": "SithPatrol031",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_bastsearch",
+          25
+         ]
+        }
+       ],
+       "branch": "way 2: SithPatrol031, dialog tar03_sithpat31 E6 in tar_m03aa"
+      }
+     ]
+    },
+    {
+     "stage": 28,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_blackvulk",
+        "node": 5,
+        "speaker": "",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_bastsearch",
+          28
+         ]
+        },
+        {
+         "set_global_bool": [
+          "Tar_BastVulk",
+          true
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 30,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m11aa",
+       "via": {
+        "dialog": "tar11_gadon112",
+        "node": 71,
+        "speaker": "GadonThek112",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_BastVulk",
+         "is": true
+        },
+        {
+         "global_bool": "Tar_GadonMission",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_bastsearch",
+          30
+         ]
+        },
+        {
+         "take_item": [
+          "ptar_sitharmor",
+          1
+         ]
+        },
+        {
+         "give_item": [
+          "ptar_sithpapers",
+          1
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 33,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_mission",
+        "node": 1,
+        "speaker": "Mission",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_bastsearch",
+          33
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 35,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_mission",
+        "node": 5,
+        "speaker": "Mission",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_bastsearch",
+          35
+         ]
+        },
+        {
+         "xp": 330
+        }
+       ]
+      },
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_mission",
+        "node": 5,
+        "speaker": "Mission",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [],
+       "branch": "choice: reply R7 (empty: [continue]) / line E8"
+      },
+      {
+       "module": "tar_m04aa",
+       "via": {
+        "dialog": "tar04_mission",
+        "node": 5,
+        "speaker": "Mission",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "set_global_number": [
+          "Tar_Mission",
+          30
+         ]
+        }
+       ],
+       "branch": "choice: reply R7 (empty: [continue]) / line E6"
+      }
+     ]
+    },
+    {
+     "stage": 37,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m10ac",
+       "via": {
+        "script": "k_ptar_accelused"
+       },
+       "needs": [],
+       "does": [
+        {
+         "set_global_bool": [
+          "Tar_SwoopEng",
+          true
+         ]
+        },
+        {
+         "give_item": [
+          "tar10_accelerato",
+          1
+         ]
+        },
+        {
+         "destroy": "tar10_accelerator"
+        },
+        {
+         "journal": [
+          "tar_bastsearch",
+          37
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 40,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m05aa",
+       "via": {
+        "dialog": "missdoor_dlg",
+        "node": 24,
+        "speaker": "Mission",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_bastsearch",
+          40
+         ]
+        },
+        {
+         "xp": 630
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 45,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m10ac",
+       "via": {
+        "dialog": "tar10_kandon01",
+        "node": 9,
+        "speaker": "KandonArk101",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_bastsearch",
+          45
+         ]
+        }
+       ]
+      },
+      {
+       "module": "tar_m10ac",
+       "via": {
+        "dialog": "tar10_kandon01",
+        "node": 9,
+        "speaker": "KandonArk101",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [],
+       "branch": "choice: reply R18 / line E17 or reply R16 or reply R12 (or 1 more)"
+      },
+      {
+       "module": "tar_m10ac",
+       "via": {
+        "dialog": "tar10_kandon01",
+        "node": 9,
+        "speaker": "KandonArk101",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 1
+        }
+       ],
+       "branch": "choice: reply R18 / line E14 / if player alignment at most 39"
+      },
+      {
+       "module": "tar_m10ac",
+       "via": {
+        "dialog": "tar10_kandon01",
+        "node": 9,
+        "speaker": "KandonArk101",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 2
+        }
+       ],
+       "branch": "choice: reply R18 / line E14 / if player alignment from 40 to 60"
+      },
+      {
+       "module": "tar_m10ac",
+       "via": {
+        "dialog": "tar10_kandon01",
+        "node": 9,
+        "speaker": "KandonArk101",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 4
+        }
+       ],
+       "branch": "choice: reply R18 / line E14 / if player alignment from 61 to 84"
+      },
+      {
+       "module": "tar_m10ac",
+       "via": {
+        "dialog": "tar10_kandon01",
+        "node": 9,
+        "speaker": "KandonArk101",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "dark_side": 6
+        }
+       ],
+       "branch": "choice: reply R18 / line E14 / if player alignment at least 85"
+      }
+     ]
+    },
+    {
+     "stage": 47,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m10ac",
+       "via": {
+        "script": "tar10_acquire"
+       },
+       "needs": [
+        {
+         "item": "tar10_accelerator"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_bastsearch",
+          47
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 50,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m11aa",
+       "via": {
+        "dialog": "tar11_gadon112",
+        "node": 17,
+        "speaker": "GadonThek112",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_SummonGadon",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_bastsearch",
+          50
+         ]
+        },
+        {
+         "xp": 630
+        },
+        {
+         "other": "RemovePartyMember(0)"
+        },
+        {
+         "other": "RemovePartyMember(1)"
+        },
+        {
+         "other": "RemovePartyMember(2)"
+        },
+        {
+         "other": "RemovePartyMember(3)"
+        },
+        {
+         "other": "RemovePartyMember(4)"
+        },
+        {
+         "other": "RemovePartyMember(5)"
+        },
+        {
+         "other": "RemovePartyMember(6)"
+        },
+        {
+         "other": "RemovePartyMember(7)"
+        },
+        {
+         "other": "RemovePartyMember(8)"
+        },
+        {
+         "other": "destroys GetPartyMemberByIndex(1)"
+        },
+        {
+         "other": "destroys GetPartyMemberByIndex(2)"
+        },
+        {
+         "other": "spawns tar11_csbek"
+        }
+       ]
+      },
+      {
+       "module": "tar_m11aa",
+       "via": {
+        "dialog": "tar11_gadon112",
+        "node": 17,
+        "speaker": "GadonThek112",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [],
+       "branch": "choice: reply R20 (empty: [continue]) / line E18 / if not (1 && GetIsObjectValid(GetObjectByTag(\"tar11_csbek\", 0)))"
+      },
+      {
+       "module": "tar_m11aa",
+       "via": {
+        "dialog": "tar11_gadon112",
+        "node": 17,
+        "speaker": "GadonThek112",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "local": [
+          "tar11_csbek",
+          "bool",
+          9,
+          1
+         ]
+        }
+       ],
+       "branch": "choice: reply R20 (empty: [continue]) / line E18 / if GetIsObjectValid(GetObjectByTag(\"tar11_csbek\", 0))"
+      }
+     ]
+    },
+    {
+     "stage": 55,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m03aa",
+       "via": {
+        "dialog": "tar10_kandon01",
+        "node": 10,
+        "speaker": "",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_GadonDead",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_bastsearch",
+          55
+         ]
+        },
+        {
+         "xp": 630
+        },
+        {
+         "other": "moves the party to module \"tar_m03af\""
+        },
+        {
+         "other": "SetLocalBoolean on the object running the script: index 9 = 1"
+        }
+       ],
+       "branch": "way 1: unknown speaker, dialog tar10_kandon01 E10 in tar_m03aa"
+      },
+      {
+       "module": "tar_m10aa",
+       "via": {
+        "dialog": "tar10_kandon01",
+        "node": 11,
+        "speaker": "KandonArk101",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_GadonDead",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_bastsearch",
+          55
+         ]
+        },
+        {
+         "xp": 630
+        },
+        {
+         "other": "destroys a helper function's result"
+        },
+        {
+         "other": "spawns tar11_csvulkar"
+        }
+       ],
+       "branch": "way 2: KandonArk101, dialog tar10_kandon01 E11 in tar_m10aa"
+      },
+      {
+       "module": "tar_m10ac",
+       "via": {
+        "dialog": "tar10_kandon01",
+        "node": 49,
+        "speaker": "KandonArk101",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "global_bool": "Tar_GadonDead",
+         "is": true
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "tar_bastsearch",
+          55
+         ]
+        },
+        {
+         "other": "moves the party to module \"tar_m03af\""
+        }
+       ],
+       "branch": "way 3: KandonArk101, dialog tar10_kandon01 R49 in tar_m10ac"
+      }
+     ]
+    },
+    {
+     "stage": 60,
+     "end": false,
+     "steps": [
+      {
+       "module": "tar_m03af",
+       "via": {
+        "dialog": "tar03_brejik031",
+        "node": 21,
+        "speaker": "Brejik031",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_bastsearch",
+          60
+         ]
+        },
+        {
+         "destroy": "Brejik031"
+        },
+        {
+         "destroy": "Brejik031"
+        },
+        {
+         "destroy": "Brejik031"
+        },
+        {
+         "destroy": "Brejik031"
+        },
+        {
+         "destroy": "Brejik031"
+        },
+        {
+         "other": "changes the faction of redros to STANDARD_FACTION_HOSTILE_1"
+        },
+        {
+         "other": "runs script k_ai_master (its effects branch or could not be read)"
+        },
+        {
+         "other": "changes the faction of Brejik031 to STANDARD_FACTION_HOSTILE_1"
+        },
+        {
+         "other": "changes the faction of tar03_bastguard to STANDARD_FACTION_HOSTILE_1"
+        },
+        {
+         "other": "runs script k_ai_master (its effects branch or could not be read)"
+        },
+        {
+         "other": "runs script k_ai_master (its effects branch or could not be read)"
+        },
+        {
+         "other": "changes the faction of tar03_vulkguard to STANDARD_FACTION_HOSTILE_1"
+        }
+       ]
+      },
+      {
+       "module": "tar_m03af",
+       "via": {
+        "dialog": "tar03_brejik031",
+        "node": 21,
+        "speaker": "Brejik031",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [],
+       "branch": "otherwise"
+      },
+      {
+       "module": "tar_m03af",
+       "via": {
+        "dialog": "tar03_brejik031",
+        "node": 21,
+        "speaker": "Brejik031",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "destroy": "cp_tar03_pchandl"
+        }
+       ],
+       "branch": "if GetIsObjectValid(GetFirstItemInInventory(GetObjectByTag(\"cp_tar03_pchandl\", 0))); GetIsObjectValid(GetFi..."
+      },
+      {
+       "module": "tar_m03af",
+       "via": {
+        "dialog": "tar03_brejik031",
+        "node": 21,
+        "speaker": "Brejik031",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "destroy": "cp_tar03_pchandr"
+        }
+       ],
+       "branch": "if GetIsObjectValid(GetFirstItemInInventory(GetObjectByTag(\"cp_tar03_pchandr\", 0))); GetIsObjectValid(GetFi..."
+      },
+      {
+       "module": "tar_m03af",
+       "via": {
+        "dialog": "tar03_brejik031",
+        "node": 21,
+        "speaker": "Brejik031",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "destroy": "cp_tar03_pchandr"
+        },
+        {
+         "destroy": "cp_tar03_pchandl"
+        }
+       ],
+       "branch": "if GetIsObjectValid(GetFirstItemInInventory(GetObjectByTag(\"cp_tar03_pchandr\", 0))); GetIsObjectValid(GetFi..."
+      }
+     ]
+    },
+    {
+     "stage": 99,
+     "end": true,
+     "steps": [
+      {
+       "module": "tar_m02aa",
+       "via": {
+        "dialog": "tar02_carbast",
+        "node": 1,
+        "speaker": "Bastila",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "tar_bastsearch",
+          99
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "notes": "stage 1 can be reached in 2 ways; each step's branch starts with its way stage 15: tar02_sarna021 E12 can be reached from 2 places; needs follow the shortest path stage 15 can be reached in 4 ways; each step's branch starts with its way stage 17 can be reached in 2 ways; each step's branch starts with its way stage 25 can be reached in 2 ways; each step's branch starts with its way stage 33: tar04_mission E1 can be reached from 3 places; needs follow the shortest path stage 40: dialog missdoor_dlg is used by several objects in tar_m05aa: ptar_missdoor0, ptar_missdoor1, tar05_celltalker stage 40: missdoor_dlg E24 can be reached from 2 places; needs follow the shortest path stage 45: dialog tar10_kandon01 is used by several objects in tar_m10ac: KandonArk101, tar10_kandtalker stage 47: tar10_acquire (stage 47) also depends on: (GetTag(GetModuleItemAcquired()) == \"tar10_accelerator\") stage 55: dialog tar10_kandon01 is used by several objects in tar_m10ac: KandonArk101, tar10_kandtalker stage 55 can be reached in 3 ways; each step's branch starts with its way stage 60: dialog tar03_brejik031 is used by several objects in tar_m03af: Brejik031, converse stage 99: dialog tar02_carbast gives the same steps in tar_m02af UNCERTAIN: stage 1: no creature, placeable or door template in tar_m02aa names dialog tar02_carth022, so its speaker is unknown; scripts that name it: k_ptar_carstr_en, k_ptar_carth01x UNCERTAIN: stage 1: no creature, placeable or door template in tar_m02af names dialog tar02_carth022, so its speaker is unknown; scripts that name it: k_ptar_carstr_en UNCERTAIN: stage 28: no creature, placeable or door template in tar_m04aa names dialog tar04_blackvulk, so its speaker is unknown UNCERTAIN: stage 47: script tar10_acquire is in tar_m10ac but nothing in the module's files names it (may be started by another script) UNCERTAIN: stage 55: no creature, placeable or door template in tar_m03aa names dialog tar10_kandon01, so its speaker is unknown UNCERTAIN: stage 99: no creature, placeable or door template in tar_m02aa names dialog tar02_carbast, so its speaker is unknown; scripts that name it: k_ptar_carbas_en",
+   "own": true,
+   "run_ending": 99
+  }
+ ]
+}

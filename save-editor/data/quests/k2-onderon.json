@@ -1,0 +1,8287 @@
+{
+ "game": "K2",
+ "planet": "Onderon",
+ "generated_by": "tools/questdb/build.py",
+ "checked": false,
+ "quests": [
+  {
+   "tag": "docalibi",
+   "stages": [
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "512ond",
+       "via": {
+        "dialog": "d_thug",
+        "node": 2,
+        "speaker": "npc_dhagon_thug",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "docalibi",
+          10
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 20,
+     "end": false,
+     "steps": [
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "mp_riike",
+        "node": 102,
+        "speaker": "g_riiken",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "docalibi",
+          20
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 30,
+     "end": false,
+     "steps": [
+      {
+       "module": "503ond",
+       "via": {
+        "dialog": "kiph",
+        "node": 35,
+        "speaker": "kiph",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "docalibi",
+          30
+         ]
+        }
+       ],
+       "branch": "way 1: kiph, dialog kiph E35 in 503ond"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "dialog": "panar",
+        "node": 29,
+        "speaker": "npc_panar",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "docalibi",
+          30
+         ]
+        }
+       ],
+       "branch": "way 2: npc_panar, dialog panar E29 in 503ond"
+      }
+     ],
+     "journal_xp": 250
+    },
+    {
+     "stage": 35,
+     "end": false,
+     "steps": [
+      {
+       "module": "503ond",
+       "via": {
+        "dialog": "bahima",
+        "node": 23,
+        "speaker": "bahima",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "docalibi",
+          35
+         ]
+        },
+        {
+         "set_global_number": [
+          "503OND_Cap_Murder",
+          2
+         ]
+        }
+       ],
+       "branch": "way 1: bahima, dialog bahima E23 in 503ond"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "dialog": "nikko",
+        "node": 34,
+        "speaker": "npc_nikko",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "docalibi",
+          35
+         ]
+        },
+        {
+         "set_global_number": [
+          "503OND_Cap_Murder",
+          2
+         ]
+        }
+       ],
+       "branch": "way 2: npc_nikko, dialog nikko E34 in 503ond"
+      }
+     ],
+     "journal_xp": 250
+    },
+    {
+     "stage": 40,
+     "end": false,
+     "steps": [
+      {
+       "module": "503ond",
+       "via": {
+        "dialog": "nikko",
+        "node": 32,
+        "speaker": "npc_nikko",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "docalibi",
+          40
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 250
+    },
+    {
+     "stage": 50,
+     "end": false,
+     "steps": [
+      {
+       "module": "512ond",
+       "via": {
+        "dialog": "al_droid",
+        "node": 2,
+        "speaker": "alibi_droid",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "docalibi",
+          50
+         ]
+        },
+        {
+         "set_global_number": [
+          "503OND_Cap_Murder",
+          4
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 250
+    },
+    {
+     "stage": 60,
+     "end": false,
+     "steps": [
+      {
+       "module": "503ond",
+       "via": {
+        "dialog": "panar",
+        "node": 24,
+        "speaker": "npc_panar",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "docalibi",
+          60
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 250
+    },
+    {
+     "stage": 70,
+     "end": false,
+     "steps": [
+      {
+       "module": "512ond",
+       "via": {
+        "dialog": "mp_128",
+        "node": 24,
+        "speaker": "128",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "docalibi",
+          70
+         ]
+        },
+        {
+         "set_global_number": [
+          "503OND_Cap_Murder",
+          5
+         ]
+        },
+        {
+         "credits": -25
+        },
+        {
+         "give_item": [
+          "pl_alibi_s0d3",
+          1
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 250
+    },
+    {
+     "stage": 80,
+     "end": false,
+     "steps": [
+      {
+       "module": "503ond",
+       "via": {
+        "dialog": "kiph",
+        "node": 25,
+        "speaker": "kiph",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "destroy": "killer"
+        },
+        {
+         "destroy": "sullio_body"
+        },
+        {
+         "journal": [
+          "docalibi",
+          80
+         ]
+        },
+        {
+         "set_global_number": [
+          "503OND_Cap_Murder",
+          6
+         ]
+        },
+        {
+         "destroy": "sod3"
+        }
+       ]
+      }
+     ],
+     "journal_xp": 250
+    },
+    {
+     "stage": 99,
+     "end": true,
+     "steps": [
+      {
+       "module": "512ond",
+       "via": {
+        "dialog": "dhagon",
+        "node": 20,
+        "speaker": "dhagon",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "docalibi",
+          99
+         ]
+        }
+       ]
+      },
+      {
+       "module": "512ond",
+       "via": {
+        "dialog": "dhagon",
+        "node": 20,
+        "speaker": "dhagon",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "stage": [
+          "LightsaberQuest",
+          40
+         ],
+         "op": ">="
+        }
+       ],
+       "does": [],
+       "branch": "if journal LightsaberQuest >= 40"
+      },
+      {
+       "module": "512ond",
+       "via": {
+        "dialog": "dhagon",
+        "node": 20,
+        "speaker": "dhagon",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "stage": [
+          "LightsaberQuest",
+          40
+         ],
+         "op": "<"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "LightsaberQuest",
+          10
+         ]
+        },
+        {
+         "give_item": [
+          "",
+          1
+         ]
+        }
+       ],
+       "branch": "if journal LightsaberQuest < 40"
+      }
+     ],
+     "journal_xp": 1000
+    }
+   ],
+   "notes": "stage 10: dialog d_thug is used by several objects in 512ond: npc_dhagon_thug, thug_gun, thug_melee stage 10: d_thug R2 can be reached from 2 places; needs follow the shortest path stage 20: mp_riike R102 can be reached from 5 places; needs follow the shortest path stage 30 can be reached in 2 ways; each step's branch starts with its way stage 35 can be reached in 2 ways; each step's branch starts with its way UNCERTAIN: stage 10: the condition script c_talkedto|0,0,0,0,0,;!c_global_eq|8,0,0,0,0,503OND_Cap_Murder on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 10: the condition script c_mand_inparty|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 10: the condition script c_local_notset|51,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 20: the condition script c_talkedto|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 20: the condition script c_quest_status|10,0,0,0,0,docalibi on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 20: the condition script c_local_set|50,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 30: the condition script c_talkedto|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 30: the condition script c_alibi_onquest|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 30: the condition script c_alibi_check|20,1,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 30: the condition script c_local_notset|40,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 35: the condition script c_alibi_onquest|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 35: the condition script c_alibi_check|30,1,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 35: the condition script c_talkedto|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 35: the condition script c_alibi_check|30,1,0,0,0,;c_local_notset|51,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 40: the condition script c_talkedto|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 40: the condition script c_alibi_onquest|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 40: the condition script c_alibi_check|35,1,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 50: the condition script c_alibi_start|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 60: the condition script c_local_notset|40,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 60: the condition script c_alibi_onquest|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 60: the condition script c_alibi_check|50,1,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 70: the condition script c_local_notset|51,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 70: the condition script c_alibi_droid|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 70: the condition script c_chkcredits|25,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 80: the condition script c_talkedto|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 80: the condition script c_alibi_onquest|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 80: the condition script c_alibi_check|70,1,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 99: the condition script c_talkedto|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 99: the condition script c_darkhigh|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 99: a script near dhagon E20 was too large to follow completely",
+   "own": true,
+   "run_ending": 99
+  },
+  {
+   "tag": "matter_leader",
+   "stages": [
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "mp_anda",
+        "node": 22,
+        "speaker": "g_anda",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "matter_leader",
+          10
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 20,
+     "end": false,
+     "steps": [],
+     "journal_xp": 150
+    },
+    {
+     "stage": 30,
+     "end": false,
+     "steps": [],
+     "journal_xp": 150
+    },
+    {
+     "stage": 40,
+     "end": false,
+     "steps": [],
+     "journal_xp": 150
+    },
+    {
+     "stage": 90,
+     "end": true,
+     "steps": [
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "mp_anda",
+        "node": 18,
+        "speaker": "g_anda",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "matter_leader",
+          90
+         ]
+        },
+        {
+         "xp": 1000
+        }
+       ]
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "mp_anda",
+        "node": 18,
+        "speaker": "g_anda",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "destroy": "g_anda"
+        }
+       ],
+       "branch": "choice: reply R16 (empty: [continue]) / if GetLocalBoolean(OBJECT_SELF, 57); GetLocalBoolean(OBJECT_SELF, 56); GetLocalBoolean(OBJECT_SELF, 55)"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "mp_anda",
+        "node": 18,
+        "speaker": "g_anda",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "destroy": "g_anda"
+        },
+        {
+         "local": [
+          "g_anda",
+          "bool",
+          55,
+          1
+         ]
+        },
+        {
+         "credits": 2500
+        }
+       ],
+       "branch": "choice: reply R16 (empty: [continue]) / if GetLocalBoolean(OBJECT_SELF, 57); GetLocalBoolean(OBJECT_SELF, 56); not GetLocalBoolean(OBJECT_SELF, 55)"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "mp_anda",
+        "node": 18,
+        "speaker": "g_anda",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "destroy": "g_anda"
+        },
+        {
+         "local": [
+          "g_anda",
+          "bool",
+          56,
+          1
+         ]
+        },
+        {
+         "credits": 2500
+        }
+       ],
+       "branch": "choice: reply R16 (empty: [continue]) / if GetLocalBoolean(OBJECT_SELF, 57); not GetLocalBoolean(OBJECT_SELF, 56); GetLocalBoolean(OBJECT_SELF, 55)"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "mp_anda",
+        "node": 18,
+        "speaker": "g_anda",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "destroy": "g_anda"
+        },
+        {
+         "local": [
+          "g_anda",
+          "bool",
+          56,
+          1
+         ]
+        },
+        {
+         "credits": 2500
+        },
+        {
+         "local": [
+          "g_anda",
+          "bool",
+          55,
+          1
+         ]
+        },
+        {
+         "credits": 2500
+        }
+       ],
+       "branch": "choice: reply R16 (empty: [continue]) / if GetLocalBoolean(OBJECT_SELF, 57); not GetLocalBoolean(OBJECT_SELF, 56); not GetLocalBoolean(OBJECT_SELF,..."
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "mp_anda",
+        "node": 18,
+        "speaker": "g_anda",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "destroy": "g_anda"
+        },
+        {
+         "local": [
+          "g_anda",
+          "bool",
+          57,
+          1
+         ]
+        },
+        {
+         "credits": 2500
+        }
+       ],
+       "branch": "choice: reply R16 (empty: [continue]) / if not GetLocalBoolean(OBJECT_SELF, 57); GetLocalBoolean(OBJECT_SELF, 56); GetLocalBoolean(OBJECT_SELF, 55)"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "mp_anda",
+        "node": 18,
+        "speaker": "g_anda",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "destroy": "g_anda"
+        },
+        {
+         "local": [
+          "g_anda",
+          "bool",
+          57,
+          1
+         ]
+        },
+        {
+         "credits": 2500
+        },
+        {
+         "local": [
+          "g_anda",
+          "bool",
+          55,
+          1
+         ]
+        },
+        {
+         "credits": 2500
+        }
+       ],
+       "branch": "choice: reply R16 (empty: [continue]) / if not GetLocalBoolean(OBJECT_SELF, 57); GetLocalBoolean(OBJECT_SELF, 56); not GetLocalBoolean(OBJECT_SELF,..."
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "mp_anda",
+        "node": 18,
+        "speaker": "g_anda",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "destroy": "g_anda"
+        },
+        {
+         "local": [
+          "g_anda",
+          "bool",
+          57,
+          1
+         ]
+        },
+        {
+         "credits": 2500
+        },
+        {
+         "local": [
+          "g_anda",
+          "bool",
+          56,
+          1
+         ]
+        },
+        {
+         "credits": 2500
+        }
+       ],
+       "branch": "choice: reply R16 (empty: [continue]) / if not GetLocalBoolean(OBJECT_SELF, 57); not GetLocalBoolean(OBJECT_SELF, 56); GetLocalBoolean(OBJECT_SELF,..."
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "mp_anda",
+        "node": 18,
+        "speaker": "g_anda",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "destroy": "g_anda"
+        },
+        {
+         "local": [
+          "g_anda",
+          "bool",
+          57,
+          1
+         ]
+        },
+        {
+         "credits": 2500
+        },
+        {
+         "local": [
+          "g_anda",
+          "bool",
+          56,
+          1
+         ]
+        },
+        {
+         "credits": 2500
+        },
+        {
+         "local": [
+          "g_anda",
+          "bool",
+          55,
+          1
+         ]
+        },
+        {
+         "credits": 2500
+        }
+       ],
+       "branch": "choice: reply R16 (empty: [continue]) / if not GetLocalBoolean(OBJECT_SELF, 57); not GetLocalBoolean(OBJECT_SELF, 56); not GetLocalBoolean(OBJECT_S..."
+      }
+     ]
+    },
+    {
+     "stage": 99,
+     "end": true,
+     "steps": [
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "mp_anda",
+        "node": 11,
+        "speaker": "g_anda",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "matter_leader",
+          99
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 550
+    }
+   ],
+   "notes": "stage 10: mp_anda E22 can be reached from 3 places; needs follow the shortest path UNCERTAIN: stage 10: the condition script c_anda|1,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 20 has no setter in the Onderon files (no dialog node or script sets it) UNCERTAIN: stage 30 has no setter in the Onderon files (no dialog node or script sets it) UNCERTAIN: stage 40 has no setter in the Onderon files (no dialog node or script sets it) UNCERTAIN: stage 90: the condition script c_global_eq|3,0,0,0,0,512OND_Riiken_Patrol on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 99: the condition script c_anda|2,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 99: the condition script c_matter_leader|3,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured",
+   "own": true,
+   "run_ending": 90
+  },
+  {
+   "tag": "cantinarats",
+   "stages": [
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "512ond",
+       "via": {
+        "dialog": "dhagon",
+        "node": 37,
+        "speaker": "dhagon",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "cantinarats",
+          10
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 20,
+     "end": false,
+     "steps": [
+      {
+       "module": "503ond",
+       "via": {
+        "script": "k_bak_userdef01"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "cantinarats",
+          20
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 99,
+     "end": true,
+     "steps": [
+      {
+       "module": "512ond",
+       "via": {
+        "dialog": "dhagon",
+        "node": 16,
+        "speaker": "dhagon",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "cantinarats",
+          99
+         ]
+        }
+       ]
+      },
+      {
+       "module": "512ond",
+       "via": {
+        "dialog": "dhagon",
+        "node": 16,
+        "speaker": "dhagon",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [],
+       "branch": "otherwise"
+      },
+      {
+       "module": "512ond",
+       "via": {
+        "dialog": "dhagon",
+        "node": 16,
+        "speaker": "dhagon",
+        "list": "reply"
+       },
+       "needs": [
+        {
+         "item": "pl_eholo"
+        }
+       ],
+       "does": [
+        {
+         "take_item": [
+          "pl_eholo",
+          1
+         ]
+        }
+       ],
+       "branch": "if has item pl_eholo"
+      }
+     ],
+     "journal_xp": 300
+    }
+   ],
+   "notes": "stage 20: k_bak_userdef01 (stage 20) also depends on: (user-defined event == 1007) UNCERTAIN: stage 10: the condition script c_talkedto|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 99: the condition script c_holo_onquest|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 99: the condition script c_holo_check|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured",
+   "own": true,
+   "run_ending": 99
+  },
+  {
+   "tag": "escape_merchant",
+   "stages": [
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "503ond",
+       "via": {
+        "dialog": "kavar",
+        "node": 20,
+        "speaker": "kavar",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "escape_merchant",
+          10
+         ]
+        },
+        {
+         "journal": [
+          "LostJedi",
+          50
+         ]
+        },
+        {
+         "other": "that journal call may also lower the stage (bAllowOverrideHigher = 1)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 15,
+     "end": false,
+     "steps": [
+      {
+       "module": "503ond",
+       "via": {
+        "dialog": "tobin",
+        "node": 35,
+        "speaker": "col_tobin",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "escape_merchant",
+          15
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 19,
+     "end": false,
+     "steps": [
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "cp_replac",
+        "node": 4,
+        "speaker": "cp_replace",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "escape_merchant",
+          19
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 20,
+     "end": false,
+     "steps": [
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "cp_replac",
+        "node": 9,
+        "speaker": "Mand",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "escape_merchant",
+          20
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 90,
+     "end": true,
+     "steps": [
+      {
+       "module": "501ond",
+       "via": {
+        "script": "k_501_enter"
+       },
+       "needs": [
+        {
+         "global_bool": "501_FIRST_ENTER",
+         "is": true
+        },
+        {
+         "global_number": "501OND_Mand_Join",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "global_number": "502OND_End_First",
+         "op": "==",
+         "value": 2
+        }
+       ],
+       "does": [
+        {
+         "local": [
+          "fake_mand",
+          "bool",
+          50,
+          1
+         ]
+        },
+        {
+         "journal": [
+          "escape_merchant",
+          90
+         ]
+        },
+        {
+         "other": "starts conversation \"end_mand\""
+        }
+       ],
+       "branch": "if 501_FIRST_ENTER is TRUE; 501OND_Mand_Join != 0"
+      },
+      {
+       "module": "501ond",
+       "via": {
+        "script": "k_501_enter"
+       },
+       "needs": [
+        {
+         "global_bool": "501_FIRST_ENTER",
+         "is": true
+        },
+        {
+         "global_number": "501OND_Mand_Join",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "global_number": "502OND_End_First",
+         "op": "==",
+         "value": 2
+        }
+       ],
+       "does": [
+        {
+         "other": "AddAvailableNPCByTemplate(2, \"p_mand\")"
+        },
+        {
+         "other": "SetNPCSelectability(2, 0)"
+        },
+        {
+         "set_global_number": [
+          "501OND_Mand_Join",
+          1
+         ]
+        },
+        {
+         "local": [
+          "fake_mand",
+          "bool",
+          50,
+          1
+         ]
+        },
+        {
+         "journal": [
+          "escape_merchant",
+          90
+         ]
+        },
+        {
+         "other": "starts conversation \"end_mand\""
+        },
+        {
+         "other": "AddPartyMember(2, a helper function's result)"
+        }
+       ],
+       "branch": "if 501_FIRST_ENTER is TRUE; 501OND_Mand_Join == 0"
+      },
+      {
+       "module": "501ond",
+       "via": {
+        "script": "k_501_enter"
+       },
+       "needs": [
+        {
+         "global_bool": "501_FIRST_ENTER",
+         "is": false
+        },
+        {
+         "global_number": "501OND_Mand_Join",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "global_number": "502OND_End_First",
+         "op": "==",
+         "value": 2
+        }
+       ],
+       "does": [
+        {
+         "set_global_bool": [
+          "501_FIRST_ENTER",
+          true
+         ]
+        },
+        {
+         "local": [
+          "fake_mand",
+          "bool",
+          50,
+          1
+         ]
+        },
+        {
+         "journal": [
+          "escape_merchant",
+          90
+         ]
+        },
+        {
+         "other": "starts conversation \"end_mand\""
+        }
+       ],
+       "branch": "if 501_FIRST_ENTER is FALSE; 501OND_Mand_Join != 0"
+      },
+      {
+       "module": "501ond",
+       "via": {
+        "script": "k_501_enter"
+       },
+       "needs": [
+        {
+         "global_bool": "501_FIRST_ENTER",
+         "is": false
+        },
+        {
+         "global_number": "501OND_Mand_Join",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "global_number": "502OND_End_First",
+         "op": "==",
+         "value": 2
+        }
+       ],
+       "does": [
+        {
+         "set_global_bool": [
+          "501_FIRST_ENTER",
+          true
+         ]
+        },
+        {
+         "other": "AddAvailableNPCByTemplate(2, \"p_mand\")"
+        },
+        {
+         "other": "SetNPCSelectability(2, 0)"
+        },
+        {
+         "set_global_number": [
+          "501OND_Mand_Join",
+          1
+         ]
+        },
+        {
+         "local": [
+          "fake_mand",
+          "bool",
+          50,
+          1
+         ]
+        },
+        {
+         "journal": [
+          "escape_merchant",
+          90
+         ]
+        },
+        {
+         "other": "starts conversation \"end_mand\""
+        },
+        {
+         "other": "AddPartyMember(2, a helper function's result)"
+        }
+       ],
+       "branch": "if 501_FIRST_ENTER is FALSE; 501OND_Mand_Join == 0"
+      }
+     ],
+     "journal_xp": 250
+    }
+   ],
+   "notes": "stage 15: tobin R35 can be reached from 3 places; needs follow the shortest path stage 90: k_501_enter (stage 90) also depends on: (GetEnteringObject() == player); not GetLoadFromSaveGame(); not GetLocalBoolean(GetObjectByTag(\"fake_mand\", 0), 50); GetIsObjectValid(player); GetIsObjectValid(GetObjectByTag(\"mand\", 0)) UNCERTAIN: stage 19: the condition script c_endgame|0,0,0,0,0,;c_local_notset|25,0,0,0,0,tr_end_check1 on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 20: the condition script c_endgame|0,0,0,0,0,;c_local_notset|25,0,0,0,0,tr_end_check1 on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 20: the condition script c_global_eq|0,0,0,0,0,500OND_DarkSide_Iziz on a dialog link does not exist in the game files; whether the engine then offers the line was not measured",
+   "own": true,
+   "run_ending": 90
+  },
+  {
+   "tag": "master_palace",
+   "stages": [
+    {
+     "stage": 10,
+     "end": false,
+     "steps": []
+    },
+    {
+     "stage": 20,
+     "end": false,
+     "steps": [
+      {
+       "module": "501ond",
+       "via": {
+        "dialog": "501_mand",
+        "node": 1,
+        "speaker": "Mand",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "master_palace",
+          20
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 30,
+     "end": false,
+     "steps": [
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "mp_riike",
+        "node": 92,
+        "speaker": "g_riiken",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "master_palace",
+          30
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 40,
+     "end": false,
+     "steps": [
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "mp_riike",
+        "node": 38,
+        "speaker": "g_riiken",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "master_palace",
+          40
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 45,
+     "end": false,
+     "steps": [
+      {
+       "module": "512ond",
+       "via": {
+        "dialog": "dhagon",
+        "node": 16,
+        "speaker": "dhagon",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "master_palace",
+          45
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 50,
+     "end": false,
+     "steps": [
+      {
+       "module": "503ond",
+       "via": {
+        "dialog": "kavar",
+        "node": 0,
+        "speaker": "col_tobin",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "master_palace",
+          50
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 55,
+     "end": false,
+     "steps": [
+      {
+       "module": "503ond",
+       "via": {
+        "dialog": "tobin",
+        "node": 38,
+        "speaker": "col_tobin",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "master_palace",
+          55
+         ]
+        },
+        {
+         "set_global_number": [
+          "500OND_DarkSide_Iziz",
+          1
+         ]
+        },
+        {
+         "set_global_number": [
+          "500OND_DarkSide_Iziz",
+          1
+         ]
+        },
+        {
+         "other": "moves the party to module \"512OND\""
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 60,
+     "end": false,
+     "steps": []
+    },
+    {
+     "stage": 65,
+     "end": false,
+     "steps": []
+    },
+    {
+     "stage": 70,
+     "end": false,
+     "steps": []
+    },
+    {
+     "stage": 75,
+     "end": false,
+     "steps": []
+    },
+    {
+     "stage": 90,
+     "end": true,
+     "steps": [
+      {
+       "module": "506ond",
+       "via": {
+        "dialog": "kavar",
+        "node": 4,
+        "speaker": "kavar",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "master_palace",
+          90
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 750
+    },
+    {
+     "stage": 95,
+     "end": true,
+     "steps": [
+      {
+       "module": "506ond",
+       "via": {
+        "dialog": "vaklu",
+        "node": 29,
+        "speaker": "vaklu",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "master_palace",
+          95
+         ]
+        },
+        {
+         "set_global_number": [
+          "500OND_Civil_War",
+          3
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 750
+    }
+   ],
+   "notes": "stage 95: dialog vaklu is used by several objects in 506ond: invis_vaklu, vaklu UNCERTAIN: stage 10 has no setter in the Onderon files (no dialog node or script sets it) UNCERTAIN: stage 30: the condition script c_talkedto|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 30: the condition script c_quest_status|10,0,0,0,0,docalibi on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 30: the condition script !c_local_set|53,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 40: the condition script c_alibi_end|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 45: the condition script c_holo_onquest|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 45: the condition script c_holo_check|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 55: the condition script c_global_gt|0,0,0,0,0,502OND_Captain_Killer on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 60 has no setter in the Onderon files (no dialog node or script sets it) UNCERTAIN: stage 65 has no setter in the Onderon files (no dialog node or script sets it) UNCERTAIN: stage 70 has no setter in the Onderon files (no dialog node or script sets it) UNCERTAIN: stage 75 has no setter in the Onderon files (no dialog node or script sets it) UNCERTAIN: stage 90: the condition script c_local_set|60,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured",
+   "own": true,
+   "run_ending": 90
+  },
+  {
+   "tag": "starportvisa",
+   "stages": [
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "501ond",
+       "via": {
+        "dialog": "portmstr",
+        "node": 8,
+        "speaker": "port_master",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          10
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 20,
+     "end": false,
+     "steps": []
+    },
+    {
+     "stage": 25,
+     "end": false,
+     "steps": [
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "cp_terly",
+        "node": 1,
+        "speaker": "terlyn",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          25
+         ]
+        }
+       ],
+       "branch": "way 1: terlyn, dialog cp_terly E1 in 502ond"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "cp_terly",
+        "node": 1,
+        "speaker": "terlyn",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 10
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: terlyn, dialog cp_terly E1 in 502ond / choice: reply R20 / if 502OND_First_Visa != 0; does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "cp_terly",
+        "node": 1,
+        "speaker": "terlyn",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 10
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: terlyn, dialog cp_terly E1 in 502ond / choice: reply R20 / if 502OND_First_Visa != 0; has item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "cp_terly",
+        "node": 1,
+        "speaker": "terlyn",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 8
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: terlyn, dialog cp_terly E1 in 502ond / choice: reply R20 / if 502OND_First_Visa != 0; does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "cp_terly",
+        "node": 1,
+        "speaker": "terlyn",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 8
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: terlyn, dialog cp_terly E1 in 502ond / choice: reply R20 / if 502OND_First_Visa != 0; has item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "cp_terly",
+        "node": 1,
+        "speaker": "terlyn",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 6
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: terlyn, dialog cp_terly E1 in 502ond / choice: reply R20 / if 502OND_First_Visa != 0; does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "cp_terly",
+        "node": 1,
+        "speaker": "terlyn",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 6
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: terlyn, dialog cp_terly E1 in 502ond / choice: reply R20 / if 502OND_First_Visa != 0; has item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "cp_terly",
+        "node": 1,
+        "speaker": "terlyn",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 4
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: terlyn, dialog cp_terly E1 in 502ond / choice: reply R20 / if 502OND_First_Visa != 0; does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "cp_terly",
+        "node": 1,
+        "speaker": "terlyn",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 4
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: terlyn, dialog cp_terly E1 in 502ond / choice: reply R20 / if 502OND_First_Visa != 0; has item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "cp_terly",
+        "node": 1,
+        "speaker": "terlyn",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 2
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: terlyn, dialog cp_terly E1 in 502ond / choice: reply R20 / if 502OND_First_Visa != 0; does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "cp_terly",
+        "node": 1,
+        "speaker": "terlyn",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 2
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: terlyn, dialog cp_terly E1 in 502ond / choice: reply R20 / if 502OND_First_Visa != 0; has item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "cp_terly",
+        "node": 1,
+        "speaker": "terlyn",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 10
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: terlyn, dialog cp_terly E1 in 502ond / choice: reply R20 / if 502OND_First_Visa == 0; does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "cp_terly",
+        "node": 1,
+        "speaker": "terlyn",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 10
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: terlyn, dialog cp_terly E1 in 502ond / choice: reply R20 / if 502OND_First_Visa == 0; has item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "cp_terly",
+        "node": 1,
+        "speaker": "terlyn",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 8
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: terlyn, dialog cp_terly E1 in 502ond / choice: reply R20 / if 502OND_First_Visa == 0; does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "cp_terly",
+        "node": 1,
+        "speaker": "terlyn",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 8
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: terlyn, dialog cp_terly E1 in 502ond / choice: reply R20 / if 502OND_First_Visa == 0; has item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "cp_terly",
+        "node": 1,
+        "speaker": "terlyn",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 6
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: terlyn, dialog cp_terly E1 in 502ond / choice: reply R20 / if 502OND_First_Visa == 0; does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "cp_terly",
+        "node": 1,
+        "speaker": "terlyn",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 6
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: terlyn, dialog cp_terly E1 in 502ond / choice: reply R20 / if 502OND_First_Visa == 0; has item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "cp_terly",
+        "node": 1,
+        "speaker": "terlyn",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 4
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: terlyn, dialog cp_terly E1 in 502ond / choice: reply R20 / if 502OND_First_Visa == 0; does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "cp_terly",
+        "node": 1,
+        "speaker": "terlyn",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 4
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: terlyn, dialog cp_terly E1 in 502ond / choice: reply R20 / if 502OND_First_Visa == 0; has item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "cp_terly",
+        "node": 1,
+        "speaker": "terlyn",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 2
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: terlyn, dialog cp_terly E1 in 502ond / choice: reply R20 / if 502OND_First_Visa == 0; does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "cp_terly",
+        "node": 1,
+        "speaker": "terlyn",
+        "list": "entry"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 2
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: terlyn, dialog cp_terly E1 in 502ond / choice: reply R20 / if 502OND_First_Visa == 0; has item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "cp_terly",
+        "node": 1,
+        "speaker": "terlyn",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [],
+       "branch": "way 1: terlyn, dialog cp_terly E1 in 502ond / choice: reply R5 or reply R4 or reply R3"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "dialog": "cp_tolas",
+        "node": 3,
+        "speaker": "tolas",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          25
+         ]
+        }
+       ],
+       "branch": "way 2: tolas, dialog cp_tolas E3 in 502ond"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "dialog": "gormo",
+        "node": 2,
+        "speaker": "npc_gormo",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          25
+         ]
+        }
+       ],
+       "branch": "way 3: npc_gormo, dialog gormo E2 in 503ond"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "dialog": "sakarie",
+        "node": 8,
+        "speaker": "npc_sakarie",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          25
+         ]
+        }
+       ],
+       "branch": "way 4: npc_sakarie, dialog sakarie E8 in 503ond"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "dialog": "xaart",
+        "node": 10,
+        "speaker": "npc_xaart",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          25
+         ]
+        }
+       ],
+       "branch": "way 5: npc_xaart, dialog xaart E10 in 503ond"
+      }
+     ]
+    },
+    {
+     "stage": 30,
+     "end": false,
+     "steps": [
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 10
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 10
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if has item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 8
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 8
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if has item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 6
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 6
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if has item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 4
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 4
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if has item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 2
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 2
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 10
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 10
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 8
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 8
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 6
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 6
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 4
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 4
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 2
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 2
+        },
+        {
+         "journal": [
+          "starportvisa",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      }
+     ],
+     "journal_xp": 300
+    },
+    {
+     "stage": 40,
+     "end": false,
+     "steps": [
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          40
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          40
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "credits": 500
+        },
+        {
+         "journal": [
+          "starportvisa",
+          40
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "credits": 500
+        },
+        {
+         "journal": [
+          "starportvisa",
+          40
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 8
+        },
+        {
+         "credits": 500
+        },
+        {
+         "journal": [
+          "starportvisa",
+          40
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 8
+        },
+        {
+         "credits": 500
+        },
+        {
+         "journal": [
+          "starportvisa",
+          40
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 6
+        },
+        {
+         "credits": 500
+        },
+        {
+         "journal": [
+          "starportvisa",
+          40
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 6
+        },
+        {
+         "credits": 500
+        },
+        {
+         "journal": [
+          "starportvisa",
+          40
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 4
+        },
+        {
+         "credits": 500
+        },
+        {
+         "journal": [
+          "starportvisa",
+          40
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 4
+        },
+        {
+         "credits": 500
+        },
+        {
+         "journal": [
+          "starportvisa",
+          40
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 2
+        },
+        {
+         "credits": 500
+        },
+        {
+         "journal": [
+          "starportvisa",
+          40
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 2
+        },
+        {
+         "credits": 500
+        },
+        {
+         "journal": [
+          "starportvisa",
+          40
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 1
+        },
+        {
+         "credits": 500
+        },
+        {
+         "journal": [
+          "starportvisa",
+          40
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 1
+        },
+        {
+         "credits": 500
+        },
+        {
+         "journal": [
+          "starportvisa",
+          40
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      }
+     ],
+     "journal_xp": 300
+    },
+    {
+     "stage": 50,
+     "end": false,
+     "steps": [
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          50
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "if does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          50
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "if has item pl_visa"
+      }
+     ],
+     "journal_xp": 300
+    },
+    {
+     "stage": 60,
+     "end": false,
+     "steps": [
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          60
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          60
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          60
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          60
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 10
+        },
+        {
+         "journal": [
+          "starportvisa",
+          60
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 10
+        },
+        {
+         "journal": [
+          "starportvisa",
+          60
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 8
+        },
+        {
+         "journal": [
+          "starportvisa",
+          60
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 8
+        },
+        {
+         "journal": [
+          "starportvisa",
+          60
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 6
+        },
+        {
+         "journal": [
+          "starportvisa",
+          60
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 6
+        },
+        {
+         "journal": [
+          "starportvisa",
+          60
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 4
+        },
+        {
+         "journal": [
+          "starportvisa",
+          60
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 4
+        },
+        {
+         "journal": [
+          "starportvisa",
+          60
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 2
+        },
+        {
+         "journal": [
+          "starportvisa",
+          60
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 2
+        },
+        {
+         "journal": [
+          "starportvisa",
+          60
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      }
+     ],
+     "journal_xp": 300
+    },
+    {
+     "stage": 70,
+     "end": false,
+     "steps": [
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          70
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          70
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          70
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          70
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 1
+        },
+        {
+         "journal": [
+          "starportvisa",
+          70
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 1
+        },
+        {
+         "journal": [
+          "starportvisa",
+          70
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 2
+        },
+        {
+         "journal": [
+          "starportvisa",
+          70
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 2
+        },
+        {
+         "journal": [
+          "starportvisa",
+          70
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 4
+        },
+        {
+         "journal": [
+          "starportvisa",
+          70
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 4
+        },
+        {
+         "journal": [
+          "starportvisa",
+          70
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 6
+        },
+        {
+         "journal": [
+          "starportvisa",
+          70
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 6
+        },
+        {
+         "journal": [
+          "starportvisa",
+          70
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 8
+        },
+        {
+         "journal": [
+          "starportvisa",
+          70
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "==",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 8
+        },
+        {
+         "journal": [
+          "starportvisa",
+          70
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      }
+     ],
+     "journal_xp": 300
+    },
+    {
+     "stage": 91,
+     "end": true,
+     "steps": [
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 10
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 10
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if has item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 8
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 8
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if has item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 6
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 6
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if has item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 4
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 4
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if has item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 2
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 2
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 10
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 10
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 8
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 8
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 6
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 6
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 4
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 4
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 2
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 2
+        },
+        {
+         "journal": [
+          "starportvisa",
+          91
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      }
+     ],
+     "journal_xp": 700
+    },
+    {
+     "stage": 92,
+     "end": true,
+     "steps": [
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          92
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          92
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "credits": 500
+        },
+        {
+         "journal": [
+          "starportvisa",
+          92
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "credits": 500
+        },
+        {
+         "journal": [
+          "starportvisa",
+          92
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 8
+        },
+        {
+         "credits": 500
+        },
+        {
+         "journal": [
+          "starportvisa",
+          92
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 8
+        },
+        {
+         "credits": 500
+        },
+        {
+         "journal": [
+          "starportvisa",
+          92
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 6
+        },
+        {
+         "credits": 500
+        },
+        {
+         "journal": [
+          "starportvisa",
+          92
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 6
+        },
+        {
+         "credits": 500
+        },
+        {
+         "journal": [
+          "starportvisa",
+          92
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 4
+        },
+        {
+         "credits": 500
+        },
+        {
+         "journal": [
+          "starportvisa",
+          92
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 4
+        },
+        {
+         "credits": 500
+        },
+        {
+         "journal": [
+          "starportvisa",
+          92
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 2
+        },
+        {
+         "credits": 500
+        },
+        {
+         "journal": [
+          "starportvisa",
+          92
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 2
+        },
+        {
+         "credits": 500
+        },
+        {
+         "journal": [
+          "starportvisa",
+          92
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 1
+        },
+        {
+         "credits": 500
+        },
+        {
+         "journal": [
+          "starportvisa",
+          92
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 1
+        },
+        {
+         "credits": 500
+        },
+        {
+         "journal": [
+          "starportvisa",
+          92
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      }
+     ],
+     "journal_xp": 700
+    },
+    {
+     "stage": 93,
+     "end": true,
+     "steps": [
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          93
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "if does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          93
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "if has item pl_visa"
+      }
+     ],
+     "journal_xp": 700
+    },
+    {
+     "stage": 94,
+     "end": true,
+     "steps": [
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          94
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          94
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          94
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          94
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 10
+        },
+        {
+         "journal": [
+          "starportvisa",
+          94
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 10
+        },
+        {
+         "journal": [
+          "starportvisa",
+          94
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 8
+        },
+        {
+         "journal": [
+          "starportvisa",
+          94
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 8
+        },
+        {
+         "journal": [
+          "starportvisa",
+          94
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 6
+        },
+        {
+         "journal": [
+          "starportvisa",
+          94
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 6
+        },
+        {
+         "journal": [
+          "starportvisa",
+          94
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 4
+        },
+        {
+         "journal": [
+          "starportvisa",
+          94
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 4
+        },
+        {
+         "journal": [
+          "starportvisa",
+          94
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "light_side": 2
+        },
+        {
+         "journal": [
+          "starportvisa",
+          94
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "light_side": 2
+        },
+        {
+         "journal": [
+          "starportvisa",
+          94
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      }
+     ],
+     "journal_xp": 700
+    },
+    {
+     "stage": 95,
+     "end": true,
+     "steps": [
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          95
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if does not have item pl_visa"
+      },
+      {
+       "module": "502ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          95
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 1: script a_visa_quest in 502ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          95
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "journal": [
+          "starportvisa",
+          95
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 1
+        },
+        {
+         "journal": [
+          "starportvisa",
+          95
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 1
+        },
+        {
+         "journal": [
+          "starportvisa",
+          95
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 2
+        },
+        {
+         "journal": [
+          "starportvisa",
+          95
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 2
+        },
+        {
+         "journal": [
+          "starportvisa",
+          95
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 4
+        },
+        {
+         "journal": [
+          "starportvisa",
+          95
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 4
+        },
+        {
+         "journal": [
+          "starportvisa",
+          95
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 6
+        },
+        {
+         "journal": [
+          "starportvisa",
+          95
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 6
+        },
+        {
+         "journal": [
+          "starportvisa",
+          95
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa",
+         "is": false
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 8
+        },
+        {
+         "journal": [
+          "starportvisa",
+          95
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa_sliced",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if does not have item pl_visa"
+      },
+      {
+       "module": "503ond",
+       "via": {
+        "script": "a_visa_quest"
+       },
+       "needs": [
+        {
+         "global_number": "502OND_First_Visa",
+         "op": "!=",
+         "value": 0
+        },
+        {
+         "item": "pl_visa"
+        }
+       ],
+       "does": [
+        {
+         "dark_side": 8
+        },
+        {
+         "journal": [
+          "starportvisa",
+          95
+         ]
+        },
+        {
+         "set_global_number": [
+          "502OND_First_Visa",
+          1
+         ]
+        },
+        {
+         "take_item": [
+          "pl_visa",
+          1
+         ]
+        }
+       ],
+       "branch": "way 2: script a_visa_quest in 503ond / if has item pl_visa"
+      }
+     ],
+     "journal_xp": 700
+    }
+   ],
+   "notes": "stage 25: gormo E2 can be reached from 3 places; needs follow the shortest path stage 25 can be reached in 5 ways; each step's branch starts with its way stage 30: a_visa_quest (stage 30) also depends on: (GetScriptParameter(1) == 1); not (player alignment >= 85); not ((player alignment < 85) && (player alignment > 60)); not ((player alignment <= 60) && (player alignment >= 40)); not ((player alignment < 40) && (player alignment >= 15)) stage 30: a_visa_quest (stage 30) also depends on: (GetScriptParameter(1) == 1); not (player alignment >= 85); not ((player alignment < 85) && (player alignment > 60)); not ((player alignment <= 60) && (player alignment >= 40)); (player alignment < 40) stage 30: a_visa_quest (stage 30) also depends on: (GetScriptParameter(1) == 1); not (player alignment >= 85); not ((player alignment < 85) && (player alignment > 60)); (player alignment <= 60); (player alignment >= 40) stage 30: a_visa_quest (stage 30) also depends on: (GetScriptParameter(1) == 1); not (player alignment >= 85); (player alignment < 85); (player alignment > 60) stage 30: a_visa_quest (stage 30) also depends on: (GetScriptParameter(1) == 1); (player alignment >= 85) stage 30: a_visa_quest (stage 30) also depends on: (GetScriptParameter(1) == 1); GetScriptParameter(2) stage 30: a_visa_quest (stage 30) also depends on: (GetScriptParameter(1) == 1); not GetScriptParameter(2); not (player alignment >= 85); not ((player alignment < 85) && (player alignment > 60)); not ((player alignment <= 60) && (player alignment >= 40)) stage 30: a_visa_quest (stage 30) also depends on: (GetScriptParameter(1) == 1); not GetScriptParameter(2); not (player alignment >= 85); not ((player alignment < 85) && (player alignment > 60)); (player alignment <= 60) stage 30: a_visa_quest (stage 30) also depends on: (GetScriptParameter(1) == 1); not GetScriptParameter(2); not (player alignment >= 85); (player alignment < 85); (player alignment > 60) stage 30: a_visa_quest (stage 30) also depends on: (GetScriptParameter(1) == 1); not GetScriptParameter(2); (player alignment >= 85) stage 30 can be reached in 2 ways; each step's branch starts with its way stage 40: a_visa_quest (stage 40) also depends on: (GetScriptParameter(1) == 2) stage 40: a_visa_quest (stage 40) also depends on: (GetScriptParameter(1) == 2); GetScriptParameter(2) stage 40: a_visa_quest (stage 40) also depends on: (GetScriptParameter(1) == 2); not GetScriptParameter(2); not (player alignment >= 85); not ((player alignment < 85) && (player alignment > 60)); not ((player alignment <= 60) && (player alignment >= 40)) stage 40: a_visa_quest (stage 40) also depends on: (GetScriptParameter(1) == 2); not GetScriptParameter(2); not (player alignment >= 85); not ((player alignment < 85) && (player alignment > 60)); (player alignment <= 60) stage 40: a_visa_quest (stage 40) also depends on: (GetScriptParameter(1) == 2); not GetScriptParameter(2); not (player alignment >= 85); (player alignment < 85); (player alignment > 60) stage 40: a_visa_quest (stage 40) also depends on: (GetScriptParameter(1) == 2); not GetScriptParameter(2); (player alignment >= 85) stage 40 can be reached in 2 ways; each step's branch starts with its way stage 50: script a_visa_quest gives the same steps in 503ond stage 50: a_visa_quest (stage 50) also depends on: (GetScriptParameter(1) == 3) stage 60: a_visa_quest (stage 60) also depends on: (GetScriptParameter(1) == 4) stage 60: a_visa_quest (stage 60) also depends on: (GetScriptParameter(1) == 4); GetScriptParameter(2) stage 60: a_visa_quest (stage 60) also depends on: (GetScriptParameter(1) == 4); not GetScriptParameter(2); not (player alignment >= 85); not ((player alignment < 85) && (player alignment > 60)); not ((player alignment <= 60) && (player alignment >= 40)) stage 60: a_visa_quest (stage 60) also depends on: (GetScriptParameter(1) == 4); not GetScriptParameter(2); not (player alignment >= 85); not ((player alignment < 85) && (player alignment > 60)); (player alignment <= 60) stage 60: a_visa_quest (stage 60) also depends on: (GetScriptParameter(1) == 4); not GetScriptParameter(2); not (player alignment >= 85); (player alignment < 85); (player alignment > 60) stage 60: a_visa_quest (stage 60) also depends on: (GetScriptParameter(1) == 4); not GetScriptParameter(2); (player alignment >= 85) stage 60 can be reached in 2 ways; each step's branch starts with its way stage 70: a_visa_quest (stage 70) also depends on: (GetScriptParameter(1) == 5) stage 70: a_visa_quest (stage 70) also depends on: (GetScriptParameter(1) == 5); GetScriptParameter(2) stage 70: a_visa_quest (stage 70) also depends on: (GetScriptParameter(1) == 5); not GetScriptParameter(2); not (player alignment >= 85); not ((player alignment < 85) && (player alignment > 60)); not ((player alignment <= 60) && (player alignment >= 40)) stage 70: a_visa_quest (stage 70) also depends on: (GetScriptParameter(1) == 5); not GetScriptParameter(2); not (player alignment >= 85); not ((player alignment < 85) && (player alignment > 60)); (player alignment <= 60) stage 70: a_visa_quest (stage 70) also depends on: (GetScriptParameter(1) == 5); not GetScriptParameter(2); not (player alignment >= 85); (player alignment < 85); (player alignment > 60) stage 70: a_visa_quest (stage 70) also depends on: (GetScriptParameter(1) == 5); not GetScriptParameter(2); (player alignment >= 85) stage 70 can be reached in 2 ways; each step's branch starts with its way stage 91: a_visa_quest (stage 91) also depends on: (GetScriptParameter(1) == 1); not (player alignment >= 85); not ((player alignment < 85) && (player alignment > 60)); not ((player alignment <= 60) && (player alignment >= 40)); not ((player alignment < 40) && (player alignment >= 15)) stage 91: a_visa_quest (stage 91) also depends on: (GetScriptParameter(1) == 1); not (player alignment >= 85); not ((player alignment < 85) && (player alignment > 60)); not ((player alignment <= 60) && (player alignment >= 40)); (player alignment < 40) stage 91: a_visa_quest (stage 91) also depends on: (GetScriptParameter(1) == 1); not (player alignment >= 85); not ((player alignment < 85) && (player alignment > 60)); (player alignment <= 60); (player alignment >= 40) stage 91: a_visa_quest (stage 91) also depends on: (GetScriptParameter(1) == 1); not (player alignment >= 85); (player alignment < 85); (player alignment > 60) stage 91: a_visa_quest (stage 91) also depends on: (GetScriptParameter(1) == 1); (player alignment >= 85) stage 91: a_visa_quest (stage 91) also depends on: (GetScriptParameter(1) == 1); GetScriptParameter(2) stage 91: a_visa_quest (stage 91) also depends on: (GetScriptParameter(1) == 1); not GetScriptParameter(2); not (player alignment >= 85); not ((player alignment < 85) && (player alignment > 60)); not ((player alignment <= 60) && (player alignment >= 40)) stage 91: a_visa_quest (stage 91) also depends on: (GetScriptParameter(1) == 1); not GetScriptParameter(2); not (player alignment >= 85); not ((player alignment < 85) && (player alignment > 60)); (player alignment <= 60) stage 91: a_visa_quest (stage 91) also depends on: (GetScriptParameter(1) == 1); not GetScriptParameter(2); not (player alignment >= 85); (player alignment < 85); (player alignment > 60) stage 91: a_visa_quest (stage 91) also depends on: (GetScriptParameter(1) == 1); not GetScriptParameter(2); (player alignment >= 85) stage 91 can be reached in 2 ways; each step's branch starts with its way stage 92: a_visa_quest (stage 92) also depends on: (GetScriptParameter(1) == 2) stage 92: a_visa_quest (stage 92) also depends on: (GetScriptParameter(1) == 2); GetScriptParameter(2) stage 92: a_visa_quest (stage 92) also depends on: (GetScriptParameter(1) == 2); not GetScriptParameter(2); not (player alignment >= 85); not ((player alignment < 85) && (player alignment > 60)); not ((player alignment <= 60) && (player alignment >= 40)) stage 92: a_visa_quest (stage 92) also depends on: (GetScriptParameter(1) == 2); not GetScriptParameter(2); not (player alignment >= 85); not ((player alignment < 85) && (player alignment > 60)); (player alignment <= 60) stage 92: a_visa_quest (stage 92) also depends on: (GetScriptParameter(1) == 2); not GetScriptParameter(2); not (player alignment >= 85); (player alignment < 85); (player alignment > 60) stage 92: a_visa_quest (stage 92) also depends on: (GetScriptParameter(1) == 2); not GetScriptParameter(2); (player alignment >= 85) stage 92 can be reached in 2 ways; each step's branch starts with its way stage 93: script a_visa_quest gives the same steps in 503ond stage 93: a_visa_quest (stage 93) also depends on: (GetScriptParameter(1) == 3) stage 94: a_visa_quest (stage 94) also depends on: (GetScriptParameter(1) == 4) stage 94: a_visa_quest (stage 94) also depends on: (GetScriptParameter(1) == 4); GetScriptParameter(2) stage 94: a_visa_quest (stage 94) also depends on: (GetScriptParameter(1) == 4); not GetScriptParameter(2); not (player alignment >= 85); not ((player alignment < 85) && (player alignment > 60)); not ((player alignment <= 60) && (player alignment >= 40)) stage 94: a_visa_quest (stage 94) also depends on: (GetScriptParameter(1) == 4); not GetScriptParameter(2); not (player alignment >= 85); not ((player alignment < 85) && (player alignment > 60)); (player alignment <= 60) stage 94: a_visa_quest (stage 94) also depends on: (GetScriptParameter(1) == 4); not GetScriptParameter(2); not (player alignment >= 85); (player alignment < 85); (player alignment > 60) stage 94: a_visa_quest (stage 94) also depends on: (GetScriptParameter(1) == 4); not GetScriptParameter(2); (player alignment >= 85) stage 94 can be reached in 2 ways; each step's branch starts with its way stage 95: a_visa_quest (stage 95) also depends on: (GetScriptParameter(1) == 5) stage 95: a_visa_quest (stage 95) also depends on: (GetScriptParameter(1) == 5); GetScriptParameter(2) stage 95: a_visa_quest (stage 95) also depends on: (GetScriptParameter(1) == 5); not GetScriptParameter(2); not (player alignment >= 85); not ((player alignment < 85) && (player alignment > 60)); not ((player alignment <= 60) && (player alignment >= 40)) stage 95: a_visa_quest (stage 95) also depends on: (GetScriptParameter(1) == 5); not GetScriptParameter(2); not (player alignment >= 85); not ((player alignment < 85) && (player alignment > 60)); (player alignment <= 60) stage 95: a_visa_quest (stage 95) also depends on: (GetScriptParameter(1) == 5); not GetScriptParameter(2); not (player alignment >= 85); (player alignment < 85); (player alignment > 60) stage 95: a_visa_quest (stage 95) also depends on: (GetScriptParameter(1) == 5); not GetScriptParameter(2); (player alignment >= 85) stage 95 can be reached in 2 ways; each step's branch starts with its way UNCERTAIN: stage 10: the condition script c_talkedto|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 20 has no setter in the Onderon files (no dialog node or script sets it) UNCERTAIN: stage 25: the condition script c_talkedto|50,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 25: the condition script c_visa_have|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 25: the condition script c_talkedto|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 25: the condition script c_local_notset|50,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured",
+   "own": true,
+   "run_ending": 91
+  },
+  {
+   "tag": "deadline",
+   "stages": [
+    {
+     "stage": 10,
+     "end": false,
+     "steps": [
+      {
+       "module": "506ond",
+       "via": {
+        "dialog": "tobin",
+        "node": 32,
+        "speaker": "tobin",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "deadline",
+          10
+         ]
+        },
+        {
+         "other": "locks ff_outer"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "stage": 11,
+     "end": false,
+     "steps": [
+      {
+       "module": "506ond",
+       "via": {
+        "dialog": "tobin",
+        "node": 0,
+        "speaker": "tobin",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "deadline",
+          11
+         ]
+        }
+       ],
+       "branch": "way 1: tobin, dialog tobin E0 in 506ond"
+      },
+      {
+       "module": "506ond",
+       "via": {
+        "dialog": "tobin",
+        "node": 10,
+        "speaker": "tobin",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "deadline",
+          11
+         ]
+        }
+       ],
+       "branch": "way 2: tobin, dialog tobin E10 in 506ond"
+      }
+     ]
+    },
+    {
+     "stage": 20,
+     "end": false,
+     "steps": [
+      {
+       "module": "506ond",
+       "via": {
+        "dialog": "ro_weed",
+        "node": 7,
+        "speaker": "kadron",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "deadline",
+          20
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 250
+    },
+    {
+     "stage": 21,
+     "end": false,
+     "steps": [
+      {
+       "module": "506ond",
+       "via": {
+        "script": "a_rd_termset"
+       },
+       "needs": [
+        {
+         "stage": [
+          "deadline",
+          31
+         ],
+         "op": "!="
+        }
+       ],
+       "does": [
+        {
+         "local": [
+          "va_officer",
+          "bool",
+          40,
+          1
+         ]
+        },
+        {
+         "journal": [
+          "deadline",
+          21
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 250
+    },
+    {
+     "stage": 30,
+     "end": false,
+     "steps": [
+      {
+       "module": "506ond",
+       "via": {
+        "dialog": "termeast",
+        "node": 3,
+        "speaker": "pl_termeast",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "deadline",
+          30
+         ]
+        },
+        {
+         "set_global_number": [
+          "506OND_RD_Termset",
+          1
+         ]
+        },
+        {
+         "other": "locks ff_outer"
+        },
+        {
+         "door_open": "ff_outer"
+        }
+       ],
+       "branch": "way 1: pl_termeast, dialog termeast E3 in 506ond"
+      },
+      {
+       "module": "506ond",
+       "via": {
+        "dialog": "termeast",
+        "node": 15,
+        "speaker": "pl_termeast",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "deadline",
+          30
+         ]
+        }
+       ],
+       "branch": "way 2: pl_termeast, dialog termeast R15 in 506ond"
+      }
+     ],
+     "journal_xp": 250
+    },
+    {
+     "stage": 31,
+     "end": false,
+     "steps": [
+      {
+       "module": "506ond",
+       "via": {
+        "script": "a_rd_termset"
+       },
+       "needs": [
+        {
+         "stage": [
+          "deadline",
+          21
+         ],
+         "op": "!="
+        }
+       ],
+       "does": [
+        {
+         "local": [
+          "va_officer",
+          "bool",
+          40,
+          1
+         ]
+        },
+        {
+         "journal": [
+          "deadline",
+          31
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 250
+    },
+    {
+     "stage": 40,
+     "end": false,
+     "steps": [
+      {
+       "module": "506ond",
+       "via": {
+        "dialog": "ro_weed",
+        "node": 17,
+        "speaker": "kadron",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "deadline",
+          40
+         ]
+        }
+       ],
+       "branch": "way 1: kadron, dialog ro_weed R17 in 506ond"
+      },
+      {
+       "module": "506ond",
+       "via": {
+        "dialog": "termeast",
+        "node": 2,
+        "speaker": "pl_termeast",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "deadline",
+          40
+         ]
+        },
+        {
+         "other": "locks ff_outer"
+        },
+        {
+         "door_open": "ff_outer"
+        }
+       ],
+       "branch": "way 2: pl_termeast, dialog termeast E2 in 506ond"
+      },
+      {
+       "module": "506ond",
+       "via": {
+        "dialog": "termeast",
+        "node": 17,
+        "speaker": "pl_termeast",
+        "list": "reply"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "deadline",
+          40
+         ]
+        },
+        {
+         "other": "locks ff_outer"
+        },
+        {
+         "door_open": "ff_outer"
+        }
+       ],
+       "branch": "way 3: pl_termeast, dialog termeast R17 in 506ond"
+      }
+     ],
+     "journal_xp": 250
+    },
+    {
+     "stage": 41,
+     "end": false,
+     "steps": [
+      {
+       "module": "506ond",
+       "via": {
+        "dialog": "tob_door",
+        "node": 2,
+        "speaker": "",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "deadline",
+          41
+         ]
+        },
+        {
+         "door_open": "ff_outer"
+        }
+       ]
+      }
+     ],
+     "journal_xp": 250
+    },
+    {
+     "stage": 90,
+     "end": true,
+     "steps": [
+      {
+       "module": "506ond",
+       "via": {
+        "dialog": "vaklu",
+        "node": 40,
+        "speaker": "vaklu",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "deadline",
+          90
+         ]
+        },
+        {
+         "set_global_number": [
+          "500OND_Civil_War",
+          2
+         ]
+        }
+       ],
+       "branch": "way 1: vaklu, dialog vaklu E40 in 506ond"
+      },
+      {
+       "module": "506ond",
+       "via": {
+        "dialog": "vaklu",
+        "node": 49,
+        "speaker": "talia",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "deadline",
+          90
+         ]
+        }
+       ],
+       "branch": "way 2: talia, dialog vaklu E49 in 506ond"
+      }
+     ],
+     "journal_xp": 1000
+    },
+    {
+     "stage": 91,
+     "end": true,
+     "steps": [
+      {
+       "module": "506ond",
+       "via": {
+        "dialog": "vaklu",
+        "node": 30,
+        "speaker": "vaklu",
+        "list": "entry"
+       },
+       "needs": [],
+       "does": [
+        {
+         "journal": [
+          "deadline",
+          91
+         ]
+        }
+       ]
+      }
+     ],
+     "journal_xp": 1000
+    }
+   ],
+   "notes": "stage 11 can be reached in 2 ways; each step's branch starts with its way stage 21: a_rd_termset (stage 21) also depends on: (GetScriptParameter(1) == 3) stage 30 can be reached in 2 ways; each step's branch starts with its way stage 31: a_rd_termset (stage 31) also depends on: (GetScriptParameter(1) == 4) stage 40: termeast R17 can be reached from 3 places; needs follow the shortest path stage 40 can be reached in 3 ways; each step's branch starts with its way stage 90: dialog vaklu is used by several objects in 506ond: invis_vaklu, vaklu stage 90: vaklu E49 can be reached from 4 places; needs follow the shortest path stage 90 can be reached in 2 ways; each step's branch starts with its way stage 91: dialog vaklu is used by several objects in 506ond: invis_vaklu, vaklu UNCERTAIN: stage 10: the condition script c_talkedto|0,0,0,0,0,;c_global_eq|0,0,0,0,0,500OND_DarkSide_Iziz on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 11: the condition script c_talkedto|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 20: the condition script c_talkedto|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 30: the condition script c_dline_check|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 30: the condition script c_local_notset|50,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 30: the condition script c_other_set|52,0,0,0,0,g_riiken;!c_dline_check|20,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 40: the condition script c_talkedto|0,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 40: the condition script c_dline_check|30,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 40: the condition script c_dline_check|20,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 40: the condition script c_local_notset|50,0,0,0,0, on a dialog link does not exist in the game files; whether the engine then offers the line was not measured UNCERTAIN: stage 41: no creature, placeable or door template in 506ond names dialog tob_door, so its speaker is unknown; scripts that name it: a_rd_termset UNCERTAIN: stage 90: the condition script c_global_eq|0,0,0,0,0,500OND_DarkSide_Iziz on a dialog link does not exist in the game files; whether the engine then offers the line was not measured",
+   "own": true,
+   "run_ending": 90
+  }
+ ]
+}

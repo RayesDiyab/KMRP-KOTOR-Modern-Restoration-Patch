@@ -1,0 +1,213 @@
+{
+ "game": "K1",
+ "what": "A full Leviathan run: kills (hostile creatures and active encounters of each module), then the quest XP met in that module, in module order. Written by tools/xp/make_path.py; read by tools/xp/calc.py --scenario.",
+ "checked": false,
+ "assumptions": [
+  "Every creature data/xp/k1-enemies.json marks hostile is killed; creatures a script may turn hostile (hostile = maybe) are left out; creatures whose template cannot die (Plot, Min1HP) are left out.",
+  "Active encounters spawn as calc.py replays the engine's spawn list for a party of three (mean of 200 seeded runs); encounters that respawn are counted once.",
+  "Only the chapter's own quests (build.py PLANETS tag_prefix) count; a quest of another chapter that this chapter's files also set is counted by its own chapter.",
+  "Each quest follows one route to one ending (the lowest ending stage the quest database reaches unless make_path.py ENDINGS names another); a stage gives its journal XP and the largest XP of one of its steps.",
+  "Not counted: plot XP on dialog lines that set no journal stage, level-scaled computer and repair XP, stealth XP."
+ ],
+ "modules": [
+  {
+   "module": "lev_m40aa",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 5,
+     "what": "lev_m40aa lev40_guard1 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 1,
+     "what": "lev_m40aa lev40_idletechf (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 2,
+     "what": "lev_m40aa lev40_idletechm (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 3,
+     "what": "lev_m40aa lev40_starslave (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 1,
+     "what": "lev_m40aa n_sithcomf002 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 1,
+     "what": "lev_m40aa n_sithcomm002 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 1,
+     "what": "lev_m40aa starguard (placed)"
+    }
+   ]
+  },
+  {
+   "module": "lev_m40ab",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 12.0,
+     "count": 3,
+     "what": "lev_m40ab g_darkjedi004 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 1,
+     "what": "lev_m40ab g_sithcomm003 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 1,
+     "what": "lev_m40ab lev40_guarda (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 3,
+     "what": "lev_m40ab lev40_sithgo (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 9,
+     "what": "lev_m40ab lev40_sithstay (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 0.5,
+     "count": 3,
+     "what": "lev_m40ab lev40_wardroid (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 1,
+     "what": "lev_m40ab starguard (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 1,
+     "what": "lev_m40ab starguard001 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 1,
+     "what": "lev_m40ab starguard002 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 1,
+     "what": "lev_m40ab starguard003 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 1,
+     "what": "lev_m40ab starguard004 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 12.0,
+     "count": 2,
+     "what": "lev_m40ab g_sithtroop06 (script)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 1,
+     "what": "lev_m40ab n_darkjedif (script)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 1,
+     "what": "lev_m40ab n_darkjedim (script)"
+    }
+   ]
+  },
+  {
+   "module": "lev_m40ac",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 12.0,
+     "count": 1,
+     "what": "lev_m40ac g_darkjedi004 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 2,
+     "what": "lev_m40ac g_darkjedi02 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 1,
+     "what": "lev_m40ac g_sithcomm02 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 4,
+     "what": "lev_m40ac g_sithtroop004 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 6,
+     "what": "lev_m40ac lev40_sithtroopa (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 2,
+     "what": "lev_m40ac n_darkjedim (placed)"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 1000,
+     "what": "lev_captured stage 99, step 1000"
+    }
+   ]
+  },
+  {
+   "module": "lev_m40ad",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 5.0,
+     "count": 5,
+     "what": "lev_m40ad g_sithtroop003 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 1,
+     "what": "lev_m40ad g_sithtroop04 (script)"
+    }
+   ]
+  }
+ ]
+}

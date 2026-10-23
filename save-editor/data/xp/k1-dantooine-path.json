@@ -1,0 +1,406 @@
+{
+ "game": "K1",
+ "what": "A full Dantooine run: kills (hostile creatures and active encounters of each module), then the quest XP met in that module, in module order. Written by tools/xp/make_path.py; read by tools/xp/calc.py --scenario.",
+ "checked": false,
+ "assumptions": [
+  "Every creature data/xp/k1-enemies.json marks hostile is killed; creatures a script may turn hostile (hostile = maybe) are left out; creatures whose template cannot die (Plot, Min1HP) are left out.",
+  "Active encounters spawn as calc.py replays the engine's spawn list for a party of three (mean of 200 seeded runs); encounters that respawn are counted once.",
+  "Only the chapter's own quests (build.py PLANETS tag_prefix) count; a quest of another chapter that this chapter's files also set is counted by its own chapter.",
+  "Each quest follows one route to one ending (the lowest ending stage the quest database reaches unless make_path.py ENDINGS names another); a stage gives its journal XP and the largest XP of one of its steps.",
+  "Not counted: plot XP on dialog lines that set no journal stage, level-scaled computer and repair XP, stealth XP."
+ ],
+ "modules": [
+  {
+   "module": "danm13",
+   "steps": [
+    {
+     "do": "plot_xp",
+     "xp": 200,
+     "what": "dan_trials stage 20: journal 200"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 200,
+     "what": "dan_trials stage 30: journal 200"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 800,
+     "what": "dan_trials stage 50: journal 800"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 150,
+     "what": "dan_companion stage 31: journal 150"
+    },
+    {
+     "do": "next_level",
+     "what": "danm13 k_pdan_makejedi: AddMultiClass raises XP to the next level (0x0052DDC0)"
+    }
+   ]
+  },
+  {
+   "module": "danm14aa",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 4,
+     "what": "danm14aa g_kathhound002 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 2,
+     "what": "danm14aa g_kathhound003 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 2,
+     "what": "danm14aa g_kathhound007 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 2,
+     "what": "danm14aa g_kathhound011 (placed)"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 250,
+     "what": "dan_raiders stage 40: journal 250"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 150,
+     "what": "dan_companion stage 30: journal 150"
+    }
+   ]
+  },
+  {
+   "module": "danm14ab",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 1,
+     "what": "danm14ab g_kathhound002 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 1,
+     "what": "danm14ab g_kathhound004 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 5,
+     "what": "danm14ab g_kathhound006 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 1,
+     "what": "danm14ab g_kathhound007 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 1,
+     "what": "danm14ab g_kathhound008 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 3,
+     "what": "danm14ab dan14_hound (script)"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 50,
+     "what": "dan_raiders stage 30: journal 50"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 150,
+     "what": "dan_romance stage 20: journal 150"
+    }
+   ]
+  },
+  {
+   "module": "danm14ac",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 1,
+     "what": "danm14ac dan14ac_duros01 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 1,
+     "what": "danm14ac dan14ac_duros02 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 9.0,
+     "count": 1,
+     "what": "danm14ac dan14ac_mand01 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 9.0,
+     "count": 1,
+     "what": "danm14ac dan14ac_mand02 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 1,
+     "what": "danm14ac g_kathhound003 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 3,
+     "what": "danm14ac g_kathhound005 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 3,
+     "what": "danm14ac g_kathhound006 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 4,
+     "what": "danm14ac g_kathhound007 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 4,
+     "what": "danm14ac g_kathhound009 (placed)"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 800,
+     "what": "dan_trials stage 40: journal 800"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 1200,
+     "what": "dan_trials stage 45: journal 1200"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 200,
+     "what": "dan_raiders stage 35: journal 200"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 360,
+     "what": "dan_murder stage 70: journal 200, step 160"
+    }
+   ]
+  },
+  {
+   "module": "danm14ad",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 1,
+     "what": "danm14ad dan14ad_duros005 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 1,
+     "what": "danm14ad dan14ad_duros01 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 1,
+     "what": "danm14ad dan14ad_duros03 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 1,
+     "what": "danm14ad dan14ad_duros04 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 9.0,
+     "count": 1,
+     "what": "danm14ad dan14ad_mand01 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 9.0,
+     "count": 1,
+     "what": "danm14ad dan14ad_mand02 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 4,
+     "what": "danm14ad g_kathhound002 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 6.0,
+     "count": 2,
+     "what": "danm14ad g_kathhound003 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 12.0,
+     "count": 1,
+     "what": "danm14ad g_kathhound004 (placed)"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 500,
+     "what": "dan_casus stage 20: journal 500"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 200,
+     "what": "dan_companion stage 20: journal 200"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 300,
+     "what": "dan_companion stage 23: journal 300"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 300,
+     "what": "dan_companion stage 26: journal 300"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 900,
+     "what": "dan_romance stage 60: journal 900"
+    }
+   ]
+  },
+  {
+   "module": "danm14ae",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 4.0,
+     "count": 8,
+     "what": "danm14ae c_kinrath001 (placed)"
+    },
+    {
+     "do": "encounter",
+     "template": "hive",
+     "rec": 1,
+     "max": 1,
+     "difficulty_index": 4,
+     "templates": [
+      [
+       "g_kinrath02",
+       10.0,
+       1,
+       10.0
+      ]
+     ],
+     "what": "danm14ae encounter hive"
+    }
+   ]
+  },
+  {
+   "module": "danm16",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 1,
+     "what": "danm16 dan16_droid03 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 3.0,
+     "count": 1,
+     "what": "danm16 dan16_droid05 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 2,
+     "what": "danm16 dan16_room1 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 3,
+     "what": "danm16 dan16_room2 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 2,
+     "what": "danm16 dan16_room3 (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 8.0,
+     "count": 3,
+     "what": "danm16 dan16_room4 (placed)"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 300,
+     "what": "dan_romance stage 31: journal 300"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 150,
+     "what": "dan_romance stage 40: journal 150"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 300,
+     "what": "dan_romance stage 50: journal 300"
+    }
+   ]
+  },
+  {
+   "module": "danm15",
+   "steps": [
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 1,
+     "what": "danm15 dan15_guarda (placed)"
+    },
+    {
+     "do": "kill",
+     "cr": 1.0,
+     "count": 1,
+     "what": "danm15 dan15_guardb (placed)"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 300,
+     "what": "dan_ruins stage 15: journal 300"
+    },
+    {
+     "do": "plot_xp",
+     "xp": 700,
+     "what": "dan_ruins stage 20: journal 700"
+    }
+   ]
+  }
+ ]
+}
