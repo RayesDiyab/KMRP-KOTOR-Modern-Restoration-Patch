@@ -117,6 +117,24 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **macOS: the installer records the widescreen patch's GUI mode as "GUI files"** (2026-10-24;
+  `macos/kmrp-mac.sh`, `options_write`). FTD's widescreen patch gets a "GUI mode" option in
+  KotOR Patch Manager, "Standard" (its own layout of the vanilla menus) or "GUI files" (the
+  layouts from .gui files, KMRP's), proposed on FTD's branch with the entry points KMRP uses
+  put back (FTD516/Kotor-Patch-Manager, `patches/K1WidescreenPatch`; not merged). The
+  installer writes `gui-mode=gui-files` to `MacOS/configs/k1widescreenpatch.ini`, also in the
+  Mac App Store set, and uninstall takes it out as it does `kmrp.ini`. `kmrp.dylib` already
+  asked the patch for that mode itself (`K1Widescreen_UseGuiFileLayouts`) and still does; the
+  file is so that the manager shows the mode KMRP runs in and keeps it when it applies again.
+  A widescreen patch without the option ignores the file. Tested on Steam's game, 1512x982:
+  installed with the package built on that branch, the file was `[Patch Options]`,
+  `gui-mode=gui-files` with CRLF, KMRP's log said "the widescreen patch uses the .gui layouts
+  (1512x982)" and KMRP's menus showed; with the file changed to `gui-mode=standard` the log
+  said the same and the main menu matched (563 of 1,484,784 pixels differ by more than 40,
+  the animated fog). Uninstall left the game, its folder and `swkotor.ini` as before.
+  `testing/regression/Test-MacInstaller.py` expects the file (0 problems). Not built or run:
+  the Mac App Store set; not tested: an install for KPM followed by KPM's own Apply.
+
 - **Fixed: the tutorial popup's icon tiled again on Windows installs since 2026-10-19**
   (2026-10-23; reported by the maintainer in the Steam game with K1CP). Since the installer
   makes every screen size's set ahead (b5cbd6a), `macos/tools/kmrp-gameart.c` ran outside

@@ -577,9 +577,11 @@ kpm_remove() {   # puts the untouched game back from KPM's copy and deletes FTD'
     for f in $KPM_FILES; do rm -rf -- "${MACOS:?}/$f"; done
     for backup in ${(f)"$(kpm_backups)"}; do rm -f -- "$backup"; done
     # What KPM's own removal does with the options it recorded (PatchOptionsIni.RemoveSections):
-    # KMRP's and the controller patch's.
+    # KMRP's, the controller patch's and the widescreen patch's.
     local kmrp_ini=$OPTIONS_INI
-    for OPTIONS_INI in "$kmrp_ini" "${kmrp_ini:h}/kmrp-controller.ini"; do options_remove; done
+    for OPTIONS_INI in "$kmrp_ini" "${kmrp_ini:h}/kmrp-controller.ini" "${kmrp_ini:h}/k1widescreenpatch.ini"; do
+        options_remove
+    done
     OPTIONS_INI=$kmrp_ini
 }
 
@@ -622,8 +624,13 @@ options_write_one() {   # options_write_one <key=value lines, CRLF>: the section
     record options "$OPTIONS_INI" "-" "$existed"
 }
 
-# Each patch's own file: configs/kmrp.ini, and configs/kmrp-controller.ini while the controller
-# patch is installed.
+# Each patch's own file: configs/kmrp.ini, configs/kmrp-controller.ini while the controller
+# patch is installed, and configs/k1widescreenpatch.ini for FTD's widescreen patch.
+# The widescreen patch's GUI mode (gui-mode, since FTD's patch has the option) is "gui-files",
+# the layouts from KMRP's .gui files. kmrp.dylib asks for that mode itself at start
+# (K1Widescreen_UseGuiFileLayouts, kmrp-assets/widescreen.cpp) whatever the file says; the file
+# is so that KotOR Patch Manager shows the mode KMRP runs in, and keeps it on its next Apply.
+WIDESCREEN_OPTIONS=$'gui-mode=gui-files\r\n'
 options_write() {
     local kmrp_ini=$OPTIONS_INI lines
     lines=$(printf 'map-notes=%d\r\nhd-icons=%d\r\ndebug-logs=%d\r\n' $MAP_NOTES $HD_ICONS $DEBUG_LOGS; print -n x)
@@ -637,6 +644,9 @@ options_write() {
         options_write_one "${lines%x}"
         OPTIONS_INI=$kmrp_ini
     fi
+    OPTIONS_INI="${kmrp_ini:h}/k1widescreenpatch.ini"
+    options_write_one "$WIDESCREEN_OPTIONS"
+    OPTIONS_INI=$kmrp_ini
 }
 
 options_remove() {   # the section out; a file with nothing else, and then an empty folder, go too
@@ -1341,6 +1351,7 @@ do_install_app_store() {
     # The patch options, as kmrp.dylib and the controller's module read them (options_write).
     printf '[Patch Options]\r\nmap-notes=%d\r\nhd-icons=%d\r\ndebug-logs=%d\r\n' $MAP_NOTES $HD_ICONS $DEBUG_LOGS > "$kmrp/configs/kmrp.ini"
     (( KEEP_AA )) && printf 'keep-anti-aliasing=1\r\n' >> "$kmrp/configs/kmrp.ini"
+    printf '[Patch Options]\r\n%s' "$WIDESCREEN_OPTIONS" > "$kmrp/configs/k1widescreenpatch.ini"
     if (( CONTROLLER )); then
         printf '[Patch Options]\r\ndebug-logs=%d\r\n' $DEBUG_LOGS > "$kmrp/configs/kmrp-controller.ini"
         # SDL beside the controller's module: the sandboxed game does not load the copy that

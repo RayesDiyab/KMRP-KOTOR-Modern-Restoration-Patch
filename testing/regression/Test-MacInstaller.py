@@ -205,8 +205,10 @@ def main() -> int:
             files = sorted(str(p.relative_to(macos_dir)) for p in macos_dir.rglob("*") if p.is_file())
             backups = [f for f in files if re.fullmatch(r"KOTOR_Exe\.backup\.\d{8}_\d{6}", f)]
             files = [f for f in files if f not in backups and f not in [b + ".json" for b in backups]]
+            # configs/k1widescreenpatch.ini (since 2026-10-24): the widescreen patch's GUI mode
+            # as KMRP runs it, for KPM to show.
             want = ["KOTOR_Exe", "KotorPatcher.dylib", "kpm_install_state.json", "patch_config.toml",
-                    "configs/kmrp.ini"] + [f"patches/{patch_id}.dylib" for _, patch_id in installed]
+                    "configs/kmrp.ini", "configs/k1widescreenpatch.ini"] + [f"patches/{patch_id}.dylib" for _, patch_id in installed]
             if mode != "off":
                 want.append("configs/kmrp-controller.ini")
             if (macos_dir / "kmrp-resolutions.txt").exists():
@@ -246,6 +248,11 @@ def main() -> int:
             if mode != "off" and (not controller_ini.is_file() or controller_ini.read_bytes() != want_controller):
                 failures.append(f"{size}: configs/kmrp-controller.ini is "
                                 f"{controller_ini.read_bytes() if controller_ini.is_file() else None!r}, not {want_controller!r}")
+            widescreen_ini = macos_dir / "configs/k1widescreenpatch.ini"
+            want_widescreen = b"[Patch Options]\r\ngui-mode=gui-files\r\n"
+            if not widescreen_ini.is_file() or widescreen_ini.read_bytes() != want_widescreen:
+                failures.append(f"{size}: configs/k1widescreenpatch.ini is "
+                                f"{widescreen_ini.read_bytes() if widescreen_ini.is_file() else None!r}, not {want_widescreen!r}")
             want_ini = section.encode() + (b"\r\n" + own_section if own_section else b"")
             if not options_ini.is_file() or options_ini.read_bytes() != want_ini:
                 failures.append(f"{size}: configs/kmrp.ini is "
