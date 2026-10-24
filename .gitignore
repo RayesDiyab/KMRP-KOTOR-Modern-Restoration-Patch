@@ -201,5 +201,3 @@ K1DriverCompat.ini
 macos/tools/kpm-cli/bin/
 macos/tools/kpm-cli/obj/
 
-# The quest review pages with the game's own text, made from the player's game (tools/questdb --review-text); never committed.
-save-editor/data/quests/local/

@@ -46,16 +46,17 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 
-# The crest artwork this composes is **not committed** -- only the rendered
-# result, `src/patcher/brand.png`, ships. So `--crest` is required and has no
-# default: it used to carry one author's Downloads folder, which worked on
-# exactly one machine and silently pointed everyone else at a file that does not
-# exist.
+# The crest artwork this composes, the sigil, is `assets/branding/sigil.png` (committed
+# 2026-10-24, the maintainer's original): the default for `--crest`. Before that it was
+# not in the repository and `--crest` had no default, as it had once carried one author's
+# Downloads folder. Checked: `--text KMRP --tracking 0.12 --whole-crest` with it, made
+# 400x300, gives the KMRP crest pixel for pixel.
 #
 # Georgia is the measured typeface (see the header), not a preference, so it is
 # the default. `--font` exists because that path is Windows-specific and nothing
 # else in this tool is.
 DEFAULT_FONT = Path(r"C:\Windows\Fonts\georgia.ttf")
+DEFAULT_CREST = Path(__file__).resolve().parent.parent / "assets" / "branding" / "sigil.png"
 
 CAP = 150                     # cap height of the rendered wordmark, in output pixels
 TRACKING_RATIO = 0.297        # measured: 17.2px tracking at 58px cap
@@ -351,8 +352,8 @@ def finish(canvas, letters, cap, cap_top, baseline, width, height, size_px, out)
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--crest", type=Path,
-                        help="the crest artwork; not committed, see the note in this file")
+    parser.add_argument("--crest", type=Path, default=DEFAULT_CREST,
+                        help="the crest artwork (default: assets/branding/sigil.png)")
     parser.add_argument("--no-crest", action="store_true", help="the letters alone")
     parser.add_argument("--whole-crest", action="store_true", help="room above for all of the crest")
     parser.add_argument("--tracking", type=float, default=TRACKING_RATIO,
@@ -363,8 +364,8 @@ def main() -> int:
     args = parser.parse_args()
     global TRACKING, WHOLE_CREST
     TRACKING, WHOLE_CREST = args.tracking, args.whole_crest
-    if args.crest is None and not args.no_crest:
-        raise SystemExit("--crest is required (or --no-crest for the letters alone)")
+    if not args.no_crest and not args.crest.is_file():
+        raise SystemExit(f"{args.crest} is missing (or --no-crest for the letters alone)")
     for path in ([args.crest] if args.crest else []) + [args.font]:
         if not path.exists():
             raise SystemExit(f"Not found: {path}")

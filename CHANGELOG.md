@@ -117,6 +117,12 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **The KMRP Save Editor moved to its own repository and is now the KOTOR Modern Gamesave
+  Editor (KMSE)** (2026-10-24), named so nobody takes it to need KMRP. `save-editor/` and
+  its build workflow left this repository; its history went with it, and its changes from
+  now on are in that repository's CHANGELOG. The entries about it below stay as the record
+  of its time here. The crest's sigil is now committed (`assets/branding/sigil.png`), the
+  default of `tools/build_brand_image.py`.
 - **macOS: the installer records the widescreen patch's GUI mode as "GUI files"** (2026-10-24;
   `macos/kmrp-mac.sh`, `options_write`). FTD's widescreen patch gets a "GUI mode" option in
   KotOR Patch Manager, "Standard" (its own layout of the vanilla menus) or "GUI files" (the
@@ -134,7 +140,6 @@ proxy, and it applies the executable changes above as well.
   the animated fog). Uninstall left the game, its folder and `swkotor.ini` as before.
   `testing/regression/Test-MacInstaller.py` expects the file (0 problems). Not built or run:
   the Mac App Store set; not tested: an install for KPM followed by KPM's own Apply.
-
 - **Fixed: the tutorial popup's icon tiled again on Windows installs since 2026-10-19**
   (2026-10-23; reported by the maintainer in the Steam game with K1CP). Since the installer
   makes every screen size's set ahead (b5cbd6a), `macos/tools/kmrp-gameart.c` ran outside
