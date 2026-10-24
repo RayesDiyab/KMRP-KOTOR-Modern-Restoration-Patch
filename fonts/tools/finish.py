@@ -366,10 +366,14 @@ def ft_compare(args):
 
 
 if __name__ == "__main__":
+    import kern
+
     src_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else NEW
     outs = []
     for f in sorted(src_dir.glob("*.otf")):
         out = finish(f)
+        if not kern.monospaced(out):
+            kern.kern_font(out)          # pair kerning (kern.py), the outlines untouched
         t = TTFont(out)
         print(f"{out.name}: {out.stat().st_size:,} bytes, {len(t.getGlyphOrder())} glyphs, units per em {t['head'].unitsPerEm}")
         outs.append((out, f.stem))

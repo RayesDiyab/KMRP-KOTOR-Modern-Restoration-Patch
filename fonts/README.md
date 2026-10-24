@@ -11,7 +11,7 @@ anyone may bundle them in a game, a mod, an app or a website without asking. No
 Reserved Font Name, so a changed version may keep the name.
 
 KMRP draws its game atlases from these files (`tools/build_hd_original_atlases.py`
-writes `assets/hd-original-fonts`), and the KMRP Save Editor sets its window in them.
+writes `assets/hd-original-fonts`), and the KOTOR Modern Gamesave Editor sets its window in them.
 
 ## 1. The files
 
@@ -25,17 +25,17 @@ ttfautohint's hints: one file that installs all 11 fonts.
 | File | Bytes | Units per em | Glyphs | SHA-256 |
 | --- | ---: | ---: | ---: | --- |
 | `KMRP-OriginalHD-Console.otf` | 16,068 | 1000 | 96 | `1fc40423354679d9481380fc91085a8ec9c6f3cf7bd0cfb7a453618a527eb435` |
-| `KMRP-OriginalHD-Credits.otf` | 38,932 | 1000 | 218 | `1df5fec87be4d9f60e2f793148f8a965d2cf683264febde34405076dd143459c` |
-| `KMRP-OriginalHD-CreditsBold.otf` | 38,972 | 1000 | 218 | `d4b2b0ece9d4eb9867b488050d37b6314cd9388c8f5e19daa302ae23d22de079` |
-| `KMRP-OriginalHD-Descriptions.otf` | 39,008 | 1000 | 218 | `5707034a55761a236345f67c2839f6db2d50c28e952445f639425bdf2a9095c7` |
-| `KMRP-OriginalHD-Dialogue.otf` | 38,936 | 1000 | 218 | `1923a13ccfd495fceaf2c386a298c320379e25a9f997d30c234940baef2b0099` |
-| `KMRP-OriginalHD-Light.otf` | 31,580 | 1000 | 218 | `4f5e38ca665298e5365710743ab89a01458a9beed5bf9b41bfdfd52cffe493f8` |
-| `KMRP-OriginalHD-Menu.otf` | 33,796 | 1000 | 218 | `cf83ee832f9ccd20b1f93d402944b0016f0debc0f407393aa04c757cd9196eb4` |
-| `KMRP-OriginalHD-MenuLarge.otf` | 34,980 | 1000 | 218 | `13b013cb7b7ed802268560c0185efd5e0f01d853e95ec89bc4ab45c05abc5086` |
-| `KMRP-OriginalHD-MenuMedium.otf` | 34,004 | 1000 | 218 | `fdbc94946b606ee7e1b9aa55997d6845c8441ad3aaa8f2f01d1514087f507a3a` |
-| `KMRP-OriginalHD-MenuSmall.otf` | 32,052 | 1000 | 218 | `33e8b0638cc02d4652e01eb5e06d4fa2cebc7bb81f1463f28e0ada704c8537b2` |
-| `KMRP-OriginalHD-MenuSmallB.otf` | 33,740 | 1000 | 218 | `88a20c7f5a453445f41ba14f0ceb27b2a1308ffe4e2a92ee766906bd034be8ae` |
-| `KMRP-OriginalHD.ttc` | 601,936 | 1000 | 11 fonts | `94e9886a828a93a0346da2bf1f4dd033a0e7b2d974bca0a5623284fe5399d198` |
+| `KMRP-OriginalHD-Credits.otf` | 45,380 | 1000 | 218 | `9047140b53e1fd886e170137d30f868f7a5f4a18318c813e073f2e5ed05b0b68` |
+| `KMRP-OriginalHD-CreditsBold.otf` | 45,420 | 1000 | 218 | `7f5ac43399e7b54a89985bbb24a8b9b3f8d875dc2e3b0d5b971b5feb4d4defc3` |
+| `KMRP-OriginalHD-Descriptions.otf` | 45,456 | 1000 | 218 | `daa61410665e946341689ecaee43304e4e69fd5a31aae7195fc5a2dbc15e3c0d` |
+| `KMRP-OriginalHD-Dialogue.otf` | 45,384 | 1000 | 218 | `c753fbb8fa2ff826e83ac98c56ab0744d90230c4ca51428cc2830b25e26bd264` |
+| `KMRP-OriginalHD-Light.otf` | 38,028 | 1000 | 218 | `bc4efc1ddefda34d58958e28a20100cc4551bfa310a86ef4d80fcf6d45c439aa` |
+| `KMRP-OriginalHD-Menu.otf` | 40,244 | 1000 | 218 | `5ddbf458d9740ef2257c965154837366ac8b10f96c3c694336dc1919f96124cd` |
+| `KMRP-OriginalHD-MenuLarge.otf` | 41,428 | 1000 | 218 | `2f7e058c6ccbb2ba52dc4af9c71211c811959240fa38eecea770a036f9f28851` |
+| `KMRP-OriginalHD-MenuMedium.otf` | 40,452 | 1000 | 218 | `ecd8638a99f2250b9004b3d540ad03d099de1e233df22cda00cac49f5470bd30` |
+| `KMRP-OriginalHD-MenuSmall.otf` | 38,500 | 1000 | 218 | `3f2d790ef9c1ae004110f7e8422db5ed3a6971d8eb644e47a907de490bf7497c` |
+| `KMRP-OriginalHD-MenuSmallB.otf` | 40,188 | 1000 | 218 | `109ed376a6eee1a2980d4b8991c1d0ede57b3542de4f77b55d2a42c11f5be895` |
+| `KMRP-OriginalHD.ttc` | 653,552 | 1000 | 11 fonts | `cf74d2868d10d1d533b5c03f6871f47ecf6e1cadf4d4a2f4c51c1c7ae1eb1f41` |
 
 Which file is which game font:
 
@@ -67,6 +67,7 @@ Built to the OpenType recommendations for CFF fonts ([Microsoft](https://learn.m
 | Vertical metrics | hhea = typo; win ascent and descent at least the font's highest and lowest points (Windows clips beyond them) |
 | Hints | OTF: Adobe `otfautohint` 3.0.0, alignment zones and stem widths measured from each font's own H, x, O, o, p and q; TTF: ttfautohint, the whole-pixel flag set |
 | Size | outlines subroutinised (`cffsubr`); the collection shares the tables that are the same |
+| Kerning | a GPOS `kern` feature, letter pairs measured from the outlines (section 2); Console none, as it is monospaced |
 
 Two glyphs are made rather than measured: MenuSmall's underscore, which sits on the
 very bottom of its atlas cell and is cut to an 11-unit sliver there (TrueType hinting
@@ -90,6 +91,7 @@ else was opened: not the old OTFs' outlines, not any other foundry's font.
 | Rings | The rings of © and ® are exact: a circle or an axis-aligned oval, whichever the HD ring is closer to (the oval only if it fits at least 30% better and is 1% from round), both edges about one centre, four quarter arcs each | `rings.py` |
 | Grid | Points on 1/80 of an atlas pixel while drawing, each arc's handles fitted again to the rounded ends; 1000 units per em in the finished files | `redraw.py` (`realize`), `finish.py` |
 | Finish | The rules of section 1, hinting, subroutinising | `finish.py` |
+| Kerning | Pair kerning for a to z and A to Z, each with its accented forms: at every height both letters have ink, the gap between them from the outlines; the target is straight and round against each other (H H, O O, H O, O H; for small caps n n, o o, n o, o n); a pair looser than that is drawn in by 70% of the difference, its narrowest point never closer than half of H H's gap; only tightening, values in steps of 5 units, none under 15. About 1,650 to 2,260 pairs a font. Console has none (monospaced). Advances, outlines and hints are unchanged | `kern.py` (run by `finish.py`) |
 | Collection | TrueType outlines, ttfautohint, one `.ttc` | `collection.py` |
 
 `run.py` redraws all 11 and writes `build/fonts/redrawn`; `finish.py` writes `otf/`;
@@ -149,7 +151,10 @@ editor and KMRP's own atlas builder.
 ## 4. Limits
 
 - Windows-1252 only, as the game's fonts (218 glyphs; Console 96).
-- No kerning: the game has none.
+- Kerning only where a program applies it (GPOS: Slint, browsers, Word, HarfBuzz and
+  DirectWrite do; GDI and GDI+ do not, so the Font Converter's window sets text without
+  it). The game has none and its atlases are drawn glyph by glyph, so they are unchanged
+  by it (`tools/build_hd_original_atlases.py --check`: 0.01% to 0.04%, as before).
 - The redraw follows the HD atlases, which were rendered from Bank Gothic Medium and
   Helvetica fitted to the game's letters (`tools/build_hd_original_fonts.py`); a
   typeface's design is not protected by copyright in the US and its protection in the
@@ -159,7 +164,8 @@ editor and KMRP's own atlas builder.
 
 ## 5. Not changed
 
-- The letters' widths, spacing and baseline: the game's.
+- The letters' widths, spacing and baseline: the game's. The kerning (2026-10-24) is an
+  adjustment on top of them, for programs that set text from these files.
 - The old traced fonts' tool, `tools/build_hd_original_otf.py`, and the atlases' first
   builder, `tools/build_hd_original_fonts.py`, stay in the repository as the record of
   how the atlases were first made; neither is part of any build now.

@@ -117,6 +117,13 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **KMRP's fonts kern** (2026-10-24; [fonts/README.md](fonts/README.md)). The ten
+  proportional KMRP Original HD fonts (`fonts/otf`, the `.ttc` and the Font Converter's
+  copies) carry pair kerning measured from their outlines (`fonts/tools/kern.py`, run by
+  `finish.py`): a modder saw the small-caps a stand apart ("Aw areness", "G a m" in
+  Gamesave), as it is a triangle and the fonts had no kerning. Advances, outlines and
+  hints are unchanged; the game's atlases are drawn glyph by glyph and come out as before
+  (`--check` 0.01% to 0.04%). Console stays without, being monospaced.
 - **The KMRP Save Editor moved to its own repository and is now the KOTOR Modern Gamesave
   Editor (KMSE)** (2026-10-24), named so nobody takes it to need KMRP. `save-editor/` and
   its build workflow left this repository; its history went with it, and its changes from
