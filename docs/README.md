@@ -64,7 +64,7 @@ Design and build documentation. Engine analysis lives one level over, in
 
 | Document | What it covers |
 | --- | --- |
-| save-editor.md, save-editor-format.md | The **KMRP Save Editor** for KotOR 1 and 2 and the save format of both games: since 2026-10-24 its own program, the **KOTOR Modern Gamesave Editor**, in its own repository **KMSE - KOTOR Modern Gamesave Editor** (`docs/`), no longer here. |
+| save-editor.md, save-editor-format.md | The **KMRP Save Editor** for KotOR 1 and 2 and the save format of both games: since 2026-10-24 its own program, the **KOTOR Modern Gamesave Editor**, in its own repository [**KMSE - KOTOR Modern Gamesave Editor**](https://github.com/RayesDiyab/KMSE-KOTOR-Modern-Gamesave-Editor) (its `docs/`), no longer here. |
 | [fonts/README.md](../fonts/README.md) | The **KMRP Original HD fonts**: 11 OTF files under the SIL Open Font License 1.1, how they were drawn from the HD atlases as lines, corners and arcs, what was measured, and how KMRP's atlases are drawn from them. |
 
 ## Controller support

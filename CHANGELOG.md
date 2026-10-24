@@ -126,7 +126,7 @@ proxy, and it applies the executable changes above as well.
   (`--check` 0.01% to 0.04%). Console stays without, being monospaced.
 - **The KMRP Save Editor moved to its own repository and is now the KOTOR Modern Gamesave
   Editor (KMSE)** (2026-10-24), named so nobody takes it to need KMRP. `save-editor/` and
-  its build workflow left this repository; its history went with it, and its changes from
+  its build workflow left this repository for [its own](https://github.com/RayesDiyab/KMSE-KOTOR-Modern-Gamesave-Editor); its history went with it, and its changes from
   now on are in that repository's CHANGELOG. The entries about it below stay as the record
   of its time here. The crest's sigil is now committed (`assets/branding/sigil.png`), the
   default of `tools/build_brand_image.py`.
@@ -183,8 +183,8 @@ proxy, and it applies the executable changes above as well.
   are now KMRP Original HD Menu and Descriptions, carried in the program, drawn
   grid-fitted. Its example pictures are made again from the redrawn HD atlases.
 - **The Save Editor spawns creatures** (2026-10-22;
-  [save-editor.md](save-editor/docs/save-editor.md), section 3b;
-  [save-editor-format.md](save-editor/docs/save-editor-format.md), section 5.2). On the Map tab,
+  [save-editor.md](https://github.com/RayesDiyab/KMSE-KOTOR-Modern-Gamesave-Editor/blob/master/docs/save-editor.md), section 3b;
+  [save-editor-format.md](https://github.com/RayesDiyab/KMSE-KOTOR-Modern-Gamesave-Editor/blob/master/docs/save-editor-format.md), section 5.2). On the Map tab,
   a picked floor spot offers Spawn a Creature Here: a copy of someone in the area, or any
   creature the game has, enemy or friendly. A saved creature whose "spawn script fired" flag
   is 0 gets its spawn script run by the game itself on its first update, and ids come from
@@ -202,7 +202,7 @@ proxy, and it applies the executable changes above as well.
   moved to the top right beside the settings button; the bottom bar's backup folder went into
   Settings, so every tab is taller.
 - **Skip Ahead covers the whole of KotOR 1 and leaves the skipped areas played through**
-  (2026-10-23; [save-editor.md](save-editor/docs/save-editor.md)). Every chapter from the
+  (2026-10-23; [save-editor.md](https://github.com/RayesDiyab/KMSE-KOTOR-Modern-Gamesave-Editor/blob/master/docs/save-editor.md)). Every chapter from the
   Endar Spire to the Star Forge is mapped from the game's own scripts and dialogs; skipping to
   one plays every earlier chapter first, in order: quests, story values, star maps, items,
   credits, companions, the Jedi class the player picks, the cumulative XP of a full run. The
@@ -216,7 +216,7 @@ proxy, and it applies the executable changes above as well.
   containers, killed enemies, finished quests, bought companions, held items) is not given
   again. KotOR 2 also gets influence, the masters' teachings, the prestige class and, as a
   choice, companions trained as Jedi without their conversations.
-- **Skip Ahead covers KotOR 2** (2026-10-23; [save-editor.md](save-editor/docs/save-editor.md)).
+- **Skip Ahead covers KotOR 2** (2026-10-23; [save-editor.md](https://github.com/RayesDiyab/KMSE-KOTOR-Modern-Gamesave-Editor/blob/master/docs/save-editor.md)).
   Eleven chapters from Peragus to Malachor V and the Ebon Hawk, mapped from the game's files:
   quests, story values, the masters found, companions by gender and side, loot, credits for
   either side, and the XP of a full run by the game's own kill-XP rule read from
@@ -229,7 +229,7 @@ proxy, and it applies the executable changes above as well.
   the dark side kills slot 5 on Dantooine, brings slot 0 back at the Unknown World and loses
   slots 4, 5, 2 and 6, and plays the dark ending. Not yet seen in the game.
 - **The Save Editor travels anywhere and skips ahead in the story** (2026-10-23;
-  [save-editor.md](save-editor/docs/save-editor.md)). The Map tab lists every area of the
+  [save-editor.md](https://github.com/RayesDiyab/KMSE-KOTOR-Modern-Gamesave-Editor/blob/master/docs/save-editor.md)). The Map tab lists every area of the
   game by planet; Travel Here makes the game itself take the player there right after the
   save loads, an area never visited included, with its arrival scripts and the party, by an
   area-transition event queued in the save. Skip Ahead makes a chapter as if played: its
@@ -238,12 +238,12 @@ proxy, and it applies the executable changes above as well.
   the maintainer from a new KotOR 1 save: the Endar Spire skip ended in the Taris apartment
   after the escape pod movie and the vision, at level 3 with a real run's items.
 - **The Save Editor's Story tab opens on a quest tracker** (2026-10-22;
-  [save-editor.md](save-editor/docs/save-editor.md)): active, completed and not started
+  [save-editor.md](https://github.com/RayesDiyab/KMSE-KOTOR-Modern-Gamesave-Editor/blob/master/docs/save-editor.md)): active, completed and not started
   quests on the left; the picked quest's journal entry and every stage as a timeline on the
   right, a click putting the quest at a stage; Finish Quest asks which ending (with its XP) in
   a pop-up. A number typed anywhere is taken when the box is left, as if Enter were pressed.
 - **Settings in the Save Editor and the Font Converter, and bigger text** (2026-10-22;
-  [save-editor.md](save-editor/docs/save-editor.md),
+  [save-editor.md](https://github.com/RayesDiyab/KMSE-KOTOR-Modern-Gamesave-Editor/blob/master/docs/save-editor.md),
   [font-converter.md](font-converter/docs/font-converter.md)). Both have the installer's
   gear at the top right; it opens a Settings pop-up with Text Size (Small, the old sizes;
   Medium, the new default; Large) and Appearance (Dark or Light). The Font Converter gained a
@@ -253,13 +253,13 @@ proxy, and it applies the executable changes above as well.
   buttons, fields and tiles in both were nearly invisible; they now stand at least 1.8:1
   against what they sit on (the Save Editor's about 3:1), measured in each document.
 - **The Save Editor has its own icon** (2026-10-22;
-  [save-editor/assets/icon](save-editor/assets/icon/README.md)): a holocron with a
+  [save-editor/assets/icon](https://github.com/RayesDiyab/KMSE-KOTOR-Modern-Gamesave-Editor/blob/master/assets/icon/README.md)): a holocron with a
   KOTOR-style datapad in front, in the holocron's obsidian and blue, with Aurebesh on the
   datapad's screen. It is the window's icon and the program file's (16 to 256 px); the
   header keeps the KMRP crest.
 - **New tool: the KMRP Save Editor, for KotOR 1 and KotOR 2** (2026-10-22;
-  `save-editor`, [save-editor.md](save-editor/docs/save-editor.md),
-  [save-editor-format.md](save-editor/docs/save-editor-format.md)). A separate program, not part of
+  `save-editor`, [save-editor.md](https://github.com/RayesDiyab/KMSE-KOTOR-Modern-Gamesave-Editor/blob/master/docs/save-editor.md),
+  [save-editor-format.md](https://github.com/RayesDiyab/KMSE-KOTOR-Modern-Gamesave-Editor/blob/master/docs/save-editor-format.md)). A separate program, not part of
   the installer, for Windows, Linux and macOS (Rust and Slint), in the Font Converter's
   look with KMRP's own fonts, dark and light mode, and KotOR II in its own colours. It
   finds saves without setup (every Steam library, KotOR II's Steam Cloud folder, GOG and
