@@ -695,14 +695,16 @@ twice.
 
 ## Community and media coverage
 
-Coverage of **KMRP 1.0**, the first release. Thank you to both.
+Thank you to everyone who wrote about KMRP, showed it or played with it.
 
 | | By | |
 | --- | --- | --- |
 | Video | **LucianDarth** | [Patch KOTOR with 1 Installer \| KOTOR Modern Restoration Patch](https://www.youtube.com/watch?v=IRK-3XjTKjU) |
+| Video | **LucianDarth** | [Remaster KOTOR in 2026 With 3 Mods](https://www.youtube.com/watch?v=cqFz6O2Kwlk), an earlier guide whose description now points to KMRP |
 | Article | **SWTOR Strategies** | [While We Wait for the KOTOR Remake, Modders Just Fixed the Original for Modern PCs](https://swtorstrategies.com/2026/09/kotor-modern-restoration-patch.html) |
+| Let's play | **CrispyJeb** | [Star Wars: Knights of the Old Republic with KOTOR Modern Restoration Patch, part 1](https://www.youtube.com/watch?v=_NdufAa1KZM) and [part 2](https://www.youtube.com/watch?v=Dw5im5NxXYw) |
 
-Both describe 1.0. What has changed since is under [Features](#features).
+Each describes KMRP as it was when it was made. What it does now is under [Features](#features).
 
 ---
 
