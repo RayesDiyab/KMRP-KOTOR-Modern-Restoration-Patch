@@ -33,10 +33,10 @@
  * stretches over its whole button, drawn to come out round on that button, so the nearest
  * set's, drawn for that set's buttons, came out stretched on buttons of another shape (1.86
  * times as wide as tall at 3440x1400). This is build_controller_prompt_textures.py's
- * build_prompt_tga with Pillow's arithmetic -- the Lanczos resample on premultiplied alpha in
- * 22-bit fixed point, the masked paste, alpha_composite -- from the artwork the table carries,
- * with the label widths of SETDIR's manifest, so a set the blend resolves to itself comes out
- * with the build's badges byte for byte. It also writes that manifest with the blended button
+ * build_prompt_tga, drawing each glyph from the outlines the table carries with the integer
+ * rules of tools/controller_glyphs.py (table version 6, issue 68), with the label widths of
+ * SETDIR's manifest, so a set the blend resolves to itself comes out with the build's badges
+ * byte for byte. It also writes that manifest with the blended button
  * sizes, the Container's widening and the row fits, and lbl_mileftbot.tga, the HUD's
  * button-row boxes, which build_menubg_texture.py draws from each set's mipc28x6.gui and which
  * the nearest set's drew out of step with the blended buttons, from the blended HUD.
@@ -139,8 +139,19 @@ typedef struct { double advances[256]; int count; double spacing, line_h; } Font
  * by its DIMENSION on every side, so a badge is made for that area and not for the whole
  * button (build_controller_prompt_textures.py, fill_inset). Each prompt carries its two
  * borders' insets; where they differ a second texture is drawn for the focused border,
- * "kmf..." beside "kmr...". */
-typedef struct { uint32_t width, height; uint8_t *rgba; } Glyph;
+ * "kmf..." beside "kmr...".
+ *
+ * Table version 6 (2026-10-27, issue 68): a glyph is outlines and paints, drawn at the size
+ * the badge needs (draw_glyph), no longer a picture resampled with Lanczos. */
+typedef struct {
+    uint8_t rule, kind, rgba[4];          /* rule 0 nonzero, 1 even-odd; kind 0 solid, 1 linear, 2 radial */
+    int64_t coef[6];
+    uint32_t stop_count, edge_count;
+    uint32_t stop_at[16];
+    uint8_t stop_rgba[16][4];
+    int32_t *edges;                       /* x0 y0 x1 y1 per edge, in glyph units */
+} GlyphItem;
+typedef struct { uint32_t width, height, item_count; GlyphItem *items; } Glyph;
 typedef struct {
     char resref[32], gui[256];
     uint32_t width_at, height_at, glyph, sizing_count, sizing[16];
@@ -236,137 +247,279 @@ static int32_t apply_fit(const Fit *fit, uint8_t *data, double caption) {
 }
 
 /* ------------------------------------------------------------------ the badges
- * Pillow 12's arithmetic, as build_prompt_tga reaches it: Image.resize(LANCZOS) on RGBA goes
- * through premultiplied RGBa (Convert.c's rgba2rgbA and rgbA2rgba), Resample.c's two passes
- * with precompute_coeffs and normalize_coeffs_8bpc, and 64-bit sums where Pillow's are
- * 32-bit, which never overflow here (255 x at most 1.3 x 2^22). */
-#define PRECISION_BITS (32 - 8 - 2)
-static const double PI = 3.14159265358979323846;   /* M_PI */
+ * tools/controller_glyphs.py's drawing, step for step: integers only, so it agrees with the
+ * build and with the Windows installer's GuiBlend.cs byte for byte. That file's docstring
+ * states the rules; the names here follow it. */
+#define GLYPH_SS 8
+#define GLYPH_SUB 2048
+#define GLYPH_SAMPLE (GLYPH_SUB / GLYPH_SS)
+#define GLYPH_FULL ((int64_t)GLYPH_SS * GLYPH_SS * 65025)
 
-static double sinc_filter(double x) {
-    if (x == 0.0) return 1.0;
-    x = x * PI;
-    return sin(x) / x;
+static int64_t floor_div(int64_t a, int64_t b) {   /* Python's //, for either sign of b */
+    int64_t q = a / b;
+    return (a % b != 0 && (a < 0) != (b < 0)) ? q - 1 : q;
 }
 
-static double lanczos_filter(double x) {
-    if (-3.0 <= x && x < 3.0) return sinc_filter(x) * sinc_filter(x / 3);
-    return 0.0;
+static int64_t isqrt64(int64_t n) {
+    int64_t r = (int64_t)sqrt((double)n);
+    while (r > 0 && r * r > n) r--;
+    while ((r + 1) * (r + 1) <= n) r++;
+    return r;
 }
 
-/* Per output pixel: the first input pixel, how many, and their fixed-point weights. */
-static int precompute_coeffs(int in_size, int out_size, int **bounds_out, int32_t **kk_out) {
-    double scale = (double)(float)in_size / out_size, filterscale = scale;
-    if (filterscale < 1.0) filterscale = 1.0;
-    double support = 3.0 * filterscale;
-    int ksize = (int)ceil(support) * 2 + 1;
-    int *bounds = malloc(sizeof(int) * 2 * out_size);
-    int32_t *kk = calloc((size_t)out_size * ksize, sizeof(int32_t));
-    double *k = malloc(sizeof(double) * ksize);
-    for (int xx = 0; xx < out_size; xx++) {
-        double center = 0.0 + (xx + 0.5) * scale, ww = 0.0, ss = 1.0 / filterscale;
-        int xmin = (int)(center - support + 0.5);
-        if (xmin < 0) xmin = 0;
-        int xmax = (int)(center + support + 0.5);
-        if (xmax > in_size) xmax = in_size;
-        xmax -= xmin;
-        for (int x = 0; x < xmax; x++) {
-            double w = lanczos_filter((x + xmin - center + 0.5) * ss);
-            k[x] = w;
-            ww += w;
-        }
-        for (int x = 0; x < xmax; x++) {
-            if (ww != 0.0) k[x] /= ww;
-            kk[xx * ksize + x] = k[x] < 0 ? (int32_t)(-0.5 + k[x] * (1 << PRECISION_BITS))
-                                          : (int32_t)(0.5 + k[x] * (1 << PRECISION_BITS));
-        }
-        bounds[xx * 2] = xmin;
-        bounds[xx * 2 + 1] = xmax;
+/* A paint's colour at glyph point (xa, ya). */
+static void glyph_paint(const GlyphItem *it, int64_t xa, int64_t ya, int64_t out[4]) {
+    if (it->kind == 0) {
+        for (int c = 0; c < 4; c++) out[c] = it->rgba[c];
+        return;
     }
-    free(k);
-    *bounds_out = bounds;
-    *kk_out = kk;
-    return ksize;
-}
-
-static uint8_t clip8(int64_t in) {
-    if (in >= ((int64_t)1 << PRECISION_BITS << 8)) return 255;
-    if (in <= 0) return 0;
-    return (uint8_t)(in >> PRECISION_BITS);
-}
-
-static uint8_t muldiv255(unsigned a, unsigned b) {
-    unsigned t = a * b + 128;
-    return (uint8_t)(((t >> 8) + t) >> 8);
-}
-
-/* Image.resize((dw, dh), LANCZOS) of a straight-alpha RGBA image. */
-static uint8_t *resize_rgba(const uint8_t *in, int w, int h, int dw, int dh) {
-    uint8_t *out = malloc((size_t)dw * dh * 4);
-    if (dw == w && dh == h) {   /* resize() returns a copy */
-        memcpy(out, in, (size_t)w * h * 4);
-        return out;
-    }
-    uint8_t *pre = malloc((size_t)w * h * 4);
-    for (int i = 0; i < w * h; i++) {
-        unsigned a = in[i * 4 + 3];
-        for (int c = 0; c < 3; c++) pre[i * 4 + c] = muldiv255(in[i * 4 + c], a);
-        pre[i * 4 + 3] = (uint8_t)a;
-    }
-    int *hb, *vb;
-    int32_t *hk, *vk;
-    int hks = precompute_coeffs(w, dw, &hb, &hk);
-    int vks = precompute_coeffs(h, dh, &vb, &vk);
-    const uint8_t *img = pre;
-    int iw = w;
-    uint8_t *tmp = NULL;
-    if (dw != w) {
-        int first = vb[0], last = vb[(dh - 1) * 2] + vb[(dh - 1) * 2 + 1];
-        for (int i = 0; i < dh; i++) vb[i * 2] -= first;
-        tmp = malloc((size_t)dw * (last - first) * 4);
-        for (int yy = first; yy < last; yy++)
-            for (int xx = 0; xx < dw; xx++) {
-                int64_t ss[4] = {1 << (PRECISION_BITS - 1), 1 << (PRECISION_BITS - 1),
-                                 1 << (PRECISION_BITS - 1), 1 << (PRECISION_BITS - 1)};
-                const int32_t *k = &hk[xx * hks];
-                for (int x = 0; x < hb[xx * 2 + 1]; x++)
-                    for (int c = 0; c < 4; c++)
-                        ss[c] += (int64_t)img[((size_t)yy * iw + x + hb[xx * 2]) * 4 + c] * k[x];
-                for (int c = 0; c < 4; c++) tmp[((size_t)(yy - first) * dw + xx) * 4 + c] = clip8(ss[c]);
-            }
-        img = tmp;
-        iw = dw;
-    }
-    uint8_t *res = out;
-    if (dh != h) {
-        for (int yy = 0; yy < dh; yy++)
-            for (int xx = 0; xx < iw; xx++) {
-                int64_t ss[4] = {1 << (PRECISION_BITS - 1), 1 << (PRECISION_BITS - 1),
-                                 1 << (PRECISION_BITS - 1), 1 << (PRECISION_BITS - 1)};
-                const int32_t *k = &vk[yy * vks];
-                for (int y = 0; y < vb[yy * 2 + 1]; y++)
-                    for (int c = 0; c < 4; c++)
-                        ss[c] += (int64_t)img[((size_t)(y + vb[yy * 2]) * iw + xx) * 4 + c] * k[y];
-                for (int c = 0; c < 4; c++) res[((size_t)yy * dw + xx) * 4 + c] = clip8(ss[c]);
-            }
+    int64_t tt;
+    if (it->kind == 1) {
+        tt = floor_div(it->coef[0] * xa + it->coef[1] * ya + it->coef[2], 65536);
     } else {
-        memcpy(res, img, (size_t)dw * dh * 4);
+        int64_t u = floor_div(it->coef[0] * xa + it->coef[1] * ya + it->coef[2], 65536);
+        int64_t v = floor_div(it->coef[3] * xa + it->coef[4] * ya + it->coef[5], 65536);
+        tt = isqrt64(u * u + v * v);
     }
-    for (int i = 0; i < dw * dh; i++) {   /* RGBa back to RGBA */
-        unsigned a = res[i * 4 + 3];
-        if (a == 255 || a == 0) continue;
-        for (int c = 0; c < 3; c++) {
-            unsigned v = 255u * res[i * 4 + c] / a;
-            res[i * 4 + c] = (uint8_t)(v > 255 ? 255 : v);
-        }
+    if (tt < 0) tt = 0;
+    if (tt > 65536) tt = 65536;
+    for (int c = 0; c < 4; c++) out[c] = it->stop_rgba[0][c];
+    for (uint32_t s = 0; s + 1 < it->stop_count; s++) {
+        int64_t p0 = it->stop_at[s], p1 = it->stop_at[s + 1];
+        if (p1 > p0 && tt >= p0)
+            for (int c = 0; c < 4; c++) {
+                int64_t c0 = it->stop_rgba[s][c], c1 = it->stop_rgba[s + 1][c];
+                out[c] = c0 + floor_div((c1 - c0) * (tt - p0) * 2 + (p1 - p0), 2 * (p1 - p0));
+            }
+        if (tt >= p1)
+            for (int c = 0; c < 4; c++) out[c] = it->stop_rgba[s + 1][c];
     }
-    free(pre); free(tmp); free(hb); free(vb); free(hk); free(vk);
-    return res;
 }
 
-static uint8_t div255(unsigned a) {
-    unsigned t = a + 128;
-    return (uint8_t)(((t >> 8) + t) >> 8);
+/* A glyph drawn into a dw x dh rectangle: per pixel the sums of its 64 samples' P (three
+ * channels) and Q, before any backing. The drawing is the same at every whole-pixel
+ * position, so a run keeps its latest drawings, up to GLYPH_CACHE of them and GLYPH_BUDGET
+ * bytes (the helper also runs inside the 32-bit game): the same glyph comes up at the same
+ * size on many buttons of a set (about 950 textures). */
+typedef struct { const Glyph *glyph; int dw, dh; int64_t *sums; size_t bytes; } GlyphTile;
+#define GLYPH_CACHE 256
+#define GLYPH_BUDGET ((size_t)8 << 20)
+static GlyphTile glyph_cache[GLYPH_CACHE];
+static int glyph_cache_count, glyph_cache_next;
+static size_t glyph_cache_bytes;
+
+/* Forgets every kept drawing; called as a run starts, since the embedded build frees all of
+ * a run's memory when it ends. */
+static void glyph_cache_reset(void) {
+    glyph_cache_count = glyph_cache_next = 0;
+    glyph_cache_bytes = 0;
+}
+
+static const int64_t *glyph_tile(const Glyph *g, int dw, int dh) {
+    for (int j = 1; j <= glyph_cache_count; j++) {   /* the kept ones, newest first */
+        const GlyphTile *kept = &glyph_cache[(glyph_cache_next + GLYPH_CACHE - j) % GLYPH_CACHE];
+        if (kept->glyph == g && kept->dw == dw && kept->dh == dh)
+            return kept->sums;
+    }
+    const int rows = dh * GLYPH_SS, cols = dw * GLYPH_SS;
+    const int64_t W = g->width, H = g->height;
+    int32_t *P = calloc((size_t)rows * cols * 3, sizeof(int32_t));
+    int32_t *Q = calloc((size_t)rows * cols, sizeof(int32_t));
+    int32_t *diff = malloc(sizeof(int32_t) * (size_t)rows * (cols + 1));
+    int32_t *paint = malloc(sizeof(int32_t) * (size_t)dw * dh * 4);
+    int64_t *edge = NULL;
+    uint32_t edge_room = 0;
+    for (uint32_t i = 0; i < g->item_count; i++) {
+        const GlyphItem *it = &g->items[i];
+        if (it->edge_count > edge_room) {
+            free(edge);
+            edge_room = it->edge_count;
+            edge = malloc(sizeof(int64_t) * 4 * edge_room);
+        }
+        /* The edges in sample units, once; the rows each crosses, and the item's box. */
+        int r_lo = rows, r_hi = -1;
+        int64_t x_lo = INT64_MAX, x_hi = INT64_MIN;
+        uint32_t n = 0;
+        for (uint32_t e = 0; e < it->edge_count; e++) {
+            const int32_t *ed = &it->edges[e * 4];
+            int64_t *q = &edge[n * 4];
+            q[0] = floor_div((int64_t)ed[0] * dw * GLYPH_SUB, W);
+            q[1] = floor_div((int64_t)ed[1] * dh * GLYPH_SUB, H);
+            q[2] = floor_div((int64_t)ed[2] * dw * GLYPH_SUB, W);
+            q[3] = floor_div((int64_t)ed[3] * dh * GLYPH_SUB, H);
+            if (q[1] == q[3]) continue;
+            n++;
+        }
+        memset(diff, 0, sizeof(int32_t) * (size_t)rows * (cols + 1));
+        for (uint32_t e = 0; e < n; e++) {
+            const int64_t x0 = edge[e * 4], y0 = edge[e * 4 + 1], x1 = edge[e * 4 + 2], y1 = edge[e * 4 + 3];
+            const int64_t lo = y0 < y1 ? y0 : y1, hi = y0 < y1 ? y1 : y0;
+            /* the sample rows with lo <= sy < hi, sy = r * GLYPH_SAMPLE + GLYPH_SAMPLE / 2 */
+            int64_t first = -floor_div(GLYPH_SAMPLE / 2 - lo, GLYPH_SAMPLE);
+            int64_t last = -floor_div(GLYPH_SAMPLE / 2 - hi, GLYPH_SAMPLE) - 1;
+            if (first < 0) first = 0;
+            if (last > rows - 1) last = rows - 1;
+            const int32_t dir = y1 > y0 ? 1 : -1;
+            for (int64_t r = first; r <= last; r++) {
+                const int64_t sy = r * GLYPH_SAMPLE + GLYPH_SAMPLE / 2;
+                const int64_t xc = x0 + floor_div((x1 - x0) * (sy - y0), y1 - y0);
+                int64_t k = -floor_div(GLYPH_SAMPLE / 2 - xc, GLYPH_SAMPLE);
+                if (k < 0) k = 0;
+                if (k > cols) k = cols;
+                diff[(size_t)r * (cols + 1) + k] += dir;
+                if (k < x_lo) x_lo = k;
+                if (k > x_hi) x_hi = k;
+            }
+            if (first <= last) {
+                if (first < r_lo) r_lo = (int)first;
+                if (last > r_hi) r_hi = (int)last;
+            }
+        }
+        if (r_hi < r_lo) continue;
+        if (x_hi > cols) x_hi = cols;
+        /* The paint, for the pixels the item can cover: one colour, or a gradient's. */
+        const int px_lo = (int)(x_lo / GLYPH_SS), px_hi = (int)((x_hi - 1) / GLYPH_SS);
+        const int py_lo = r_lo / GLYPH_SS, py_hi = r_hi / GLYPH_SS;
+        if (it->kind != 0)
+            for (int py = py_lo; py <= py_hi; py++)
+                for (int px = px_lo; px <= px_hi && px < dw; px++) {
+                    int64_t c[4];
+                    glyph_paint(it, ((2 * (int64_t)px + 1) * W) / (2 * (int64_t)dw),
+                                ((2 * (int64_t)py + 1) * H) / (2 * (int64_t)dh), c);
+                    for (int k = 0; k < 4; k++) paint[((size_t)py * dw + px) * 4 + k] = (int32_t)c[k];
+                }
+        for (int r = r_lo; r <= r_hi; r++) {
+            const int32_t *d = &diff[(size_t)r * (cols + 1)];
+            int32_t winding = 0;
+            for (int s = (int)x_lo; s < (int)x_hi; s++) {
+                winding += d[s];
+                if (it->rule ? (winding & 1) == 0 : winding == 0) continue;
+                int32_t c[4];
+                if (it->kind == 0) {
+                    for (int k = 0; k < 4; k++) c[k] = it->rgba[k];
+                } else {
+                    memcpy(c, &paint[((size_t)(r / GLYPH_SS) * dw + s / GLYPH_SS) * 4], sizeof c);
+                }
+                const int32_t a = c[3], inv = 255 - a;
+                int32_t *ps = &P[((size_t)r * cols + s) * 3], *qs = &Q[(size_t)r * cols + s];
+                for (int k = 0; k < 3; k++) ps[k] = c[k] * a + (ps[k] * inv + 127) / 255;
+                *qs = 255 * a + (*qs * inv + 127) / 255;
+            }
+        }
+    }
+    int64_t *sums = malloc(sizeof(int64_t) * 4 * (size_t)dw * dh);
+    for (int py = 0; py < dh; py++)
+        for (int px = 0; px < dw; px++) {
+            int64_t sp[3] = {0, 0, 0}, sq = 0;
+            for (int y = 0; y < GLYPH_SS; y++) {
+                size_t at = (size_t)(py * GLYPH_SS + y) * cols + (size_t)px * GLYPH_SS;
+                for (int x = 0; x < GLYPH_SS; x++, at++) {
+                    sp[0] += P[at * 3];
+                    sp[1] += P[at * 3 + 1];
+                    sp[2] += P[at * 3 + 2];
+                    sq += Q[at];
+                }
+            }
+            int64_t *o = &sums[((size_t)py * dw + px) * 4];
+            o[0] = sp[0]; o[1] = sp[1]; o[2] = sp[2]; o[3] = sq;
+        }
+    free(P); free(Q); free(diff); free(paint); free(edge);
+    const size_t bytes = sizeof(int64_t) * 4 * (size_t)dw * dh;
+    while (glyph_cache_count > 0 &&
+           (glyph_cache_count == GLYPH_CACHE || glyph_cache_bytes + bytes > GLYPH_BUDGET)) {
+        GlyphTile *oldest = &glyph_cache[(glyph_cache_next + GLYPH_CACHE - glyph_cache_count) % GLYPH_CACHE];
+        free(oldest->sums);
+        glyph_cache_bytes -= oldest->bytes;
+        glyph_cache_count--;
+    }
+    GlyphTile *slot = &glyph_cache[glyph_cache_next];
+    slot->glyph = g; slot->dw = dw; slot->dh = dh; slot->sums = sums; slot->bytes = bytes;
+    glyph_cache_bytes += bytes;
+    glyph_cache_count++;
+    glyph_cache_next = (glyph_cache_next + 1) % GLYPH_CACHE;
+    return sums;
+}
+
+/* draw_into: the glyph drawn into the dw x dh rectangle at (left, top) of `sheet` (tw x th,
+ * RGBA, top row first, transparent or all `backing`). */
+static void draw_glyph(const Glyph *g, uint8_t *sheet, int tw, int th, int left, int top, int dw, int dh,
+                       const uint8_t *backing) {
+    const int64_t *sums = glyph_tile(g, dw, dh);
+    for (int py = 0; py < dh; py++) {
+        if (top + py < 0 || top + py >= th) continue;
+        for (int px = 0; px < dw; px++) {
+            if (left + px < 0 || left + px >= tw) continue;
+            const int64_t *o = &sums[((size_t)py * dw + px) * 4];
+            int64_t sp[3] = {o[0], o[1], o[2]}, sq = o[3];
+            if (backing) {
+                const int64_t rest = GLYPH_FULL - sq, ba = backing[3];
+                for (int k = 0; k < 3; k++) sp[k] += (backing[k] * ba * rest) / 65025;
+                sq += (255 * ba * rest) / 65025;
+            }
+            uint8_t *d = &sheet[((size_t)(top + py) * tw + left + px) * 4];
+            for (int k = 0; k < 3; k++) {
+                int64_t v = sq > 0 ? (255 * sp[k] + sq / 2) / sq : 0;
+                d[k] = (uint8_t)(v > 255 ? 255 : v);
+            }
+            d[3] = (uint8_t)((sq + GLYPH_SS * GLYPH_SS * 127) / (GLYPH_SS * GLYPH_SS * 255));
+        }
+    }
+}
+
+/* One glyph of the badge section (controller_glyphs.pack): its outlines kept as edges. 1 on
+ * success. */
+static int read_glyph(Glyph *g) {
+    g->width = take_u32();
+    g->height = take_u32();
+    g->item_count = take_u32();
+    if (g->width == 0 || g->height == 0 || g->width > 65536 || g->height > 65536 || g->item_count > 64) {
+        fprintf(stderr, "kmrp-guiblend: bad glyph\n");
+        return 0;
+    }
+    g->items = calloc(g->item_count ? g->item_count : 1, sizeof(GlyphItem));
+    for (uint32_t j = 0; j < g->item_count; j++) {
+        GlyphItem *it = &g->items[j];
+        if (!take(&it->rule, 1) || !take(&it->kind, 1) || it->rule > 1 || it->kind > 2) {
+            fprintf(stderr, "kmrp-guiblend: bad glyph\n");
+            return 0;
+        }
+        if (it->kind == 0) {
+            if (!take(it->rgba, 4)) { fprintf(stderr, "kmrp-guiblend: bad glyph\n"); return 0; }
+        } else {
+            if (!take(it->coef, 8 * (it->kind == 1 ? 3 : 6))) { fprintf(stderr, "kmrp-guiblend: bad glyph\n"); return 0; }
+            it->stop_count = take_u32();
+            if (it->stop_count == 0 || it->stop_count > 16) { fprintf(stderr, "kmrp-guiblend: bad glyph\n"); return 0; }
+            for (uint32_t s = 0; s < it->stop_count; s++) {
+                it->stop_at[s] = take_u32();
+                if (!take(it->stop_rgba[s], 4)) { fprintf(stderr, "kmrp-guiblend: bad glyph\n"); return 0; }
+            }
+        }
+        uint32_t polygons = take_u32();
+        size_t start = pos, edges = 0;
+        for (uint32_t k = 0; k < polygons; k++) {   /* count first, then copy */
+            uint32_t n = take_u32();
+            if (n > 1000000 || pos + (size_t)n * 8 > table_size) { fprintf(stderr, "kmrp-guiblend: bad glyph\n"); return 0; }
+            pos += (size_t)n * 8;
+            edges += n;
+        }
+        it->edge_count = (uint32_t)edges;
+        it->edges = malloc(sizeof(int32_t) * 4 * (edges ? edges : 1));
+        pos = start;
+        size_t e = 0;
+        for (uint32_t k = 0; k < polygons; k++) {
+            uint32_t n = take_u32();
+            const uint8_t *v = table + pos;
+            for (uint32_t m = 0; m < n; m++) {
+                int32_t xy[4];
+                memcpy(&xy[0], v + (size_t)m * 8, 8);
+                memcpy(&xy[2], v + (size_t)((m + 1) % n) * 8, 8);
+                memcpy(&it->edges[e * 4], xy, sizeof xy);
+                e++;
+            }
+            pos += (size_t)n * 8;
+        }
+    }
+    return 1;
 }
 
 /* build_prompt_tga for a control of cw x ch whose border draws its fill `inset` inside it:
@@ -404,38 +557,10 @@ static uint8_t *draw_badge(const Badges *B, const Glyph *art, int cw, int ch, do
     if (dst_h < 1) dst_h = 1;
     int left = (int)rint((center_x - box_w / 2.0) * tw / cw);
     int top = (int)rint((center_y - box_h / 2.0) * th / ch);
-    uint8_t *glyph = resize_rgba(art->rgba, (int)art->width, (int)art->height, dst_w, dst_h);
-
     uint8_t *sheet = calloc((size_t)tw * th, 4);   /* top row first, RGBA */
-    for (int y = 0; y < dst_h && !blank; y++) {
-        if (top + y < 0 || top + y >= th) continue;
-        for (int x = 0; x < dst_w; x++) {
-            if (left + x < 0 || left + x >= tw) continue;
-            const uint8_t *s = &glyph[((size_t)y * dst_w + x) * 4];
-            uint8_t *d = &sheet[((size_t)(top + y) * tw + left + x) * 4];
-            for (int c = 0; c < 4; c++)   /* paste(art, box, art): BLEND over nothing; else a copy */
-                d[c] = backing ? s[c] : div255((unsigned)s[c] * s[3]);
-        }
-    }
-    if (backing) {   /* alpha_composite(the backing, the sheet) */
-        for (int i = 0; i < tw * th; i++) {
-            uint8_t *s = &sheet[i * 4];
-            if (s[3] == 0) {
-                memcpy(s, backing, 4);
-                continue;
-            }
-            uint32_t blend = (uint32_t)backing[3] * (255 - s[3]);
-            uint32_t outa255 = (uint32_t)s[3] * 255 + blend;
-            uint32_t coef1 = (uint32_t)s[3] * 255 * 255 * (1 << 7) / outa255;
-            uint32_t coef2 = 255 * (1 << 7) - coef1;
-            for (int c = 0; c < 3; c++) {
-                uint32_t t = s[c] * coef1 + backing[c] * coef2 + (0x80 << 7);
-                s[c] = (uint8_t)(((((t >> 8) + t) >> 8)) >> 7);
-            }
-            uint32_t a = outa255 + 0x80;
-            s[3] = (uint8_t)(((a >> 8) + a) >> 8);
-        }
-    }
+    if (backing)   /* on the button's own fill: the glyph laid over it */
+        for (int i = 0; i < tw * th; i++) memcpy(&sheet[(size_t)i * 4], backing, 4);
+    if (!blank) draw_glyph(art, sheet, tw, th, left, top, dst_w, dst_h, backing);
     *size = 18 + (size_t)tw * th * 4 + B->footer_len;
     uint8_t *tga = calloc(1, *size);
     tga[2] = 2;
@@ -449,7 +574,6 @@ static uint8_t *draw_badge(const Badges *B, const Glyph *art, int cw, int ch, do
             d[0] = s[2]; d[1] = s[1]; d[2] = s[0]; d[3] = s[3];
         }
     memcpy(tga + 18 + (size_t)tw * th * 4, B->footer, B->footer_len);
-    free(glyph);
     free(sheet);
     return tga;
 }
@@ -882,6 +1006,7 @@ static int family_at_height(const Anchor *anchors, uint32_t count, uint32_t fami
 }
 
 int main(int argc, char **argv) {
+    glyph_cache_reset();
     if (argc != 4 && argc != 6) {
         fprintf(stderr, "usage: kmrp-guiblend TABLE WIDTH HEIGHT [OUTDIR PROMPTS]\n");
         return 1;
@@ -900,8 +1025,8 @@ int main(int argc, char **argv) {
     fclose(f);
 
     char magic[4];
-    if (!take(magic, 4) || memcmp(magic, "KGBL", 4) != 0 || take_u32() != 5) {
-        fprintf(stderr, "kmrp-guiblend: not a version 5 blend table\n");
+    if (!take(magic, 4) || memcmp(magic, "KGBL", 4) != 0 || take_u32() != 6) {
+        fprintf(stderr, "kmrp-guiblend: not a version 6 blend table\n");
         return 1;
     }
     uint32_t family_count = take_u32();
@@ -1023,16 +1148,7 @@ int main(int argc, char **argv) {
     if (badges.glyph_count > 64) { fprintf(stderr, "kmrp-guiblend: bad glyph count\n"); return 1; }
     badges.glyphs = calloc(badges.glyph_count ? badges.glyph_count : 1, sizeof(Glyph));
     for (uint32_t i = 0; i < badges.glyph_count; i++) {
-        Glyph *g = &badges.glyphs[i];
-        g->width = take_u32();
-        g->height = take_u32();
-        if (g->width == 0 || g->height == 0 || g->width > 1024 || g->height > 1024 ||
-            pos + (size_t)g->width * g->height * 4 > table_size) {
-            fprintf(stderr, "kmrp-guiblend: bad glyph\n");
-            return 1;
-        }
-        g->rgba = table + pos;
-        pos += (size_t)g->width * g->height * 4;
+        if (!read_glyph(&badges.glyphs[i])) return 1;
     }
     badges.prompt_count = take_u32();
     if (badges.prompt_count > 4096) { fprintf(stderr, "kmrp-guiblend: bad prompt count\n"); return 1; }

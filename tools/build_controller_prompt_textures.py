@@ -18,6 +18,8 @@ from pathlib import Path
 
 from pykotor.resource.formats.gff import read_gff
 
+import controller_glyphs
+
 
 TEXTURE_WIDTH = 512
 TEXTURE_HEIGHT = 64
@@ -569,12 +571,13 @@ def _load_glyph_art(glyph: str, family: str = GLYPH_FAMILY):
 
 
 def check_glyph_art(family: str = GLYPH_FAMILY):
-    """(present, missing) action names for `family`. Loud where loading is quiet."""
-    folder, art = GLYPH_FAMILIES[family]
-    directory = GLYPH_PACK / folder
+    """(present, missing) action names for `family`: whether each has its outlines in
+    assets/controller-glyphs/glyphs.json, which every badge is drawn from (issue 68).
+    Loud where drawing is quiet."""
+    _folder, art = GLYPH_FAMILIES[family]
     present, missing = [], []
-    for glyph, name in sorted(art.items()):
-        (present if (directory / name).is_file() else missing).append(glyph)
+    for glyph in sorted(art):
+        (present if controller_glyphs.glyph(family, glyph) is not None else missing).append(glyph)
     return present, missing
 
 
@@ -587,27 +590,30 @@ def _composite_glyph_tga(control_width: int, control_height: int, glyph: str,
                          center_x: float, center_y: float, radius: float,
                          family: str = GLYPH_FAMILY,
                          backing: tuple | None = None) -> bytes:
-    """Place the real glyph artwork, pre-compensated for the button stretch.
+    """Draw the glyph, pre-compensated for the button stretch.
 
     The engine stretches BORDER.FILL across the whole control, so a square in
-    CONTROL space is a rectangle in TEXTURE space. The art is therefore resized
-    to that rectangle and comes out round in game.
+    CONTROL space is a rectangle in TEXTURE space. The glyph is therefore drawn
+    into that rectangle and comes out round in game. It is drawn from its
+    outlines at that size (controller_glyphs.py, issue 68): the PNGs this used to
+    shrink with Lanczos turned soft at the 18 to 40 px most buttons give it.
     """
-    art = _load_glyph_art(glyph, family)
-    if art is None:
+    size = controller_glyphs.glyph_size(family, glyph)
+    if size is None:
         if backing is not None:
             # The drawn fallback has no backing; a button that keeps its box
             # must not lose it to a missing file.
             raise ValueError(f"No {family} artwork for {glyph!r} on a backed badge")
         return _legacy_drawn_tga(control_width, control_height, glyph)
 
+    import numpy as np
     from PIL import Image
-    # Fit the art inside the badge box while keeping its own proportions. The
-    # face buttons are square (82x82) and unaffected, but the triggers are not
-    # (LT and RT are 74x85), and scaling them to a square stretched them into
-    # something that was recognisably not an Xbox trigger.
+    # Fit the glyph inside the badge box while keeping its own proportions. The
+    # face buttons are square and unaffected, but the triggers are not (the 360's
+    # are about 7 wide to 8 tall), and scaling them to a square stretched them
+    # into something that was recognisably not an Xbox trigger.
     diameter = radius * 2.0
-    aspect = art.width / art.height
+    aspect = size[0] / size[1]
     box_w = diameter * aspect if aspect < 1.0 else diameter
     box_h = diameter / aspect if aspect > 1.0 else diameter
     dst_w = max(1, round(box_w * TEXTURE_WIDTH / control_width))
@@ -615,20 +621,14 @@ def _composite_glyph_tga(control_width: int, control_height: int, glyph: str,
     left = round((center_x - box_w / 2.0) * TEXTURE_WIDTH / control_width)
     top = round((center_y - box_h / 2.0) * TEXTURE_HEIGHT / control_height)
 
-    sheet = Image.new("RGBA", (TEXTURE_WIDTH, TEXTURE_HEIGHT), (0, 0, 0, 0))
-    resized = art.resize((dst_w, dst_h), Image.LANCZOS)
-    if backing is None:
-        # paste() clips anything past the edge instead of raising, and the sheet
-        # is empty, so using the art's own alpha as the mask is a correct
-        # composite.
-        sheet.paste(resized, (left, top), resized)
-    else:
-        # On the button's own fill: the art laid over it as the engine would
-        # blend it, so its edges fade into the box rather than punching
-        # through it.
-        sheet.paste(resized, (left, top))
-        sheet = Image.alpha_composite(
-            Image.new("RGBA", (TEXTURE_WIDTH, TEXTURE_HEIGHT), backing), sheet)
+    # On a backing (the button's own fill) the glyph is laid over it as the
+    # engine would blend it, so its edges fade into the box rather than punching
+    # through it.
+    pixels = np.zeros((TEXTURE_HEIGHT, TEXTURE_WIDTH, 4), np.uint8)
+    if backing is not None:
+        pixels[...] = backing
+    controller_glyphs.draw_into(pixels, family, glyph, left, top, dst_w, dst_h, backing)
+    sheet = Image.fromarray(pixels, "RGBA")
 
     # Store bottom-up: the descriptor below declares a bottom-left origin, which
     # is what all 40 sampled shipped KOTOR textures use.
@@ -817,26 +817,24 @@ def build_square_glyph_tga(glyph: str, size: int = SQUARE_GLYPH_SIZE,
     """
     if height is None:
         height = size
-    art = _load_glyph_art(glyph, family)
+    art = controller_glyphs.glyph_size(family, glyph)
     if art is None:
         raise ValueError(
             f"No artwork for {glyph!r}; a standalone cue has nothing else to draw")
 
+    import numpy as np
     from PIL import Image
 
-    aspect = art.width / art.height
+    aspect = art[0] / art[1]
     draw_w = size * SQUARE_GLYPH_FILL
     draw_h = draw_w / aspect
     if draw_h > height * SQUARE_GLYPH_FILL:
         draw_h = height * SQUARE_GLYPH_FILL
         draw_w = draw_h * aspect
-    resized = art.resize((max(1, round(draw_w)), max(1, round(draw_h))),
-                         Image.LANCZOS)
-
-    sheet = Image.new("RGBA", (size, height), (0, 0, 0, 0))
-    sheet.paste(resized,
-                ((size - resized.width) // 2, (height - resized.height) // 2),
-                resized)
+    dw, dh = max(1, round(draw_w)), max(1, round(draw_h))
+    pixels = np.zeros((height, size, 4), np.uint8)
+    controller_glyphs.draw_into(pixels, family, glyph, (size - dw) // 2, (height - dh) // 2, dw, dh)
+    sheet = Image.fromarray(pixels, "RGBA")
 
     # Bottom-up, as every shipped KOTOR texture is.
     sheet = sheet.transpose(Image.FLIP_TOP_BOTTOM)

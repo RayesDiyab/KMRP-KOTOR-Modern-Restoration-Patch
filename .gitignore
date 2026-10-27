@@ -93,6 +93,13 @@ third_party/Included/*
 # fixes go back upstream instead of drifting here.
 !third_party/Kotor-Patch-Manager
 
+# Raleway ExtraBold (SIL OFL 1.1) and its licence: the Steam Deck's button letters, which
+# tools/build_controller_glyph_vectors.py turns into outlines (issue 68). Read by that
+# tool only; not shipped.
+!third_party/Fonts/
+third_party/Fonts/*
+!third_party/Fonts/Raleway/
+
 # Xelu's Free Controller & Key Prompts (CC0): the glyph art every badge, cue and the
 # Controller Layout screen is built from. Only the four families KMRP supports, plus
 # the pack's readme for its licence statement. The rest of the pack -- Others/, with

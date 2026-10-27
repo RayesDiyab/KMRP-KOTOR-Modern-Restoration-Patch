@@ -117,6 +117,26 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Controller buttons drawn sharp at every size** (2026-10-27; issue 68, reported on the
+  Steam Deck). Every controller picture KMRP shows, 21 for each of the four pad families
+  (the face buttons, shoulders and triggers, Start and Back, the D-pad and its directions,
+  the sticks and the swap-tabs phrase), is now drawn from its outlines at the size the
+  button gives it. Before, Xelu's 100 px pictures were shrunk into each badge with
+  Lanczos, which turned them soft at the 18 to 40 px most buttons use. The outlines come
+  from Xelu's own vector source (CC0), the Steam Deck's letters from Raleway ExtraBold
+  (SIL OFL 1.1) as in that source, its shoulder digits from the PS5's (the source's digit
+  face is commercial and is not used), and eight pictures the vector file lacks or draws
+  differently from the PNGs KMRP showed were redrawn as lines and arcs from those PNGs,
+  within 0.5 to 1.6 of 255. The look is unchanged; the maintainer approved every picture
+  on a sheet beside the old ones. Each face button's letter is now centred on its disc,
+  measured from the drawn pixels (Xelu's own were up to 2 px of 81 off). The data is
+  `assets/controller-glyphs/glyphs.json`, made by `tools/build_controller_glyph_vectors.py`;
+  `tools/controller_glyphs.py` draws it with integer arithmetic only, and the Windows
+  installer (`GuiBlend.cs`) and the Mac's `kmrp-guiblend.c` draw it by the same rules for
+  a size the build has no set for, through blend table version 6. `Test-ControllerGlyphs.py`
+  requires the C drawer to equal the Python one on 924 drawings and every letter to be
+  centred within a quarter pixel at 400 px. **Not yet seen in game.**
+
 - **Fixed: a Bluetooth DualSense switched off by Steam's idle timer was never seen
   again** (2026-10-27; issue 71, and issue 54 before it). SDL, which reads PlayStation,
   Switch and Steam pads, was started on the game's movie thread by the first pad read

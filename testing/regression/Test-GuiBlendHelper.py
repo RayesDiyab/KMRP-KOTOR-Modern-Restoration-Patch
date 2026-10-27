@@ -44,7 +44,9 @@ On Windows the helper is built as one x64 program with LLVM's clang
 """
 from __future__ import annotations
 
+import hashlib
 import math
+import os
 import random
 import shutil
 import struct
@@ -53,6 +55,7 @@ import sys
 import tempfile
 import zipfile
 from collections import Counter
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -83,7 +86,7 @@ def read_text(d: bytes, p: int) -> tuple[str, int]:
 
 def read_table(path: Path):
     d = path.read_bytes()
-    assert d[:4] == b"KGBL" and struct.unpack_from("<I", d, 4)[0] == 5
+    assert d[:4] == b"KGBL" and struct.unpack_from("<I", d, 4)[0] == 6
     p = 8
     nf = struct.unpack_from("<I", d, p)[0]; p += 4
     aspects = list(struct.unpack_from(f"<{nf}d", d, p)); p += 8 * nf
@@ -133,8 +136,20 @@ def read_table(path: Path):
     p += 4 + 8                                   # MIN_BADGE_AREA and FIT_MARGIN: the build's own are used
     p += 2 + struct.unpack_from("<H", d, p)[0]
     nglyphs = struct.unpack_from("<I", d, p)[0]; p += 4
+    glyph_sizes = []                             # outlines (version 6): the build's own are drawn
     for _ in range(nglyphs):
-        gw, gh = struct.unpack_from("<II", d, p); p += 8 + 4 * gw * gh
+        glyph_sizes.append(struct.unpack_from("<II", d, p)); p += 8
+        items = struct.unpack_from("<I", d, p)[0]; p += 4
+        for _ in range(items):
+            kind = d[p + 1]; p += 2
+            if kind == 0:
+                p += 4
+            else:
+                p += 8 * (3 if kind == 1 else 6)
+                p += 4 + 8 * struct.unpack_from("<I", d, p)[0]
+            polygons = struct.unpack_from("<I", d, p)[0]; p += 4
+            for _ in range(polygons):
+                p += 4 + 8 * struct.unpack_from("<I", d, p)[0]
     badges = []
     nprompts = struct.unpack_from("<I", d, p)[0]; p += 4
     for _ in range(nprompts):
@@ -146,7 +161,8 @@ def read_table(path: Path):
         sizing = list(struct.unpack_from(f"<{n}I", d, p)); p += 4 * n
         insets = struct.unpack_from("<II", d, p); p += 8
         badges.append(dict(resref=resref, gui=gui, width=width_at, height=height_at, glyph=glyph,
-                           backing=backing if backed else None, sizing=sizing, insets=insets))
+                           backing=backing if backed else None, sizing=sizing, insets=insets,
+                           shape=glyph_sizes[glyph][0] / glyph_sizes[glyph][1]))
     # The HUD's button-row boxes: read for the texture's name; the Python side draws it with
     # build_menubg_texture.
     huds = []
@@ -361,19 +377,44 @@ def main() -> int:
             return min(listed, key=lambda s: (abs(int(s.split("x")[1]) - h),
                                               abs(int(s.split("x")[0]) / int(s.split("x")[1]) - w / h)))
 
+        helper_done: set[tuple[str, str]] = set()
+
         def helper_derive(res: str, fonts: str) -> Path:
+            """The helper's blend of `res` with the fonts of `fonts`, made once."""
             w, h = (int(v) for v in res.split("x"))
             out = tmp / f"{res}-{fonts}"
-            subprocess.run([str(helper), native_helpers.arg(table_path), str(w), str(h), native_helpers.arg(out),
-                            native_helpers.arg(set_dir(fonts))], check=True, stdout=subprocess.DEVNULL)
+            if (res, fonts) not in helper_done:
+                subprocess.run([str(helper), native_helpers.arg(table_path), str(w), str(h), native_helpers.arg(out),
+                                native_helpers.arg(set_dir(fonts))], check=True, stdout=subprocess.DEVNULL)
+                helper_done.add((res, fonts))
             return out
+
+        # Every blend steps 2 to 5 read, made first and side by side (each a process of
+        # its own, in a folder of its own), and step 2's Python blends in processes of
+        # their own: one after another these steps took seven minutes (2026-10-27).
+        anchors = [f"{w}x{h}" for i, (w, h, _) in enumerate(table[1])
+                   if terms_for(table[0], table[1], w, h) == [(i, 1.0)]]
+        wanted = sorted({(res, nearest(res)) for res in mac + UNLISTED} | {(res, res) for res in anchors + mac})
+        for fonts in {fonts for _, fonts in wanted}:
+            set_dir(fonts)
+        workers = max(1, (os.cpu_count() or 2) - 2)
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            list(pool.map(lambda job: helper_derive(*job), wanted))
+        python_jobs = {}
+        with ProcessPoolExecutor(max_workers=workers) as pool:
+            for res in mac + UNLISTED:
+                w, h = (int(v) for v in res.split("x"))
+                own = scratch / res
+                own.mkdir()
+                python_jobs[res] = pool.submit(python_derive, table, w, h, set_dir(nearest(res)), own)
+            python_made = {res: job.result() for res, job in python_jobs.items()}
 
         # 2. Helper against the Python derivation, byte for byte, with the installer's fonts.
         mismatches = 0
         for res in mac + UNLISTED:
             w, h = (int(v) for v in res.split("x"))
             out = helper_derive(res, nearest(res))
-            expected = python_derive(table, w, h, set_dir(nearest(res)), scratch)
+            expected = python_made[res]
             for name, data in expected.items():
                 if (out / name).read_bytes() != data:
                     mismatches += 1
@@ -391,8 +432,6 @@ def main() -> int:
         #    fonts. (Not 1360x768: it shares its height and family with 1366x768, and the
         #    blend takes the one nearer the family's aspect ratio. The installer blends no
         #    listed size, so that is the blend's rule, not a miss.)
-        anchors = [f"{w}x{h}" for i, (w, h, _) in enumerate(table[1])
-                   if terms_for(table[0], table[1], w, h) == [(i, 1.0)]]
         differ = []
         for res in anchors:
             out = helper_derive(res, res)
@@ -462,8 +501,11 @@ def main() -> int:
               f"{closest[1]:.1f}, {closest[2]}){'; closer at ' + ', '.join(short) if short else ''}")
 
         # 5b. Every badge round on its blended button: the drawn box's texels, scaled to
-        #     the button the engine stretches the texture over, within 6% of square (a
-        #     glyph is 20 to 60 texels across, so rounding alone moves it by up to 5%).
+        #     the button the engine stretches the texture over, within 6% of the glyph's own
+        #     shape (a glyph is 20 to 60 texels across, so rounding alone moves it by up to
+        #     5%). Until 2026-10-27 this was within 6% of square, which every glyph was
+        #     until the LB and RB badges of 2026-10-19 (issue 49): a bumper is about 1.43
+        #     wide for tall, so the check failed on every run since.
         worst = (1.0, "")
         for res in mac + UNLISTED:
             fonts = nearest(res)
@@ -489,13 +531,20 @@ def main() -> int:
                         continue
                     left = min(len(row) - len(row.lstrip(b"\0")) for row in drawn)
                     right = max(len(row.rstrip(b"\0")) for row in drawn)
-                    aspect = ((right - left) * width / tw) / (len(drawn) * height / th)
+                    aspect = ((right - left) * width / tw) / (len(drawn) * height / th) / badge["shape"]
+                    # One texel of rounding either way is allowed besides: on a button wide
+                    # enough to give a badge 11 of the 512 texels (Return To Ebon Hawk on the
+                    # Map at 4096x2304, 1668 px) one texel is 9%. Xelu's PNGs hid it, their
+                    # Lanczos edges reaching a texel further; the outlines' edges do not.
+                    slack = 1 / (right - left) + 1 / len(drawn)
+                    if abs(aspect - 1) <= slack:
+                        aspect = 1.0
                     if abs(aspect - 1) > abs(worst[0] - 1):
                         worst = (aspect, f"{res} {resref}")
         ok = abs(worst[0] - 1) <= 0.06
         failed |= not ok
         print(f"{'ok  ' if ok else 'FAIL'} every badge round on its blended button at "
-              f"{len(mac) + len(UNLISTED)} derived sizes (worst {worst[0]:.3f} wide for tall, {worst[1]})")
+              f"{len(mac) + len(UNLISTED)} derived sizes (worst {worst[0]:.3f} of its own shape, {worst[1]})")
 
         # 6. The Windows installer's blend against the helper.
         if native_helpers.WINDOWS:
@@ -516,13 +565,15 @@ def windows_matches(table, table_path, helper, tmp, derived, anchors, listed, ne
                     "/reference:System.Windows.Forms.dll", *sources], check=True, stdout=subprocess.DEVNULL)
 
     def run(program, size: str, fonts: str, name: str) -> tuple[int, dict[str, bytes]]:
+        """The program's blend of `size`: its exit code and each file's SHA-256, the files
+        themselves gone once read."""
         w, h = size.split("x")
         out = tmp / f"win-{name}-{size}"
         code = subprocess.run([str(program), *(["--derive-gui"] if program == installer else []),
                                native_helpers.arg(table_path), w, h, native_helpers.arg(out),
                                native_helpers.arg(set_dir(fonts))],
                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode
-        files = {f.name: f.read_bytes() for f in out.iterdir()} if code == 0 else {}
+        files = {f.name: hashlib.sha256(f.read_bytes()).digest() for f in out.iterdir()} if code == 0 else {}
         # 637 files, 72 MB of them badges, for each of about 750 runs: gone once read.
         shutil.rmtree(out, ignore_errors=True)
         return code, files
@@ -543,9 +594,19 @@ def windows_matches(table, table_path, helper, tmp, derived, anchors, listed, ne
     sizes += ["1280x1024", "5760x1080", "1080x1920", "640x480", "800x480", "3440x4000", "600x480"]
     cases = [(size, nearest(size)) for size in derived + sizes] + [(size, size) for size in anchors]
     differ, codes, blended = [], [], 0
-    for size, fonts in cases:
-        helper_code, helper_files = run(helper, size, fonts, "c")
-        csharp_code, csharp_files = run(installer, size, fonts, "cs")
+    # The sizes do not depend on each other: several at once, one per two cores (each run is
+    # one thread of its own and writes about 950 files), every size in folders of its own.
+    # One after another this step took about 50 minutes (2026-10-27).
+    for fonts in {fonts for _, fonts in cases}:
+        set_dir(fonts)
+
+    def both(case):
+        size, fonts = case
+        return size, run(helper, size, fonts, "c"), run(installer, size, fonts, "cs")
+
+    with ThreadPoolExecutor(max_workers=max(1, (os.cpu_count() or 2) // 2)) as pool:
+        results = list(pool.map(both, cases))
+    for size, (helper_code, helper_files), (csharp_code, csharp_files) in results:
         if helper_code != csharp_code:
             codes.append(f"{size} (helper {helper_code}, installer {csharp_code})")
         elif helper_files != csharp_files:

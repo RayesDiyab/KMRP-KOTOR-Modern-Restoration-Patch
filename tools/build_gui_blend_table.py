@@ -41,13 +41,12 @@ is a 512x64 texture the engine stretches over its whole button, drawn so that it
 on that button (build_controller_prompt_textures.py, build_prompt_tga). Taken from the
 nearest set, a badge was drawn for that set's button, and a blended button of another shape
 stretched it: 1.86 times as wide as tall at 3440x1400, whose nearest set by height is
-1856x1392 (measured on the blended files). So the table carries what build_prompt_tga needs
--- its constants, the glyph artwork as it loads it (cropped, RGBA), and per badge (per row of
-the prompt manifest) the button's extent in its .gui, the glyph, the backing and the
-controls whose least height sizes it -- and the installers draw each badge again for the
-blended button, with the same arithmetic as Pillow's (Lanczos resample on premultiplied
-alpha, fixed-point with 22 bits; the masked paste; alpha_composite), so a set rebuilt from
-the table reproduces the build's badges byte for byte (testing/regression/Test-GuiBlendHelper.py).
+1856x1392 (measured on the blended files). So the table carries what build_prompt_tga needs:
+its constants, the glyphs, and per badge (per row of the prompt manifest) the button's
+extent in its .gui, the glyph, the backing and the controls whose least height sizes it.
+The installers draw each badge again for the blended button, with the same integer
+arithmetic as the build (version 6 below), so a set rebuilt from the table reproduces the
+build's badges byte for byte (testing/regression/Test-GuiBlendHelper.py).
 The same holds for lbl_mileftbot.tga, the HUD's button-row boxes, which the build draws per
 set from that set's mipc28x6.gui (build_menubg_texture.py) and which the nearest set's would
 draw out of step with the blended buttons: the table carries where LBL_MENUBG and the eight
@@ -74,8 +73,13 @@ insets, the normal one's and the focused one's, which are the same in every set 
 and the header the two constants of the fit; where the insets differ the installers draw a
 second texture for the focused border, "kmf..." beside "kmr...".
 
+Version 6 (2026-10-27, issue 68): the glyphs are outlines, not pictures. Each is drawn at
+the size its badge needs from assets/controller-glyphs/glyphs.json, by the integer rules
+tools/controller_glyphs.py sets out, which the installers follow step for step; the
+Lanczos resample of Xelu's PNGs, the masked paste and Pillow's alpha_composite are gone.
+
 Format (little-endian):
-    "KGBL" u32 version=5
+    "KGBL" u32 version=6
     u32 families; per family: f64 aspect
     u32 anchors;  per anchor: u32 width, u32 height, u32 family
     u32 fits;     per fit: u16 name length, name (the .gui), u16 length, resref (the
@@ -104,8 +108,8 @@ Format (little-endian):
                   u32 least fill height that gets a badge, f64 margin kept inside a
                   fitted area (MIN_BADGE_AREA, FIT_MARGIN),
                   u16 length, the TGA footer;
-                  u32 glyphs; per glyph: u32 width, u32 height, width x height x 4 bytes
-                  RGBA, top row first (_load_glyph_art's image);
+                  u32 glyphs; per glyph its outlines and paints as
+                  controller_glyphs.pack writes them (u32 W, u32 H, u32 items, ...);
                   u32 prompts; per prompt: u16 length, resref (its manifest row), u16
                   length, the .gui, u32 its control's WIDTH offset, u32 HEIGHT offset,
                   u32 glyph, u8 1 when it stands on a backing and the backing's RGBA
@@ -133,6 +137,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import prepare_universal_resources as pur  # noqa: E402
 import build_controller_prompt_textures as prompts  # noqa: E402
+import controller_glyphs  # noqa: E402
 import build_controller_layout as layout  # noqa: E402
 import build_menubg_texture as menubg  # noqa: E402
 from fix_hud_menubg import BUTTON_TAGS  # noqa: E402
@@ -143,7 +148,7 @@ LAYOUT_SCREEN = "kmrplayout.gui"
 # (prepare_universal_resources.py); a blended size is never 3440x1440.
 HUD_SCREEN = "mipc28x6.gui"
 
-VERSION = 5
+VERSION = 6
 # Field types whose value sits inline in the entry's data dword (GFF V3.2).
 INLINE_TYPES = {0: "BYTE", 1: "CHAR", 2: "WORD", 3: "SHORT", 4: "DWORD", 5: "INT", 8: "FLOAT"}
 FAMILY_ORDER = ["4:3", "16:10", "16:9", "21:9", "32:9"]
@@ -294,8 +299,8 @@ def border_insets(blob: bytes, index: int) -> tuple[int, int]:
 
 
 def badge_section(templates: dict[str, bytes], manifest: bytes, sets: list[dict[str, bytes]]) -> bytes:
-    """The badges' constants, artwork and recipes, one recipe per prompt manifest row, as
-    build_prompt_textures makes that row's texture."""
+    """The badges' constants, glyph outlines and recipes, one recipe per prompt manifest
+    row, as build_prompt_textures makes that row's texture."""
     out = struct.pack("<II", prompts.TEXTURE_WIDTH, prompts.TEXTURE_HEIGHT)
     out += struct.pack("<dd", prompts.BADGE_RADIUS, prompts.BADGE_RADIUS_SHORT)
     out += struct.pack("<I", prompts.BADGE_SHORT_BELOW)
@@ -310,10 +315,10 @@ def badge_section(templates: dict[str, bytes], manifest: bytes, sets: list[dict[
             glyphs.append((family, glyph))
     out += struct.pack("<I", len(glyphs))
     for family, glyph in glyphs:
-        art = prompts._load_glyph_art(glyph, family)
-        if art is None:
-            raise SystemExit(f"no {family} artwork for {glyph}: the installers cannot draw its badges")
-        out += struct.pack("<II", art.width, art.height) + art.convert("RGBA").tobytes()
+        outline = controller_glyphs.glyph(family, glyph)
+        if outline is None:
+            raise SystemExit(f"no {family} outlines for {glyph}: the installers cannot draw its badges")
+        out += controller_glyphs.pack(outline)
 
     offsets = {gui: extent_offsets(data)[1] for gui, data in templates.items()}
 

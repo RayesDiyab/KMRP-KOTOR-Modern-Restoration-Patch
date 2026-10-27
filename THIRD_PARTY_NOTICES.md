@@ -398,9 +398,18 @@ D-pad directions, L3, R3) -- from `Xbox/` (the 360 set, with the Series X art fo
 R3), `PS5/`, `Switch/` and `Steam Deck/` -- plus KMRP's own swap-tabs
 art, one per family since 2026-09-24: `Xbox/Swap_tabs_360.png.png` (the doubled
 extension is its real name), `PS5/Swap_tabs_PS5.png`, `Switch/Swap_tabs_Switch.png`
-and `Steam Deck/Swap_tabs_SteamDeck.png`. They are source art, not shipped as files:
-`tools/build_controller_prompt_textures.py` resizes them per resolution into the
-button-fill textures KMRP installs, one set per family.
+and `Steam Deck/Swap_tabs_SteamDeck.png`. They are source art, not shipped as files.
+
+Since 2026-10-27 (issue 68) the badges are not resized from these pictures but drawn from
+outlines: `tools/build_controller_glyph_vectors.py` reads the pack's `Vector Source.fla`
+(CC0, the same author and terms; kept out of git with the pack's other extras) and writes
+the outlines and colours of every picture to `assets/controller-glyphs/glyphs.json`, which
+the build and the installers draw at each button's size. Eight pictures the vector file
+lacks or draws differently (`360_RT_ALT`, `PS5_R2_Light`, `Switch_LB`/`RB`, `360_LB`/`RB`,
+`PS5_L1`/`R1`) and the swap-tabs arrows are redrawn from the PNGs as lines and arcs. The
+Steam Deck's letters are text in the vector file, in Raleway ExtraBold (see Fonts); its
+shoulder digits are set there in Cocogoose Pro, a commercial face KMRP does not use, so the
+PS5 pictures' own digit outlines stand in for them.
 
 The Controller Layout screen also uses each family's whole-stick and D-pad art
 (`*_Left_Stick.png`, `*_Right_Stick.png`, `*_Dpad.png`) and the pack's two
@@ -511,6 +520,17 @@ https://github.com/silvinor/font-aurebesh
 
 Its 26 letters were checked against the canonical chart on Wikimedia Commons
 (`Star-Wars-aurek-besh-alphabet-chart.svg`) before use.
+
+### Raleway ExtraBold: the Steam Deck's button letters
+
+**Raleway** by Matt McInerney, Pablo Impallari and Rodrigo Fuenzalida, SIL Open Font
+License 1.1, as Google Fonts publishes it (the variable font, its wght 800 instance). Kept
+with its licence at `third_party/Fonts/Raleway/`. A build-time input only, like the rest:
+`tools/build_controller_glyph_vectors.py` turns the letters A, B, X and Y and the Deck's
+shoulder labels into outlines in `assets/controller-glyphs/glyphs.json` (2026-10-27,
+issue 68), because Xelu's vector source sets them in Raleway. The font is not shipped.
+
+https://fonts.google.com/specimen/Raleway
 
 ### Evaluated and not shipped
 

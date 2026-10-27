@@ -1005,6 +1005,19 @@ and anything that caches the art by a version must take it again (Windows raised
 pack to 7). **How to check:** a diagonal in the menus (a V or a W) is one clean edge at a
 large size, not stepped, and every menu and dialogue line sets where it did.
 
+## 98. Controller buttons drawn from outlines (issue 68)
+
+**To do on the Mac** (2026-10-27; `tools/controller_glyphs.py`,
+`assets/controller-glyphs/glyphs.json`, `macos/tools/kmrp-guiblend.c`). Every controller
+badge is drawn from outlines at its size instead of shrinking Xelu's PNGs. For the sets the
+build makes this needs nothing on the Mac: they arrive with the new badges. For a size the
+build has no set for, `kmrp-guiblend.c` already holds the new drawer (`draw_glyph`) and
+reads blend table version 6, so the Mac build must take the new table and helper together:
+a version 5 table is refused. `testing/regression/Test-ControllerGlyphs.py` builds the
+drawer on its own; on the Mac it should be built for both slices (`native_helpers.build`
+does), and `Test-GuiBlendHelper.py` run as before. **How to check:** at a size the build has
+no set for, a face button's letter is crisp and centred on its disc.
+
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
 | Change | Commit | Why not the Mac |

@@ -37,9 +37,10 @@ namespace Kmrp
     /// the engine stretches over its whole button, drawn to come out round on that
     /// button, so the nearest set's, drawn for that set's buttons, came out stretched on
     /// buttons of another shape (1.86 times as wide as tall at 3440x1400). DrawBadge is
-    /// build_controller_prompt_textures.py's build_prompt_tga with Pillow's arithmetic,
-    /// so a set the blend resolves to itself comes out with the build's badges byte for
-    /// byte; the manifest is rewritten with the blended button sizes (and the widening
+    /// build_controller_prompt_textures.py's build_prompt_tga, each glyph drawn from its
+    /// outlines with the integer rules of tools/controller_glyphs.py (table version 6,
+    /// issue 68), so a set the blend resolves to itself comes out with the build's badges
+    /// byte for byte; the manifest is rewritten with the blended button sizes (and the widening
     /// and row fits), which is what the installer's re-centring for the player's
     /// dialog.tlk then reads. So is
     /// lbl_mileftbot.tga, the HUD's button-row boxes, which build_menubg_texture.py
@@ -134,11 +135,25 @@ namespace Kmrp
             internal double Spacing, LineHeight;
         }
 
-        /// <summary>Glyph artwork as _load_glyph_art loads it: RGBA, top row first.</summary>
+        /// <summary>A glyph as controller_glyphs.pack writes it (table version 6): a box
+        /// of Width x Height units and items painted in order.</summary>
         private sealed class Glyph
         {
             internal int Width, Height;
+            internal GlyphItem[] Items;
+        }
+
+        /// <summary>Closed polygons kept as edges (x0, y0, x1, y1 each, in glyph units), a
+        /// fill rule and a paint: solid, or a linear or radial gradient.</summary>
+        private sealed class GlyphItem
+        {
+            internal bool EvenOdd;
+            internal int Kind;            // 0 solid, 1 linear, 2 radial
             internal byte[] Rgba;
+            internal long[] Coef;
+            internal int[] StopAt;
+            internal byte[][] StopRgba;
+            internal int[] Edges;
         }
 
         /// <summary>One prompt manifest row: where its button is, its glyph, its backing,
@@ -220,8 +235,8 @@ namespace Kmrp
                 using (GZipStream unzip = new GZipStream(new MemoryStream(table), CompressionMode.Decompress))
                     table = ReadAll(unzip);
             Reader r = new Reader(table);
-            if (r.Ascii(4) != "KGBL" || r.U32() != 5)
-                throw new InvalidDataException("Not a version 5 blend table.");
+            if (r.Ascii(4) != "KGBL" || r.U32() != 6)
+                throw new InvalidDataException("Not a version 6 blend table.");
             uint familyCount = r.U32();
             if (familyCount == 0 || familyCount > 16)
                 throw new InvalidDataException("The blend table has a bad family count.");
@@ -354,11 +369,7 @@ namespace Kmrp
                 throw new InvalidDataException("The blend table has a bad glyph count.");
             for (uint i = 0; i < glyphCount; i++)
             {
-                Glyph glyph = new Glyph { Width = (int)r.U32(), Height = (int)r.U32() };
-                if (glyph.Width <= 0 || glyph.Height <= 0 || glyph.Width > 1024 || glyph.Height > 1024)
-                    throw new InvalidDataException("The blend table has a bad glyph.");
-                glyph.Rgba = r.Bytes(glyph.Width * glyph.Height * 4);
-                blend.glyphs.Add(glyph);
+                blend.glyphs.Add(ReadGlyph(r));
             }
             uint promptCount = r.U32();
             if (promptCount > 4096)
@@ -591,11 +602,11 @@ namespace Kmrp
                     controlWidth <= 2 * prompt.InsetFocus || controlHeight <= 2 * prompt.InsetFocus)
                     throw new InvalidDataException(prompt.ResRef + ": its border leaves nothing of its button.");
                 result.Add(new KeyValuePair<string, byte[]>(prompt.ResRef + ".tga",
-                    DrawBadge(glyphs[prompt.Glyph], controlWidth, controlHeight, label, radiusHeight, prompt.Backing,
+                    DrawBadge(prompt.Glyph, controlWidth, controlHeight, label, radiusHeight, prompt.Backing,
                         prompt.InsetNormal)));
                 if (prompt.InsetFocus != prompt.InsetNormal)   // focus_resref: "kmf" for "kmr"
                     result.Add(new KeyValuePair<string, byte[]>("kmf" + prompt.ResRef.Substring(3) + ".tga",
-                        DrawBadge(glyphs[prompt.Glyph], controlWidth, controlHeight, label, radiusHeight, prompt.Backing,
+                        DrawBadge(prompt.Glyph, controlWidth, controlHeight, label, radiusHeight, prompt.Backing,
                             prompt.InsetFocus)));
             }
             result.Add(new KeyValuePair<string, byte[]>(ControllerPromptGenerator.ManifestName,
@@ -938,167 +949,292 @@ namespace Kmrp
 
         // ------------------------------------------------------------ the badges
         //
-        // Pillow 12's arithmetic, as build_prompt_tga reaches it: Image.resize(LANCZOS) on
-        // RGBA goes through premultiplied RGBa (Convert.c's rgba2rgbA and rgbA2rgba),
-        // Resample.c's two passes with precompute_coeffs and normalize_coeffs_8bpc, and
-        // 64-bit sums where Pillow's are 32-bit, which never overflow here.
+        // tools/controller_glyphs.py's drawing, step for step: integers only, so it agrees
+        // with the build and with macos/tools/kmrp-guiblend.c byte for byte. That file's
+        // docstring states the rules; the names here follow it.
 
-        private const int PrecisionBits = 32 - 8 - 2;
+        private const int GlyphSs = 8, GlyphSub = 2048, GlyphSample = GlyphSub / GlyphSs;
+        private const long GlyphFull = (long)GlyphSs * GlyphSs * 65025;
 
-        private static double SincFilter(double x)
+        private static Glyph ReadGlyph(Reader r)
         {
-            if (x == 0.0)
-                return 1.0;
-            x = x * Math.PI;
-            return Math.Sin(x) / x;
-        }
-
-        private static double LanczosFilter(double x)
-        {
-            if (-3.0 <= x && x < 3.0)
-                return SincFilter(x) * SincFilter(x / 3);
-            return 0.0;
-        }
-
-        /// <summary>Per output pixel: the first input pixel, how many, and their
-        /// fixed-point weights.</summary>
-        private static int PrecomputeCoeffs(int inSize, int outSize, out int[] bounds, out long[] kk)
-        {
-            double scale = (double)(float)inSize / outSize, filterscale = scale;
-            if (filterscale < 1.0)
-                filterscale = 1.0;
-            double support = 3.0 * filterscale;
-            int ksize = (int)Math.Ceiling(support) * 2 + 1;
-            bounds = new int[outSize * 2];
-            kk = new long[outSize * ksize];
-            double[] k = new double[ksize];
-            for (int xx = 0; xx < outSize; xx++)
+            Glyph glyph = new Glyph { Width = (int)r.U32(), Height = (int)r.U32() };
+            uint itemCount = r.U32();
+            if (glyph.Width <= 0 || glyph.Height <= 0 || glyph.Width > 65536 || glyph.Height > 65536 || itemCount > 64)
+                throw new InvalidDataException("The blend table has a bad glyph.");
+            glyph.Items = new GlyphItem[itemCount];
+            for (int i = 0; i < itemCount; i++)
             {
-                double center = 0.0 + (xx + 0.5) * scale, ww = 0.0, ss = 1.0 / filterscale;
-                int xmin = (int)(center - support + 0.5);
-                if (xmin < 0)
-                    xmin = 0;
-                int xmax = (int)(center + support + 0.5);
-                if (xmax > inSize)
-                    xmax = inSize;
-                xmax -= xmin;
-                for (int x = 0; x < xmax; x++)
+                GlyphItem item = new GlyphItem();
+                int rule = r.U8();
+                item.Kind = r.U8();
+                if (rule > 1 || item.Kind > 2)
+                    throw new InvalidDataException("The blend table has a bad glyph.");
+                item.EvenOdd = rule == 1;
+                if (item.Kind == 0)
+                    item.Rgba = r.Bytes(4);
+                else
                 {
-                    double w = LanczosFilter((x + xmin - center + 0.5) * ss);
-                    k[x] = w;
-                    ww += w;
+                    item.Coef = new long[item.Kind == 1 ? 3 : 6];
+                    for (int k = 0; k < item.Coef.Length; k++)
+                        item.Coef[k] = BitConverter.ToInt64(r.Bytes(8), 0);
+                    uint stops = r.U32();
+                    if (stops == 0 || stops > 16)
+                        throw new InvalidDataException("The blend table has a bad glyph.");
+                    item.StopAt = new int[stops];
+                    item.StopRgba = new byte[stops][];
+                    for (int s = 0; s < stops; s++)
+                    {
+                        item.StopAt[s] = (int)r.U32();
+                        item.StopRgba[s] = r.Bytes(4);
+                    }
                 }
-                for (int x = 0; x < xmax; x++)
+                uint polygons = r.U32();
+                List<int> edges = new List<int>();
+                for (int k = 0; k < polygons; k++)
                 {
-                    if (ww != 0.0)
-                        k[x] /= ww;
-                    kk[xx * ksize + x] = k[x] < 0 ? (int)(-0.5 + k[x] * (1 << PrecisionBits))
-                                                  : (int)(0.5 + k[x] * (1 << PrecisionBits));
+                    uint n = r.U32();
+                    if (n > 1000000)
+                        throw new InvalidDataException("The blend table has a bad glyph.");
+                    byte[] v = r.Bytes((int)n * 8);
+                    for (int m = 0; m < n; m++)
+                    {
+                        int next = (int)((m + 1) % n);
+                        edges.Add(BitConverter.ToInt32(v, m * 8));
+                        edges.Add(BitConverter.ToInt32(v, m * 8 + 4));
+                        edges.Add(BitConverter.ToInt32(v, next * 8));
+                        edges.Add(BitConverter.ToInt32(v, next * 8 + 4));
+                    }
                 }
-                bounds[xx * 2] = xmin;
-                bounds[xx * 2 + 1] = xmax;
+                item.Edges = edges.ToArray();
+                glyph.Items[i] = item;
             }
-            return ksize;
+            return glyph;
         }
 
-        private static byte Clip8(long value)
+        /// <summary>Python's //, for either sign of b.</summary>
+        private static long FloorDiv(long a, long b)
         {
-            if (value >= (1L << PrecisionBits << 8))
-                return 255;
-            if (value <= 0)
-                return 0;
-            return (byte)(value >> PrecisionBits);
+            long q = a / b;
+            return a % b != 0 && (a < 0) != (b < 0) ? q - 1 : q;
         }
 
-        private static byte MulDiv255(uint a, uint b)
+        private static long ISqrt(long n)
         {
-            uint t = a * b + 128;
-            return (byte)(((t >> 8) + t) >> 8);
+            long r = (long)Math.Sqrt(n);
+            while (r > 0 && r * r > n)
+                r--;
+            while ((r + 1) * (r + 1) <= n)
+                r++;
+            return r;
         }
 
-        private static byte Div255(uint a)
+        /// <summary>A paint's colour at glyph point (xa, ya).</summary>
+        private static void GlyphPaint(GlyphItem item, long xa, long ya, long[] colour)
         {
-            uint t = a + 128;
-            return (byte)(((t >> 8) + t) >> 8);
-        }
-
-        /// <summary>Image.resize((dw, dh), LANCZOS) of a straight-alpha RGBA image.</summary>
-        private static byte[] ResizeRgba(byte[] input, int w, int h, int dw, int dh)
-        {
-            if (dw == w && dh == h)
-                return (byte[])input.Clone();   // resize() returns a copy
-            byte[] pre = new byte[w * h * 4];
-            for (int i = 0; i < w * h; i++)
+            if (item.Kind == 0)
             {
-                uint a = input[i * 4 + 3];
-                for (int c = 0; c < 3; c++)
-                    pre[i * 4 + c] = MulDiv255(input[i * 4 + c], a);
-                pre[i * 4 + 3] = (byte)a;
+                for (int c = 0; c < 4; c++)
+                    colour[c] = item.Rgba[c];
+                return;
             }
-            int[] hb, vb;
-            long[] hk, vk;
-            int hks = PrecomputeCoeffs(w, dw, out hb, out hk);
-            int vks = PrecomputeCoeffs(h, dh, out vb, out vk);
-            byte[] image = pre;
-            int imageWidth = w;
-            if (dw != w)
-            {
-                int first = vb[0], last = vb[(dh - 1) * 2] + vb[(dh - 1) * 2 + 1];
-                for (int i = 0; i < dh; i++)
-                    vb[i * 2] -= first;
-                byte[] temp = new byte[dw * (last - first) * 4];
-                long[] ss = new long[4];
-                for (int yy = first; yy < last; yy++)
-                    for (int xx = 0; xx < dw; xx++)
-                    {
-                        for (int c = 0; c < 4; c++)
-                            ss[c] = 1 << (PrecisionBits - 1);
-                        int xmin = hb[xx * 2], count = hb[xx * 2 + 1];
-                        for (int x = 0; x < count; x++)
-                            for (int c = 0; c < 4; c++)
-                                ss[c] += image[(yy * imageWidth + x + xmin) * 4 + c] * hk[xx * hks + x];
-                        for (int c = 0; c < 4; c++)
-                            temp[((yy - first) * dw + xx) * 4 + c] = Clip8(ss[c]);
-                    }
-                image = temp;
-                imageWidth = dw;
-            }
-            byte[] result = new byte[dw * dh * 4];
-            if (dh != h)
-            {
-                long[] ss = new long[4];
-                for (int yy = 0; yy < dh; yy++)
-                    for (int xx = 0; xx < imageWidth; xx++)
-                    {
-                        for (int c = 0; c < 4; c++)
-                            ss[c] = 1 << (PrecisionBits - 1);
-                        int ymin = vb[yy * 2], count = vb[yy * 2 + 1];
-                        for (int y = 0; y < count; y++)
-                            for (int c = 0; c < 4; c++)
-                                ss[c] += image[((y + ymin) * imageWidth + xx) * 4 + c] * vk[yy * vks + y];
-                        for (int c = 0; c < 4; c++)
-                            result[(yy * dw + xx) * 4 + c] = Clip8(ss[c]);
-                    }
-            }
+            long[] k = item.Coef;
+            long t;
+            if (item.Kind == 1)
+                t = FloorDiv(k[0] * xa + k[1] * ya + k[2], 65536);
             else
-                Buffer.BlockCopy(image, 0, result, 0, dw * dh * 4);
-            for (int i = 0; i < dw * dh; i++)   // RGBa back to RGBA
             {
-                uint a = result[i * 4 + 3];
-                if (a == 255 || a == 0)
-                    continue;
-                for (int c = 0; c < 3; c++)
+                long u = FloorDiv(k[0] * xa + k[1] * ya + k[2], 65536);
+                long v = FloorDiv(k[3] * xa + k[4] * ya + k[5], 65536);
+                t = ISqrt(u * u + v * v);
+            }
+            t = Math.Max(0, Math.Min(65536, t));
+            for (int c = 0; c < 4; c++)
+                colour[c] = item.StopRgba[0][c];
+            for (int s = 0; s + 1 < item.StopAt.Length; s++)
+            {
+                long p0 = item.StopAt[s], p1 = item.StopAt[s + 1];
+                if (p1 > p0 && t >= p0)
+                    for (int c = 0; c < 4; c++)
+                    {
+                        long c0 = item.StopRgba[s][c], c1 = item.StopRgba[s + 1][c];
+                        colour[c] = c0 + FloorDiv((c1 - c0) * (t - p0) * 2 + (p1 - p0), 2 * (p1 - p0));
+                    }
+                if (t >= p1)
+                    for (int c = 0; c < 4; c++)
+                        colour[c] = item.StopRgba[s + 1][c];
+            }
+        }
+
+        /// <summary>A glyph drawn into a dw x dh rectangle: per pixel the sums of its 64
+        /// samples' P (three channels) and Q, before any backing. The drawing is the same at
+        /// every whole-pixel position, so the latest are kept, up to GlyphBudget bytes: the
+        /// same glyph comes up at the same size on many buttons of a set (about 950
+        /// textures).</summary>
+        private readonly Dictionary<long, long[]> glyphTiles = new Dictionary<long, long[]>();
+        private long glyphTileBytes;
+        private const long GlyphBudget = 8L << 20;
+
+        private long[] GlyphTile(int glyphIndex, int dw, int dh)
+        {
+            long key = ((long)glyphIndex << 40) | ((long)dw << 20) | (long)dh;
+            long[] kept;
+            if (glyphTiles.TryGetValue(key, out kept))
+                return kept;
+            Glyph glyph = glyphs[glyphIndex];
+            int rows = dh * GlyphSs, cols = dw * GlyphSs;
+            long W = glyph.Width, H = glyph.Height;
+            int[] P = new int[rows * cols * 3], Q = new int[rows * cols];
+            int[] diff = new int[rows * (cols + 1)];
+            int[] paint = new int[dw * dh * 4];
+            long[] colour = new long[4];
+            long[] edge = new long[0];
+            foreach (GlyphItem item in glyph.Items)
+            {
+                // The edges in sample units, once; the rows each crosses, and the item's box.
+                int[] ed = item.Edges;
+                if (edge.Length < ed.Length)
+                    edge = new long[ed.Length];
+                int n = 0;
+                for (int e = 0; e < ed.Length; e += 4)
                 {
-                    uint v = 255u * result[i * 4 + c] / a;
-                    result[i * 4 + c] = (byte)(v > 255 ? 255 : v);
+                    edge[n] = FloorDiv((long)ed[e] * dw * GlyphSub, W);
+                    edge[n + 1] = FloorDiv((long)ed[e + 1] * dh * GlyphSub, H);
+                    edge[n + 2] = FloorDiv((long)ed[e + 2] * dw * GlyphSub, W);
+                    edge[n + 3] = FloorDiv((long)ed[e + 3] * dh * GlyphSub, H);
+                    if (edge[n + 1] != edge[n + 3])
+                        n += 4;
+                }
+                Array.Clear(diff, 0, diff.Length);
+                int rowLow = rows, rowHigh = -1;
+                long colLow = long.MaxValue, colHigh = long.MinValue;
+                for (int e = 0; e < n; e += 4)
+                {
+                    long x0 = edge[e], y0 = edge[e + 1], x1 = edge[e + 2], y1 = edge[e + 3];
+                    long lo = Math.Min(y0, y1), hi = Math.Max(y0, y1);
+                    // the sample rows with lo <= sy < hi, sy = r * GlyphSample + GlyphSample / 2
+                    long first = Math.Max(0, -FloorDiv(GlyphSample / 2 - lo, GlyphSample));
+                    long last = Math.Min(rows - 1, -FloorDiv(GlyphSample / 2 - hi, GlyphSample) - 1);
+                    int dir = y1 > y0 ? 1 : -1;
+                    for (long r = first; r <= last; r++)
+                    {
+                        long sy = r * GlyphSample + GlyphSample / 2;
+                        long xc = x0 + FloorDiv((x1 - x0) * (sy - y0), y1 - y0);
+                        long k = Math.Max(0, Math.Min(cols, -FloorDiv(GlyphSample / 2 - xc, GlyphSample)));
+                        diff[r * (cols + 1) + k] += dir;
+                        colLow = Math.Min(colLow, k);
+                        colHigh = Math.Max(colHigh, k);
+                    }
+                    if (first <= last)
+                    {
+                        rowLow = Math.Min(rowLow, (int)first);
+                        rowHigh = Math.Max(rowHigh, (int)last);
+                    }
+                }
+                if (rowHigh < rowLow)
+                    continue;
+                colHigh = Math.Min(colHigh, cols);
+                // The paint, for the pixels the item can cover: one colour, or a gradient's.
+                if (item.Kind != 0)
+                    for (int py = rowLow / GlyphSs; py <= rowHigh / GlyphSs; py++)
+                        for (long px = colLow / GlyphSs; px <= (colHigh - 1) / GlyphSs && px < dw; px++)
+                        {
+                            GlyphPaint(item, (2L * px + 1) * W / (2L * dw), (2L * py + 1) * H / (2L * dh), colour);
+                            for (int c = 0; c < 4; c++)
+                                paint[(py * dw + px) * 4 + c] = (int)colour[c];
+                        }
+                for (int r = rowLow; r <= rowHigh; r++)
+                {
+                    int at = r * (cols + 1), winding = 0;
+                    for (int s = (int)colLow; s < (int)colHigh; s++)
+                    {
+                        winding += diff[at + s];
+                        if (item.EvenOdd ? (winding & 1) == 0 : winding == 0)
+                            continue;
+                        int c0, c1, c2, a;
+                        if (item.Kind == 0)
+                        {
+                            c0 = item.Rgba[0]; c1 = item.Rgba[1]; c2 = item.Rgba[2]; a = item.Rgba[3];
+                        }
+                        else
+                        {
+                            int from = ((r / GlyphSs) * dw + s / GlyphSs) * 4;
+                            c0 = paint[from]; c1 = paint[from + 1]; c2 = paint[from + 2]; a = paint[from + 3];
+                        }
+                        int inv = 255 - a, sample = r * cols + s;
+                        P[sample * 3] = c0 * a + (P[sample * 3] * inv + 127) / 255;
+                        P[sample * 3 + 1] = c1 * a + (P[sample * 3 + 1] * inv + 127) / 255;
+                        P[sample * 3 + 2] = c2 * a + (P[sample * 3 + 2] * inv + 127) / 255;
+                        Q[sample] = 255 * a + (Q[sample] * inv + 127) / 255;
+                    }
                 }
             }
-            return result;
+            long[] sums = new long[dw * dh * 4];
+            for (int py = 0; py < dh; py++)
+                for (int px = 0; px < dw; px++)
+                {
+                    long s0 = 0, s1 = 0, s2 = 0, sq = 0;
+                    for (int y = 0; y < GlyphSs; y++)
+                    {
+                        int at = (py * GlyphSs + y) * cols + px * GlyphSs;
+                        for (int x = 0; x < GlyphSs; x++, at++)
+                        {
+                            s0 += P[at * 3];
+                            s1 += P[at * 3 + 1];
+                            s2 += P[at * 3 + 2];
+                            sq += Q[at];
+                        }
+                    }
+                    int o = (py * dw + px) * 4;
+                    sums[o] = s0; sums[o + 1] = s1; sums[o + 2] = s2; sums[o + 3] = sq;
+                }
+            long bytes = 8L * sums.Length;
+            if (glyphTileBytes + bytes > GlyphBudget)
+            {
+                glyphTiles.Clear();
+                glyphTileBytes = 0;
+            }
+            glyphTiles[key] = sums;
+            glyphTileBytes += bytes;
+            return sums;
+        }
+
+        /// <summary>draw_into: the glyph drawn into the dw x dh rectangle at (left, top) of
+        /// `sheet` (tw x th, RGBA, top row first, transparent or all `backing`).</summary>
+        private void DrawGlyph(int glyphIndex, byte[] sheet, int tw, int th, int left, int top, int dw, int dh,
+            byte[] backing)
+        {
+            long[] sums = GlyphTile(glyphIndex, dw, dh);
+            for (int py = 0; py < dh; py++)
+            {
+                if (top + py < 0 || top + py >= th)
+                    continue;
+                for (int px = 0; px < dw; px++)
+                {
+                    if (left + px < 0 || left + px >= tw)
+                        continue;
+                    int o = (py * dw + px) * 4;
+                    long s0 = sums[o], s1 = sums[o + 1], s2 = sums[o + 2], sq = sums[o + 3];
+                    if (backing != null)
+                    {
+                        long rest = GlyphFull - sq, ba = backing[3];
+                        s0 += backing[0] * ba * rest / 65025;
+                        s1 += backing[1] * ba * rest / 65025;
+                        s2 += backing[2] * ba * rest / 65025;
+                        sq += 255 * ba * rest / 65025;
+                    }
+                    int to = ((top + py) * tw + left + px) * 4;
+                    sheet[to] = (byte)(sq > 0 ? Math.Min(255, (255 * s0 + sq / 2) / sq) : 0);
+                    sheet[to + 1] = (byte)(sq > 0 ? Math.Min(255, (255 * s1 + sq / 2) / sq) : 0);
+                    sheet[to + 2] = (byte)(sq > 0 ? Math.Min(255, (255 * s2 + sq / 2) / sq) : 0);
+                    sheet[to + 3] = (byte)((sq + GlyphSs * GlyphSs * 127) / (GlyphSs * GlyphSs * 255));
+                }
+            }
         }
 
         /// <summary>build_prompt_tga for a control of controlWidth x controlHeight: the
         /// TGA, header and footer included.</summary>
-        private byte[] DrawBadge(Glyph art, int controlWidth, int controlHeight, double label, int radiusHeight,
+        private byte[] DrawBadge(int glyphIndex, int controlWidth, int controlHeight, double label, int radiusHeight,
             byte[] backing, int inset)
         {
             int tw = textureWidth, th = textureHeight;
@@ -1128,6 +1264,7 @@ namespace Kmrp
             }
             if (blank)
                 backing = null;
+            Glyph art = glyphs[glyphIndex];
             double diameter = r * 2.0, aspect = (double)art.Width / art.Height;
             double boxWidth = aspect < 1.0 ? diameter * aspect : diameter;
             double boxHeight = aspect > 1.0 ? diameter / aspect : diameter;
@@ -1135,46 +1272,12 @@ namespace Kmrp
             int drawHeight = Math.Max(1, (int)Math.Round(boxHeight * th / controlHeight));
             int left = (int)Math.Round((centerX - boxWidth / 2.0) * tw / controlWidth);
             int top = (int)Math.Round((center - boxHeight / 2.0) * th / controlHeight);
-            byte[] glyph = ResizeRgba(art.Rgba, art.Width, art.Height, drawWidth, drawHeight);
-
             byte[] sheet = new byte[tw * th * 4];   // top row first, RGBA
-            for (int y = 0; y < drawHeight && !blank; y++)
-            {
-                if (top + y < 0 || top + y >= th)
-                    continue;
-                for (int x = 0; x < drawWidth; x++)
-                {
-                    if (left + x < 0 || left + x >= tw)
-                        continue;
-                    int from = (y * drawWidth + x) * 4, to = ((top + y) * tw + left + x) * 4;
-                    // paste(art, box, art): BLEND over nothing; on a backing, a copy.
-                    for (int c = 0; c < 4; c++)
-                        sheet[to + c] = backing != null ? glyph[from + c] : Div255((uint)glyph[from + c] * glyph[from + 3]);
-                }
-            }
-            if (backing != null)   // alpha_composite(the backing, the sheet)
-            {
+            if (backing != null)   // on the button's own fill: the glyph laid over it
                 for (int i = 0; i < tw * th * 4; i += 4)
-                {
-                    if (sheet[i + 3] == 0)
-                    {
-                        Buffer.BlockCopy(backing, 0, sheet, i, 4);
-                        continue;
-                    }
-                    uint sa = sheet[i + 3];
-                    uint blend = (uint)backing[3] * (255 - sa);
-                    uint outa255 = sa * 255 + blend;
-                    uint coef1 = sa * 255 * 255 * (1 << 7) / outa255;
-                    uint coef2 = 255 * (1 << 7) - coef1;
-                    for (int c = 0; c < 3; c++)
-                    {
-                        uint t = sheet[i + c] * coef1 + backing[c] * coef2 + (0x80 << 7);
-                        sheet[i + c] = (byte)((((t >> 8) + t) >> 8) >> 7);
-                    }
-                    uint alpha = outa255 + 0x80;
-                    sheet[i + 3] = (byte)(((alpha >> 8) + alpha) >> 8);
-                }
-            }
+                    Buffer.BlockCopy(backing, 0, sheet, i, 4);
+            if (!blank)
+                DrawGlyph(glyphIndex, sheet, tw, th, left, top, drawWidth, drawHeight, backing);
             byte[] tga = new byte[18 + tw * th * 4 + footer.Length];
             tga[2] = 2;
             tga[12] = (byte)tw;

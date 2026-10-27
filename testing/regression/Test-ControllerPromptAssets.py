@@ -38,6 +38,7 @@ from build_controller_prompt_textures import (  # noqa: E402
     variant_strings,
 )
 from build_controller_layout import CAPTION_FONT, MAPPINGS  # noqa: E402
+import controller_glyphs  # noqa: E402
 from controller_layout_backdrop import DECOR, TEXTURES as LAYOUT_BACKDROP  # noqa: E402
 from pykotor.resource.formats.gff import read_gff  # noqa: E402
 
@@ -198,58 +199,9 @@ def verify_placement_manifest(archive, archive_name, names, gui_cache):
                     f"and badge need {need:.1f}px")
 
 
-PROFILE_BINS = 12
-# A glyph whose letter profile differs from its own mirror by less than this
-# cannot decide the question, so the orientation check skips it and says so.
-# Measured on the shipped artwork: A 0.0095, Y 0.0121 (decisive);
-# B 0.0037, X 0.0029 (near-symmetric).
-# A mirrored match must beat the upright one by this factor to count.
-ORIENTATION_MARGIN = 0.8
-ASYMMETRY_FLOOR = 0.006
-
-
-def _letter_profile(rgba, width: int):
-    """Vertical distribution of the glyph's LETTER, as PROFILE_BINS fractions.
-
-    This exists to catch a vertically flipped texture, which nothing else here
-    can. The badge disc is a circle and therefore symmetric, so every check based
-    on the badge outline passes just as happily upside down; only the letter is
-    asymmetric.
-
-    An earlier revision stored rows top-down while the header declared descriptor
-    0x08 (bottom-left origin), so A, B and Y shipped upside down in all 480
-    textures. X is symmetric about the horizontal axis, which is why it looked
-    correct and hid the fault.
-
-    `rgba` is a flat (r, g, b, a) sequence in TOP-DOWN order. The brightest eighth
-    of the opaque pixels is taken as the letter -- it is lighter than the disc in
-    every glyph of this set -- and binned over the badge's own vertical extent.
-    A centroid was tried first and is useless: every glyph centres near 0.50.
-    """
-    lit = []
-    for index in range(0, len(rgba), 4):
-        if rgba[index + 3] <= 200:
-            continue
-        r, g, b = rgba[index], rgba[index + 1], rgba[index + 2]
-        lit.append(((index // 4) // width, 0.2126 * r + 0.7152 * g + 0.0722 * b))
-    if not lit:
-        return None
-    rows = [row for row, _ in lit]
-    top, bottom = min(rows), max(rows)
-    if bottom == top:
-        return None
-    cut = sorted(value for _, value in lit)[int(len(lit) * 0.875)]
-    bins = [0.0] * PROFILE_BINS
-    for row, value in lit:
-        if value >= cut:
-            slot = int((row - top) / (bottom - top + 1e-9) * PROFILE_BINS)
-            bins[min(PROFILE_BINS - 1, slot)] += 1.0
-    total = sum(bins) or 1.0
-    return [count / total for count in bins]
-
-
-def _profile_error(left, right) -> float:
-    return sum((a - b) ** 2 for a, b in zip(left, right))
+# A glyph that differs from itself flipped upside down by less than this (mean of every
+# channel, of 255) cannot tell a flipped texture from an upright one, and is skipped.
+ORIENTATION_FLOOR = 2.0
 
 
 RUNTIME_OBJECT_OFFSETS = {
@@ -616,49 +568,45 @@ def main() -> int:
                         f"centre of the button (x={rightmost} of {TEXTURE_WIDTH}); "
                         "it would sit under the label")
 
-                # Orientation, decided against the source artwork rather than
-                # a constant. Only glyphs whose letter is asymmetric enough can
-                # settle it; the rest are skipped rather than asserted loosely.
-                folder, family_art = GLYPH_FAMILIES[family]
-                art_name = family_art.get(target.glyph)
-                art_path = GLYPH_PACK / folder / art_name if art_name else None
-                if art_path is not None and art_path.is_file():
-                    from PIL import Image
+                # Orientation. An earlier revision stored rows top-down while the
+                # header declared descriptor 0x08 (bottom-left origin), so A, B and Y
+                # shipped upside down in all 480 textures; X, symmetric top to bottom,
+                # looked right and hid it. The badge is compared with its own glyph
+                # drawn at the size of its ink, upright and flipped, and must be
+                # nearer the upright one; a glyph nearly the same both ways cannot
+                # tell and is skipped. Until 2026-10-27 this compared a profile of
+                # the letter's brightest pixels with Xelu's PNG: since the badges are
+                # drawn from outlines (issue 68) with the letters centred, the PNGs
+                # are no longer their source, and on a badge squeezed to 11 texels
+                # wide (RB on the Journal at 3840x1080) the profile was noise.
+                if controller_glyphs.glyph_size(family, target.glyph) is not None:
+                    import numpy as np
 
-                    art = Image.open(art_path).convert("RGBA")
-                    box = art.getbbox()
-                    if box:
-                        art = art.crop(box)
-                    expected = _letter_profile(art.tobytes(), art.width)
-                    if expected is not None and _profile_error(
-                            expected, expected[::-1]) >= ASYMMETRY_FLOOR:
-                        body = data[18:18 + TEXTURE_WIDTH * TEXTURE_HEIGHT * 4]
-                        # Stored bottom-up (descriptor 0x08), and BGRA on disk.
-                        stride = TEXTURE_WIDTH * 4
-                        top_down = b"".join(
-                            body[row * stride:(row + 1) * stride]
-                            for row in range(TEXTURE_HEIGHT - 1, -1, -1))
-                        rgba = bytearray(len(top_down))
-                        rgba[0::4] = top_down[2::4]
-                        rgba[1::4] = top_down[1::4]
-                        rgba[2::4] = top_down[0::4]
-                        rgba[3::4] = top_down[3::4]
-                        actual = _letter_profile(rgba, TEXTURE_WIDTH)
-                        if actual is not None:
-                            upright = _profile_error(actual, expected)
-                            inverted = _profile_error(actual, expected[::-1])
-                            # Only a clear verdict counts. A flipped texture loses
-                            # by a wide margin; a near-tie is a glyph too small or
-                            # too low in contrast to tell -- the Steam Deck set's
-                            # grey A on a 39-pixel Map button came out 0.0433
-                            # against 0.0434 -- and is skipped like the symmetric
-                            # glyphs above rather than failed.
-                            if inverted < upright * ORIENTATION_MARGIN:
+                    pixels = np.frombuffer(data[18:18 + TEXTURE_WIDTH * TEXTURE_HEIGHT * 4], np.uint8)
+                    top_down = pixels.reshape(TEXTURE_HEIGHT, TEXTURE_WIDTH, 4)[::-1][..., [2, 1, 0, 3]]
+                    backing = BACKINGS[target.backing] if target.backing else None
+                    if backing is not None:
+                        ink = np.any(top_down != np.array(backing, np.uint8), axis=-1)
+                    else:
+                        ink = top_down[..., 3] > 0
+                    ys, xs = np.nonzero(ink)
+                    if len(xs):
+                        y0, y1, x0, x1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
+                        badge = top_down[y0:y1, x0:x1].astype(float)
+                        reference = np.zeros((y1 - y0, x1 - x0, 4), np.uint8)
+                        if backing is not None:
+                            reference[...] = backing
+                        controller_glyphs.draw_into(reference, family, target.glyph, 0, 0,
+                                                    x1 - x0, y1 - y0, backing)
+                        reference = reference.astype(float)
+                        if np.abs(reference - reference[::-1]).mean() >= ORIENTATION_FLOOR:
+                            upright = np.abs(badge - reference).mean()
+                            flipped = np.abs(badge - reference[::-1]).mean()
+                            if flipped < upright:
                                 raise AssertionError(
-                                    f"{archive_path.name}: {resref} matches a MIRRORED "
-                                    f"{art_path.name} better than the upright one "
-                                    f"({inverted:.4f} < {upright:.4f}); the texture is "
-                                    "stored upside down")
+                                    f"{archive_path.name}: {resref} matches {family}/{target.glyph} "
+                                    f"drawn upside down better than upright ({flipped:.2f} < "
+                                    f"{upright:.2f}); the texture is stored upside down")
                 checked += 1
 
             # The - and + arrows keep the game's own art. From 2026-09-25 to
