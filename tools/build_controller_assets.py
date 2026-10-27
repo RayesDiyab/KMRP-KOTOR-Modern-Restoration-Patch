@@ -293,7 +293,30 @@ def make(work: Path) -> dict:
         if path.name.lower() in files:
             raise ValueError(f"two steps wrote {path.name}")
         files[path.name.lower()] = path
+    # The outlines again, now with what every texture made from them shows (scenes_for).
+    scenes = scenes_for(files)
+    glyph_bank.write_bytes(pack_glyphs(scenes))
+    # The badges and the pictures made from one glyph are drawn by the module at the size
+    # they are shown (vendor/K1XboxControls.cpp), so the patch does not carry them
+    # (2026-10-27). They are still made, for the badge table (badge_shapes) and the tests,
+    # into build/controller-standalone/made (pack). With --carry-drawn they are carried
+    # again, as they were until then: the module shows a carried one wherever drawing fails
+    # (the maintainer, the same day: keep the fallback in the repository, in case they are
+    # wanted back).
+    unshipped = {f"{name}.tga" for name, _, _, _ in scenes}
+    unshipped |= {path.name.lower() for path in prompts if path.suffix.lower() == ".tga"}
+    UNSHIPPED.clear()
+    if not CARRY_DRAWN:
+        UNSHIPPED.update({name: files.pop(name) for name in sorted(unshipped) if name in files})
     return files
+
+
+# --carry-drawn: carry the drawn pictures in the patch too, as a fallback (make).
+CARRY_DRAWN = False
+
+
+# Made by make() and not carried in the patch: name -> path (pack writes them to out/made).
+UNSHIPPED: dict = {}
 
 
 def pack(files: dict, sdl: Path, out: Path) -> dict:
@@ -322,6 +345,11 @@ def pack(files: dict, sdl: Path, out: Path) -> dict:
     loose.mkdir()
     for name, path in files.items():
         shutil.copyfile(path, loose / name)
+    made = out / "made"
+    shutil.rmtree(made, ignore_errors=True)
+    made.mkdir()
+    for name, path in UNSHIPPED.items():
+        shutil.copyfile(path, made / name)
     kinds = {}
     for name in files:
         kinds[name.rsplit(".", 1)[-1]] = kinds.get(name.rsplit(".", 1)[-1], 0) + 1
@@ -333,9 +361,14 @@ def main() -> int:
     parser.add_argument("--extract", type=Path, metavar="GAME",
                         help="Write the game's layout files to build-inputs/vanilla-gui and stop")
     parser.add_argument("--out", type=Path, default=OUT)
+    parser.add_argument("--carry-drawn", action="store_true",
+                        help="carry the badges and one-glyph pictures the module draws at run time "
+                             "in the patch as well, for it to show wherever drawing fails")
     parser.add_argument("--sdl", type=Path, default=ROOT / "build/deps/kmrp-sdl3.dll")
     args = parser.parse_args()
     logging.disable(logging.DEBUG)      # pykotor and PIL narrate every struct and chunk
+    global CARRY_DRAWN
+    CARRY_DRAWN = args.carry_drawn
     if args.extract:
         print(f"{extract(args.extract)} layout files written to {VANILLA_GUI}")
         return 0
@@ -358,10 +391,31 @@ BADGE_SHAPES = ROOT / "src/controller-native/K1ControllerBadgeShapes.inc"
 GLYPH_BANK_NAME = "kmrp-glyphs.bin"
 
 
-def pack_glyphs() -> bytes:
+def scenes_for(files: dict) -> list:
+    """(texture name, width, height, [(glyph name, left, top, width, height)]) for every texture
+    among `files` that build_square_glyph_tga made: the glyph it shows and its box, in the
+    texture's pixels. The module draws these again at the size each control shows them."""
+    from build_controller_prompt_textures import SCENES
+    out = []
+    for name, path in sorted(files.items()):
+        if not name.endswith(".tga"):
+            continue
+        scene = SCENES.get(hashlib.sha256(path.read_bytes()).hexdigest())
+        if scene is None:
+            continue
+        width, height, parts = scene
+        out.append((name[:-4], width, height,
+                    [(f"{FAMILY_LETTERS[family]}/{glyph}", left, top, w, h) for family, glyph, left, top, w, h in parts]))
+    return out
+
+
+def pack_glyphs(scenes: list = ()) -> bytes:
     """Every family's glyphs for the module: "KGLY", u32 count, then per glyph its name (u16
     length, "<family letter>/<glyph>", as "p/RT_NOTICE") and its outlines as
-    controller_glyphs.pack writes them, which kmrp_glyph_read reads."""
+    controller_glyphs.pack writes them, which kmrp_glyph_read reads. Then "SCEN", u32 count,
+    per scene its texture's name (u16 length, ASCII), u32 width and height, u32 parts, per
+    part the glyph's name (u16 length) and its box (4 x i32: left, top, width, height in the
+    texture's pixels), drawn keeping the glyph's proportions (scenes_for)."""
     import controller_glyphs
     out = b"KGLY"
     entries = []
@@ -372,7 +426,13 @@ def pack_glyphs() -> bytes:
                 raise ValueError(f"no {family} outlines for {glyph}")
             name = f"{FAMILY_LETTERS[family]}/{glyph}".encode("ascii")
             entries.append(struct.pack("<H", len(name)) + name + controller_glyphs.pack(g))
-    return out + struct.pack("<I", len(entries)) + b"".join(entries)
+    out += struct.pack("<I", len(entries)) + b"".join(entries)
+    out += b"SCEN" + struct.pack("<I", len(scenes))
+    for texture, width, height, parts in scenes:
+        out += struct.pack("<H", len(texture)) + texture.encode("ascii") + struct.pack("<III", width, height, len(parts))
+        for glyph, left, top, w, h in parts:
+            out += struct.pack("<H", len(glyph)) + glyph.encode("ascii") + struct.pack("<4i", left, top, w, h)
+    return out
 
 
 def badge_shapes(files: Path = OUT / "files") -> str:
@@ -411,7 +471,7 @@ def badge_shapes(files: Path = OUT / "files") -> str:
             # Where the glyph stands across that area, in thousandths: the middle of
             # the texture's drawn columns (the texture is stretched over the area).
             from PIL import Image
-            art = files / (target.resref + ".tga")
+            art = files.parent / "made" / (target.resref + ".tga")
             box = Image.open(art).convert("RGBA").split()[3].point(lambda v: 255 if v > 40 else 0).getbbox() if art.exists() else None
             if box is None:
                 continue

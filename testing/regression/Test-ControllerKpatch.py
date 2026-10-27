@@ -142,6 +142,12 @@ def main() -> int:
 
     # 4. The file bank.
     names = sorted(p.name for p in FILES.iterdir())
+    # The badges and the pictures made from one glyph, made by the build but drawn by the
+    # module at the size they are shown, and so not in the patch (since 2026-10-27).
+    MADE = FILES.parent / "made"
+    made_names = sorted(p.name for p in MADE.iterdir()) if MADE.is_dir() else []
+    check(made_names and not set(made_names) & set(names),
+          f"the {len(made_names)} badges and one-glyph pictures the module draws are not carried")
     guis = [n for n in names if n.endswith(".gui")]
     expected = sorted(list(assets.R3_CUE_SCREENS) + [assets.TAB_CUE_SCREEN, "optgameplay.gui", "confirm.gui",
                                                       "dialog.gui", "kmrplayout.gui"]
@@ -176,13 +182,36 @@ def main() -> int:
                            assets.BADGE_SHAPES.read_text(encoding="utf-8")))
     lacking = sorted(f"{letter}/{glyph}" for glyph in named for letter in prompts.FAMILY_LETTERS.values()
                      if f"{letter}/{glyph}" not in bank_names)
-    check(at == len(bank) and named and not lacking,
+    # Then what each of the other pictures shows (scenes_for): every picture made from a glyph
+    # (the cues, the Controller Layout's glyphs) is there, each glyph it names in the
+    # outlines, and the file read to its end.
+    scenes, scene_glyphs = set(), set()
+    if bank[at:at + 4] == b"SCEN":
+        count = _struct.unpack_from("<I", bank, at + 4)[0]
+        at += 8
+        for _ in range(count):
+            length = _struct.unpack_from("<H", bank, at)[0]
+            scenes.add(bank[at + 2:at + 2 + length].decode("ascii"))
+            at += 2 + length
+            parts = _struct.unpack_from("<III", bank, at)[2]
+            at += 12
+            for _ in range(parts):
+                length = _struct.unpack_from("<H", bank, at)[0]
+                scene_glyphs.add(bank[at + 2:at + 2 + length].decode("ascii"))
+                at += 2 + length + 16
+    made = {n[:-4] for n in made_names if n.endswith(".tga") and n.startswith("kmr")
+            and n[4:].startswith(("lyt0", "lyt1", "lytbk", "rm", "cnfa", "b_cmbt", "y_cmbt", "rb_party", "rt_pause", "swap_abi"))}
+    lacking += sorted(scene_glyphs - bank_names)
+    missing_scenes = sorted(made - scenes)
+    check(at == len(bank) and named and not lacking and not missing_scenes,
           f"{assets.GLYPH_BANK_NAME} holds the outlines of all {len(named)} glyphs the badge table names, "
-          f"in all {len(prompts.FAMILY_LETTERS)} families" + (f": lacks {lacking[:6]}" if lacking else ""))
+          f"in all {len(prompts.FAMILY_LETTERS)} families, and the {len(scenes)} pictures made from glyphs, "
+          "each glyph they name with them" + (f": lacks {lacking[:6]}" if lacking else "")
+          + (f": no picture for {missing_scenes[:6]}" if missing_scenes else ""))
     check(not any("font" in n or n.startswith(("fnt_", "kmxf")) for n in names), "no font: the game's own text is untouched")
     targets = prompts.PROMPT_TARGETS
     missing = [prompts.family_resref(t.resref, family) for t in targets for family in prompts.GLYPH_FAMILIES
-               if prompts.family_resref(t.resref, family) + ".tga" not in names]
+               if prompts.family_resref(t.resref, family) + ".tga" not in made_names]
     check(not missing, f"all {len(targets)} badges in all {len(prompts.GLYPH_FAMILIES)} families")
 
     check(all((FILES / (prompts.family_resref("kmrpp_swoop", family) + ".tga")).read_bytes()
@@ -197,6 +226,7 @@ def main() -> int:
     for target in targets:
         source = "mainmenu8x6.gui" if target.gui == "mainmenu.gui" else target.gui
         path = FILES / source if (FILES / source).exists() else assets.VANILLA_GUI / source
+        # the badges' textures are made, not carried (MADE)
         controls = loaded.setdefault(source, {c.get_string("TAG"): c for c in read_gff(path).root.get_list("CONTROLS")})
         control = controls[target.tag]
         extent = control.get_struct("EXTENT")
@@ -204,13 +234,13 @@ def main() -> int:
         normal = prompts.fill_inset(control.get_struct("BORDER"))
         focused = prompts.fill_inset(control.get_struct("HILIGHT")) if control.exists("HILIGHT") else normal
         resref = prompts.family_resref(target.resref, "xbox")
-        has_focus = (FILES / (prompts.focus_resref(resref) + ".tga")).exists()
+        has_focus = (MADE / (prompts.focus_resref(resref) + ".tga")).exists()
         if has_focus != (normal != focused):
             wrong_focus.append(target.resref)
         for name, inset in ((resref, normal), (prompts.focus_resref(resref) if has_focus else None, focused)):
             if name is None or target.glyph not in "ABXY" or target.backing:
                 continue
-            box = alpha_box((FILES / (name + ".tga")).read_bytes())
+            box = alpha_box((MADE / (name + ".tga")).read_bytes())
             area_w, area_h = width - 2 * inset, height - 2 * inset
             if box is None:
                 if area_h >= prompts.MIN_BADGE_AREA:
@@ -241,7 +271,7 @@ def main() -> int:
     table_worst, table_measured, table_wrong = 0.0, 0, []
     faces = {t.resref for t in targets if t.glyph in "ABXY" and not t.backing}
     for name, made_w, made_h in re.findall(r'\{"(\w+)", (\d+), (\d+), \d+, \d+', shapes):
-        art = FILES / (name + ".tga")
+        art = MADE / (name + ".tga")
         if name not in faces or not art.exists():
             continue
         box = alpha_box(art.read_bytes())

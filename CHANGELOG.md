@@ -117,6 +117,30 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **The controller's other pictures drawn at the size they are shown too** (2026-10-27,
+  the maintainer: "everything needs to be run time drawn"). Phase 1 of 5: every picture
+  made from a single glyph, which until now were 128x128 textures (256x128 for the
+  swap-tabs phrase) stretched over their controls. The combat cues B and Y, the A that
+  follows the focus on a Yes or No box, the party cue, the swap-tabs cue, the pause RT,
+  and the Controller Layout and remapping screens' button pictures: 120 in all, four
+  families. The build records what each shows, its glyph and box (`SCENES` in
+  `build_controller_prompt_textures.py`, `scenes_for` in `build_controller_assets.py`),
+  in `kmrp-glyphs.bin`. Every frame the controller patch goes over the controls of the
+  panels up (`K1SweepRuntimePictures`) and gives each one showing such a picture that
+  picture drawn at the size its border fills, keeping each glyph's proportions, once per
+  size. A drawn picture's name starts `kmz`, which no code renames for the pad's family,
+  and the code that sets a cue's picture by name each frame compares the name it stands
+  for (`KmrpLogicalFillK1`), so the two do not undo each other. Seen working by the
+  maintainer with a DualSense. The patch no longer carries the 992 pictures it now draws
+  (the badges and these): 5.3 MB instead of 8.7, the installer 63.7 MB instead of 66.7.
+  They are still made, into `build/controller-standalone/made`, for the badge table and
+  the tests, and `build_controller_assets.py --carry-drawn` carries them again, as the
+  module's fallback wherever drawing fails (the maintainer: keep the fallback in the
+  repository in case they are wanted back). Without them a badge whose label cannot be
+  placed shows nothing, where it showed the soft texture. Still to come: the LT and RT
+  arrows and the remapping symbols as outlines, the Controller Layout's diagram and
+  backdrop, the Xbox-style HUD's frames.
+
 - **Controller buttons drawn at the size they are shown** (2026-10-27; issue 68, the second
   half). The controller patch's badge textures are made for the game's own 640x480 buttons,
   512x64 texels, and the engine stretched them over each badge's label, shrinking them with

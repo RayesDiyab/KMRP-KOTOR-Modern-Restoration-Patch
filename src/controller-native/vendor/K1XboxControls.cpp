@@ -223,6 +223,10 @@ constexpr std::uintptr_t K1_BARK_BUBBLE_PANEL_VTABLE = 0x00755C60;
 constexpr std::uintptr_t K1_MESSAGE_BOX_PANEL_VTABLE = 0x0074FDB0;
 constexpr std::uintptr_t K1_CONTROLLER_LOSS_BOX_PANEL_VTABLE = 0x007513F8;
 constexpr std::uintptr_t K1_GUI_BORDER_SET_FILL_IMAGE = 0x00414C00;
+// CSWGuiLabel's and CSWGuiButton's vtables (the decompilation's symbol list): the controls
+// whose borders the run-time pictures are drawn for (K1SweepRuntimePictures).
+constexpr std::uintptr_t K1_GUI_LABEL_VTABLE = 0x0073E5B8;
+constexpr std::uintptr_t K1_GUI_BUTTON_VTABLE = 0x0073E658;
 constexpr std::ptrdiff_t K1_BUTTON_BORDER_PARAMS_OFFSET = 0x0080;
 // The border drawn INSTEAD of the normal one while a control is focused, so a
 // badge has to be written to both or it disappears the moment the button takes
@@ -1803,15 +1807,23 @@ struct K1BadgeRect { int left, top, width, height; };
 // Wherever that fails the stretched texture is shown, as before.
 }   // the anonymous namespace the drawer's C header must not be inside
 #include "../../../macos/tools/kmrp-glyphs.h"
+#include <algorithm>
 #include <cmath>
 #include <string>
 #include <vector>
 const std::wstring& KmrpRuntimeAssetDirectory();   // K1ControllerStandalone.cpp
+const char* KmrpLogicalFillK1(const char* fill);   // below, for K1NativeJoystick.cpp too
 bool KmrpControllerRelistK1();                      // K1ControllerStandalone.cpp
 namespace {
 
 struct K1GlyphEntry { std::string name; KmrpGlyph glyph; };
 std::vector<K1GlyphEntry> g_k1Glyphs;
+// What each of the patch's other controller pictures shows (the cues, the Controller
+// Layout's glyphs and the rest, tools/build_controller_assets.py scenes_for): its texture's
+// size and its glyphs' boxes in it, so it is drawn again at the size its control is shown.
+struct K1ScenePart { std::string glyph; int left, top, width, height; };
+struct K1Scene { std::string name; int width, height; std::vector<K1ScenePart> parts; };
+std::vector<K1Scene> g_k1Scenes;
 std::vector<unsigned char> g_k1GlyphData;
 bool g_k1GlyphsLoaded = false;
 std::vector<std::string> g_k1DrawnBadges;           // textures written this session
@@ -1851,9 +1863,45 @@ const KmrpGlyph* FindK1Glyph(const std::string& name)
             }
             g_k1Glyphs.push_back(entry);
         }
+        std::uint32_t scenes = 0;
+        if (pos + 8 <= d.size() && std::memcmp(d.data() + pos, "SCEN", 4) == 0) {
+            std::memcpy(&scenes, d.data() + pos + 4, 4);
+            pos += 8;
+        }
+        auto text = [&](std::string& out) {
+            std::uint16_t length = 0;
+            if (pos + 2 > d.size()) return false;
+            std::memcpy(&length, d.data() + pos, 2);
+            if (pos + 2 + length > d.size()) return false;
+            out.assign(reinterpret_cast<const char*>(d.data()) + pos + 2, length);
+            pos += 2 + length;
+            return true;
+        };
+        for (std::uint32_t i = 0; i < scenes; ++i) {
+            K1Scene scene;
+            std::uint32_t head[3];
+            if (!text(scene.name) || pos + 12 > d.size()) break;
+            std::memcpy(head, d.data() + pos, 12);
+            pos += 12;
+            scene.width = static_cast<int>(head[0]);
+            scene.height = static_cast<int>(head[1]);
+            bool ok = scene.width > 0 && scene.height > 0;
+            for (std::uint32_t k = 0; ok && k < head[2]; ++k) {
+                K1ScenePart part;
+                std::int32_t box[4];
+                ok = text(part.glyph) && pos + 16 <= d.size();
+                if (!ok) break;
+                std::memcpy(box, d.data() + pos, 16);
+                pos += 16;
+                part.left = box[0]; part.top = box[1]; part.width = box[2]; part.height = box[3];
+                scene.parts.push_back(part);
+            }
+            if (!ok) break;
+            g_k1Scenes.push_back(scene);
+        }
         char line[160];
-        std::snprintf(line, sizeof line, "badges: %u glyph outlines read for drawing at the shown size",
-                      static_cast<unsigned>(g_k1Glyphs.size()));
+        std::snprintf(line, sizeof line, "badges: %u glyph outlines and %u pictures read for drawing at the shown size",
+                      static_cast<unsigned>(g_k1Glyphs.size()), static_cast<unsigned>(g_k1Scenes.size()));
         ControllerLogK1(line);
     }
     for (const K1GlyphEntry& entry : g_k1Glyphs) {
@@ -1864,24 +1912,35 @@ const KmrpGlyph* FindK1Glyph(const std::string& name)
     return nullptr;
 }
 
-// The texture of `glyph` at dw x dh, written once per session into this patch's folder and
-// the folder listed anew so the engine finds it; its resref in `out`.
-bool K1BadgeTexture(const std::string& name, const KmrpGlyph& glyph, int dw, int dh, char out[17])
+// A drawn texture's resref: `kind` ('g' a badge's glyph, 's' a picture), a hash of what it
+// shows and its size. "kmz", not "kmr": the module gives a "kmr" name the pad's family by
+// its fourth letter (MatchCueFamilyK1), which would turn this one into nothing.
+void K1DrawnName(char kind, const std::string& what, int dw, int dh, char out[17])
 {
-    std::uint32_t hash = 2166136261u;                      // FNV-1a of the glyph's name
-    for (char c : name) {
+    std::uint32_t hash = 2166136261u;                      // FNV-1a
+    for (char c : what) {
         hash = (hash ^ static_cast<unsigned char>(c)) * 16777619u;
     }
-    std::snprintf(out, 17, "kmrg%06x%03x%03x", hash & 0xFFFFFFu, static_cast<unsigned>(dw),
-                  static_cast<unsigned>(dh));
+    std::snprintf(out, 17, "kmz%c%06x%03x%03x", kind, hash & 0xFFFFFFu, static_cast<unsigned>(dw) & 0xFFFu,
+                  static_cast<unsigned>(dh) & 0xFFFu);
+    out[16] = '\0';
+}
+
+bool K1AlreadyDrawn(const char* name)
+{
     for (const std::string& known : g_k1DrawnBadges) {
-        if (known == out) {
+        if (known == name) {
             return true;
         }
     }
-    const DWORD started = GetTickCount();
-    std::vector<std::uint8_t> sheet(static_cast<std::size_t>(dw) * dh * 4, 0);
-    kmrp_glyph_draw(&glyph, sheet.data(), dw, dh, 0, 0, dw, dh, nullptr);
+    return false;
+}
+
+// `sheet` (dw x dh, RGBA, top row first) written as `name`.tga with a TXI that turns
+// mipmaps off, once per session, into this patch's folder, and the folder listed anew so the
+// engine finds it.
+bool K1WriteDrawnTexture(const char* name, const std::vector<std::uint8_t>& sheet, int dw, int dh)
+{
     std::vector<std::uint8_t> tga(18 + sheet.size() + 26, 0);
     tga[2] = 2;
     tga[12] = static_cast<std::uint8_t>(dw); tga[13] = static_cast<std::uint8_t>(dw >> 8);
@@ -1895,7 +1954,7 @@ bool K1BadgeTexture(const std::string& name, const KmrpGlyph& glyph, int dw, int
         }
     }
     std::memcpy(&tga[18 + sheet.size() + 8], "TRUEVISION-XFILE.", 17);
-    const std::wstring base = KmrpRuntimeAssetDirectory() + L"\\" + std::wstring(out, out + std::strlen(out));
+    const std::wstring base = KmrpRuntimeAssetDirectory() + L"\\" + std::wstring(name, name + std::strlen(name));
     bool written = false;
     if (FILE* file = _wfopen((base + L".tga").c_str(), L"wb")) {
         written = std::fwrite(tga.data(), 1, tga.size(), file) == tga.size();
@@ -1914,12 +1973,191 @@ bool K1BadgeTexture(const std::string& name, const KmrpGlyph& glyph, int dw, int
     if (!written || !KmrpControllerRelistK1()) {
         return false;
     }
-    g_k1DrawnBadges.push_back(out);
+    g_k1DrawnBadges.push_back(name);
+    return true;
+}
+
+// The texture of `glyph` at dw x dh (a badge's), its resref in `out`.
+bool K1BadgeTexture(const std::string& name, const KmrpGlyph& glyph, int dw, int dh, char out[17])
+{
+    K1DrawnName('g', name, dw, dh, out);
+    if (K1AlreadyDrawn(out)) {
+        return true;
+    }
+    const DWORD started = GetTickCount();
+    std::vector<std::uint8_t> sheet(static_cast<std::size_t>(dw) * dh * 4, 0);
+    kmrp_glyph_draw(&glyph, sheet.data(), dw, dh, 0, 0, dw, dh, nullptr);
+    if (!K1WriteDrawnTexture(out, sheet, dw, dh)) {
+        return false;
+    }
     char line[200];
     std::snprintf(line, sizeof line, "badges: %s drawn at %dx%d as %s in %lu ms (with the folder listed anew)",
                   name.c_str(), dw, dh, out, static_cast<unsigned long>(GetTickCount() - started));
     ControllerLogK1(line);
     return true;
+}
+
+const K1Scene* FindK1Scene(const char* fill)
+{
+    if (!g_k1GlyphsLoaded) {
+        FindK1Glyph(std::string());
+    }
+    for (const K1Scene& scene : g_k1Scenes) {
+        if (_strnicmp(scene.name.c_str(), fill, 16) == 0 && scene.name.size() <= 16 &&
+            (scene.name.size() == 16 || fill[scene.name.size()] == '\0')) {
+            return &scene;
+        }
+    }
+    return nullptr;
+}
+
+// `scene` drawn at dw x dh: each glyph in its box scaled to that size, keeping its own
+// proportions (the maintainer's rule: a glyph's width and height never change apart), laid
+// over what is drawn already. Its resref in `out`.
+bool K1SceneTexture(const K1Scene& scene, int dw, int dh, char out[17])
+{
+    K1DrawnName('s', scene.name, dw, dh, out);
+    if (K1AlreadyDrawn(out)) {
+        return true;
+    }
+    const DWORD started = GetTickCount();
+    std::vector<std::uint8_t> sheet(static_cast<std::size_t>(dw) * dh * 4, 0);
+    for (const K1ScenePart& part : scene.parts) {
+        const KmrpGlyph* glyph = FindK1Glyph(part.glyph);
+        if (!glyph) {
+            return false;
+        }
+        const double boxLeft = static_cast<double>(part.left) * dw / scene.width;
+        const double boxTop = static_cast<double>(part.top) * dh / scene.height;
+        const double boxWidth = static_cast<double>(part.width) * dw / scene.width;
+        const double boxHeight = static_cast<double>(part.height) * dh / scene.height;
+        double gw = boxWidth, gh = gw * glyph->height / glyph->width;
+        if (gh > boxHeight) {
+            gh = boxHeight;
+            gw = gh * glyph->width / glyph->height;
+        }
+        const int pw = (std::max)(1, static_cast<int>(std::lround(gw)));
+        const int ph = (std::max)(1, static_cast<int>(std::lround(gh)));
+        const int px = static_cast<int>(std::lround(boxLeft + (boxWidth - pw) / 2.0));
+        const int py = static_cast<int>(std::lround(boxTop + (boxHeight - ph) / 2.0));
+        std::vector<std::uint8_t> piece(static_cast<std::size_t>(pw) * ph * 4, 0);
+        kmrp_glyph_draw(glyph, piece.data(), pw, ph, 0, 0, pw, ph, nullptr);
+        for (int y = 0; y < ph; ++y) {
+            if (py + y < 0 || py + y >= dh) continue;
+            for (int x = 0; x < pw; ++x) {
+                if (px + x < 0 || px + x >= dw) continue;
+                const std::uint8_t* s = &piece[(static_cast<std::size_t>(y) * pw + x) * 4];
+                std::uint8_t* d = &sheet[(static_cast<std::size_t>(py + y) * dw + px + x) * 4];
+                const unsigned sa = s[3], da = d[3];
+                const unsigned out255 = sa * 255 + da * (255 - sa);      // alpha x 255
+                if (out255 == 0) continue;
+                for (int c = 0; c < 3; ++c) {
+                    d[c] = static_cast<std::uint8_t>((s[c] * sa * 255 + d[c] * da * (255 - sa) + out255 / 2) / out255);
+                }
+                d[3] = static_cast<std::uint8_t>((out255 + 127) / 255);
+            }
+        }
+    }
+    if (!K1WriteDrawnTexture(out, sheet, dw, dh)) {
+        return false;
+    }
+    char line[200];
+    std::snprintf(line, sizeof line, "pictures: %s drawn at %dx%d as %s in %lu ms (with the folder listed anew)",
+                  scene.name.c_str(), dw, dh, out, static_cast<unsigned long>(GetTickCount() - started));
+    ControllerLogK1(line);
+    return true;
+}
+
+// Which border shows which drawn picture, and for what: a picture's control can be resized
+// or given another family's picture, and the code that sets the picture by name sees it as
+// the name it gave (KmrpLogicalFillK1).
+struct K1SceneFill { void* params; std::string scene; char drawn[17]; };
+std::vector<K1SceneFill> g_k1SceneFills;
+}   // the anonymous namespace: KmrpLogicalFillK1 is called from K1NativeJoystick.cpp
+
+// The picture a border's fill stands for: the patch's own name for it where the fill is a
+// picture drawn at its size (K1SweepRuntimePictures), else the fill itself. The code that
+// sets a picture by name and compares it each frame (ShowActionCueK1, MatchCueFamilyK1)
+// compares this, or it would set the name again every frame and the sweep its drawing.
+const char* KmrpLogicalFillK1(const char* fill)
+{
+    for (const K1SceneFill& known : g_k1SceneFills) {
+        if (_strnicmp(known.drawn, fill, 16) == 0) {
+            return known.scene.c_str();
+        }
+    }
+    return fill;
+}
+
+namespace {
+
+// Every control on every panel up whose border shows one of the patch's pictures gets that
+// picture drawn at the size its border fills, once per size. Called every frame
+// (UpdateK1ControllerPrompts), so it catches a picture whichever code or layout file gave it.
+void K1SweepRuntimePictures(void* manager)
+{
+    // A panel's control list and count, a label's border parameters (K1_BADGE_PANEL_ARRAY,
+    // K1_BADGE_PANEL_COUNT and K1_BADGE_LABEL_PARAMS, defined further down).
+    constexpr std::ptrdiff_t kPanelArray = 0x20, kPanelCount = 0x24, kLabelParams = 0x70;
+    if (!manager) {
+        return;
+    }
+    void** const panels = *reinterpret_cast<void***>(static_cast<char*>(manager) + MANAGER_PANEL_LIST_OFFSET);
+    const int panelCount = *reinterpret_cast<int*>(static_cast<char*>(manager) + MANAGER_PANEL_COUNT_OFFSET);
+    if (!panels || panelCount <= 0 || panelCount > 64) {
+        return;
+    }
+    for (int p = 0; p < panelCount; ++p) {
+        void* const panel = panels[p];
+        if (!panel) continue;
+        void** const controls = *reinterpret_cast<void***>(static_cast<char*>(panel) + kPanelArray);
+        const int count = *reinterpret_cast<int*>(static_cast<char*>(panel) + kPanelCount);
+        if (!controls || count <= 0 || count > 4096) continue;
+        for (int i = 0; i < count; ++i) {
+            void* const control = controls[i];
+            if (!control) continue;
+            const std::uintptr_t vtable = *reinterpret_cast<std::uintptr_t*>(control);
+            std::ptrdiff_t offsets[2] = {0, 0};
+            if (vtable == K1_GUI_LABEL_VTABLE) {
+                offsets[0] = kLabelParams;
+            } else if (vtable == K1_GUI_BUTTON_VTABLE) {
+                offsets[0] = K1_BUTTON_BORDER_PARAMS_OFFSET;
+                offsets[1] = K1_BUTTON_HILIGHT_PARAMS_OFFSET;
+            } else {
+                continue;
+            }
+            for (std::ptrdiff_t offset : offsets) {
+                if (!offset) continue;
+                char* const params = static_cast<char*>(control) + offset;
+                char fill[17] = {};
+                std::memcpy(fill, params + 0x40, 16);
+                if (fill[0] != 'k' || fill[1] != 'm' || (fill[2] != 'r' && fill[2] != 'z')) continue;
+                const char* const logical = KmrpLogicalFillK1(fill);
+                const K1Scene* const scene = FindK1Scene(logical);
+                if (!scene) continue;
+                const K1BadgeRect at = *reinterpret_cast<const K1BadgeRect*>(static_cast<char*>(control) + 4);
+                const int inset = K1ButtonFillInset(control, offset);
+                const int width = at.width - 2 * inset, height = at.height - 2 * inset;
+                if (width <= 0 || height <= 0 || width > 4095 || height > 4095) continue;
+                char drawn[17];
+                if (!K1SceneTexture(*scene, width, height, drawn)) continue;
+                if (_strnicmp(fill, drawn, 16) != 0) {
+                    const std::string name = scene->name;
+                    reinterpret_cast<SetFillImageFn>(K1_GUI_BORDER_SET_FILL_IMAGE)(params, drawn, 1);
+                    K1SceneFill* entry = nullptr;
+                    for (K1SceneFill& known : g_k1SceneFills) {
+                        if (known.params == params) entry = &known;
+                    }
+                    if (!entry) {
+                        g_k1SceneFills.push_back({params, name, {}});
+                        entry = &g_k1SceneFills.back();
+                    }
+                    entry->scene = name;
+                    std::memcpy(entry->drawn, drawn, 17);
+                }
+            }
+        }
+    }
 }
 
 // The glyph of `shape` drawn for `rect`, the label the made texture would be stretched over:
@@ -3112,6 +3350,7 @@ void UpdateK1ControllerPrompts()
         ? *reinterpret_cast<std::uintptr_t*>(panel)
         : 0;
 #ifdef KMRP_CONTROLLER_STANDALONE
+    K1SweepRuntimePictures(manager);
     g_k1BadgePaintPanel = panel;
     RestoreK1GrownButtons(panel);
     if (controllerMode) {
@@ -6254,3 +6493,8 @@ extern "C" void __cdecl CancelActionBarKeyboardFocusOnMouseMoveK2(
         mainInterface,
         hoveredControl);
 }
+
+#ifndef KMRP_CONTROLLER_STANDALONE
+// KMRP's own module draws no pictures at run time: a fill is what it says.
+const char* KmrpLogicalFillK1(const char* fill) { return fill; }
+#endif

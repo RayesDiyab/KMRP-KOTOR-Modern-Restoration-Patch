@@ -10,6 +10,7 @@ is the last active input device.
 
 from __future__ import annotations
 
+import hashlib
 import math
 import struct
 from functools import lru_cache
@@ -859,7 +860,18 @@ def build_square_glyph_tga(glyph: str, size: int = SQUARE_GLYPH_SIZE,
     r, g, b, a = sheet.split()
     header = struct.pack(
         "<BBBHHBHHHHBB", 0, 0, 2, 0, 0, 0, 0, 0, size, height, 32, 0x08)
-    return header + Image.merge("RGBA", (b, g, r, a)).tobytes() + TGA_FOOTER
+    tga = header + Image.merge("RGBA", (b, g, r, a)).tobytes() + TGA_FOOTER
+    # What this texture is, for the controller patch, which draws it again at the size its
+    # control is shown (scenes_for, build_controller_assets.py): the glyph and its box, in
+    # the texture's pixels, kept by the texture's bytes so that every caller is covered.
+    SCENES[hashlib.sha256(tga).hexdigest()] = (size, height, [(family, glyph, (size - dw) // 2,
+                                                                (height - dh) // 2, dw, dh)])
+    return tga
+
+
+# Texture SHA-256 -> (width, height, [(family, glyph, left, top, width, height)]): what each
+# texture made in this run shows (build_square_glyph_tga).
+SCENES: dict[str, tuple] = {}
 
 
 def _legacy_drawn_tga(control_width: int, control_height: int, glyph: str) -> bytes:

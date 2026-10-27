@@ -4555,6 +4555,9 @@ extern "C" void __cdecl KmrpPadFocusSkipK1(void* control, int skipped)
     KmrpPadFocusExcludeK1(control, skipped != 0);
 }
 
+// The picture a fill stands for (vendor/K1XboxControls.cpp).
+const char* KmrpLogicalFillK1(const char* fill);
+
 // For the prompt layer in vendor/K1XboxControls.cpp, which names the Xbox art.
 extern "C" char __cdecl KmrpGlyphLetterK1()
 {
@@ -4575,8 +4578,12 @@ using SetFillImageFn = void(__thiscall*)(void*, const void*, int);
 void MatchCueFamilyK1(void* label)
 {
     char* const params = static_cast<char*>(label) + K1_LABEL_BORDER_PARAMS;
-    char resref[16];
-    std::memcpy(resref, params + K1_BORDER_PARAMS_FILL, sizeof(resref));
+    // The name it stands for where the controller patch drew the picture at its size
+    // (KmrpLogicalFillK1, vendor/K1XboxControls.cpp): that drawing's own name is "kmz".
+    char shown[17] = {};
+    std::memcpy(shown, params + K1_BORDER_PARAMS_FILL, 16);
+    char resref[16] = {};
+    std::strncpy(resref, KmrpLogicalFillK1(shown), sizeof(resref));
     const char wanted = KmrpGlyphLetterK1();
     if (resref[0] != 'k' || resref[1] != 'm' || resref[2] != 'r' || resref[3] == wanted) {
         return;
@@ -4593,7 +4600,9 @@ void ShowActionCueK1(void* label, int action)
     char* const params = static_cast<char*>(label) + K1_LABEL_BORDER_PARAMS;
     char wanted[16];
     KmrpRemapGlyphK1(action, KmrpGlyphLetterK1(), wanted);
-    if (_strnicmp(params + K1_BORDER_PARAMS_FILL, wanted, sizeof(wanted)) == 0) {
+    char shown[17] = {};
+    std::memcpy(shown, params + K1_BORDER_PARAMS_FILL, 16);
+    if (_strnicmp(KmrpLogicalFillK1(shown), wanted, sizeof(wanted)) == 0) {
         return;
     }
     EngineFn<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(params, wanted, 1);
