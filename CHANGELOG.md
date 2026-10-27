@@ -126,6 +126,15 @@ proxy, and it applies the executable changes above as well.
   be changed without administrator rights: the installer says where to turn it off.
   `Test-DpiCompatibility.ps1` gained two cases (26 checks pass); its recovery record path
   is now `KMRP\dpi.manifest`. **Not yet seen in the game.**
+- **The build reuses what has not changed** (2026-10-27). `build_kmrp.ps1` fingerprints what
+  each slow step reads (the files' paths, sizes and times; a named file by its content; the
+  tools and the Python and PyKotor versions) and skips the step while the fingerprint
+  matches: the 66 resolutions' interface (843 seconds), the layout pool (91) and the
+  module's art pack (about 180, which was deleted and made again on every build). The C++
+  builds compile on every core (`/MP`). A build with nothing changed went from about 20
+  minutes to 54 seconds; the module, the runtime and both patches are byte for byte the
+  same as from a full build. `-FreshResources` regenerates the interface regardless.
+
 - **KMRP's fonts kern** (2026-10-24; [fonts/README.md](fonts/README.md)). The ten
   proportional KMRP Original HD fonts (`fonts/otf`, the `.ttc` and the Font Converter's
   copies) carry pair kerning measured from their outlines (`fonts/tools/kern.py`, run by

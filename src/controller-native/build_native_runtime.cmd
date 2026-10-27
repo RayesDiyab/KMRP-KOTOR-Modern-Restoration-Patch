@@ -42,7 +42,9 @@ if errorlevel 1 exit /b %errorlevel%
 cl /nologo /O2 /fp:strict /MT /TC /DKMRP_EMBEDDED /D_CRT_SECURE_NO_WARNINGS /c ^
   macos\tools\kmrp-guiadapt.c /Fobuild\native-runtime\kmrp-guiadapt.obj
 if errorlevel 1 exit /b %errorlevel%
-cl /nologo /Brepro /std:c++17 /O2 /fp:strict /EHsc /MT /LD /DKMRP_NATIVE_RUNTIME ^
+rem /MP compiles the sources on every core at once (2026-10-27); each source compiles
+rem the same as alone and /Brepro keeps the output byte for byte the same.
+cl /nologo /MP /Brepro /std:c++17 /O2 /fp:strict /EHsc /MT /LD /DKMRP_NATIVE_RUNTIME ^
   /Ibuild\native-runtime /Isrc\controller-native /Ithird_party\lzma-sdk /Ibuild\deps\SDL3-3.4.16\include ^
   src\controller-native\K1RuntimeResolution.cpp src\controller-native\K1RuntimeEngine.cpp ^
   src\controller-native\K1RuntimeAssets.cpp src\controller-native\K1PartyRosterGui.cpp src\controller-native\K1AssetPack.cpp ^

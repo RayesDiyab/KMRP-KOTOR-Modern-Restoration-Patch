@@ -18,7 +18,9 @@ python tools\build_controller_kpatch.py --write-def build\controller-standalone\
 if errorlevel 1 exit /b %errorlevel%
 rc /nologo /Ibuild\controller-standalone /fobuild\controller-standalone\controller-assets.res build\controller-standalone\controller-assets.rc
 if errorlevel 1 exit /b %errorlevel%
-cl /nologo /Brepro /std:c++17 /O2 /fp:strict /EHsc /MT /LD /DKMRP_CONTROLLER_STANDALONE ^
+rem /MP compiles the sources on every core at once (2026-10-27); each source compiles
+rem the same as alone and /Brepro keeps the output byte for byte the same.
+cl /nologo /MP /Brepro /std:c++17 /O2 /fp:strict /EHsc /MT /LD /DKMRP_CONTROLLER_STANDALONE ^
   /Ibuild\controller-standalone /Isrc\controller-native /Ibuild\deps\SDL3-3.4.16\include ^
   src\controller-native\K1ControllerStandalone.cpp src\controller-native\K1Xpress.cpp ^
   src\controller-native\K1NativeJoystick.cpp src\controller-native\K1ControllerBackend.cpp ^

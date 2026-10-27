@@ -38,7 +38,9 @@ call "%VC%" x86 >nul
 if errorlevel 1 exit /b %errorlevel%
 if not exist "%OUT%\obj" mkdir "%OUT%\obj"
 
-cl /nologo /Brepro /O2 /EHsc /MT /LD /std:c++17 /W3 ^
+rem /MP compiles the sources on every core at once (2026-10-27); each source compiles
+rem the same as alone and /Brepro keeps the output byte for byte the same.
+cl /nologo /MP /Brepro /O2 /EHsc /MT /LD /std:c++17 /W3 ^
    /DWIN32 /DNDEBUG /DKOTORPATCHER_EXPORTS /D_WINDOWS /D_USRDLL ^
    /I"%P%\include" /I"%P%\include\wrappers" /I"%P%\external" ^
    /Fo"%OUT%\obj\\" ^

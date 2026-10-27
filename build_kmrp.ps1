@@ -20,6 +20,9 @@ param(
     [string]$IconPath = ".\assets\branding\favicon.ico",
     [string]$HdFonts = ".\assets\hd-fonts",
     [switch]$ReuseResources,
+    # Regenerates step 3 even when its inputs are unchanged (the fingerprint below
+    # normally decides; this is for a doubt, not for everyday builds).
+    [switch]$FreshResources,
 
     # Progress is drawn with a redrawing bar. Pass -Plain for one line per event
     # instead, which is what you want when piping the build to a file or a log.
@@ -141,6 +144,42 @@ function Invoke-Tool {
     if ($code -ne 0) { throw $FailureMessage }
 }
 
+# ---------------------------------------------------------------- input fingerprints
+# A step whose inputs have not changed since it last ran reuses what it made then
+# (2026-10-27, the maintainer: step 3 regenerated all 66 resolutions, about 15 minutes,
+# on every build). The fingerprint is the SHA-256 of every input file's path, size and
+# last-write time, sorted, plus any extra text (tool versions); a git checkout, an edit
+# or a new file changes it. A file named on its own (not a folder) counts by its content
+# instead, as some (the blend table) are written again on every build with the same bytes. Kept beside the step's output; written only after the step
+# succeeds, so a failed or stopped run is never taken as done.
+function Get-InputFingerprint([string[]]$Paths, [string[]]$Extra = @()) {
+    $lines = New-Object System.Collections.Generic.List[string]
+    foreach ($path in $Paths) {
+        if (-not $path) { continue }
+        if (Test-Path -LiteralPath $path -PathType Leaf) {
+            $item = Get-Item -LiteralPath $path
+            $lines.Add(("{0}|{1}" -f $item.FullName.ToLowerInvariant(), (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash))
+        } elseif (Test-Path -LiteralPath $path -PathType Container) {
+            foreach ($item in Get-ChildItem -LiteralPath $path -Recurse -File -Force) {
+                if ($item.FullName -match '\\__pycache__\\') { continue }
+                $lines.Add(("{0}|{1}|{2}" -f $item.FullName.ToLowerInvariant(), $item.Length, $item.LastWriteTimeUtc.Ticks))
+            }
+        } else {
+            $lines.Add(("{0}|missing" -f $path.ToLowerInvariant()))
+        }
+    }
+    $sorted = @($lines | Sort-Object) + @($Extra)
+    $bytes = [Text.Encoding]::UTF8.GetBytes(($sorted -join "`n"))
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try { return ([BitConverter]::ToString($sha.ComputeHash($bytes)) -replace '-', '') }
+    finally { $sha.Dispose() }
+}
+
+function Test-StepCurrent([string]$StampPath, [string]$Fingerprint) {
+    return (Test-Path -LiteralPath $StampPath -PathType Leaf) -and
+        ((Get-Content -LiteralPath $StampPath -Raw).Trim() -eq $Fingerprint)
+}
+
 Write-Host ""
 Write-Host "  KMRP - KOTOR Modern Restoration Patch" -ForegroundColor Cyan
 Write-Host "  build" -ForegroundColor DarkGray
@@ -211,7 +250,25 @@ Invoke-Tool -Exe $Python -Label "engine" -FailureMessage "Source engine patch ge
 Complete-Step ("{0:n0} KB" -f ((Get-Item $engineSource).Length / 1KB))
 
 # ---------------------------------------------------------------- 3. resources
-if (-not $ReuseResources) {
+# Everything step 3 reads: its inputs, every tool it imports (all of tools\, as it
+# imports a dozen), the art under assets\ and the bundled mods, the per-scale font
+# sets, and the Python and PyKotor it runs on.
+$fontScaleSets = Join-Path $projectRoot "build\fonts"
+$resourceStamp = Join-Path $resourceDir "inputs.sha256"
+$pythonVersion = (& $Python -c "import sys, importlib.metadata as m; print(sys.version, m.version('pykotor'))" 2>$null) -join " "
+$resourceInputs = @(
+    (Join-Path $projectRoot "tools"), (Join-Path $projectRoot "assets"),
+    (Join-Path $projectRoot "third_party\Included"), $resolvedUpstream, $resolvedGoldOverride,
+    $resolvedTexturePack, $resolvedHdFonts, $geometry, $fontScaleSets) + $resolvedBundled
+$resourceFingerprint = Get-InputFingerprint -Paths $resourceInputs `
+    -Extra @("python $pythonVersion", "bundled $($resolvedBundled -join ';')")
+$resourcesCurrent = (-not $FreshResources) -and (Test-StepCurrent $resourceStamp $resourceFingerprint) -and
+    (Test-Path -LiteralPath (Join-Path $resourceDir "override-common.zip"))
+if ($resourcesCurrent) {
+    Write-Host ""
+    Write-Host "  [cached] Interface resources: inputs unchanged since they were made" -ForegroundColor DarkGreen
+}
+if (-not $ReuseResources -and -not $resourcesCurrent) {
     Start-Step "Generating interface resources for every resolution"
     # Built as a variable rather than inline: `-Arguments @(...) + $list` binds only
     # the array literal and silently drops the rest, which shipped a build with none
@@ -227,7 +284,6 @@ if (-not $ReuseResources) {
     # it the build still works and falls back to the shared atlas -- which is the
     # behaviour issue #16 reports as pixelated text, so say so rather than
     # quietly producing it.
-    $fontScaleSets = Join-Path $projectRoot "build\fonts"
     if (Test-Path -LiteralPath $fontScaleSets) {
         $resourceArgs += "--font-scale-sets"
         $resourceArgs += $fontScaleSets
@@ -243,8 +299,9 @@ if (-not $ReuseResources) {
     }
     Invoke-Tool -Exe $Python -Label "resolution" -FailureMessage "Interface resource generation failed" -Arguments $resourceArgs
     $archives = @(Get-ChildItem -LiteralPath $resourceDir -Filter "gui-*.zip")
+    Set-Content -LiteralPath $resourceStamp -Value $resourceFingerprint -Encoding ascii
     Complete-Step ("{0} resolution archives" -f $archives.Count)
-} else {
+} elseif ($ReuseResources) {
     Write-Host ""
     Write-Host "  [skipped] Interface resources reused from the previous build" -ForegroundColor DarkYellow
 }
@@ -257,11 +314,20 @@ if (-not $ReuseResources) {
 # because the regression checks read them, and the packer stops the build unless
 # every resolution rebuilt from the pool matches its archive. Runs with
 # -ReuseResources as well, so the pool always matches the archives beside it.
-Start-Step "Pooling the resolution layouts"
+# Cached like step 3: the pool is remade only when the archives or the tools change.
 $layoutPool = Join-Path $buildDir "resolution-layouts.zip"
-Invoke-Tool -Exe $Python -Label "pool" -FailureMessage "Pooling the resolution layouts failed" -Arguments @(
-    (Join-Path $projectRoot "tools\pack_resolution_layouts.py"), $resourceDir, $layoutPool)
-Complete-Step ("{0:n1} MB" -f ((Get-Item $layoutPool).Length / 1MB))
+$poolStamp = $layoutPool + ".inputs.sha256"
+$poolFingerprint = Get-InputFingerprint -Paths @($resourceDir, (Join-Path $projectRoot "tools")) -Extra @("python $pythonVersion")
+if ((Test-Path -LiteralPath $layoutPool) -and (Test-StepCurrent $poolStamp $poolFingerprint)) {
+    Write-Host ""
+    Write-Host "  [cached] Resolution layout pool: archives unchanged since it was made" -ForegroundColor DarkGreen
+} else {
+    Start-Step "Pooling the resolution layouts"
+    Invoke-Tool -Exe $Python -Label "pool" -FailureMessage "Pooling the resolution layouts failed" -Arguments @(
+        (Join-Path $projectRoot "tools\pack_resolution_layouts.py"), $resourceDir, $layoutPool)
+    Set-Content -LiteralPath $poolStamp -Value $poolFingerprint -Encoding ascii
+    Complete-Step ("{0:n1} MB" -f ((Get-Item $layoutPool).Length / 1MB))
+}
 
 # ---------------------------------------------------------------- 4a. the blend table
 # For a resolution the build has no set for, the installer blends the .gui files
@@ -386,12 +452,30 @@ Invoke-Tool -Exe "cmd.exe" -Label "runtime" -FailureMessage "Building KOTOR Patc
 # exists. Until 2026-10-19 the art was a bank inside the module (native-assets.bin).
 $nativeDir = Join-Path $projectRoot "build\native-runtime"
 $nativePack = Join-Path $nativeDir "kmrp-assets.pack"
-if (-not $ReuseResources -and (Test-Path -LiteralPath $nativePack)) { Remove-Item -LiteralPath $nativePack -Force }
+# The module's art pack (tools\build_native_assets.py, about three minutes) was deleted
+# here on every build so the module script made it again. Now it is kept while
+# everything it is made from is unchanged: the resolution archives and the blend table,
+# the tools, the art, the helper's C source, the texture pack and the SDL3 build
+# (2026-10-27). The fonts it makes for itself under build\native-runtime are not inputs.
+$nativePackStamp = $nativePack + ".inputs.sha256"
+$nativePackFingerprint = Get-InputFingerprint -Paths @(
+    $resourceDir, $blendTable, (Join-Path $projectRoot "tools"), (Join-Path $projectRoot "assets"),
+    (Join-Path $projectRoot "macos\tools"), $resolvedTexturePack, (Join-Path $projectRoot "build\deps")) `
+    -Extra @("python $pythonVersion")
+$nativePackCurrent = (Test-Path -LiteralPath $nativePack) -and (Test-StepCurrent $nativePackStamp $nativePackFingerprint)
+if ($nativePackCurrent) {
+    Write-Detail "the module's art pack: inputs unchanged, kept"
+} elseif (Test-Path -LiteralPath $nativePack) {
+    Remove-Item -LiteralPath $nativePack -Force
+}
 $textFontTexturePack = $env:KMRP_TEXTURE_PACK
 try {
     $env:KMRP_TEXTURE_PACK = $resolvedTexturePack
     Invoke-Tool -Exe "cmd.exe" -Label "module" -FailureMessage "Building KMRP's module failed (src\controller-native\build_native_runtime.cmd)" `
         -Arguments @("/c", (Join-Path $projectRoot "src\controller-native\build_native_runtime.cmd"))
+    if (Test-Path -LiteralPath $nativePack) {
+        Set-Content -LiteralPath $nativePackStamp -Value $nativePackFingerprint -Encoding ascii
+    }
 } finally {
     $env:KMRP_TEXTURE_PACK = $textFontTexturePack
 }
