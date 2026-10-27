@@ -162,7 +162,10 @@ def read_table(path: Path):
         insets = struct.unpack_from("<II", d, p); p += 8
         badges.append(dict(resref=resref, gui=gui, width=width_at, height=height_at, glyph=glyph,
                            backing=backing if backed else None, sizing=sizing, insets=insets,
-                           shape=glyph_sizes[glyph][0] / glyph_sizes[glyph][1]))
+                           # no glyphs: sets made without badges (Windows' since
+                           # 2026-10-27, its controller patch drawing its own)
+                           drawn=bool(glyph_sizes),
+                           shape=glyph_sizes[glyph][0] / glyph_sizes[glyph][1] if glyph_sizes else 1.0))
     # The HUD's button-row boxes: read for the texture's name; the Python side draws it with
     # build_menubg_texture.
     huds = []
@@ -275,6 +278,9 @@ def python_badges(badges, out: dict[str, bytes], manifest: bytes, widened: dict[
         gui = out[badge["gui"]]
         width, height = i32(gui, badge["width"]), i32(gui, badge["height"])
         radius_height = min((i32(gui, at) for at in badge["sizing"]), default=0)
+        sizes[badge["resref"]] = (width, height)
+        if not badge["drawn"]:
+            continue
         family, glyph = GLYPHS[badge["glyph"]]
         normal, focused = badge["insets"]
         made[badge["resref"] + ".tga"] = prompts.build_prompt_tga(
@@ -284,7 +290,6 @@ def python_badges(badges, out: dict[str, bytes], manifest: bytes, widened: dict[
             made[prompts.focus_resref(badge["resref"]) + ".tga"] = prompts.build_prompt_tga(
                 width, height, glyph, labels[badge["resref"]], radius_height, family, badge["backing"],
                 focused, True)
-        sizes[badge["resref"]] = (width, height)
     lines = manifest.decode("utf-8").split("\n")
     for i, line in enumerate(lines):
         parts = line.split(" ")
@@ -437,8 +442,9 @@ def main() -> int:
             out = helper_derive(res, res)
             with zipfile.ZipFile(RESOURCES / f"gui-{res}.zip") as z:
                 differ += [f"{res} {f.name}" for f in out.iterdir() if f.read_bytes() != z.read(f.name)]
-                focus_badges = sum(1 for b in table[5] if b["insets"][0] != b["insets"][1])
-                if len(list(out.iterdir())) != len(table[4]) + len(table[5]) + focus_badges + 1 + len(table[6]):
+                drawn = [b for b in table[5] if b["drawn"]]
+                focus_badges = sum(1 for b in drawn if b["insets"][0] != b["insets"][1])
+                if len(list(out.iterdir())) != len(table[4]) + len(drawn) + focus_badges + 1 + len(table[6]):
                     differ.append(f"{res}: {len(list(out.iterdir()))} files written")
         ok = not differ
         failed |= not ok
@@ -512,7 +518,7 @@ def main() -> int:
             made = tmp / f"{res}-{fonts}"
             for badge in table[5]:
                 gui = (made / badge["gui"]).read_bytes()
-                if badge["backing"] is not None:
+                if badge["backing"] is not None or not badge["drawn"]:
                     continue
                 normal, focused = badge["insets"]
                 textures = [(badge["resref"], normal)]
@@ -543,8 +549,12 @@ def main() -> int:
                         worst = (aspect, f"{res} {resref}")
         ok = abs(worst[0] - 1) <= 0.06
         failed |= not ok
-        print(f"{'ok  ' if ok else 'FAIL'} every badge round on its blended button at "
-              f"{len(mac) + len(UNLISTED)} derived sizes (worst {worst[0]:.3f} of its own shape, {worst[1]})")
+        if not any(b["drawn"] for b in table[5]):
+            print("skip every badge round on its blended button: these sets carry no badges "
+                  "(Windows' controller patch draws its own)")
+        else:
+            print(f"{'ok  ' if ok else 'FAIL'} every badge round on its blended button at "
+                  f"{len(mac) + len(UNLISTED)} derived sizes (worst {worst[0]:.3f} of its own shape, {worst[1]})")
 
         # 6. The Windows installer's blend against the helper.
         if native_helpers.WINDOWS:

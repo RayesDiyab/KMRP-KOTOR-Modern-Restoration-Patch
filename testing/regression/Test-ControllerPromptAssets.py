@@ -21,7 +21,6 @@ from build_controller_prompt_textures import (  # noqa: E402
     BADGE_GROUPS,
     FAMILY_LETTERS,
     GLYPH_FAMILIES,
-    GLYPH_PACK,
     PER_CAPTION_TARGETS,
     PROMPT_FALLBACK_STRINGS,
     PROMPT_INLINE_LABELS,
@@ -278,6 +277,14 @@ def main() -> int:
     if len(archives) != 66:
         raise AssertionError(f"Expected 66 GUI archives, found {len(archives)}")
 
+    # Sets made with the controller's art (--controller-art: the Mac's, whose controller
+    # is KMRP's own) or without it (Windows' since 2026-10-27: its controller patch draws
+    # and serves its own, and KMRP's copies were left over from before the two were
+    # split). Without it, every badge's button is still checked in the layouts, and no
+    # controller art may be left in KMRP's sets.
+    with zipfile.ZipFile(archives[0]) as first:
+        art = any(name.lower().startswith("kmrpa_") for name in first.namelist())
+
     common_path = args.resources / "override-common.zip"
     with zipfile.ZipFile(common_path) as common:
         common_names = {name.lower() for name in common.namelist()}
@@ -297,9 +304,14 @@ def main() -> int:
         # The backdrop and edge art are shared by every family.
         expected_layout_art.update(f"{name}.tga" for name in LAYOUT_BACKDROP)
         missing = expected_layout_art - common_names
-        if missing:
+        if art and missing:
             raise AssertionError(
                 f"override-common.zip: missing Controller Layout art {sorted(missing)}")
+        left = sorted(expected_layout_art & common_names)
+        if not art and left:
+            raise AssertionError(
+                f"override-common.zip carries the controller's art {left[:4]}, "
+                "which only the controller patch serves on Windows")
         if "kmrplytoutline.tga" in common_names:
             raise AssertionError(
                 "override-common.zip still ships kmrplytoutline.tga, the drawn "
@@ -491,9 +503,13 @@ def main() -> int:
                 resref = family_resref(target.resref, family)
                 gui_name = names.get(target.gui)
                 texture_name = names.get(f"{resref}.tga")
-                if gui_name is None or texture_name is None:
+                if gui_name is None or (art and texture_name is None):
                     raise AssertionError(
                         f"{archive_path.name}: missing {target.gui} or {resref}.tga")
+                if not art and texture_name is not None:
+                    raise AssertionError(
+                        f"{archive_path.name}: carries the badge {resref}.tga, which only "
+                        "the controller patch serves on Windows")
 
                 controls = gui_cache.get(target.gui)
                 if controls is None:
@@ -521,6 +537,9 @@ def main() -> int:
                 elif fills[0]:
                     raise AssertionError(
                         f"{archive_path.name}: {target.gui}:{target.tag} normal fill is not empty")
+                if not art:
+                    checked += 1
+                    continue
 
                 data = archive.read(texture_name)
                 if len(data) != 18 + TEXTURE_WIDTH * TEXTURE_HEIGHT * 4 + 26:
@@ -620,11 +639,12 @@ def main() -> int:
 
             verify_placement_manifest(archive, archive_path.name, names, gui_cache)
 
-    print(
-        f"Controller prompts OK: {len(archives)} archives, "
-        f"{checked} target textures ({len(GLYPH_FAMILIES)} controller families), "
-        f"{len(PROMPT_TARGETS)} verified control mappings each, no D-pad arrow "
-        "glyphs, Controller Layout verified, placement manifest verified")
+    what = (f"{checked} target textures ({len(GLYPH_FAMILIES)} controller families)" if art else
+            f"{checked} badged buttons ({len(GLYPH_FAMILIES)} controller families) and no controller "
+            "art in KMRP's sets")
+    print(f"Controller prompts OK: {len(archives)} archives, {what}, {len(PROMPT_TARGETS)} verified "
+          "control mappings each, no D-pad arrow glyphs, Controller Layout verified, placement "
+          "manifest verified")
     return 0
 
 

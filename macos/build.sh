@@ -137,9 +137,18 @@ if (( ! REUSE )) || [[ ! -f "$RESOURCES/override-common.zip" ]]; then
         "$ROOT/third_party/Included/kotor-high-resolution-menus-1.5" \
         "$ROOT/assets/override-3440x1440" "$RESOURCES" "$ERF" "$ROOT/assets/hd-fonts" \
         "${FONT_SETS[@]}" \
+        --controller-art \
         --bundled-override "$ROOT/third_party/Included/Party Portraits by MadDerp" \
                            "$ROOT/third_party/Included/KOTOR1 HD ICON PACK ver1.0 1.0.0 by JackInTheBox/Override" \
         2>&1 | { grep -v "DEBUG" || true; } | tail -3
+fi
+# The Mac's controller is KMRP's own and paints its buttons with the sets' badges, which
+# the Windows build no longer makes (its controller patch draws its own, 2026-10-27).
+# Sets reused from a Windows build would give a package with no badges, so stop.
+if ! unzip -l "$RESOURCES/gui-1920x1080.zip" | grep -q " kmrpa_"; then
+    print -u2 "error: $RESOURCES has no controller badges (made by build_kmrp.ps1?);"
+    print -u2 "       build without --reuse-resources so they are made with --controller-art."
+    exit 1
 fi
 
 step "Artwork (override-common.zip, less what macOS does not use)"

@@ -135,7 +135,11 @@ def main() -> int:
     total = sum(len(v) for v in left_out.values())
     check(not bad, f"{total:,} files are left to the module, every one a layout, a badge, the manifest or the HUD box; "
                    f"the helper's non-font inputs are stored, and fonts have shared sources" + (f": {bad[:6]}" if bad else ""))
-    check(total > 40000, f"the pack leaves out most of the sets' files ({total:,} of "
+    # Most, as a share: more than 40,000 until 2026-10-27, when the sets stopped carrying
+    # the controller's badges (Windows' controller patch draws its own) and the files left
+    # out became the layouts alone, about four in five of the sets' files.
+    all_files = sum(len(e) for s, e in groups.items() if s != '0x0')
+    check(total > all_files * 0.6, f"the pack leaves out most of the sets' files ({total:,} of "
                          f"{sum(len(e) for s, e in groups.items() if s != '0x0'):,}; {len(whole)} sets are stored whole: "
                          f"{', '.join(sorted(whole)) or 'none'})")
 

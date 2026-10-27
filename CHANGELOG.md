@@ -117,6 +117,35 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: Restore Original left KOTOR Patch Manager's runtime behind, and the next install
+  stopped** (2026-10-27, seen on the maintainer's Steam game). A restore that finds the
+  runtime KMRP installed changed takes it for KOTOR Patch Manager's, and leaves it for KPM;
+  unless KPM holds only KMRP's patches, when it removes the runtime as KPM would. Two
+  faults: a module changed in `patches\` counted as KPM's Apply (here two modules swapped
+  in by hand for a test), and the check that KPM holds only KMRP's patches took only
+  modules, so with KMRP's art pack in `patches\` (since 2026-10-19) it never held. The
+  runtime stayed, and the next install refused: "Left the existing
+  patches\kmrp-assets.pack alone; KMRP was not installed". Now a changed module or art
+  pack alone is not a takeover (KPM's Apply rewrites the runtime, its config or its state,
+  which still count), and the art pack counts as KMRP's (`KpmEdition.cs`). Restore and
+  install seen working on the same game after its leftovers were moved aside.
+
+- **Only the controller patch draws controller buttons** (2026-10-27, the maintainer:
+  "the only thing that should write the controller glyphs is the controller mod part of
+  it, not KMRP itself, because they are separate"). Each of KMRP's 66 resolution sets
+  still carried its own copy of every controller picture, left over from before
+  controller support became a patch of its own on 2026-10-05: 872 badge and cue textures
+  in the 3440x1440 set alone, about 109 MB before compression, and the Controller Layout
+  screen's art. On Windows they are gone from KMRP's sets
+  (`prepare_universal_resources.py` makes them only with `--controller-art`); the
+  controller patch draws and serves its own, as it does without KMRP. KMRP's layouts keep
+  the controls the controller patch places its pictures on, and the prompt list
+  (`kmrp_prompts.txt`), whose caption widths the installers' Container fit reads. A blend
+  table made from sets without badges carries no glyphs, and `GuiBlend.cs` and
+  `kmrp-guiblend.c` then write the prompt list and draw nothing. The Mac's build keeps the
+  art (`macos/build.sh` passes `--controller-art`): its controller is KMRP's own (Mac
+  handoff item 99). **Not yet seen in game.**
+
 - **Controller buttons drawn sharp at every size** (2026-10-27; issue 68, reported on the
   Steam Deck). Every controller picture KMRP shows, 21 for each of the four pad families
   (the face buttons, shoulders and triggers, Start and Back, the D-pad and its directions,

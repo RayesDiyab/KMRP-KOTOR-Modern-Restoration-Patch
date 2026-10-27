@@ -1018,6 +1018,19 @@ drawer on its own; on the Mac it should be built for both slices (`native_helper
 does), and `Test-GuiBlendHelper.py` run as before. **How to check:** at a size the build has
 no set for, a face button's letter is crisp and centred on its disc.
 
+## 99. Controller art only in the controller (the Mac keeps it in KMRP's sets for now)
+
+**For the Mac: nothing to do yet; one thing to know** (2026-10-27). On Windows KMRP's sets no
+longer carry the controller's badges, cues or Controller Layout art: the controller patch,
+which works without KMRP, draws and serves its own. The Mac has no separate controller
+patch; its controller is part of KMRP's Mac patch and paints its buttons with the sets'
+badges, so `macos/build.sh` passes `--controller-art` to `prepare_universal_resources.py`
+and the Mac's sets are as before. Two guards: the Mac build stops if it would reuse sets
+without badges (`--reuse-resources` after a Windows build), and `build_gui_blend_table.py`
+stops on sets of which some carry badges and some do not. When the Mac's controller draws
+its own badges at run time, as Windows' is about to, the option can go. **How to check:** a
+Mac package built from fresh sets shows badges as before.
+
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
 | Change | Commit | Why not the Mac |

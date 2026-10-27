@@ -1621,7 +1621,7 @@ def build_resolution(job) -> str:
         packaged_files.extend(build_prompt_textures(
             packaged_files, temp_dir / "controller-prompts",
             widened={CONTAINER_SCREEN: container_widened}, fitted=fitted,
-            fill_insets=True))
+            fill_insets=True, textures=args.controller_art))
 
 
         if transferred:
@@ -1646,6 +1646,11 @@ def main() -> int:
                              "ship without them.")
     parser.add_argument("hd_fonts", type=Path,
                         help="Pre-rendered HD font atlases (assets/hd-fonts)")
+    parser.add_argument("--controller-art", action="store_true",
+                        help="put the controller's badges, cues and Controller Layout art "
+                             "into the sets, for a package whose controller is KMRP's own "
+                             "(the Mac's). Windows' controller is a patch of its own that "
+                             "draws them itself, so its build leaves this out")
     parser.add_argument("--font-scale-sets", type=Path,
                         help="directory of per-scale atlas sets from "
                              "tools/build_font_scale_sets.py. A resolution whose "
@@ -1804,35 +1809,39 @@ def main() -> int:
         #
         # Every cue once per controller family. The .gui names the Xbox art; the
         # module rewrites the resref's fourth letter to the family it detects.
-        for family in GLYPH_FAMILIES:
-            cue_art = Path(icon_staging) / f"{family_resref(R3_CUE_FILL, family)}.tga"
-            cue_art.write_bytes(build_square_glyph_tga(R3_CUE_GLYPH, family=family))
-            common_tga_files = common_tga_files + [cue_art]
+        # The controller's own pictures (the cues, the Controller Layout screen's art) only
+        # where KMRP's patch is the controller, the Mac's (--controller-art): on Windows
+        # the controller patch draws and serves its own (2026-10-27).
+        if args.controller_art:
+            for family in GLYPH_FAMILIES:
+                cue_art = Path(icon_staging) / f"{family_resref(R3_CUE_FILL, family)}.tga"
+                cue_art.write_bytes(build_square_glyph_tga(R3_CUE_GLYPH, family=family))
+                common_tga_files = common_tga_files + [cue_art]
 
-            # The same, for the two menu-strip cues.
-            for _, fill, glyph in TAB_CUES:
-                art = Path(icon_staging) / f"{family_resref(fill, family)}.tga"
-                art.write_bytes(build_square_glyph_tga(glyph, family=family))
-                common_tga_files = common_tga_files + [art]
+                # The same, for the two menu-strip cues.
+                for _, fill, glyph in TAB_CUES:
+                    art = Path(icon_staging) / f"{family_resref(fill, family)}.tga"
+                    art.write_bytes(build_square_glyph_tga(glyph, family=family))
+                    common_tga_files = common_tga_files + [art]
 
-            # And for Y and B beside the HUD's combat buttons.
-            for _, fill, glyph, _ in COMBAT_CUES:
-                art = Path(icon_staging) / f"{family_resref(fill, family)}.tga"
-                art.write_bytes(build_square_glyph_tga(glyph, family=family))
-                common_tga_files = common_tga_files + [art]
+                # And for Y and B beside the HUD's combat buttons.
+                for _, fill, glyph, _ in COMBAT_CUES:
+                    art = Path(icon_staging) / f"{family_resref(fill, family)}.tga"
+                    art.write_bytes(build_square_glyph_tga(glyph, family=family))
+                    common_tga_files = common_tga_files + [art]
 
-            # The swap-tabs phrase, on a texture of its own shape rather than a
-            # square, because its control is that shape too. Every family has
-            # the phrase as art since 2026-09-24, drawn for KMRP.
-            swap_art = Path(icon_staging) / f"{family_resref(SWAP_CUE_FILL, family)}.tga"
-            swap_art.write_bytes(build_square_glyph_tga(
-                SWAP_CUE_GLYPH, 256, 256 // SWAP_CUE_ASPECT, family=family))
-            common_tga_files = common_tga_files + [swap_art]
+                # The swap-tabs phrase, on a texture of its own shape rather than a
+                # square, because its control is that shape too. Every family has
+                # the phrase as art since 2026-09-24, drawn for KMRP.
+                swap_art = Path(icon_staging) / f"{family_resref(SWAP_CUE_FILL, family)}.tga"
+                swap_art.write_bytes(build_square_glyph_tga(
+                    SWAP_CUE_GLYPH, 256, 256 // SWAP_CUE_ASPECT, family=family))
+                common_tga_files = common_tga_files + [swap_art]
 
-        # Controller Layout uses the same physical-position glyph sources as
-        # the HUD prompts. Its art is resolution-independent; its geometry is
-        # authored below from each resolution's final Controls screen.
-        common_tga_files += build_controller_layout_art(Path(icon_staging))
+            # Controller Layout uses the same physical-position glyph sources as
+            # the HUD prompts. Its art is resolution-independent; its geometry is
+            # authored below from each resolution's final Controls screen.
+            common_tga_files += build_controller_layout_art(Path(icon_staging))
 
         # Font atlases never ship here. They differ per resolution now, and the
         # installer refuses a build where override-common.zip and a resolution

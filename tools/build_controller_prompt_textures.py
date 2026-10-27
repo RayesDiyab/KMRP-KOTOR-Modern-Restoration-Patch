@@ -1344,8 +1344,14 @@ def measure_label(label: str, advances, spacing_px: float) -> float:
 def build_prompt_textures(gui_files: list[Path], output_dir: Path,
                           widened: dict[str, int] | None = None,
                           fitted: dict[tuple[str, str], int] | None = None,
-                          fill_insets: bool = False) -> list[Path]:
-    """`widened`: pixels a screen was widened by to fit a caption and its badge
+                          fill_insets: bool = False, textures: bool = True) -> list[Path]:
+    """`textures`: False writes the placement manifest alone, no badge. KMRP's Windows
+    sets carry none since 2026-10-27: the controller patch draws its own badges, and
+    KMRP's copies were left over from when controller support was part of KMRP; the
+    manifest stays, as the installers' Container fit reads its caption widths. The
+    Mac's build still asks for them (macos/build.sh), its controller being KMRP's.
+
+    `widened`: pixels a screen was widened by to fit a caption and its badge
     (prepare_universal_resources.py), recorded in the manifest so the Mac's blend
     table can take the widening back out and its installer put it in again for a
     resolution with no set (tools/build_gui_blend_table.py). `fitted`: the same for
@@ -1481,13 +1487,15 @@ def build_prompt_textures(gui_files: list[Path], output_dir: Path,
         # installer's re-centring treats every family's copy the same way.
         for family in GLYPH_FAMILIES:
             resref = family_resref(target.resref, family)
+            manifest.append((resref, width, height, round(label_width, 2),
+                             variants))
+            if not textures:
+                continue
             output = output_dir / f"{resref}.tga"
             output.write_bytes(build_prompt_tga(
                 width, height, target.glyph, round(label_width, 2), radius_height,
                 family, backing, normal_inset, fill_insets))
             results.append(output)
-            manifest.append((resref, width, height, round(label_width, 2),
-                             variants))
             if focus_inset != normal_inset:
                 focused = output_dir / f"{focus_resref(resref)}.tga"
                 focused.write_bytes(build_prompt_tga(
@@ -1512,6 +1520,10 @@ def build_prompt_textures(gui_files: list[Path], output_dir: Path,
                 one_width = measure_label(one[0], advances, spacing_px) if one else 0.0
                 for family in GLYPH_FAMILIES:
                     resref = family_resref(f"{target.resref}{index}", family)
+                    manifest.append((resref, width, height, round(one_width, 2),
+                                     (variant,)))
+                    if not textures:
+                        continue
                     path = output_dir / f"{resref}.tga"
                     path.write_bytes(build_prompt_tga(
                         width, height, target.glyph, round(one_width, 2), 0, family,
@@ -1523,8 +1535,6 @@ def build_prompt_textures(gui_files: list[Path], output_dir: Path,
                             width, height, target.glyph, round(one_width, 2), 0, family,
                             None, focus_inset, fill_insets))
                         results.append(focused)
-                    manifest.append((resref, width, height, round(one_width, 2),
-                                     (variant,)))
 
     # Placement manifest for the installer. The badge artwork does not depend on
     # the label -- only its horizontal position does, and that position moves by

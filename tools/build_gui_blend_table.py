@@ -73,7 +73,9 @@ insets, the normal one's and the focused one's, which are the same in every set 
 and the header the two constants of the fit; where the insets differ the installers draw a
 second texture for the focused border, "kmf..." beside "kmr...".
 
-Version 6 (2026-10-27, issue 68): the glyphs are outlines, not pictures. Each is drawn at
+Version 6 (2026-10-27, issue 68): the glyphs are outlines, not pictures. A table made
+from sets with no badges (Windows' since the same day) carries no glyphs: the installers
+then draw no badge and still write the prompt manifest for the blended buttons. Each is drawn at
 the size its badge needs from assets/controller-glyphs/glyphs.json, by the integer rules
 tools/controller_glyphs.py sets out, which the installers follow step for step; the
 Lanczos resample of Xelu's PNGs, the masked paste and Pillow's alpha_composite are gone.
@@ -298,9 +300,15 @@ def border_insets(blob: bytes, index: int) -> tuple[int, int]:
     return normal, normal if focused is None else focused
 
 
-def badge_section(templates: dict[str, bytes], manifest: bytes, sets: list[dict[str, bytes]]) -> bytes:
+def badge_section(templates: dict[str, bytes], manifest: bytes, sets: list[dict[str, bytes]],
+                  textures: bool = True) -> bytes:
     """The badges' constants, glyph outlines and recipes, one recipe per prompt manifest
-    row, as build_prompt_textures makes that row's texture."""
+    row, as build_prompt_textures makes that row's texture.
+
+    `textures` False (sets with no badges, as Windows builds them since 2026-10-27, its
+    controller patch drawing its own): no glyphs, and each recipe's glyph 0. The helpers
+    then draw nothing and still write the manifest for the blended buttons, which the
+    Container's fit reads."""
     out = struct.pack("<II", prompts.TEXTURE_WIDTH, prompts.TEXTURE_HEIGHT)
     out += struct.pack("<dd", prompts.BADGE_RADIUS, prompts.BADGE_RADIUS_SHORT)
     out += struct.pack("<I", prompts.BADGE_SHORT_BELOW)
@@ -310,7 +318,7 @@ def badge_section(templates: dict[str, bytes], manifest: bytes, sets: list[dict[
     out += struct.pack("<H", len(prompts.TGA_FOOTER)) + prompts.TGA_FOOTER
 
     glyphs = []                                       # (family, glyph), in table order
-    for family in prompts.GLYPH_FAMILIES:
+    for family in prompts.GLYPH_FAMILIES if textures else ():
         for glyph in sorted({t.glyph for t in prompts.PROMPT_TARGETS}):
             glyphs.append((family, glyph))
     out += struct.pack("<I", len(glyphs))
@@ -364,7 +372,8 @@ def badge_section(templates: dict[str, bytes], manifest: bytes, sets: list[dict[
             if target.backing:
                 backing = prompts.BACKINGS[target.backing]
         record = text(resref) + text(target.gui)
-        record += struct.pack("<III", extent[2], extent[3], glyphs.index((family, target.glyph)))
+        record += struct.pack("<III", extent[2], extent[3],
+                              glyphs.index((family, target.glyph)) if textures else 0)
         record += struct.pack("<B4B", 1 if backing else 0, *(backing or (0, 0, 0, 0)))
         record += struct.pack("<I", len(sizing)) + struct.pack(f"<{len(sizing)}I", *sizing)
         insets = {border_insets(files[target.gui], target.control_index) for files in sets}
@@ -541,7 +550,13 @@ def main() -> int:
         if row_names(archive.read(prompts.PROMPT_MANIFEST_NAME)) != row_names(manifest):
             raise SystemExit(f"{archive.filename}: its prompt manifest lists other badges")
     badged = sorted({t.gui for t in prompts.PROMPT_TARGETS})
-    out += badge_section(templates, manifest, [{gui: z.read(gui) for gui in badged} for z in archives])
+    # Badges in the sets (the Mac's, --controller-art) or none (Windows'): all or none.
+    rows = set(row_names(manifest))
+    with_art = {any(n.endswith(".tga") and n[:-4] in rows for n in z.namelist()) for z in archives}
+    if len(with_art) != 1:
+        raise SystemExit("some sets carry controller badges and some do not")
+    out += badge_section(templates, manifest, [{gui: z.read(gui) for gui in badged} for z in archives],
+                         textures=with_art.pop())
     out += hud_section(templates)
     out += struct.pack("<I", len(names))
 

@@ -649,6 +649,12 @@ namespace Kmrp
             {
                 if (record[0] != "file" || !IsRuntimeRecord(record))
                     continue;
+                // A module or the art pack in patches\ changed alone is not KPM's Apply,
+                // which rewrites the runtime, its config or its state; it re-extracts the
+                // modules byte for byte. Counted until 2026-10-27, when a module swapped
+                // in by hand for a test made a restore leave the whole runtime behind.
+                if (record[1].StartsWith(PatchFolder + "\\", StringComparison.OrdinalIgnoreCase))
+                    continue;
                 string path = Path.Combine(folder, record[1]);
                 if (!File.Exists(path))
                     continue;
@@ -700,9 +706,15 @@ namespace Kmrp
                 {
                     if (Directory.GetDirectories(patches).Length > 0)
                         return false;
+                    // KMRP's art pack is KMRP's too (beside its module since 2026-10-19).
+                    // Until 2026-10-27 only modules counted here, so with the pack there this
+                    // was never true, and a restore that found the runtime taken over left
+                    // all of it behind, the pack included, for an install KMRP then refused
+                    // to write over ("Left the existing patches\kmrp-assets.pack alone").
                     foreach (string module in Directory.GetFiles(patches))
-                        if (!String.Equals(Path.GetExtension(module), ".dll", StringComparison.OrdinalIgnoreCase) ||
-                            Array.IndexOf(EnginePatches, Path.GetFileNameWithoutExtension(module).ToLowerInvariant()) < 0)
+                        if (!String.Equals(Path.GetFileName(module), PackName, StringComparison.OrdinalIgnoreCase) &&
+                            (!String.Equals(Path.GetExtension(module), ".dll", StringComparison.OrdinalIgnoreCase) ||
+                             Array.IndexOf(EnginePatches, Path.GetFileNameWithoutExtension(module).ToLowerInvariant()) < 0))
                             return false;
                 }
                 string newest = NewestKpmBackup(targetPath);

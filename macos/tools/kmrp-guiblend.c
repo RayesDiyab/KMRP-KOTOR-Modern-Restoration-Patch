@@ -1164,7 +1164,7 @@ int main(int argc, char **argv) {
         pr->glyph = take_u32();
         if (!take(&pr->backed, 1) || !take(pr->backing, 4)) { fprintf(stderr, "kmrp-guiblend: bad prompt record\n"); return 1; }
         pr->sizing_count = take_u32();
-        if (pr->glyph >= badges.glyph_count || pr->sizing_count > 16) {
+        if ((badges.glyph_count && pr->glyph >= badges.glyph_count) || pr->sizing_count > 16) {
             fprintf(stderr, "kmrp-guiblend: bad prompt record\n");
             return 1;
         }
@@ -1361,6 +1361,9 @@ int main(int argc, char **argv) {
         sizes[i * 2] = cw;
         sizes[i * 2 + 1] = ch;
 #ifndef KMRP_NO_CONTROLLER
+        /* A table with no glyphs (sets made without badges, Windows' since 2026-10-27, whose
+         * controller patch draws its own): the manifest alone. */
+        if (badges.glyph_count == 0) continue;
         size_t tga_size;
         if (cw <= 2 * (int)pr->inset_normal || ch <= 2 * (int)pr->inset_normal ||
             cw <= 2 * (int)pr->inset_focus || ch <= 2 * (int)pr->inset_focus) {

@@ -384,7 +384,7 @@ namespace Kmrp
                 byte[] backing = r.Bytes(4);
                 prompt.Backing = backed ? backing : null;
                 uint sizing = r.U32();
-                if (prompt.Glyph < 0 || prompt.Glyph >= blend.glyphs.Count || sizing > 16)
+                if (prompt.Glyph < 0 || (blend.glyphs.Count > 0 && prompt.Glyph >= blend.glyphs.Count) || sizing > 16)
                     throw new InvalidDataException("The blend table has a bad prompt record.");
                 prompt.Sizing = new uint[sizing];
                 for (int k = 0; k < prompt.Sizing.Length; k++)
@@ -601,6 +601,10 @@ namespace Kmrp
                 if (controlWidth <= 2 * prompt.InsetNormal || controlHeight <= 2 * prompt.InsetNormal ||
                     controlWidth <= 2 * prompt.InsetFocus || controlHeight <= 2 * prompt.InsetFocus)
                     throw new InvalidDataException(prompt.ResRef + ": its border leaves nothing of its button.");
+                // A table with no glyphs: sets made without badges (Windows' since
+                // 2026-10-27, whose controller patch draws its own). The manifest alone.
+                if (glyphs.Count == 0)
+                    continue;
                 result.Add(new KeyValuePair<string, byte[]>(prompt.ResRef + ".tga",
                     DrawBadge(prompt.Glyph, controlWidth, controlHeight, label, radiusHeight, prompt.Backing,
                         prompt.InsetNormal)));
