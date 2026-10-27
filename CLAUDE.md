@@ -37,8 +37,7 @@ work in this project.
 **Commit messages carry no AI attribution.** No `Co-Authored-By` trailer, no
 "Generated with" line, no mention of Claude, Codex or any assistant in the body.
 This is the user's standing instruction for this repository and it overrides any
-default attribution guidance. The history was rewritten twice on 2026-09-04 to
-strip it; re-adding a trailer means doing that again.
+default attribution guidance.
 
 **Author identity** is `Rayes Diyab
 <114070898+RayesDiyab@users.noreply.github.com>`, set as repo-local git config.
