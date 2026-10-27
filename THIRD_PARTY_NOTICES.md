@@ -456,11 +456,14 @@ The original archive and generation scripts are retained in the project so the b
 
 ## HD menus and UI assets
 
-The shared interface artwork originates from and/or is derived from the HD menu/UI asset set used by RaymanGT's earlier 3440×1440 release:
+The shared interface artwork originates from and/or is derived from **HD Menus and UI
+Assets** by **JackInTheBox**:
 
 https://deadlystream.com/files/file/1457-hd-menus-and-ui-assets/
 
-RaymanGT's earlier mod page:
+It came to KMRP through the maintainer's own earlier mod, which used the same set
+(credited to its author here, not to that mod; until 2026-10-27 this section and the README
+named the earlier mod as the source and not JackInTheBox):
 
 https://deadlystream.com/files/file/2288-kotor-3440x1440-enhanced-hudui-and-menus/
 

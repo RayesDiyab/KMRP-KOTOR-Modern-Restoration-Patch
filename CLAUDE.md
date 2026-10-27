@@ -50,6 +50,19 @@ Use the Write tool for anything containing backslashes, or build them with
 `chr(92)`. If a scan reports zero hits, verify the pattern against a known
 positive before believing it.
 
+This is a hard rule, not a preference: it was broken four times on 2026-10-27
+alone. A quoted `<<'EOF'` only stops bash; Python still reads the backslashes in
+its own ordinary (non-raw) string literals. So `"Xbox\360_LB.png"` silently became
+`Xboxð_LB.png` (`\360` is an octal escape), `"C:\Users\..."` stopped the script
+with a `\U` syntax error, and `"\d"` or `"\S"` only printed a warning. Never put a
+Windows path, a regex or any other backslash into a heredoc: write the script to
+a file with the Write tool, with paths in raw strings (`r"..."`) or forward
+slashes. After any scripted edit of a file, search it for characters outside
+ASCII it should not have: `LC_ALL=C grep -n '[^[:print:][:space:]]' FILE` (Git
+Bash's `grep -P` refuses to run in its default locale, and with `C.UTF-8` it
+missed the case above). The octal case changes nothing else and passes every
+other check.
+
 **Windows paths:** the Bash tool runs Git Bash, but Python invoked from it does
 not accept `/c/...`. Pass `C:\...` to Python and `/c/...` to shell builtins.
 
