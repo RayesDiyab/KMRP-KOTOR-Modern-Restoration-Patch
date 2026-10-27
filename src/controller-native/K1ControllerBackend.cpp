@@ -49,6 +49,88 @@ using XInputSetStateFn = DWORD (WINAPI*)(DWORD, XINPUT_VIBRATION*);
 XInputGetStateFn pXInputGetState = nullptr;
 XInputSetStateFn pXInputSetState = nullptr;
 
+// debug-logs=2 (issue 71, 2026-10-27): what Windows itself says about HID devices
+// arriving and leaving. SDL's HIDAPI layer rescans only when its hidden window gets
+// WM_DEVICECHANGE on the thread that started it (SDL_hidapi.c, ControllerWndProc);
+// a DualSense on Bluetooth switched off by Steam's idle timer stayed unseen after it
+// came back, the log ending at "SDL lists 0 gamepad(s)". This asks Windows directly
+// with CM_Register_Notification (what SDL's own Windows joystick driver uses since
+// 2021), so the log shows whether Windows announced the pad again at all. Event
+// driven: Windows calls back on its own thread, which only counts and keeps the
+// device's path; the game's poll writes the line. Types written out here, as SDL
+// does, because cfgmgr32.h hides them below Windows 8 and the module also loads on
+// Windows 7, where cfgmgr32 has no such call and nothing is registered.
+struct CmNotifyFilter {
+    DWORD cbSize, Flags;
+    int FilterType; // 0: a device interface class
+    DWORD Reserved;
+    union { GUID ClassGuid; WCHAR InstanceId[200]; } u;
+};
+struct CmNotifyEventData {
+    int FilterType;
+    DWORD Reserved;
+    GUID ClassGuid;
+    WCHAR SymbolicLink[1];
+};
+using CmCallback = DWORD (CALLBACK*)(HANDLE, PVOID, int, CmNotifyEventData*, DWORD);
+using CmRegisterFn = DWORD (WINAPI*)(CmNotifyFilter*, PVOID, CmCallback, HANDLE*);
+volatile LONG hidArrived = 0, hidRemoved = 0;
+SRWLOCK hidLock = SRWLOCK_INIT;
+char hidLast[128] = {};
+DWORD sdlThread = 0;
+
+DWORD CALLBACK HidChanged(HANDLE, PVOID, int action, CmNotifyEventData* data, DWORD)
+{
+    if (action != 0 && action != 1) return ERROR_SUCCESS; // arrival, removal
+    char name[128] = {};
+    if (data) {
+        int n = 0;
+        for (const WCHAR* c = data->SymbolicLink; *c && n < 127; ++c) name[n++] = *c < 128 ? static_cast<char>(*c) : '?';
+    }
+    AcquireSRWLockExclusive(&hidLock);
+    strcpy_s(hidLast, name);
+    ReleaseSRWLockExclusive(&hidLock);
+    InterlockedIncrement(action == 0 ? &hidArrived : &hidRemoved);
+    return ERROR_SUCCESS;
+}
+
+void WatchHidDevices()
+{
+    HMODULE cm = LoadLibraryExW(L"cfgmgr32.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+    const auto reg = cm ? reinterpret_cast<CmRegisterFn>(GetProcAddress(cm, "CM_Register_Notification")) : nullptr;
+    if (!reg) {
+        ControllerLogK1("Windows HID notifications: not available here");
+        return;
+    }
+    CmNotifyFilter filter{};
+    filter.cbSize = sizeof(filter);
+    filter.u.ClassGuid = {0x4D1E55B2, 0xF16F, 0x11CF, {0x88, 0xCB, 0x00, 0x11, 0x11, 0x00, 0x00, 0x30}}; // HID
+    HANDLE handle = nullptr;
+    const DWORD result = reg(&filter, nullptr, HidChanged, &handle);
+    char line[96];
+    wsprintfA(line, "Windows HID notifications: %s (%lu)", result == 0 ? "registered" : "FAILED", result);
+    ControllerLogK1(line);
+}
+
+// The poll's side: a line whenever Windows reported a HID device arriving or leaving
+// since the last poll, with the thread that polls and the one SDL was started on.
+void ReportHidChanges()
+{
+    static LONG seenArrived = 0, seenRemoved = 0;
+    const LONG arrived = hidArrived, removed = hidRemoved;
+    if (arrived == seenArrived && removed == seenRemoved) return;
+    seenArrived = arrived;
+    seenRemoved = removed;
+    char last[128];
+    AcquireSRWLockShared(&hidLock);
+    strcpy_s(last, hidLast);
+    ReleaseSRWLockShared(&hidLock);
+    char line[320];
+    wsprintfA(line, "Windows: HID devices arrived %ld, removed %ld so far; last %s; polled on thread %lu, SDL started on %lu",
+              arrived, removed, last, GetCurrentThreadId(), sdlThread);
+    ControllerLogK1(line);
+}
+
 void InitXInput()
 {
     static bool tried = false;
@@ -137,6 +219,13 @@ void InitSdl()
         // needs neither an event queue nor a timer-resolution request.
         pSDL_SetGamepadEventsEnabled(false);
         pSDL_SetJoystickEventsEnabled(false);
+        sdlThread = GetCurrentThreadId();
+        if (KmrpDebugLevel() >= 2) {
+            char line[64];
+            wsprintfA(line, "SDL started on thread %lu", sdlThread);
+            ControllerLogK1(line);
+            WatchHidDevices();
+        }
     }
 }
 
@@ -298,6 +387,22 @@ void TakeForegroundAtStartK1(bool focused)
     if (attached) AttachThreadInput(here, frontThread, FALSE);
 }
 
+// SDL is started on the game's main thread, from the module's first hook (issue 71,
+// 2026-10-27). SDL's HIDAPI layer learns that a pad came back only from WM_DEVICECHANGE
+// sent to a hidden window it makes on the thread that starts it (SDL_hidapi.c,
+// ControllerWndProc), and that message is handled only while that thread handles
+// messages. Until now SDL started on whichever thread read the pad first: the movie
+// worker (CExoMoviePlayerInternal::ThreadProc, 0x00405B30) during the intro, which
+// handles messages only while a movie plays and otherwise waits on an event. So a
+// DualSense on Bluetooth switched off by Steam's idle timer was never seen again:
+// Windows reported it removed and arrived again, SDL kept listing 0 pads (the
+// maintainer's Steam game, measured with debug-logs=2). The main thread handles
+// messages all session, so SDL's own notification works as designed.
+void StartControllerSdlK1()
+{
+    InitSdl();
+}
+
 bool ReadControllerK1(XINPUT_STATE& state)
 {
     InitXInput();
@@ -311,6 +416,7 @@ bool ReadControllerK1(XINPUT_STATE& state)
     const DWORD now = GetTickCount();
     const bool scan = !scanned || static_cast<LONG>(now - nextScan) >= 0;
     if (sdlReady) pSDL_UpdateGamepads();
+    if (sdlReady && KmrpDebugLevel() >= 2) ReportHidChanges();
     if (scan) {
         scanned = true;
         nextScan = now + 1000;

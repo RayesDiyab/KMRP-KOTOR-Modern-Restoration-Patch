@@ -18,6 +18,7 @@
 #include "K1RuntimeAssets.h"
 #include "KmrpOptions.h"
 #include "ControllerAssets.generated.h"
+#include "K1ControllerBackend.h"
 #include "K1Xpress.h"
 #include <windows.h>
 #include <bcrypt.h>
@@ -298,7 +299,13 @@ void LeaveLayoutsToKmrp()
 extern "C" void __cdecl KmrpPrepareResourcesK1(void* manager)
 {
     static bool busy = false, failed = false, settings = false;
-    if (!settings) { settings = true; WriteDefaultSettings(); }
+    if (!settings) {
+        settings = true;
+        WriteDefaultSettings();
+        // The game's main thread, before its first movie: SDL is started here so it
+        // hears about pads coming back all session (StartControllerSdlK1, issue 71).
+        StartControllerSdlK1();
+    }
     if (busy || registered || failed || !manager || manager != *reinterpret_cast<void**>(0x7A39E8)) return;
     busy = true;
     if (!Unpack()) {

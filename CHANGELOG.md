@@ -117,6 +117,19 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: a Bluetooth DualSense switched off by Steam's idle timer was never seen
+  again** (2026-10-27; issue 71, and issue 54 before it). SDL, which reads PlayStation,
+  Switch and Steam pads, was started on the game's movie thread by the first pad read
+  (the intro movies), and it hears about a pad coming back only through a window
+  message handled on the thread that started it; that thread waits between movies. It
+  is now started on the game's main thread before the first movie. Reproduced and
+  checked on the maintainer's Steam game with `debug-logs=2`: Windows reported the pad
+  removed and back both times; before, SDL listed no pad after it came back; after, the
+  pad was read again 0.3 seconds after Windows reported it. The level-2 log now also
+  shows what Windows reports about HID devices and the threads involved
+  ([controller-sdl-backend.md](docs/controller-sdl-backend.md)). **Not yet confirmed by
+  the reporter.**
+
 - **Windows compatibility mode is turned off when KMRP patches** (2026-10-27; issue 39).
   With compatibility mode on for `swkotor.exe` (Properties, Compatibility), the game drew
   a black square over most of the screen after patching; the reporter turned it off by

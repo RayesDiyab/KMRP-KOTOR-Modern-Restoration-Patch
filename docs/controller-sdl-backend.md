@@ -47,6 +47,23 @@ enhanced report mode before an effect needs it. Because SDL owns no window,
 background device reads are enabled inside SDL and KMRP suppresses game input
 when its process is not foreground.
 
+SDL is started once on the game's main thread, from the controller module's first
+hook (`KmrpPrepareResourcesK1`, before the game's first resource lookup), not by the
+first pad read (issue 71, 2026-10-27). SDL's HIDAPI layer hears that a pad came back
+only through `WM_DEVICECHANGE` sent to a hidden window it makes on the thread that
+starts it (`SDL_hidapi.c`, `ControllerWndProc`), and that message is handled only while
+that thread handles messages. The first pad read used to come from the movie hook, on
+the game's movie worker (`CExoMoviePlayerInternal::ThreadProc`, 0x00405B30), which
+handles messages only while a movie plays and otherwise waits on an event: a DualSense
+on Bluetooth switched off by Steam's idle timer was reported by Windows as removed and
+arrived again, and SDL kept listing no pad. The main thread handles messages all
+session. Measured on the maintainer's Steam game (Windows 11, Steam Input off for the
+game): before, `SDL started on` the movie thread and no pad after the reconnect; after,
+both on the main thread and the pad read again 0.3 seconds after Windows reported it.
+With `debug-logs=2` the controller log also writes what Windows itself reports about
+HID devices (`CM_Register_Notification`) and on which threads SDL was started and is
+polled.
+
 Connected devices are sampled by the game's existing poll. Discovery and empty
 XInput-slot probes are limited to once per second. A newly pressed button, trigger
 threshold crossing, or deliberate stick movement can select another connected

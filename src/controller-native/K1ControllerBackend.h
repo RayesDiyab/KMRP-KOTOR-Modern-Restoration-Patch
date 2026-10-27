@@ -5,6 +5,8 @@
 // XInput-shaped normalized state. SDL's SOUTH/EAST/WEST/NORTH are physical
 // positions, including Nintendo B/A/Y/X. Y is up-positive at this boundary.
 bool ReadControllerK1(XINPUT_STATE& state);
+// Starts SDL on the calling thread, which must be the game's main thread (issue 71).
+void StartControllerSdlK1();
 int ControllerXInputSlotK1();       // -1 for SDL or disconnected
 bool ControllerTypesByItselfK1();   // held now, with a Steam Controller or Deck among SDL's pads
 int ControllerSdlFamilyK1();        // -1 for XInput; 0/1/2/3 glyph families
