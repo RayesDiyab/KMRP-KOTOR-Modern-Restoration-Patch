@@ -419,6 +419,23 @@ last build: the eight tabs of the in-game menu, the HUD, and the swap to the mou
 and back to the pad (the module's target menu fields read after each: the Xbox
 layout, the game's own, the Xbox layout).
 
+**A badge is drawn at the size it is shown** (2026-10-27, issue 68). The textures below
+are made for the game's own buttons at 512x64 texels and were stretched over each badge's
+label, which the engine shrinks with mipmaps wherever the label is smaller: at 1280x800,
+about two texels to a pixel across, the Map screen's badges were soft. The label is still
+sized and placed as this section says; then the glyph's box on it is found from
+`K1ControllerBadgeShapes.inc`, which names each badge's glyph and its exact box in the area
+its texture was made for (as `build_controller_prompt_textures.py`'s `badge_placement` and
+`glyph_box` placed it), the glyph is drawn from its outlines (`kmrp-glyphs.bin` in the
+patch's files, `macos/tools/kmrp-glyphs.c`, the build's own drawer) at exactly that box's
+size in pixels, its height from its width by the glyph's proportions, and written into the
+patch's folder as `kmrg<glyph><width><height>.tga` with a TXI that turns mipmaps off. The
+folder is listed anew (`KmrpControllerRelistK1`, `0x004088E0`) and the label shows that
+texture over the box alone: one texel per pixel. A size is drawn once a session. Where it
+fails (no outlines, a file that cannot be written) the label shows the made texture,
+stretched, as before. With `debug-logs=1` each drawing is logged with its size and how
+long it and the listing took. Seen crisp by the maintainer at 1280x800 with a DualSense.
+
 **A badge never changes shape.** A badge is a texture stretched over the area its
 button's border fills, so it is round only on a button of the shape it was made for.
 `K1ControllerBadgeShapes.inc` (written by `tools/build_controller_assets.py

@@ -117,6 +117,22 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Controller buttons drawn at the size they are shown** (2026-10-27; issue 68, the second
+  half). The controller patch's badge textures are made for the game's own 640x480 buttons,
+  512x64 texels, and the engine stretched them over each badge's label, shrinking them with
+  its mipmaps wherever the label was smaller: on the Steam Deck's 1280x800 about two
+  texels to a pixel across and one and a half down, and the Map screen's badges looked
+  soft (the maintainer, 1280x800, after the outlines of the first half). The patch now
+  draws each badge's glyph from its outlines (`kmrp-glyphs.bin`, 930 KB, in the patch)
+  with the build's own drawer, moved into `macos/tools/kmrp-glyphs.c` for it, at exactly
+  the pixel size of the glyph's box on the label, writes it into its own folder with a TXI
+  that turns mipmaps off, lists the folder anew for the engine, and shows it on a label of
+  that box: one texel per pixel, at any resolution and on any interface, a size drawn
+  once per session. The badge table (`K1ControllerBadgeShapes.inc`) names each badge's
+  glyph and its exact box, as the build placed it (`badge_placement`, `glyph_box` in
+  `build_controller_prompt_textures.py`). Where drawing fails the stretched texture is
+  shown, as before. Seen crisp at 1280x800 by the maintainer with a DualSense.
+
 - **Fixed: Restore Original left KOTOR Patch Manager's runtime behind, and the next install
   stopped** (2026-10-27, seen on the maintainer's Steam game). A restore that finds the
   runtime KMRP installed changed takes it for KOTOR Patch Manager's, and leaves it for KPM;

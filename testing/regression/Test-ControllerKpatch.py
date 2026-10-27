@@ -151,7 +151,34 @@ def main() -> int:
     hud_art = sorted(n for n in names if n.startswith(build_xbox_hud_art.PREFIX))
     check(hud_art == sorted(f"{v}.{kind}" for v in build_xbox_hud_art.NAMES.values() for kind in ("tga", "txi")),
           f"{len(build_xbox_hud_art.NAMES)} drawn Xbox HUD frames, each with its clamp setting")
-    check(all(n.endswith((".gui", ".tga")) or n in hud_art for n in names), "nothing but layout files and textures")
+    check(all(n.endswith((".gui", ".tga")) or n in hud_art or n == assets.GLYPH_BANK_NAME for n in names),
+          "nothing but layout files, textures and the glyphs' outlines")
+    # Every glyph the table names, in every family, is in the outlines the module draws
+    # the badges from at the size they are shown (issue 68): one missing would silently
+    # fall back to the stretched texture.
+    import struct as _struct
+    bank = (FILES / assets.GLYPH_BANK_NAME).read_bytes()
+    bank_names, at = set(), 8
+    for _ in range(_struct.unpack_from("<I", bank, 4)[0] if bank[:4] == b"KGLY" else 0):
+        length = _struct.unpack_from("<H", bank, at)[0]
+        bank_names.add(bank[at + 2:at + 2 + length].decode("ascii"))
+        at += 2 + length
+        width, height, items = _struct.unpack_from("<III", bank, at)
+        at += 12
+        for _ in range(items):
+            kind = bank[at + 1]
+            at += 2 + (4 if kind == 0 else 8 * (3 if kind == 1 else 6))
+            if kind:
+                at += 4 + 8 * _struct.unpack_from("<I", bank, at)[0]
+            for _ in range(_struct.unpack_from("<I", bank, (at := at + 4) - 4)[0]):
+                at += 4 + 8 * _struct.unpack_from("<I", bank, at)[0]
+    named = set(re.findall(r'\{"\w+", \d+, \d+, \d+, \d+, "(\w+)"',
+                           assets.BADGE_SHAPES.read_text(encoding="utf-8")))
+    lacking = sorted(f"{letter}/{glyph}" for glyph in named for letter in prompts.FAMILY_LETTERS.values()
+                     if f"{letter}/{glyph}" not in bank_names)
+    check(at == len(bank) and named and not lacking,
+          f"{assets.GLYPH_BANK_NAME} holds the outlines of all {len(named)} glyphs the badge table names, "
+          f"in all {len(prompts.FAMILY_LETTERS)} families" + (f": lacks {lacking[:6]}" if lacking else ""))
     check(not any("font" in n or n.startswith(("fnt_", "kmxf")) for n in names), "no font: the game's own text is untouched")
     targets = prompts.PROMPT_TARGETS
     missing = [prompts.family_resref(t.resref, family) for t in targets for family in prompts.GLYPH_FAMILIES
@@ -213,7 +240,7 @@ def main() -> int:
     # texture made for 235x24 and its A was drawn 39 wide and 43 tall.)
     table_worst, table_measured, table_wrong = 0.0, 0, []
     faces = {t.resref for t in targets if t.glyph in "ABXY" and not t.backing}
-    for name, made_w, made_h in re.findall(r'\{"(\w+)", (\d+), (\d+), \d+, \d+\}', shapes):
+    for name, made_w, made_h in re.findall(r'\{"(\w+)", (\d+), (\d+), \d+, \d+', shapes):
         art = FILES / (name + ".tga")
         if name not in faces or not art.exists():
             continue

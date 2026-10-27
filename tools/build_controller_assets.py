@@ -61,7 +61,8 @@ from build_controller_layout import (DIALOG_BADGE_TAG, add_confirm_badge,  # noq
                                      add_entry as add_controller_layout_entry,
                                      build_art as build_controller_layout_art,
                                      build_gui as build_controller_layout_gui)
-from build_controller_prompt_textures import (GLYPH_FAMILIES, PROMPT_MANIFEST_NAME,  # noqa: E402
+from build_controller_prompt_textures import (BADGE_BOXES_NAME, FAMILY_LETTERS,  # noqa: E402
+                                              GLYPH_FAMILIES, PROMPT_MANIFEST_NAME,  # noqa: E402
                                               PROMPT_TARGETS, build_prompt_textures,  # noqa: E402
                                               build_square_glyph_tga, family_resref)
 from build_scaled_fonts import export_font_txis                         # noqa: E402
@@ -244,6 +245,15 @@ def make(work: Path) -> dict:
     prompts = build_prompt_textures(list(prompt_inputs.values()) + [caption_txi],
                                     work / "prompts", widened={CONTAINER_SCREEN: widened or 0},
                                     fill_insets=True)
+    # Each badge's glyph and its exact box, for K1ControllerBadgeShapes.inc (badge_shapes),
+    # and every glyph's outlines: the module draws each badge again at the size of the label
+    # it shows it on (issue 68, vendor/K1XboxControls.cpp).
+    # The boxes are compiled into the module, so they go beside the bank, not into it.
+    OUT.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(work / "prompts" / BADGE_BOXES_NAME, OUT / BADGE_BOXES_NAME)
+    glyph_bank = work / "prompts" / GLYPH_BANK_NAME
+    glyph_bank.write_bytes(pack_glyphs())
+    prompts.append(glyph_bank)
 
     art = work / "art"
     art.mkdir()
@@ -345,9 +355,34 @@ def main() -> int:
 BADGE_SHAPES = ROOT / "src/controller-native/K1ControllerBadgeShapes.inc"
 
 
+GLYPH_BANK_NAME = "kmrp-glyphs.bin"
+
+
+def pack_glyphs() -> bytes:
+    """Every family's glyphs for the module: "KGLY", u32 count, then per glyph its name (u16
+    length, "<family letter>/<glyph>", as "p/RT_NOTICE") and its outlines as
+    controller_glyphs.pack writes them, which kmrp_glyph_read reads."""
+    import controller_glyphs
+    out = b"KGLY"
+    entries = []
+    for family, (_, art) in GLYPH_FAMILIES.items():
+        for glyph in sorted(art):
+            g = controller_glyphs.glyph(family, glyph)
+            if g is None:
+                raise ValueError(f"no {family} outlines for {glyph}")
+            name = f"{FAMILY_LETTERS[family]}/{glyph}".encode("ascii")
+            entries.append(struct.pack("<H", len(name)) + name + controller_glyphs.pack(g))
+    return out + struct.pack("<I", len(entries)) + b"".join(entries)
+
+
 def badge_shapes(files: Path = OUT / "files") -> str:
     from build_controller_prompt_textures import fill_inset
     rows, cache = [], {}
+    # The glyph and its exact box, as build_prompt_textures placed it (kmrp_badge_boxes.txt).
+    boxes = {}
+    for line in (files.parent / BADGE_BOXES_NAME).read_text(encoding="utf-8").splitlines():
+        resref, glyph, left, top, width, height = line.split()
+        boxes[resref] = (glyph, int(left), int(top), int(width), int(height))
     for target in PROMPT_TARGETS:
         gui = files / target.gui
         if not gui.exists():
@@ -381,8 +416,10 @@ def badge_shapes(files: Path = OUT / "files") -> str:
             if box is None:
                 continue
             across = Image.open(art).width
+            if target.resref not in boxes:
+                raise ValueError(f"{BADGE_BOXES_NAME} has no box for {target.resref}")
             rows.append((target.resref, width, height, round(500 * (box[0] + box[2]) / across),
-                         round(1000 * (box[2] - box[0]) / across)))
+                         round(1000 * (box[2] - box[0]) / across)) + boxes[target.resref])
     names = [row[0] for row in rows]
     if len(set(names)) != len(names):
         raise ValueError("A badge texture is used on two buttons")
@@ -391,9 +428,11 @@ def badge_shapes(files: Path = OUT / "files") -> str:
              "// extent less what its border keeps clear; where the glyph's middle stands",
              "// across it, and how wide the glyph is, in thousandths of the area's width",
              "// (Test-ControllerKpatch.py checks this file against the built layouts and",
-             "// textures).",
+             "// textures); and which glyph it is and its exact box in that area (left, top,",
+             "// width, height in hundred-thousandths of the area), as the build placed it,",
+             "// from which the module draws the glyph at the size it shows it (issue 68).",
              "constexpr BadgeShape kBadgeShapes[] = {"]
-    lines += ['    {"%s", %d, %d, %d, %d},' % row for row in sorted(rows)]
+    lines += ['    {"%s", %d, %d, %d, %d, "%s", %d, %d, %d, %d},' % row for row in sorted(rows)]
     lines.append("};")
     return "\n".join(lines) + "\n"
 

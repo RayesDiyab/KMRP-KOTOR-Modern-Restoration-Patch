@@ -1081,7 +1081,7 @@ namespace Kmrp
 
         private long[] GlyphTile(int glyphIndex, int dw, int dh)
         {
-            long key = ((long)glyphIndex << 40) | ((long)dw << 20) | (long)dh;
+            long key = ((long)glyphIndex << 40) + ((long)dw << 20) + dh;
             long[] kept;
             if (glyphTiles.TryGetValue(key, out kept))
                 return kept;

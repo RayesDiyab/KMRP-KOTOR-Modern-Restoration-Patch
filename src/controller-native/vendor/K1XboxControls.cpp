@@ -1781,10 +1781,174 @@ int K1ButtonFillInset(void* control, std::ptrdiff_t paramsOffset)
 // the engine's own CExoArrayList::Add, as CSWGuiPanel::InitControl (0x0040B930)
 // files a loaded control. The array does not own it; KmrpForgetBadgeOverlaysK1
 // frees it when the panel is destroyed.
-struct BadgeShape { const char* resref; short width, height, glyph, glyphWidth; };
+struct BadgeShape {
+    const char* resref; short width, height, glyph, glyphWidth;
+    // Which glyph, and its exact box in the area the texture was made for (left, top,
+    // width, height in hundred-thousandths of it), as the build placed it (issue 68).
+    const char* glyphName; int boxLeft, boxTop, boxWidth, boxHeight;
+};
 #include "../K1ControllerBadgeShapes.inc"
 
 struct K1BadgeRect { int left, top, width, height; };
+
+#ifdef KMRP_CONTROLLER_STANDALONE
+// Each badge drawn at the size it is shown (issue 68). The textures the patch carries are
+// made for the game's own 640x480 buttons at 512x64 texels and stretched over the label
+// below, which the engine shrinks with mipmaps wherever the label is smaller than that: on
+// the Steam Deck's 1280x800 they were soft (the maintainer saw the Map screen's badges,
+// 2026-10-27). So the glyph is drawn from its outlines (kmrp-glyphs.bin, made by
+// tools/build_controller_assets.py) with the build's own drawer (macos/tools/kmrp-glyphs.c)
+// at exactly the pixel size of its box on the label, written into this patch's folder with
+// a TXI that turns mipmaps off, and shown on a label that size: one texel per pixel.
+// Wherever that fails the stretched texture is shown, as before.
+}   // the anonymous namespace the drawer's C header must not be inside
+#include "../../../macos/tools/kmrp-glyphs.h"
+#include <cmath>
+#include <string>
+#include <vector>
+const std::wstring& KmrpRuntimeAssetDirectory();   // K1ControllerStandalone.cpp
+bool KmrpControllerRelistK1();                      // K1ControllerStandalone.cpp
+namespace {
+
+struct K1GlyphEntry { std::string name; KmrpGlyph glyph; };
+std::vector<K1GlyphEntry> g_k1Glyphs;
+std::vector<unsigned char> g_k1GlyphData;
+bool g_k1GlyphsLoaded = false;
+std::vector<std::string> g_k1DrawnBadges;           // textures written this session
+
+const KmrpGlyph* FindK1Glyph(const std::string& name)
+{
+    if (!g_k1GlyphsLoaded) {
+        g_k1GlyphsLoaded = true;
+        const std::wstring path = KmrpRuntimeAssetDirectory() + L"\\kmrp-glyphs.bin";
+        FILE* file = _wfopen(path.c_str(), L"rb");
+        if (file) {
+            unsigned char chunk[65536];
+            std::size_t got;
+            while ((got = std::fread(chunk, 1, sizeof chunk, file)) > 0) {
+                g_k1GlyphData.insert(g_k1GlyphData.end(), chunk, chunk + got);
+            }
+            std::fclose(file);
+        }
+        const std::vector<unsigned char>& d = g_k1GlyphData;
+        std::size_t pos = 8;
+        std::uint32_t count = 0;
+        if (d.size() >= 8 && std::memcmp(d.data(), "KGLY", 4) == 0) {
+            std::memcpy(&count, d.data() + 4, 4);
+        }
+        for (std::uint32_t i = 0; i < count && pos + 2 <= d.size(); ++i) {
+            std::uint16_t length = 0;
+            std::memcpy(&length, d.data() + pos, 2);
+            pos += 2;
+            if (pos + length > d.size()) {
+                break;
+            }
+            K1GlyphEntry entry;
+            entry.name.assign(reinterpret_cast<const char*>(d.data()) + pos, length);
+            pos += length;
+            if (!kmrp_glyph_read(d.data(), d.size(), &pos, &entry.glyph)) {
+                break;
+            }
+            g_k1Glyphs.push_back(entry);
+        }
+        char line[160];
+        std::snprintf(line, sizeof line, "badges: %u glyph outlines read for drawing at the shown size",
+                      static_cast<unsigned>(g_k1Glyphs.size()));
+        ControllerLogK1(line);
+    }
+    for (const K1GlyphEntry& entry : g_k1Glyphs) {
+        if (entry.name == name) {
+            return &entry.glyph;
+        }
+    }
+    return nullptr;
+}
+
+// The texture of `glyph` at dw x dh, written once per session into this patch's folder and
+// the folder listed anew so the engine finds it; its resref in `out`.
+bool K1BadgeTexture(const std::string& name, const KmrpGlyph& glyph, int dw, int dh, char out[17])
+{
+    std::uint32_t hash = 2166136261u;                      // FNV-1a of the glyph's name
+    for (char c : name) {
+        hash = (hash ^ static_cast<unsigned char>(c)) * 16777619u;
+    }
+    std::snprintf(out, 17, "kmrg%06x%03x%03x", hash & 0xFFFFFFu, static_cast<unsigned>(dw),
+                  static_cast<unsigned>(dh));
+    for (const std::string& known : g_k1DrawnBadges) {
+        if (known == out) {
+            return true;
+        }
+    }
+    const DWORD started = GetTickCount();
+    std::vector<std::uint8_t> sheet(static_cast<std::size_t>(dw) * dh * 4, 0);
+    kmrp_glyph_draw(&glyph, sheet.data(), dw, dh, 0, 0, dw, dh, nullptr);
+    std::vector<std::uint8_t> tga(18 + sheet.size() + 26, 0);
+    tga[2] = 2;
+    tga[12] = static_cast<std::uint8_t>(dw); tga[13] = static_cast<std::uint8_t>(dw >> 8);
+    tga[14] = static_cast<std::uint8_t>(dh); tga[15] = static_cast<std::uint8_t>(dh >> 8);
+    tga[16] = 32; tga[17] = 0x08;                          // bottom row first, as the game's own
+    for (int y = 0; y < dh; ++y) {
+        for (int x = 0; x < dw; ++x) {
+            const std::uint8_t* s = &sheet[(static_cast<std::size_t>(dh - 1 - y) * dw + x) * 4];
+            std::uint8_t* d = &tga[18 + (static_cast<std::size_t>(y) * dw + x) * 4];
+            d[0] = s[2]; d[1] = s[1]; d[2] = s[0]; d[3] = s[3];
+        }
+    }
+    std::memcpy(&tga[18 + sheet.size() + 8], "TRUEVISION-XFILE.", 17);
+    const std::wstring base = KmrpRuntimeAssetDirectory() + L"\\" + std::wstring(out, out + std::strlen(out));
+    bool written = false;
+    if (FILE* file = _wfopen((base + L".tga").c_str(), L"wb")) {
+        written = std::fwrite(tga.data(), 1, tga.size(), file) == tga.size();
+        written = std::fclose(file) == 0 && written;
+    }
+    // No mipmaps: shown at its own size, the smaller levels are never right, and a
+    // texture without a TXI has them (CAurTextureBasic, m_bMipmap 1).
+    if (written) {
+        written = false;
+        if (FILE* file = _wfopen((base + L".txi").c_str(), L"wb")) {
+            static const char kTxi[] = "mipmap 0\r\n";
+            written = std::fwrite(kTxi, 1, sizeof kTxi - 1, file) == sizeof kTxi - 1;
+            written = std::fclose(file) == 0 && written;
+        }
+    }
+    if (!written || !KmrpControllerRelistK1()) {
+        return false;
+    }
+    g_k1DrawnBadges.push_back(out);
+    char line[200];
+    std::snprintf(line, sizeof line, "badges: %s drawn at %dx%d as %s in %lu ms (with the folder listed anew)",
+                  name.c_str(), dw, dh, out, static_cast<unsigned long>(GetTickCount() - started));
+    ControllerLogK1(line);
+    return true;
+}
+
+// The glyph of `shape` drawn for `rect`, the label the made texture would be stretched over:
+// `rect` becomes the glyph's own box on screen, its width and height from one factor (the
+// height from the glyph's proportions), and `out` the texture drawn for it.
+bool K1DrawnBadge(const BadgeShape& shape, char family, K1BadgeRect* rect, char out[17])
+{
+    if (!shape.glyphName || shape.boxWidth <= 0 || shape.boxHeight <= 0 || rect->width <= 0 || rect->height <= 0) {
+        return false;
+    }
+    const std::string name = std::string(1, family) + "/" + shape.glyphName;
+    const KmrpGlyph* glyph = FindK1Glyph(name);
+    if (!glyph) {
+        return false;
+    }
+    const double across = rect->width / 100000.0, down = rect->height / 100000.0;
+    const double middleX = rect->left + (shape.boxLeft + shape.boxWidth / 2.0) * across;
+    const double middleY = rect->top + (shape.boxTop + shape.boxHeight / 2.0) * down;
+    int dw = static_cast<int>(std::lround(shape.boxWidth * across));
+    int dh = static_cast<int>(std::lround(static_cast<double>(dw) * glyph->height / glyph->width));
+    if (dw < 1) dw = 1;
+    if (dh < 1) dh = 1;
+    if (dw > 2048 || dh > 2048 || !K1BadgeTexture(name, *glyph, dw, dh, out)) {
+        return false;
+    }
+    *rect = {static_cast<int>(std::lround(middleX - dw / 2.0)), static_cast<int>(std::lround(middleY - dh / 2.0)), dw, dh};
+    return true;
+}
+#endif
 // `textWas` is the caption's rectangle as it was before this file moved the caption
 // to the button's middle line (ShowK1BadgeOverlay); `textMoved` says that it has.
 // `resref` and `shown` are what the label draws while the pad is in use, and
@@ -2483,6 +2647,14 @@ bool ShowK1BadgeOverlay(void* control, const char resref[16], int tall = 0, bool
         wanted.left = left;
     }
     void* const label = entry->label;
+    const char* fill = resref;
+#ifdef KMRP_CONTROLLER_STANDALONE
+    // The glyph drawn at the size it is shown, on a label of its own box (above).
+    char drawnFill[17];
+    if (K1DrawnBadge(*shape, resref[3], &wanted, drawnFill)) {
+        fill = drawnFill;
+    }
+#endif
     using SetExtentFn = void(__thiscall*)(void*, const K1BadgeRect*);
     reinterpret_cast<SetExtentFn>((*reinterpret_cast<void***>(label))[1])(label, &wanted);
     // Stretched over the label, as a layout's FILLSTYLE 2 has a button's fill: the low
@@ -2495,7 +2667,7 @@ bool ShowK1BadgeOverlay(void* control, const char resref[16], int tall = 0, bool
         flags = (flags & ~3u) | 2u;
     }
     reinterpret_cast<SetFillImageFn>(K1_GUI_BORDER_SET_FILL_IMAGE)(
-        static_cast<char*>(label) + K1_BADGE_LABEL_PARAMS, resref, 1);
+        static_cast<char*>(label) + K1_BADGE_LABEL_PARAMS, fill, 1);
     for (int i = 0; i < 16; ++i) {
         entry->resref[i] = resref[i];
     }

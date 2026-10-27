@@ -27,6 +27,7 @@ cl /nologo /MP /Brepro /std:c++17 /O2 /fp:strict /EHsc /MT /LD /DKMRP_CONTROLLER
   src\controller-native\K1ControllerLayout.cpp src\controller-native\K1Rumble.cpp src\controller-native\K1ButtonRemap.cpp ^
   src\controller-native\K1XboxHud.cpp ^
   src\controller-native\vendor\K1XboxControls.cpp src\controller-native\vendor\K1XboxControlsXInput.cpp ^
+  macos\tools\kmrp-glyphs.c ^
   build\controller-standalone\controller-assets.res ^
   /Fobuild\controller-standalone\ /Febuild\controller-standalone\kmrp-controller.dll ^
   /link /Brepro user32.lib gdi32.lib bcrypt.lib ^

@@ -586,6 +586,18 @@ def vocabulary():
     return sorted(GLYPH_FAMILIES[GLYPH_FAMILY][1])
 
 
+def glyph_box(radius: float, size: tuple[int, int]) -> tuple[float, float]:
+    """The glyph's box on the button, in its pixels: a circle's worth across or down,
+    whichever is longer, the other by the glyph's own proportions. The face buttons
+    are square and unaffected, but the triggers are not (the 360's are about 7 wide to
+    8 tall), and scaling them to a square stretched them into something that was
+    recognisably not an Xbox trigger."""
+    diameter = radius * 2.0
+    aspect = size[0] / size[1]
+    return (diameter * aspect if aspect < 1.0 else diameter,
+            diameter / aspect if aspect > 1.0 else diameter)
+
+
 def _composite_glyph_tga(control_width: int, control_height: int, glyph: str,
                          center_x: float, center_y: float, radius: float,
                          family: str = GLYPH_FAMILY,
@@ -608,14 +620,7 @@ def _composite_glyph_tga(control_width: int, control_height: int, glyph: str,
 
     import numpy as np
     from PIL import Image
-    # Fit the glyph inside the badge box while keeping its own proportions. The
-    # face buttons are square and unaffected, but the triggers are not (the 360's
-    # are about 7 wide to 8 tall), and scaling them to a square stretched them
-    # into something that was recognisably not an Xbox trigger.
-    diameter = radius * 2.0
-    aspect = size[0] / size[1]
-    box_w = diameter * aspect if aspect < 1.0 else diameter
-    box_h = diameter / aspect if aspect > 1.0 else diameter
+    box_w, box_h = glyph_box(radius, size)
     dst_w = max(1, round(box_w * TEXTURE_WIDTH / control_width))
     dst_h = max(1, round(box_h * TEXTURE_HEIGHT / control_height))
     left = round((center_x - box_w / 2.0) * TEXTURE_WIDTH / control_width)
@@ -695,6 +700,19 @@ def build_prompt_tga(control_width: int, control_height: int, glyph: str,
     badge while it is not focused. (Fitting both to the smaller area was tried the
     same day: the Map screen's 13 px rows, whose focused border leaves 1 px, lost
     their badges altogether.) An area under MIN_BADGE_AREA tall holds no badge."""
+    placed = badge_placement(control_width, control_height, label_width, radius_height, inset, fit)
+    if placed is None:
+        return _empty_tga()
+    area_w, area_h, center_x, center_y, radius = placed
+    return _composite_glyph_tga(area_w, area_h, glyph, center_x, center_y, radius, family, backing)
+
+
+def badge_placement(control_width: int, control_height: int, label_width: float = 0.0,
+                    radius_height: int = 0, inset: int = 0, fit: bool = False):
+    """Where build_prompt_tga puts the badge: (area width, area height, centre x, centre y,
+    radius), in pixels of the area the border fills, or None for an area too short for
+    one. Its own function since 2026-10-27, so the controller patch's table can carry the
+    glyph's exact box (badge_boxes) for drawing it again at the size it is shown."""
     if control_width <= 0 or control_height <= 0:
         raise ValueError(f"Invalid prompt control extent {control_width}x{control_height}")
     if inset < 0 or control_width - 2 * inset <= 0 or control_height - 2 * inset <= 0:
@@ -708,7 +726,7 @@ def build_prompt_tga(control_width: int, control_height: int, glyph: str,
     radius = badge_radius(sizing_height)
     if fit and inset > 0:
         if control_height - 2 * inset < MIN_BADGE_AREA:
-            return _empty_tga()
+            return None
         # Half a pixel short of the area, so the disc's soft edge is inside the
         # texture rather than on its last row.
         radius = min(radius, (control_height - 2 * inset) / 2.0 - FIT_MARGIN)
@@ -738,8 +756,8 @@ def build_prompt_tga(control_width: int, control_height: int, glyph: str,
         # texture's first column (the Auto Level Up button at 1024x576, whose 16 px
         # border leaves 8 px; Test-ControllerPromptAssets.py, 2026-10-05).
         center_x = max(center_x, inset + radius * BADGE_EDGE)
-    return _composite_glyph_tga(control_width - 2 * inset, control_height - 2 * inset, glyph,
-                                center_x - inset, center_y - inset, radius, family, backing)
+    return (control_width - 2 * inset, control_height - 2 * inset, center_x - inset,
+            center_y - inset, radius)
 
 
 # A border with corner art draws its fill INSIDE the border, not across the control:
@@ -1246,6 +1264,7 @@ PER_CAPTION_TARGETS = frozenset({
 })
 
 PROMPT_MANIFEST_NAME = "kmrp_prompts.txt"
+BADGE_BOXES_NAME = "kmrp_badge_boxes.txt"
 
 
 def variant_strings(variants, strings):
@@ -1374,6 +1393,7 @@ def build_prompt_textures(gui_files: list[Path], output_dir: Path,
     advances, spacing_px = parse_font_metrics(txi) if txi else (None, 0.0)
     results: list[Path] = []
     manifest = []
+    boxes = []
     loaded = {}
 
     def control_for(target):
@@ -1489,6 +1509,13 @@ def build_prompt_textures(gui_files: list[Path], output_dir: Path,
             resref = family_resref(target.resref, family)
             manifest.append((resref, width, height, round(label_width, 2),
                              variants))
+            placed = badge_placement(width, height, round(label_width, 2), radius_height,
+                                     normal_inset, fill_insets)
+            size = controller_glyphs.glyph_size(family, target.glyph)
+            if placed is not None and size is not None:
+                area_w, area_h, cx, cy, radius = placed
+                box_w, box_h = glyph_box(radius, size)
+                boxes.append((resref, target.glyph, area_w, area_h, cx, cy, box_w, box_h))
             if not textures:
                 continue
             output = output_dir / f"{resref}.tga"
@@ -1564,4 +1591,12 @@ def build_prompt_textures(gui_files: list[Path], output_dir: Path,
         path = output_dir / PROMPT_MANIFEST_NAME
         path.write_text("\n".join(lines) + "\n", encoding="utf-8")
         results.append(path)
+    # Each badge's glyph, and its box in the area its texture was made for, in
+    # hundred-thousandths of the area (the normal border's): read by
+    # build_controller_assets.py --badge-shapes for the controller patch, which draws the
+    # glyph again at the size it shows it (issue 68). Beside the outputs, not among them.
+    (output_dir / BADGE_BOXES_NAME).write_text("".join(
+        f"{resref} {glyph} {round(1e5 * (cx - bw / 2) / aw)} {round(1e5 * (cy - bh / 2) / ah)} "
+        f"{round(1e5 * bw / aw)} {round(1e5 * bh / ah)}\n"
+        for resref, glyph, aw, ah, cx, cy, bw, bh in boxes), encoding="utf-8")
     return results

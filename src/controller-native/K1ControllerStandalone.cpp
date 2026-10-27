@@ -225,6 +225,20 @@ bool RegisterDirectory()
 }
 }
 
+// A file written into the folder after it was registered (a badge drawn at the size it is
+// shown, vendor/K1XboxControls.cpp, issue 68) is found once the folder is listed anew:
+// 0x4088E0, as K1RuntimeAssets.cpp's RegisterFolder does for a set whose files changed.
+bool KmrpControllerRelistK1()
+{
+    void* manager = *reinterpret_cast<void**>(0x7A39E8);
+    if (!registered || !manager || directoryAlias.empty()) return false;
+    void* name[2]{};
+    reinterpret_cast<void(__thiscall*)(void*, const char*)>(0x5E5A90)(name, directoryAlias.c_str());
+    const int result = reinterpret_cast<int(__thiscall*)(void*, void*)>(0x4088E0)(manager, name);
+    reinterpret_cast<void(__thiscall*)(void*)>(0x5E5C20)(name);
+    return result != 0;
+}
+
 // SDL is loaded from here (K1ControllerBackend.cpp), so the folder exists by the
 // time a pad is looked for, whether or not the game has asked for a resource yet.
 const std::wstring& KmrpRuntimeAssetDirectory()

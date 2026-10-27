@@ -1027,7 +1027,10 @@ patch; its controller is part of KMRP's Mac patch and paints its buttons with th
 badges, so `macos/build.sh` passes `--controller-art` to `prepare_universal_resources.py`
 and the Mac's sets are as before. Two guards: the Mac build stops if it would reuse sets
 without badges (`--reuse-resources` after a Windows build), and `build_gui_blend_table.py`
-stops on sets of which some carry badges and some do not. When the Mac's controller draws
+stops on sets of which some carry badges and some do not. Windows' controller patch now
+draws its badges at run time, at the size each is shown (`vendor/K1XboxControls.cpp`,
+`K1DrawnBadge`, from `kmrp-glyphs.bin` with `macos/tools/kmrp-glyphs.c`, which is plain C
+the Mac can compile as it is). When the Mac's controller draws
 its own badges at run time, as Windows' is about to, the option can go. **How to check:** a
 Mac package built from fresh sets shows badges as before.
 
