@@ -168,6 +168,18 @@ proxy, and it applies the executable changes above as well.
   minutes to 54 seconds; the module, the runtime and both patches are byte for byte the
   same as from a full build. `-FreshResources` regenerates the interface regardless.
 
+- **A full build in 11 minutes instead of 40** (2026-10-27, the same day). The 66
+  resolutions are made side by side, one process each, as many as the machine has cores
+  less two (`build_resolution` in `tools/prepare_universal_resources.py`): 321 seconds
+  instead of 1,900 on the maintainer's 16-core PC, every file in the 66 archives the same
+  as from the serial step. A Python file now counts toward a step's fingerprint by its
+  code, docstrings and comments left out (`tools/source_fingerprint.py`), so rewording a
+  comment in `tools\` no longer makes all 66 again; other files count as before. The set
+  archives give every file the same fixed time, as the layout pool already did, so two
+  builds from the same inputs make the same archives byte for byte (until now each file
+  carried its temporary copy's time). A second build with nothing changed: 1 minute 18,
+  both patches the same as the full build's.
+
 - **KMRP's fonts kern** (2026-10-24; [fonts/README.md](fonts/README.md)). The ten
   proportional KMRP Original HD fonts (`fonts/otf`, the `.ttc` and the Font Converter's
   copies) carry pair kerning measured from their outlines (`fonts/tools/kern.py`, run by

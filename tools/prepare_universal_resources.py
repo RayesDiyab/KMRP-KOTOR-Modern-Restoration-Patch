@@ -9,10 +9,12 @@ import copy
 import io
 import json
 import math
+import os
 import shutil
 import struct
 import tempfile
 import zipfile
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 from pykotor.resource.formats.gff import GFFStruct, read_gff, write_gff
@@ -560,9 +562,15 @@ def compress_bundled_icons(files: list[Path], staging: Path) -> list[Path]:
 
 
 def write_zip(output: Path, files: list[Path]) -> None:
+    """The files, by name, each with the same fixed time: until 2026-10-27 each member
+    carried its temporary file's time, so no two builds made the same archive even from
+    the same inputs."""
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED, compresslevel=9, allowZip64=True) as archive:
         for path in sorted(files, key=lambda item: item.name.lower()):
-            archive.write(path, path.name)
+            info = zipfile.ZipInfo(path.name, date_time=(1980, 1, 1, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = 0o644 << 16
+            archive.writestr(info, path.read_bytes(), compresslevel=9)
 
 
 
@@ -1133,6 +1141,496 @@ def set_map_control_extent(source: Path, destination: Path, extent: dict) -> Non
         raise ValueError(f"LBL_Map was not found in {source}")
     write_gff(gff, destination)
 
+def build_resolution(job) -> str:
+    """One resolution's archive, gui-<W>x<H>.zip in the output folder: its .gui files made
+    from their source set, the per-resolution art and the controller badges. Run in a
+    process of its own for each resolution (main), since the 66 depend on nothing but the
+    inputs main() reads first; returns the resolution when done."""
+    category, resolution, args, geometry, derived_sources, hd_font_atlases = job
+
+    # A set baked at the resolution's own scale, where one exists. Those atlases
+    # travel in the per-resolution archive, because they differ per resolution;
+    # the shared 3.0 bake stays for any scale that has no set.
+    def scale_set_for(height: int):
+        if not args.font_scale_sets:
+            return None
+        candidate = args.font_scale_sets / f"{font_scale_for(height):.6f}"
+        return candidate if (candidate / "dialogfont16x16.tga").is_file() else None
+
+    width, height = (int(value) for value in resolution.split("x"))
+    item = geometry[resolution]
+
+    if resolution == "3440x1440":
+        gui_source = args.gold_override
+    else:
+        gui_source = derived_sources.get(
+            resolution, args.upstream / ASPECT_FOLDERS[category] / f"gui.{resolution}")
+    gui_files = list(gui_source.glob("*.gui"))
+    if len(gui_files) < 81:
+        raise ValueError(f"Expected at least 81 GUI files for {resolution}, found {len(gui_files)}")
+    with tempfile.TemporaryDirectory(prefix=f"kotor-gui-{resolution}-") as temp_name:
+        temp_dir = Path(temp_name)
+        packaged_files: list[Path] = []
+        transferred: list[str] = []
+        for gui_file in gui_files:
+            name = gui_file.name.lower()
+            patched = temp_dir / gui_file.name
+            if name == "confirm.gui":
+                # The shared message popup, sized for THIS resolution's
+                # font scale. Handled ahead of the 3440x1440 passthrough
+                # below because it applies at every resolution including
+                # that one: the layout is absolute, so running it over
+                # the already-tuned gold copy reproduces it exactly.
+                apply_popup_layout(gui_file, patched, font_scale_for(height))
+                packaged_files.append(patched)
+                continue
+            if name == "map.gui":
+                # LBL_Map must equal the marker overlay, which is how
+                # vanilla (440x256 control over a 512x256 canvas) crops
+                # the map atlas's 72/512 of surplus columns. Upstream
+                # ships LBL_Map at width*440/640, which is the overlay
+                # for hires_patcher's geometry but not for ours -- left
+                # alone it is wider than our canvas, crops nothing, and
+                # the surplus shows as an unfogged strip down the right
+                # of the map. See reverse-engineering/area-map-surface.md.
+                # Ahead of the 3440x1440 passthrough because it applies
+                # at every resolution, that one included.
+                set_map_control_extent(gui_file, patched,
+                                       item["map_control_target"])
+                packaged_files.append(patched)
+                continue
+            if resolution == "3440x1440" and name == "mipc210x7.gui":
+                # The HUD 3440x1440 loads is gold's own, shipped as it
+                # is but for its target menu, which follows the rule
+                # every other size does (target_menu_extents, 2026-10-01).
+                apply_target_menu(args.gold_override / "mipc210x7.gui",
+                                  gui_file, patched, height)
+                # Scale 1 is an identity for the hand-tuned HUD, except
+                # for computed lower bounds such as the action label's
+                # three baked-font lines. Gold needs those repairs too.
+                apply_proportions(args.gold_override / "mipc210x7.gui",
+                                  patched, patched, width, height)
+                packaged_files.append(patched)
+                continue
+            if resolution == "3440x1440":
+                packaged_files.append(gui_file)
+                continue
+
+            if name == "mipc210x7.gui":
+                # This is the ONE mipc variant actually hand-corrected at
+                # 3440x1440 (assets/override-3440x1440/mipc210x7.gui) --
+                # transfer that specific correction ratio onto this
+                # resolution's own stock mipc210x7.gui.
+                intermediate = temp_dir / f"gold-{gui_file.name}"
+                transfer_geometry(
+                    args.upstream / "21-by-9" / "gui.3440x1440" / "mipc210x7.gui",
+                    args.gold_override / "mipc210x7.gui",
+                    gui_file,
+                    intermediate,
+                )
+                patch_gui(intermediate, patched, height)
+                fix_menubg_file(patched, patched)
+                packaged_files.append(patched)
+            elif name.startswith("mipc"):
+                # Every OTHER mipc*.gui bucket has correct, non-overlapping
+                # stock geometry on its own (verified: e.g. mipc28x6.gui at
+                # 1920x1080 has no overlap in its untouched upstream form).
+                # Previously ALL mipc* files were run through the
+                # mipc210x7-derived ratio above, which was tuned for a
+                # completely different aspect ratio and shifted controls
+                # (LBL_JOURNAL, LBL_CMBTMSGBG, etc.) into the minimap's
+                # footprint. Only apply the height-based minimap-frame
+                # scaling (patch_gui), not the mismatched ratio transfer.
+                patch_gui(gui_file, patched, height)
+                # Give the bottom-left party cluster and bottom-right
+                # action buttons the gold build's proportions (scaled by
+                # screen height, anchored to their corners) instead of
+                # upstream's chunkier ones.
+                apply_proportions(
+                    args.gold_override / "mipc210x7.gui", patched, patched, width, height
+                )
+                # LBL_MENUBG (the top-right button row's background) ships
+                # a few pixels too short to contain its 8 buttons in every
+                # upstream mipc*.gui variant at every resolution (a vanilla
+                # authoring imprecision, not resolution-specific) -- resize
+                # it to the buttons' own bounding box + a small margin.
+                fix_menubg_file(patched, patched)
+                packaged_files.append(patched)
+            elif name not in GOLD_GEOMETRY_EXCLUDED and (
+                    args.gold_override / gui_file.name).is_file() and (
+                    args.upstream / "21-by-9" / "gui.3440x1440" / gui_file.name).is_file():
+                try:
+                    transfer_geometry(
+                        args.upstream / "21-by-9" / "gui.3440x1440" / gui_file.name,
+                        args.gold_override / gui_file.name,
+                        gui_file,
+                        patched,
+                    )
+                    packaged_files.append(patched)
+                    transferred.append(name)
+                except ValueError:
+                    # transfer_geometry raises when the reference pair has no
+                    # changed extents -- that file was never hand-tuned, so
+                    # upstream's own layout is what should ship.
+                    packaged_files.append(gui_file)
+            else:
+                packaged_files.append(gui_file)
+
+        # Whichever branch produced them, every .gui gets its description
+        # panes' scrollbar gutter scaled for this resolution. `PADDING` is
+        # a horizontal inset the engine subtracts from the wrap width;
+        # vanilla left it at 0 on six description boxes and never scaled it
+        # on the ones it did set, so enlarged text runs right up under the
+        # scrollbar. Confirmed in game -- see tools/scale_listbox_padding.py.
+        gutter_dir = temp_dir / "gutter"
+        gutter_dir.mkdir(exist_ok=True)
+        fitted: dict[tuple[str, str], int] = {}
+        for index, path in enumerate(packaged_files):
+            if path.suffix.lower() != ".gui":
+                continue
+            gutter_file = gutter_dir / path.name
+            # DISABLED 2026-09-06 -- see fix_feedback_list_prototypes.py.
+            # Rewriting PROTOITEM extents to the parent's content area
+            # broke the Character Scripts screen in play, and the
+            # play-tested 3440x1440 gold files leave those extents at
+            # their vanilla values (scriptselect LST_AIState 71,84,241;
+            # optfeedback LB_OPTIONS 76,90,240). Gold is the authority
+            # here, and it disagrees with the repair. Issue #12's
+            # 3840x2160 report needs a different diagnosis.
+            #
+            # if path.name.lower() == "optfeedback.gui":
+            #     fix_feedback_prototypes(path, gutter_file)
+            #     path = gutter_file
+            # elif path.name.lower() == "scriptselect.gui":
+            #     fix_scriptselect_prototypes(path, gutter_file)
+            #     path = gutter_file
+            scale_listbox_padding(path, gutter_file, font_scale_for(height),
+                                  DESCRIPTION_LISTBOXES)
+            # Selection lists, at their own smaller scale.
+            scale_listbox_padding(gutter_file, gutter_file,
+                                  font_scale_for(height), LIST_LISTBOXES,
+                                  unit_gutter=LIST_GUTTER_AT_UNIT_SCALE)
+            # A third, smaller tier for the message logs and text-only
+            # lists (BASELINE_GUTTER_AT_UNIT_SCALE, BASELINE_EXCLUDED in
+            # scale_listbox_padding.py) is deliberately NOT applied. It
+            # was built, shipped once and rolled back: listboxes are 81
+            # of the game's 640 text-bearing controls, so padding them
+            # alone reads as partial rather than uniform. Wire it in only
+            # as part of a pass that also covers labels and buttons --
+            # see reverse-engineering/text-padding.md.
+            # Last, so a hand-set gutter wins over the tiers above.
+            for tags, unit in HAND_TUNED_GUTTERS.get(path.name.lower(), ()):
+                scale_listbox_padding(gutter_file, gutter_file,
+                                      font_scale_for(height), tags,
+                                      unit_gutter=unit, force=True)
+            # Script Selection's rows, centred in the box its background
+            # art draws -- computed, not tuned, because that box is at a
+            # fixed fraction of the screen width while the list is not.
+            if path.name.lower() == "scriptselect.gui":
+                centre_rows_in_frame(gutter_file, gutter_file, width,
+                                     "LST_AIState", SCRIPTSELECT_FRAME)
+            # The journal's quest rows, six to the list and spaced as the
+            # inventory's, from this resolution's own list height -- also
+            # computed, because the gap is whatever the rows leave over.
+            if path.name.lower() == "journal.gui":
+                fit_rows_to_list(gutter_file, gutter_file, height,
+                                 "LB_ITEMS", JOURNAL_ROWS)
+            # The Feedback list's check box rows, scaled as the row hook
+            # scales text rows: the engine builds them at the template's
+            # own height, and the circle grows with the resolution
+            # (FEEDBACK_LIST).
+            if path.name.lower() == FEEDBACK_LIST[0]:
+                scale_row_template(gutter_file, gutter_file, height, FEEDBACK_LIST[1])
+            # Lists whose rows are sized in code: the list is made as tall
+            # as whole rows, spaced as the inventory's (ROW_LISTS). Before
+            # the Container is widened, which changes widths only.
+            for (screen, tag), (kind, bases) in ROW_LISTS.items():
+                if path.name.lower() == screen:
+                    fitted[screen, tag] = fit_list_to_rows(
+                        gutter_file, gutter_file, height, tag, bases, popup=kind == "popup")
+            packaged_files[index] = gutter_file
+
+        # The R3 party-switch cue, on the four screens that switch.
+        # Placed from each resolution's own portrait extents, so there is
+        # no table of coordinates to keep in step with the GUI packs.
+        #
+        # This only puts the control in the file. A panel builds the
+        # controls it knows by name and nothing else, so the module binds
+        # this one at runtime; without that it is never constructed and
+        # never drawn. See reverse-engineering/custom-gui-controls.md.
+        cue_dir = temp_dir / "cue"
+        cue_dir.mkdir(exist_ok=True)
+        cued = 0
+        for index, path in enumerate(packaged_files):
+            if path.name.lower() not in R3_CUE_SCREENS:
+                continue
+            cue_file = cue_dir / path.name
+            if add_party_switch_cue(path, cue_file):
+                packaged_files[index] = cue_file
+                cued += 1
+        if cued != len(R3_CUE_SCREENS):
+            raise ValueError(
+                f"{resolution}: the R3 cue reached {cued} of "
+                f"{len(R3_CUE_SCREENS)} party screens")
+
+        # X, beside the Skills / Powers / Feats sub-tabs.
+        swap_dir = temp_dir / "cue-swap"
+        swap_dir.mkdir(exist_ok=True)
+        swapped = False
+        for index, path in enumerate(packaged_files):
+            if path.name.lower() != SWAP_CUE_SCREEN:
+                continue
+            # Its own directory, keeping the NAME: later steps find
+            # these files by filename -- the badge generator looks up
+            # "abilities.gui" -- so a prefixed name silently removes
+            # the screen from their view. It failed the build, loudly,
+            # which is the only reason this was cheap to find.
+            cue_file = swap_dir / path.name
+            if add_subtab_swap_cue(path, cue_file):
+                packaged_files[index] = cue_file
+                swapped = True
+        if not swapped:
+            raise ValueError(
+                f"{resolution}: the sub-tab swap cue was not placed")
+
+        # LT and RT, either side of the menu tab strip in top.gui.
+        tabbed = 0
+        for index, path in enumerate(packaged_files):
+            if path.name.lower() != TAB_CUE_SCREEN:
+                continue
+            cue_file = cue_dir / path.name
+            tabbed = add_tab_strip_cues(path, cue_file)
+            if tabbed:
+                packaged_files[index] = cue_file
+        if tabbed != len(TAB_CUES):
+            raise ValueError(
+                f"{resolution}: the tab-strip cues reached {tabbed} of "
+                f"{len(TAB_CUES)}")
+
+        # Add one entry to Settings / Controls and author the dedicated
+        # layout screen from that resolution's final KOTOR geometry.
+        # This must happen after every upstream and KMRP GUI transform,
+        # so the new screen inherits the exact panel dimensions and
+        # font metrics the game will load.
+        layout_dir = temp_dir / "controller-layout"
+        layout_dir.mkdir(exist_ok=True)
+        # The entry sits on the Gameplay screen, under Keymapping.
+        # Options does not list Mouse, so Mouse is itself two screens in.
+        controls_index = next(
+            (i for i, path in enumerate(packaged_files)
+             if path.name.lower() == "optgameplay.gui"), None)
+        if controls_index is None:
+            raise ValueError(f"{resolution}: optgameplay.gui is missing")
+        controls_gui = layout_dir / "optgameplay.gui"
+        add_controller_layout_entry(
+            packaged_files[controls_index], controls_gui)
+        packaged_files[controls_index] = controls_gui
+
+        # The travelling A beside a confirmation box's focused button.
+        confirm_index = next(
+            (i for i, path in enumerate(packaged_files)
+             if path.name.lower() == "confirm.gui"), None)
+        if confirm_index is None:
+            raise ValueError(f"{resolution}: confirm.gui is missing")
+        confirm_gui = layout_dir / "confirm.gui"
+        add_confirm_badge(packaged_files[confirm_index], confirm_gui,
+                          controls_gui)
+        packaged_files[confirm_index] = confirm_gui
+
+        # The travelling A beside the highlighted dialogue reply. Only
+        # 3440x1440 ships dialog.gui (the tuned one); everywhere else the
+        # game loads vanilla's, so a vanilla-equivalent copy is rebuilt
+        # from the tuned asset to carry the label (vanilla_dialog_gui).
+        dialog_index = next(
+            (i for i, path in enumerate(packaged_files)
+             if path.name.lower() == "dialog.gui"), None)
+        if dialog_index is None:
+            dialog_source = layout_dir / "dialog.vanilla.gui"
+            vanilla_dialog_gui(args.gold_override / "dialog.gui", dialog_source)
+        else:
+            dialog_source = packaged_files[dialog_index]
+        dialog_gui = layout_dir / "dialog.gui"
+        add_confirm_badge(dialog_source, dialog_gui, controls_gui,
+                          tag=DIALOG_BADGE_TAG)
+        if dialog_index is None:
+            packaged_files.append(dialog_gui)
+        else:
+            packaged_files[dialog_index] = dialog_gui
+
+        # X and Y beside the HUD's combat buttons, in every mipc*.gui
+        # this resolution ships -- the engine loads one of them, and the
+        # one it loads must have them.
+        combat_dir = temp_dir / "combat-cue"
+        combat_dir.mkdir(exist_ok=True)
+        # The combat-mode message's box, where the tuned layout clips it.
+        message_width = COMBAT_MESSAGE_WIDTHS.get(resolution)
+        if message_width:
+            target = "mipc210x7.gui" if resolution == "3440x1440" else "mipc28x6.gui"
+            message_dir = combat_dir / "message"
+            message_dir.mkdir(exist_ok=True)
+            for index, path in enumerate(packaged_files):
+                if path.name.lower() == target:
+                    # Same name: the archive entry is the file's name.
+                    widened = message_dir / path.name
+                    widen_combat_message(path, widened, message_width)
+                    packaged_files[index] = widened
+        cued_huds = []
+        for index, path in enumerate(packaged_files):
+            name = path.name.lower()
+            if not (name.startswith("mipc") and name.endswith(".gui")):
+                continue
+            cue_file = combat_dir / path.name
+            if add_combat_cues(path, cue_file):
+                packaged_files[index] = cue_file
+                cued_huds.append(name)
+        loaded_hud = "mipc210x7.gui" if resolution == "3440x1440" else "mipc28x6.gui"
+        if loaded_hud not in cued_huds:
+            raise ValueError(
+                f"{resolution}: the combat cues did not reach {loaded_hud}")
+
+        # Generate this resolution's button-row background art from the
+        # mipc*.gui file the engine will actually load at this
+        # resolution. The in-executable variant selector compares the
+        # live screen width against a single hardcoded 3440, so only
+        # 3440x1440 loads mipc210x7.gui; every other resolution falls
+        # through to vanilla's default, mipc28x6.gui. Deriving the
+        # texture from that exact file keeps the 8 drawn boxes aligned
+        # with the 8 real buttons at every resolution.
+        active_mipc = "mipc210x7.gui" if resolution == "3440x1440" else "mipc28x6.gui"
+        source_mipc = next(
+            (path for path in packaged_files if path.name.lower() == active_mipc), None
+        )
+        if source_mipc is None:
+            raise ValueError(f"{resolution}: {active_mipc} is missing from the packaged GUI files")
+        menubg_texture = temp_dir / MENUBG_TEXTURE_NAME
+        build_texture_for_gui(source_mipc, menubg_texture)
+        packaged_files.append(menubg_texture)
+
+        # Font sizing rides on the atlases' TXI metrics rather than on a
+        # runtime patch, so each resolution ships its own metric files.
+        # The atlases themselves are pre-rendered from a TrueType font by
+        # tools/build_font_from_ttf.py and committed under assets/, because
+        # that step needs Pillow and this build's interpreter has none.
+        # Fonts with no HD replacement fall back to the stock artwork,
+        # which still needs its metrics scaled to match.
+        font_dir = temp_dir / "fonts"
+        font_dir.mkdir(parents=True, exist_ok=True)
+        scale = font_scale_for(height)
+        replaced: set[str] = set()
+        # Prefer a set baked at this resolution's own scale. Then the
+        # factor below is exactly 1.0, `texturewidth` stays the atlas's
+        # real width, and one texel lands on one pixel -- no resampling,
+        # which is what made the text ragged at 1080p and 1440p. Without
+        # a set, fall back to the shared bake and its rescale.
+        scale_set = scale_set_for(height)
+        source_atlases = (sorted(scale_set.glob("*.tga")) if scale_set
+                          else hd_font_atlases)
+        bake_scale = scale if scale_set else HD_FONT_BAKE_SCALE
+        for atlas in source_atlases:
+            # Always in this archive, never in override-common.zip: a
+            # resolution with no set of its own still needs its copy of
+            # the shared bake here, or the two archives disagree.
+            packaged_files.append(atlas)
+            metrics = atlas.with_suffix(".txi")
+            scaled = font_dir / metrics.name
+            # These metrics already carry the bake scale, so undo it
+            # before applying this resolution's own scale -- otherwise the
+            # baked-in enlargement would be multiplied a second time.
+            scaled.write_bytes(
+                apply_letter_spacing(
+                    scale_txi(
+                        metrics.read_text(encoding="ascii"),
+                        scale / bake_scale,
+                    ),
+                    letter_spacing_for(scale_set is not None),
+                ).encode("ascii")
+            )
+            packaged_files.append(scaled)
+            replaced.add(atlas.stem.lower())
+        # Into a SEPARATE directory: export_font_txis writes a file for every
+        # one of the 18 resrefs, so pointing it at font_dir would silently
+        # overwrite the HD metrics written above -- shipping stock coordinates
+        # against the HD atlas, whose glyphs sit at completely different
+        # positions, which renders as unreadable garbage.
+        stock_dir = font_dir / "stock"
+        for path in export_font_txis(args.texture_pack, stock_dir, scale):
+            if path.stem.lower() not in replaced:
+                # The wrap margin is not specific to our own atlases: the
+                # engine truncates every glyph advance, so an enlarged stock
+                # font clips its last word just the same.
+                path.write_bytes(
+                    apply_letter_spacing(
+                        path.read_text(encoding="ascii"),
+                        letter_spacing_for(False),
+                    ).encode("ascii")
+                )
+                packaged_files.append(path)
+
+        root_extent = read_gff(controls_gui).root.get_struct("EXTENT")
+        layout_gui = layout_dir / "kmrplayout.gui"
+        # The Controller Layout screen, built here rather than beside
+        # its entry above because its caption boxes are sized from
+        # this resolution's own font, which is only packaged now.
+        caption_txi = next(
+            (path for path in packaged_files
+             if path.name.lower() == "dialogfont16x16.txi"), None)
+        if caption_txi is None:
+            raise ValueError(f"{resolution}: dialogfont16x16.txi is missing")
+        build_controller_layout_gui(
+            controls_gui, layout_gui,
+            root_extent.get_int32("WIDTH"),
+            root_extent.get_int32("HEIGHT"),
+            caption_txi)
+        packaged_files.append(layout_gui)
+
+        # The hex row frames (56s) and the tutorial popup's tut_* icons
+        # (64s) are per resolution too, but made from the game's own art,
+        # so the installers make them from the player's copy
+        # (GameArtGenerator.cs, kmrp-gameart.c). This build exported them
+        # (tools/scale_row_icon_frames.py, tools/export_tutorial_icons.py,
+        # kept as the reference Test-GameArt.py checks against) and every
+        # release shipped them until 2026-09-29.
+
+        # The Container's column, widened where "Switch To Give Item"
+        # and its badge do not fit. Before the prompt textures, which take
+        # the buttons' size from this file, and after the fonts, whose
+        # metrics measure the caption.
+        container_index = next(
+            (i for i, path in enumerate(packaged_files)
+             if path.name.lower() == CONTAINER_SCREEN), None)
+        if container_index is None:
+            raise ValueError(f"{resolution}: {CONTAINER_SCREEN} is missing")
+        container_dir = temp_dir / "container"
+        container_dir.mkdir(exist_ok=True)
+        container_gui = container_dir / CONTAINER_SCREEN
+        container_widened = fit_container_to_caption(
+            packaged_files[container_index], container_gui, caption_txi)
+        if container_widened:
+            packaged_files[container_index] = container_gui
+
+        # Original KMRP artwork for the optional controller runtime. The
+        # PC renderer stretches BORDER.FILL to each button, so these are
+        # generated from this resolution's final button extents. They are
+        # inert unless the runtime selects them after gamepad input.
+        if len(fitted) != len(ROW_LISTS):
+            raise ValueError(f"{resolution}: fitted {len(fitted)} of the {len(ROW_LISTS)} row lists")
+        # Each badge for the area its button's border fills, with a second
+        # texture for the focused border where the two differ (fill_insets;
+        # since 2026-10-05, when the whole button was found to be the wrong
+        # area for a bordered one).
+        packaged_files.extend(build_prompt_textures(
+            packaged_files, temp_dir / "controller-prompts",
+            widened={CONTAINER_SCREEN: container_widened}, fitted=fitted,
+            fill_insets=True))
+
+
+        if transferred:
+            print(f"  {resolution}: gold geometry transferred to "
+                  f"{len(transferred)} GUI files")
+        write_zip(args.output / f"gui-{resolution}.zip", packaged_files)
+    return resolution
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("geometry", type=Path)
@@ -1240,16 +1738,6 @@ def main() -> int:
     if not hd_font_atlases:
         raise ValueError(f"No HD font atlases found in {args.hd_fonts}")
     hd_font_stems = {path.stem.lower() for path in hd_font_atlases}
-
-    # A set baked at the resolution's own scale, where one exists. Those atlases
-    # travel in the per-resolution archive, because they differ per resolution;
-    # the shared 3.0 bake above stays for any scale that has no set.
-    def scale_set_for(height: int):
-        if not args.font_scale_sets:
-            return None
-        candidate = args.font_scale_sets / f"{font_scale_for(height):.6f}"
-        return candidate if (candidate / "dialogfont16x16.tga").is_file() else None
-
 
     with tempfile.TemporaryDirectory(prefix="kotor-stock-fonts-") as stock_name:
         # Stock artwork for every font we are NOT replacing. A scaled `.txi` alone
@@ -1370,6 +1858,7 @@ def main() -> int:
     total_resolutions = sum(len(items) for items in GROUPS.values())
     completed_resolutions = 0
 
+    jobs = []
     for category, resolutions in GROUPS.items():
         for resolution in resolutions:
             width, height = (int(value) for value in resolution.split("x"))
@@ -1384,478 +1873,16 @@ def main() -> int:
                 item["centering_domain"]["width"],
                 item["centering_domain"]["height"],
             )))
-
-            if resolution == "3440x1440":
-                gui_source = args.gold_override
-            else:
-                gui_source = derived_sources.get(
-                    resolution, args.upstream / ASPECT_FOLDERS[category] / f"gui.{resolution}")
-            gui_files = list(gui_source.glob("*.gui"))
-            if len(gui_files) < 81:
-                raise ValueError(f"Expected at least 81 GUI files for {resolution}, found {len(gui_files)}")
-            with tempfile.TemporaryDirectory(prefix=f"kotor-gui-{resolution}-") as temp_name:
-                temp_dir = Path(temp_name)
-                packaged_files: list[Path] = []
-                transferred: list[str] = []
-                for gui_file in gui_files:
-                    name = gui_file.name.lower()
-                    patched = temp_dir / gui_file.name
-                    if name == "confirm.gui":
-                        # The shared message popup, sized for THIS resolution's
-                        # font scale. Handled ahead of the 3440x1440 passthrough
-                        # below because it applies at every resolution including
-                        # that one: the layout is absolute, so running it over
-                        # the already-tuned gold copy reproduces it exactly.
-                        apply_popup_layout(gui_file, patched, font_scale_for(height))
-                        packaged_files.append(patched)
-                        continue
-                    if name == "map.gui":
-                        # LBL_Map must equal the marker overlay, which is how
-                        # vanilla (440x256 control over a 512x256 canvas) crops
-                        # the map atlas's 72/512 of surplus columns. Upstream
-                        # ships LBL_Map at width*440/640, which is the overlay
-                        # for hires_patcher's geometry but not for ours -- left
-                        # alone it is wider than our canvas, crops nothing, and
-                        # the surplus shows as an unfogged strip down the right
-                        # of the map. See reverse-engineering/area-map-surface.md.
-                        # Ahead of the 3440x1440 passthrough because it applies
-                        # at every resolution, that one included.
-                        set_map_control_extent(gui_file, patched,
-                                               item["map_control_target"])
-                        packaged_files.append(patched)
-                        continue
-                    if resolution == "3440x1440" and name == "mipc210x7.gui":
-                        # The HUD 3440x1440 loads is gold's own, shipped as it
-                        # is but for its target menu, which follows the rule
-                        # every other size does (target_menu_extents, 2026-10-01).
-                        apply_target_menu(args.gold_override / "mipc210x7.gui",
-                                          gui_file, patched, height)
-                        # Scale 1 is an identity for the hand-tuned HUD, except
-                        # for computed lower bounds such as the action label's
-                        # three baked-font lines. Gold needs those repairs too.
-                        apply_proportions(args.gold_override / "mipc210x7.gui",
-                                          patched, patched, width, height)
-                        packaged_files.append(patched)
-                        continue
-                    if resolution == "3440x1440":
-                        packaged_files.append(gui_file)
-                        continue
-
-                    if name == "mipc210x7.gui":
-                        # This is the ONE mipc variant actually hand-corrected at
-                        # 3440x1440 (assets/override-3440x1440/mipc210x7.gui) --
-                        # transfer that specific correction ratio onto this
-                        # resolution's own stock mipc210x7.gui.
-                        intermediate = temp_dir / f"gold-{gui_file.name}"
-                        transfer_geometry(
-                            args.upstream / "21-by-9" / "gui.3440x1440" / "mipc210x7.gui",
-                            args.gold_override / "mipc210x7.gui",
-                            gui_file,
-                            intermediate,
-                        )
-                        patch_gui(intermediate, patched, height)
-                        fix_menubg_file(patched, patched)
-                        packaged_files.append(patched)
-                    elif name.startswith("mipc"):
-                        # Every OTHER mipc*.gui bucket has correct, non-overlapping
-                        # stock geometry on its own (verified: e.g. mipc28x6.gui at
-                        # 1920x1080 has no overlap in its untouched upstream form).
-                        # Previously ALL mipc* files were run through the
-                        # mipc210x7-derived ratio above, which was tuned for a
-                        # completely different aspect ratio and shifted controls
-                        # (LBL_JOURNAL, LBL_CMBTMSGBG, etc.) into the minimap's
-                        # footprint. Only apply the height-based minimap-frame
-                        # scaling (patch_gui), not the mismatched ratio transfer.
-                        patch_gui(gui_file, patched, height)
-                        # Give the bottom-left party cluster and bottom-right
-                        # action buttons the gold build's proportions (scaled by
-                        # screen height, anchored to their corners) instead of
-                        # upstream's chunkier ones.
-                        apply_proportions(
-                            args.gold_override / "mipc210x7.gui", patched, patched, width, height
-                        )
-                        # LBL_MENUBG (the top-right button row's background) ships
-                        # a few pixels too short to contain its 8 buttons in every
-                        # upstream mipc*.gui variant at every resolution (a vanilla
-                        # authoring imprecision, not resolution-specific) -- resize
-                        # it to the buttons' own bounding box + a small margin.
-                        fix_menubg_file(patched, patched)
-                        packaged_files.append(patched)
-                    elif name not in GOLD_GEOMETRY_EXCLUDED and (
-                            args.gold_override / gui_file.name).is_file() and (
-                            args.upstream / "21-by-9" / "gui.3440x1440" / gui_file.name).is_file():
-                        try:
-                            transfer_geometry(
-                                args.upstream / "21-by-9" / "gui.3440x1440" / gui_file.name,
-                                args.gold_override / gui_file.name,
-                                gui_file,
-                                patched,
-                            )
-                            packaged_files.append(patched)
-                            transferred.append(name)
-                        except ValueError:
-                            # transfer_geometry raises when the reference pair has no
-                            # changed extents -- that file was never hand-tuned, so
-                            # upstream's own layout is what should ship.
-                            packaged_files.append(gui_file)
-                    else:
-                        packaged_files.append(gui_file)
-
-                # Whichever branch produced them, every .gui gets its description
-                # panes' scrollbar gutter scaled for this resolution. `PADDING` is
-                # a horizontal inset the engine subtracts from the wrap width;
-                # vanilla left it at 0 on six description boxes and never scaled it
-                # on the ones it did set, so enlarged text runs right up under the
-                # scrollbar. Confirmed in game -- see tools/scale_listbox_padding.py.
-                gutter_dir = temp_dir / "gutter"
-                gutter_dir.mkdir(exist_ok=True)
-                fitted: dict[tuple[str, str], int] = {}
-                for index, path in enumerate(packaged_files):
-                    if path.suffix.lower() != ".gui":
-                        continue
-                    gutter_file = gutter_dir / path.name
-                    # DISABLED 2026-09-06 -- see fix_feedback_list_prototypes.py.
-                    # Rewriting PROTOITEM extents to the parent's content area
-                    # broke the Character Scripts screen in play, and the
-                    # play-tested 3440x1440 gold files leave those extents at
-                    # their vanilla values (scriptselect LST_AIState 71,84,241;
-                    # optfeedback LB_OPTIONS 76,90,240). Gold is the authority
-                    # here, and it disagrees with the repair. Issue #12's
-                    # 3840x2160 report needs a different diagnosis.
-                    #
-                    # if path.name.lower() == "optfeedback.gui":
-                    #     fix_feedback_prototypes(path, gutter_file)
-                    #     path = gutter_file
-                    # elif path.name.lower() == "scriptselect.gui":
-                    #     fix_scriptselect_prototypes(path, gutter_file)
-                    #     path = gutter_file
-                    scale_listbox_padding(path, gutter_file, font_scale_for(height),
-                                          DESCRIPTION_LISTBOXES)
-                    # Selection lists, at their own smaller scale.
-                    scale_listbox_padding(gutter_file, gutter_file,
-                                          font_scale_for(height), LIST_LISTBOXES,
-                                          unit_gutter=LIST_GUTTER_AT_UNIT_SCALE)
-                    # A third, smaller tier for the message logs and text-only
-                    # lists (BASELINE_GUTTER_AT_UNIT_SCALE, BASELINE_EXCLUDED in
-                    # scale_listbox_padding.py) is deliberately NOT applied. It
-                    # was built, shipped once and rolled back: listboxes are 81
-                    # of the game's 640 text-bearing controls, so padding them
-                    # alone reads as partial rather than uniform. Wire it in only
-                    # as part of a pass that also covers labels and buttons --
-                    # see reverse-engineering/text-padding.md.
-                    # Last, so a hand-set gutter wins over the tiers above.
-                    for tags, unit in HAND_TUNED_GUTTERS.get(path.name.lower(), ()):
-                        scale_listbox_padding(gutter_file, gutter_file,
-                                              font_scale_for(height), tags,
-                                              unit_gutter=unit, force=True)
-                    # Script Selection's rows, centred in the box its background
-                    # art draws -- computed, not tuned, because that box is at a
-                    # fixed fraction of the screen width while the list is not.
-                    if path.name.lower() == "scriptselect.gui":
-                        centre_rows_in_frame(gutter_file, gutter_file, width,
-                                             "LST_AIState", SCRIPTSELECT_FRAME)
-                    # The journal's quest rows, six to the list and spaced as the
-                    # inventory's, from this resolution's own list height -- also
-                    # computed, because the gap is whatever the rows leave over.
-                    if path.name.lower() == "journal.gui":
-                        fit_rows_to_list(gutter_file, gutter_file, height,
-                                         "LB_ITEMS", JOURNAL_ROWS)
-                    # The Feedback list's check box rows, scaled as the row hook
-                    # scales text rows: the engine builds them at the template's
-                    # own height, and the circle grows with the resolution
-                    # (FEEDBACK_LIST).
-                    if path.name.lower() == FEEDBACK_LIST[0]:
-                        scale_row_template(gutter_file, gutter_file, height, FEEDBACK_LIST[1])
-                    # Lists whose rows are sized in code: the list is made as tall
-                    # as whole rows, spaced as the inventory's (ROW_LISTS). Before
-                    # the Container is widened, which changes widths only.
-                    for (screen, tag), (kind, bases) in ROW_LISTS.items():
-                        if path.name.lower() == screen:
-                            fitted[screen, tag] = fit_list_to_rows(
-                                gutter_file, gutter_file, height, tag, bases, popup=kind == "popup")
-                    packaged_files[index] = gutter_file
-
-                # The R3 party-switch cue, on the four screens that switch.
-                # Placed from each resolution's own portrait extents, so there is
-                # no table of coordinates to keep in step with the GUI packs.
-                #
-                # This only puts the control in the file. A panel builds the
-                # controls it knows by name and nothing else, so the module binds
-                # this one at runtime; without that it is never constructed and
-                # never drawn. See reverse-engineering/custom-gui-controls.md.
-                cue_dir = temp_dir / "cue"
-                cue_dir.mkdir(exist_ok=True)
-                cued = 0
-                for index, path in enumerate(packaged_files):
-                    if path.name.lower() not in R3_CUE_SCREENS:
-                        continue
-                    cue_file = cue_dir / path.name
-                    if add_party_switch_cue(path, cue_file):
-                        packaged_files[index] = cue_file
-                        cued += 1
-                if cued != len(R3_CUE_SCREENS):
-                    raise ValueError(
-                        f"{resolution}: the R3 cue reached {cued} of "
-                        f"{len(R3_CUE_SCREENS)} party screens")
-
-                # X, beside the Skills / Powers / Feats sub-tabs.
-                swap_dir = temp_dir / "cue-swap"
-                swap_dir.mkdir(exist_ok=True)
-                swapped = False
-                for index, path in enumerate(packaged_files):
-                    if path.name.lower() != SWAP_CUE_SCREEN:
-                        continue
-                    # Its own directory, keeping the NAME: later steps find
-                    # these files by filename -- the badge generator looks up
-                    # "abilities.gui" -- so a prefixed name silently removes
-                    # the screen from their view. It failed the build, loudly,
-                    # which is the only reason this was cheap to find.
-                    cue_file = swap_dir / path.name
-                    if add_subtab_swap_cue(path, cue_file):
-                        packaged_files[index] = cue_file
-                        swapped = True
-                if not swapped:
-                    raise ValueError(
-                        f"{resolution}: the sub-tab swap cue was not placed")
-
-                # LT and RT, either side of the menu tab strip in top.gui.
-                tabbed = 0
-                for index, path in enumerate(packaged_files):
-                    if path.name.lower() != TAB_CUE_SCREEN:
-                        continue
-                    cue_file = cue_dir / path.name
-                    tabbed = add_tab_strip_cues(path, cue_file)
-                    if tabbed:
-                        packaged_files[index] = cue_file
-                if tabbed != len(TAB_CUES):
-                    raise ValueError(
-                        f"{resolution}: the tab-strip cues reached {tabbed} of "
-                        f"{len(TAB_CUES)}")
-
-                # Add one entry to Settings / Controls and author the dedicated
-                # layout screen from that resolution's final KOTOR geometry.
-                # This must happen after every upstream and KMRP GUI transform,
-                # so the new screen inherits the exact panel dimensions and
-                # font metrics the game will load.
-                layout_dir = temp_dir / "controller-layout"
-                layout_dir.mkdir(exist_ok=True)
-                # The entry sits on the Gameplay screen, under Keymapping.
-                # Options does not list Mouse, so Mouse is itself two screens in.
-                controls_index = next(
-                    (i for i, path in enumerate(packaged_files)
-                     if path.name.lower() == "optgameplay.gui"), None)
-                if controls_index is None:
-                    raise ValueError(f"{resolution}: optgameplay.gui is missing")
-                controls_gui = layout_dir / "optgameplay.gui"
-                add_controller_layout_entry(
-                    packaged_files[controls_index], controls_gui)
-                packaged_files[controls_index] = controls_gui
-
-                # The travelling A beside a confirmation box's focused button.
-                confirm_index = next(
-                    (i for i, path in enumerate(packaged_files)
-                     if path.name.lower() == "confirm.gui"), None)
-                if confirm_index is None:
-                    raise ValueError(f"{resolution}: confirm.gui is missing")
-                confirm_gui = layout_dir / "confirm.gui"
-                add_confirm_badge(packaged_files[confirm_index], confirm_gui,
-                                  controls_gui)
-                packaged_files[confirm_index] = confirm_gui
-
-                # The travelling A beside the highlighted dialogue reply. Only
-                # 3440x1440 ships dialog.gui (the tuned one); everywhere else the
-                # game loads vanilla's, so a vanilla-equivalent copy is rebuilt
-                # from the tuned asset to carry the label (vanilla_dialog_gui).
-                dialog_index = next(
-                    (i for i, path in enumerate(packaged_files)
-                     if path.name.lower() == "dialog.gui"), None)
-                if dialog_index is None:
-                    dialog_source = layout_dir / "dialog.vanilla.gui"
-                    vanilla_dialog_gui(args.gold_override / "dialog.gui", dialog_source)
-                else:
-                    dialog_source = packaged_files[dialog_index]
-                dialog_gui = layout_dir / "dialog.gui"
-                add_confirm_badge(dialog_source, dialog_gui, controls_gui,
-                                  tag=DIALOG_BADGE_TAG)
-                if dialog_index is None:
-                    packaged_files.append(dialog_gui)
-                else:
-                    packaged_files[dialog_index] = dialog_gui
-
-                # X and Y beside the HUD's combat buttons, in every mipc*.gui
-                # this resolution ships -- the engine loads one of them, and the
-                # one it loads must have them.
-                combat_dir = temp_dir / "combat-cue"
-                combat_dir.mkdir(exist_ok=True)
-                # The combat-mode message's box, where the tuned layout clips it.
-                message_width = COMBAT_MESSAGE_WIDTHS.get(resolution)
-                if message_width:
-                    target = "mipc210x7.gui" if resolution == "3440x1440" else "mipc28x6.gui"
-                    message_dir = combat_dir / "message"
-                    message_dir.mkdir(exist_ok=True)
-                    for index, path in enumerate(packaged_files):
-                        if path.name.lower() == target:
-                            # Same name: the archive entry is the file's name.
-                            widened = message_dir / path.name
-                            widen_combat_message(path, widened, message_width)
-                            packaged_files[index] = widened
-                cued_huds = []
-                for index, path in enumerate(packaged_files):
-                    name = path.name.lower()
-                    if not (name.startswith("mipc") and name.endswith(".gui")):
-                        continue
-                    cue_file = combat_dir / path.name
-                    if add_combat_cues(path, cue_file):
-                        packaged_files[index] = cue_file
-                        cued_huds.append(name)
-                loaded_hud = "mipc210x7.gui" if resolution == "3440x1440" else "mipc28x6.gui"
-                if loaded_hud not in cued_huds:
-                    raise ValueError(
-                        f"{resolution}: the combat cues did not reach {loaded_hud}")
-
-                # Generate this resolution's button-row background art from the
-                # mipc*.gui file the engine will actually load at this
-                # resolution. The in-executable variant selector compares the
-                # live screen width against a single hardcoded 3440, so only
-                # 3440x1440 loads mipc210x7.gui; every other resolution falls
-                # through to vanilla's default, mipc28x6.gui. Deriving the
-                # texture from that exact file keeps the 8 drawn boxes aligned
-                # with the 8 real buttons at every resolution.
-                active_mipc = "mipc210x7.gui" if resolution == "3440x1440" else "mipc28x6.gui"
-                source_mipc = next(
-                    (path for path in packaged_files if path.name.lower() == active_mipc), None
-                )
-                if source_mipc is None:
-                    raise ValueError(f"{resolution}: {active_mipc} is missing from the packaged GUI files")
-                menubg_texture = temp_dir / MENUBG_TEXTURE_NAME
-                build_texture_for_gui(source_mipc, menubg_texture)
-                packaged_files.append(menubg_texture)
-
-                # Font sizing rides on the atlases' TXI metrics rather than on a
-                # runtime patch, so each resolution ships its own metric files.
-                # The atlases themselves are pre-rendered from a TrueType font by
-                # tools/build_font_from_ttf.py and committed under assets/, because
-                # that step needs Pillow and this build's interpreter has none.
-                # Fonts with no HD replacement fall back to the stock artwork,
-                # which still needs its metrics scaled to match.
-                font_dir = temp_dir / "fonts"
-                font_dir.mkdir(parents=True, exist_ok=True)
-                scale = font_scale_for(height)
-                replaced: set[str] = set()
-                # Prefer a set baked at this resolution's own scale. Then the
-                # factor below is exactly 1.0, `texturewidth` stays the atlas's
-                # real width, and one texel lands on one pixel -- no resampling,
-                # which is what made the text ragged at 1080p and 1440p. Without
-                # a set, fall back to the shared bake and its rescale.
-                scale_set = scale_set_for(height)
-                source_atlases = (sorted(scale_set.glob("*.tga")) if scale_set
-                                  else hd_font_atlases)
-                bake_scale = scale if scale_set else HD_FONT_BAKE_SCALE
-                for atlas in source_atlases:
-                    # Always in this archive, never in override-common.zip: a
-                    # resolution with no set of its own still needs its copy of
-                    # the shared bake here, or the two archives disagree.
-                    packaged_files.append(atlas)
-                    metrics = atlas.with_suffix(".txi")
-                    scaled = font_dir / metrics.name
-                    # These metrics already carry the bake scale, so undo it
-                    # before applying this resolution's own scale -- otherwise the
-                    # baked-in enlargement would be multiplied a second time.
-                    scaled.write_bytes(
-                        apply_letter_spacing(
-                            scale_txi(
-                                metrics.read_text(encoding="ascii"),
-                                scale / bake_scale,
-                            ),
-                            letter_spacing_for(scale_set is not None),
-                        ).encode("ascii")
-                    )
-                    packaged_files.append(scaled)
-                    replaced.add(atlas.stem.lower())
-                # Into a SEPARATE directory: export_font_txis writes a file for every
-                # one of the 18 resrefs, so pointing it at font_dir would silently
-                # overwrite the HD metrics written above -- shipping stock coordinates
-                # against the HD atlas, whose glyphs sit at completely different
-                # positions, which renders as unreadable garbage.
-                stock_dir = font_dir / "stock"
-                for path in export_font_txis(args.texture_pack, stock_dir, scale):
-                    if path.stem.lower() not in replaced:
-                        # The wrap margin is not specific to our own atlases: the
-                        # engine truncates every glyph advance, so an enlarged stock
-                        # font clips its last word just the same.
-                        path.write_bytes(
-                            apply_letter_spacing(
-                                path.read_text(encoding="ascii"),
-                                letter_spacing_for(False),
-                            ).encode("ascii")
-                        )
-                        packaged_files.append(path)
-
-                root_extent = read_gff(controls_gui).root.get_struct("EXTENT")
-                layout_gui = layout_dir / "kmrplayout.gui"
-                # The Controller Layout screen, built here rather than beside
-                # its entry above because its caption boxes are sized from
-                # this resolution's own font, which is only packaged now.
-                caption_txi = next(
-                    (path for path in packaged_files
-                     if path.name.lower() == "dialogfont16x16.txi"), None)
-                if caption_txi is None:
-                    raise ValueError(f"{resolution}: dialogfont16x16.txi is missing")
-                build_controller_layout_gui(
-                    controls_gui, layout_gui,
-                    root_extent.get_int32("WIDTH"),
-                    root_extent.get_int32("HEIGHT"),
-                    caption_txi)
-                packaged_files.append(layout_gui)
-
-                # The hex row frames (56s) and the tutorial popup's tut_* icons
-                # (64s) are per resolution too, but made from the game's own art,
-                # so the installers make them from the player's copy
-                # (GameArtGenerator.cs, kmrp-gameart.c). This build exported them
-                # (tools/scale_row_icon_frames.py, tools/export_tutorial_icons.py,
-                # kept as the reference Test-GameArt.py checks against) and every
-                # release shipped them until 2026-09-29.
-
-                # The Container's column, widened where "Switch To Give Item"
-                # and its badge do not fit. Before the prompt textures, which take
-                # the buttons' size from this file, and after the fonts, whose
-                # metrics measure the caption.
-                container_index = next(
-                    (i for i, path in enumerate(packaged_files)
-                     if path.name.lower() == CONTAINER_SCREEN), None)
-                if container_index is None:
-                    raise ValueError(f"{resolution}: {CONTAINER_SCREEN} is missing")
-                container_dir = temp_dir / "container"
-                container_dir.mkdir(exist_ok=True)
-                container_gui = container_dir / CONTAINER_SCREEN
-                container_widened = fit_container_to_caption(
-                    packaged_files[container_index], container_gui, caption_txi)
-                if container_widened:
-                    packaged_files[container_index] = container_gui
-
-                # Original KMRP artwork for the optional controller runtime. The
-                # PC renderer stretches BORDER.FILL to each button, so these are
-                # generated from this resolution's final button extents. They are
-                # inert unless the runtime selects them after gamepad input.
-                if len(fitted) != len(ROW_LISTS):
-                    raise ValueError(f"{resolution}: fitted {len(fitted)} of the {len(ROW_LISTS)} row lists")
-                # Each badge for the area its button's border fills, with a second
-                # texture for the focused border where the two differ (fill_insets;
-                # since 2026-10-05, when the whole button was found to be the wrong
-                # area for a bordered one).
-                packaged_files.extend(build_prompt_textures(
-                    packaged_files, temp_dir / "controller-prompts",
-                    widened={CONTAINER_SCREEN: container_widened}, fitted=fitted,
-                    fill_insets=True))
-
-
-                if transferred:
-                    print(f"  {resolution}: gold geometry transferred to "
-                          f"{len(transferred)} GUI files")
-                write_zip(args.output / f"gui-{resolution}.zip", packaged_files)
-                completed_resolutions += 1
-                print(f"[{completed_resolutions}/{total_resolutions}] {resolution}", flush=True)
-
+            jobs.append((category, resolution, args, geometry, derived_sources, hd_font_atlases))
+    # The resolutions side by side, one process each, as many at once as the machine has
+    # cores less two: each depends only on the inputs read above, and one after another
+    # they took half an hour (2026-10-27). Each archive is the same whichever order they
+    # finish in; Test-GuiBlendHelper.py and Test-ControllerPromptAssets.py check them.
+    workers = max(1, min(len(jobs), (os.cpu_count() or 2) - 2))
+    with ProcessPoolExecutor(max_workers=workers) as pool:
+        for done in as_completed([pool.submit(build_resolution, job) for job in jobs]):
+            completed_resolutions += 1
+            print(f"[{completed_resolutions}/{total_resolutions}] {done.result()}", flush=True)
     (args.output / "resolutions.tsv").write_text("\n".join(catalog_lines) + "\n", encoding="utf-8")
     shutil.copy2(args.upstream / "LICENSE.txt", args.output / "GPL-3.0-KOTOR-High-Resolution-Menus.txt")
     return 0

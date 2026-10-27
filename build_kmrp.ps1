@@ -150,23 +150,36 @@ function Invoke-Tool {
 # on every build). The fingerprint is the SHA-256 of every input file's path, size and
 # last-write time, sorted, plus any extra text (tool versions); a git checkout, an edit
 # or a new file changes it. A file named on its own (not a folder) counts by its content
-# instead, as some (the blend table) are written again on every build with the same bytes. Kept beside the step's output; written only after the step
-# succeeds, so a failed or stopped run is never taken as done.
+# instead, as some (the blend table) are written again on every build with the same bytes.
+# A Python file counts by its code, docstrings and comments left out
+# (tools\source_fingerprint.py, 2026-10-27), so rewording a comment in tools\ makes nothing
+# again. Kept beside the step's output; written only after the step succeeds, so a failed
+# or stopped run is never taken as done.
 function Get-InputFingerprint([string[]]$Paths, [string[]]$Extra = @()) {
     $lines = New-Object System.Collections.Generic.List[string]
+    $codeFolders = New-Object System.Collections.Generic.List[string]
     foreach ($path in $Paths) {
         if (-not $path) { continue }
         if (Test-Path -LiteralPath $path -PathType Leaf) {
             $item = Get-Item -LiteralPath $path
             $lines.Add(("{0}|{1}" -f $item.FullName.ToLowerInvariant(), (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash))
         } elseif (Test-Path -LiteralPath $path -PathType Container) {
+            $codeFolders.Add($path)
             foreach ($item in Get-ChildItem -LiteralPath $path -Recurse -File -Force) {
                 if ($item.FullName -match '\\__pycache__\\') { continue }
+                # Python files by their code instead (below): a comment or docstring edited
+                # in tools\ made every slow step again (2026-10-27).
+                if ($item.Extension -eq ".py") { continue }
                 $lines.Add(("{0}|{1}|{2}" -f $item.FullName.ToLowerInvariant(), $item.Length, $item.LastWriteTimeUtc.Ticks))
             }
         } else {
             $lines.Add(("{0}|missing" -f $path.ToLowerInvariant()))
         }
+    }
+    if ($codeFolders.Count -gt 0) {
+        $code = & $Python (Join-Path $projectRoot "tools\source_fingerprint.py") @codeFolders
+        if ($LASTEXITCODE -ne 0) { throw "tools\source_fingerprint.py failed" }
+        foreach ($line in $code) { $lines.Add($line) }
     }
     $sorted = @($lines | Sort-Object) + @($Extra)
     $bytes = [Text.Encoding]::UTF8.GetBytes(($sorted -join "`n"))
