@@ -117,6 +117,15 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Windows compatibility mode is turned off when KMRP patches** (2026-10-27; issue 39).
+  With compatibility mode on for `swkotor.exe` (Properties, Compatibility), the game drew
+  a black square over most of the screen after patching; the reporter turned it off by
+  hand and it was gone. The installer now takes the Windows version modes, reduced colour
+  and 640x480 out of the setting it already edits for high DPI, keeping every other flag,
+  and Restore Original puts the old setting back exactly. A mode set for all users cannot
+  be changed without administrator rights: the installer says where to turn it off.
+  `Test-DpiCompatibility.ps1` gained two cases (26 checks pass); its recovery record path
+  is now `KMRP\dpi.manifest`. **Not yet seen in the game.**
 - **KMRP's fonts kern** (2026-10-24; [fonts/README.md](fonts/README.md)). The ten
   proportional KMRP Original HD fonts (`fonts/otf`, the `.ttc` and the Font Converter's
   copies) carry pair kerning measured from their outlines (`fonts/tools/kern.py`, run by

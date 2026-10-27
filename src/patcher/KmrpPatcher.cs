@@ -1434,17 +1434,33 @@ namespace Kmrp
                     if (raw != null && state.RegistryValue == null)
                         throw new InvalidDataException("The existing Windows compatibility setting is not a string value.");
 
-                    if (ContainsToken(state.RegistryValue, Token))
+                    // A Windows compatibility mode on swkotor.exe ("Run this program in
+                    // compatibility mode for", reduced colour, 640x480) is taken out with
+                    // KMRP's token: with one on, the game drew a black square over most of
+                    // the screen after patching (issue 39; the reporter turned it off by
+                    // hand, 2026-10-16). Restore Original puts the value back as it was.
+                    List<string> removed;
+                    string cleaned = WithoutCompatibilityModes(state.RegistryValue, out removed);
+                    string installed = ContainsToken(cleaned, Token) ? cleaned : AppendToken(cleaned, Token);
+                    ReportMachineWideMode(executablePath, report);
+                    if (String.Equals(installed, state.RegistryValue, StringComparison.Ordinal))
                     {
                         SafeReport(report, "Verified the Windows high-DPI application override for swkotor.exe.");
                         return state;
                     }
 
-                    string installed = AppendToken(state.RegistryValue, Token);
                     DpiRecord record = new DpiRecord();
                     record.ExecutablePath = executablePath;
                     record.HadPreviousValue = state.HadRegistryValue;
                     record.PreviousValue = state.RegistryValue ?? String.Empty;
+                    // Patching again over KMRP: the value now is the one KMRP wrote, so the
+                    // first install's record keeps what was there before KMRP.
+                    DpiRecord earlier = TryReadManifest(manifestPath);
+                    if (earlier != null && String.Equals(earlier.InstalledValue, state.RegistryValue, StringComparison.Ordinal))
+                    {
+                        record.HadPreviousValue = earlier.HadPreviousValue;
+                        record.PreviousValue = earlier.PreviousValue;
+                    }
                     record.InstalledValue = installed;
 
                     try
@@ -1461,7 +1477,11 @@ namespace Kmrp
                         throw;
                     }
                     state.Changed = true;
-                    SafeReport(report, "Enabled the Windows high-DPI application override for swkotor.exe.");
+                    if (removed.Count > 0)
+                        SafeReport(report, "Turned off Windows compatibility mode for swkotor.exe (" + String.Join(", ", removed.ToArray()) +
+                            "): it draws a black square over the game with KMRP. Restore Original turns it back on.");
+                    if (!ContainsToken(state.RegistryValue, Token))
+                        SafeReport(report, "Enabled the Windows high-DPI application override for swkotor.exe.");
                     return state;
                 }
             }
@@ -1576,6 +1596,79 @@ namespace Kmrp
             {
                 try { File.Delete(here); }
                 catch { }
+            }
+        }
+
+        /// <summary>The Compatibility tab's layers that break KMRP's screen: the Windows
+        /// version modes and the reduced colour and 640x480 settings. Others (high DPI, run
+        /// as administrator, full-screen optimisations) are kept.</summary>
+        private static readonly string[] CompatibilityModes =
+        {
+            "WIN95", "WIN98", "NT4SP5", "WIN2000", "WINXP", "WINXPSP2", "WINXPSP3", "WINSRV03SP1",
+            "WINSRV08SP1", "VISTARTM", "VISTASP1", "VISTASP2", "WIN7RTM", "WIN8RTM", "WIN81RTM",
+            "256COLOR", "16BITCOLOR", "640X480"
+        };
+
+        private static bool IsCompatibilityMode(string token)
+        {
+            foreach (string mode in CompatibilityModes)
+                if (String.Equals(token, mode, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            return false;
+        }
+
+        /// <summary>The value without its compatibility modes, its other tokens in order;
+        /// a value left with only Windows' "~" marker is left empty.</summary>
+        private static string WithoutCompatibilityModes(string value, out List<string> removed)
+        {
+            removed = new List<string>();
+            if (String.IsNullOrWhiteSpace(value))
+                return value;
+            List<string> kept = new List<string>();
+            foreach (string part in Regex.Split(value.Trim(), "\\s+"))
+            {
+                if (IsCompatibilityMode(part))
+                    removed.Add(part.ToUpperInvariant());
+                else
+                    kept.Add(part);
+            }
+            if (removed.Count == 0)
+                return value;
+            if (kept.Count == 1 && kept[0] == "~")
+                kept.Clear();
+            return String.Join(" ", kept.ToArray());
+        }
+
+        /// <summary>"Change settings for all users" keeps the mode in the machine's part of
+        /// the registry, which the installer (not run as administrator) cannot change: it
+        /// says what to turn off instead.</summary>
+        private static void ReportMachineWideMode(string executablePath, Action<string> report)
+        {
+            try
+            {
+                using (RegistryKey key = Registry.LocalMachine.OpenSubKey(LayersKeyPath))
+                {
+                    string value = key == null ? null : key.GetValue(executablePath, null) as string;
+                    List<string> modes;
+                    WithoutCompatibilityModes(value, out modes);
+                    if (modes.Count > 0)
+                        SafeReport(report, "Windows compatibility mode is on for swkotor.exe for all users (" +
+                            String.Join(", ", modes.ToArray()) + "). It draws a black square over the game with KMRP. " +
+                            "Turn it off: swkotor.exe, Properties, Compatibility, Change settings for all users.");
+                }
+            }
+            catch { }
+        }
+
+        private static DpiRecord TryReadManifest(string path)
+        {
+            try
+            {
+                return File.Exists(path) ? ReadManifest(path) : null;
+            }
+            catch
+            {
+                return null;
             }
         }
 

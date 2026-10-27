@@ -6,7 +6,10 @@
     Exercises the public patcher commands against throwaway game directories. The
     tests prove that KMRP adds HIGHDPIAWARE, preserves an existing compatibility
     string byte-for-byte on restore, does not overwrite a later user change, and
-    rolls the registry back when its DPI manifest cannot be written.
+    rolls the registry back when its DPI manifest cannot be written. Since
+    2026-10-27 also that a Windows compatibility mode (issue 39's black square) is
+    taken out on patch and put back on restore, and that patching twice keeps the
+    value from before KMRP.
 
     Registry cleanup is limited to the exact throwaway swkotor.exe paths used by
     this run. Their pre-test values are captured and restored in finally.
@@ -25,7 +28,8 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "Restore-TestNvidiaProfiles.ps1")
 $projectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $layersPath = "Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"
-$manifestName = "KMRP_DPI.manifest"
+# KMRP\dpi.manifest since 2026-10-20 (KMRP_DPI.manifest beside swkotor.exe before)
+$manifestName = "KMRP\dpi.manifest"
 $script:Failures = 0
 $script:OriginalValues = @{}
 
@@ -162,6 +166,36 @@ try {
     $current = Get-LayerValue $exe
     Assert ($exitCode -eq 0) "patch continued with the documented manual fallback (exit $exitCode)"
     Assert ($current.Exists -and $current.Value -eq $previous) "the unrecorded registry edit was rolled back"
+
+    Write-Host ""
+    Write-Host "Case 5  a Windows compatibility mode (issue 39)"
+    $exe = New-Install "case5"
+    $previous = "~ WINXPSP3 DISABLEDXMAXIMIZEDWINDOWEDMODE"
+    Set-LayerValue $exe $true $previous
+    $exitCode = Invoke-Patcher @("--in-place", $exe, $Resolution)
+    $current = Get-LayerValue $exe
+    Assert ($exitCode -eq 0) "patch succeeded (exit $exitCode)"
+    Assert ($current.Value -eq "~ DISABLEDXMAXIMIZEDWINDOWEDMODE HIGHDPIAWARE") "the compatibility mode was taken out, the other flags kept ($($current.Value))"
+    $exitCode = Invoke-Patcher @("--restore", $exe)
+    $current = Get-LayerValue $exe
+    Assert ($exitCode -eq 0) "restore succeeded (exit $exitCode)"
+    Assert ($current.Exists -and $current.Value -eq $previous) "restore put the compatibility mode back as it was"
+
+    Write-Host ""
+    Write-Host "Case 6  patched twice over a compatibility mode"
+    $exe = New-Install "case6"
+    $previous = "~ WIN7RTM"
+    Set-LayerValue $exe $true $previous
+    $exitCode = Invoke-Patcher @("--in-place", $exe, $Resolution)
+    $current = Get-LayerValue $exe
+    Assert ($current.Value -eq "HIGHDPIAWARE") "a value left with only the marker is the token alone ($($current.Value))"
+    $exitCode = Invoke-Patcher @("--in-place", $exe, $Resolution)
+    $current = Get-LayerValue $exe
+    Assert ($exitCode -eq 0) "patching again succeeded (exit $exitCode)"
+    Assert ($current.Value -eq "HIGHDPIAWARE") "patching again left the value as it was"
+    $exitCode = Invoke-Patcher @("--restore", $exe)
+    $current = Get-LayerValue $exe
+    Assert ($current.Exists -and $current.Value -eq $previous) "restore after two patches put back the value from before KMRP"
 }
 finally {
     Restore-KpmLauncherSettings $kpmLauncherSettings

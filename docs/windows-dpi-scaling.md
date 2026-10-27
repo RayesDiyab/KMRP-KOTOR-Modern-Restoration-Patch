@@ -39,8 +39,27 @@ changing desktop scale later does not silently reactivate virtualization.
 
 If other compatibility flags already exist, KMRP appends `HIGHDPIAWARE` and
 preserves the previous string exactly in the recovery record. If the token is
-already present, KMRP leaves the value untouched and does not claim ownership of
-it.
+already present and nothing else needs changing, KMRP leaves the value untouched
+and does not claim ownership of it.
+
+### Windows compatibility mode (2026-10-27, issue 39)
+
+The same value holds the Compatibility tab's other settings. With a compatibility
+mode on for `swkotor.exe`, the game drew a black square over most of the screen
+after patching (issue 39; the reporter turned it off by hand and it was gone). The
+installer now takes these tokens out of the value while it adds `HIGHDPIAWARE`:
+the Windows version modes (`WIN95`, `WIN98`, `NT4SP5`, `WIN2000`, `WINXP`,
+`WINXPSP2`, `WINXPSP3`, `WINSRV03SP1`, `WINSRV08SP1`, `VISTARTM`, `VISTASP1`,
+`VISTASP2`, `WIN7RTM`, `WIN8RTM`, `WIN81RTM`), reduced colour (`256COLOR`,
+`16BITCOLOR`) and `640X480`. Every other token stays, in its order; a value left
+with only Windows' `~` marker becomes the token alone. The recovery record keeps
+the value from before KMRP, so Restore Original puts the mode back exactly, and a
+second install over KMRP keeps the first install's record. The log names what was
+turned off.
+
+A mode set with "Change settings for all users" lives in the same key under
+`HKEY_LOCAL_MACHINE`. The installer does not run as administrator and cannot
+change it: it only reads it and, when it holds a mode, says where to turn it off.
 
 ## Restore and failure ownership
 
@@ -66,7 +85,8 @@ manual Compatibility-tab procedure instead.
 ## Verification record
 
 `testing/regression/Test-DpiCompatibility.ps1` drives the compiled patcher
-against four throwaway game directories and restores the exact pre-test values
+against six throwaway game directories (cases 5 and 6, a compatibility mode taken
+out and put back and an install run twice, added 2026-10-27: all 26 checks pass) and restores the exact pre-test values
 in `finally`:
 
 1. no previous value: install creates `HIGHDPIAWARE`, restore removes it;
