@@ -39,7 +39,7 @@ from pykotor.resource.formats.gff import GFFList, read_gff, write_gff
 import controller_layout_backdrop as backdrop
 from build_controller_prompt_textures import (
     FAMILY_LETTERS, GLYPH_FAMILIES, GLYPH_PACK, TGA_FOOTER, _load_glyph_art,
-    build_square_glyph_tga, measure_label, parse_font_metrics)
+    build_square_glyph_tga, measure_label, parse_font_metrics, register_scene)
 
 
 # ---------------------------------------------------------------- the content
@@ -461,7 +461,10 @@ def build_art(output: Path):
             paths.append(p)
     for name, image in _remap_marks().items():
         p = output / f"{name}.tga"
-        p.write_bytes(_tga(image))
+        # Drawn by the controller patch at the size it is shown, from its outlines
+        # (controller_drawn_art.remap_marks, in kmrp-glyphs.bin as -/<name>).
+        p.write_bytes(register_scene(_tga(image), image.width, image.height,
+                                     [(None, name, 0, 0, image.width, image.height)]))
         paths.append(p)
     # The backdrop and edge art do not change with the controller.
     for name, image in backdrop.build_all().items():

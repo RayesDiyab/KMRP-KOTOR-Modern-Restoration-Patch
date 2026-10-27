@@ -12,9 +12,11 @@ pushd "%~dp0..\.."
 pwsh -NoProfile -ExecutionPolicy Bypass -File tools\prepare_sdl3.ps1
 if errorlevel 1 exit /b %errorlevel%
 if not exist build\controller-standalone mkdir build\controller-standalone
-python tools\build_controller_assets.py
+rem build_kmrp.ps1 names its Python in KMRP_PYTHON; vcvars may put another first on PATH.
+if not defined KMRP_PYTHON set KMRP_PYTHON=python
+"%KMRP_PYTHON%" tools\build_controller_assets.py
 if errorlevel 1 exit /b %errorlevel%
-python tools\build_controller_kpatch.py --write-def build\controller-standalone\controller-exports.def
+"%KMRP_PYTHON%" tools\build_controller_kpatch.py --write-def build\controller-standalone\controller-exports.def
 if errorlevel 1 exit /b %errorlevel%
 rc /nologo /Ibuild\controller-standalone /fobuild\controller-standalone\controller-assets.res build\controller-standalone\controller-assets.rc
 if errorlevel 1 exit /b %errorlevel%

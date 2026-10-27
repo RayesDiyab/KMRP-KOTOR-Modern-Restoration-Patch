@@ -117,6 +117,24 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **The tab strip's LT and RT arrows and the remapping screen's symbols drawn at the size
+  they are shown** (2026-10-27). Phase 2 of 5. Until now these were PIL drawings at
+  128x128 (`build_tab_arrows.py`, `_remap_marks` in `build_controller_layout.py`).
+  `tools/controller_drawn_art.py` builds them as outlines from the same numbers: the
+  arrow, its frame and its letters (strokes widened with round ends), the orange ring
+  with the font's own "?", the padlock, the yellow dot. A soft glow is a stack of thin
+  rings around its shape, each as opaque as a Gaussian blur is at that distance from a
+  straight edge, 0.5 x erfc(d / (sigma x sqrt 2)). Drawn by the module's drawer at 128 px
+  they differ from the PIL pictures by 0.6 to 3.2 of 255 on average per channel. The
+  arrows are in `kmrp-glyphs.bin` per family as `TAB_LEFT` and `TAB_RIGHT`, the symbols
+  once for every family under `-/`; the build records them as scenes like phase 1's
+  pictures (`register_scene`), so the module's sweep draws them with no code change.
+  `kmrp-glyphs.bin` grows from 4.90 to 4.96 MB; 131 drawn pictures in all. The
+  controller module's build script now runs the build's own Python (`KMRP_PYTHON`, set
+  by `build_kmrp.ps1`), because under vcvars `python` named an interpreter without
+  shapely and the build stopped. Tests: `Test-ControllerKpatch.py` passes. Not yet seen
+  in the game.
+
 - **The controller's other pictures drawn at the size they are shown too** (2026-10-27,
   the maintainer: "everything needs to be run time drawn"). Phase 1 of 5: every picture
   made from a single glyph, which until now were 128x128 textures (256x128 for the

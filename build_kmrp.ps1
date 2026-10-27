@@ -219,6 +219,9 @@ $compiler = "C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe"
 if (-not (Test-Path -LiteralPath $Python)) {
     throw "Python was not found at $Python"
 }
+# The controller module's cmd script runs its Python tools under vcvars, whose PATH can
+# name another interpreter first (one without shapely, 2026-10-27); it uses this one.
+$env:KMRP_PYTHON = $Python
 if (-not (Test-Path -LiteralPath $compiler)) {
     throw ".NET Framework C# compiler was not found at $compiler"
 }

@@ -16,6 +16,10 @@ capstone     # 5.0.9  -- disassembling what a build script just assembled, which
              #           cannot make without it (tools/kpm_relocations.py)
 fonttools    # 4.63.0 -- reading vector outlines when rendering font atlases
              #           (tools/build_kotor_font.py)
+shapely      # 2.2.0  -- controller pictures as outlines: offsetting, unions and the
+             #           glow rings (tools/controller_drawn_art.py,
+             #           tools/build_controller_glyph_vectors.py); the controller
+             #           module's build needs it
 python-docx  #        -- tools/build_technical_reconstruction_doc.py only.
              #           NOT INSTALLED on the current build machine, so that one
              #           tool is unrunnable here and CI does not catch it: CI

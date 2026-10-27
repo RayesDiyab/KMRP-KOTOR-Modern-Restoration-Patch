@@ -64,7 +64,8 @@ from build_controller_layout import (DIALOG_BADGE_TAG, add_confirm_badge,  # noq
 from build_controller_prompt_textures import (BADGE_BOXES_NAME, FAMILY_LETTERS,  # noqa: E402
                                               GLYPH_FAMILIES, PROMPT_MANIFEST_NAME,  # noqa: E402
                                               PROMPT_TARGETS, build_prompt_textures,  # noqa: E402
-                                              build_square_glyph_tga, family_resref)
+                                              build_square_glyph_tga, family_resref,  # noqa: E402
+                                              register_scene)
 from build_scaled_fonts import export_font_txis                         # noqa: E402
 from build_xbox_hud import DISENGAGE_FILL as XBOX_HUD_DISENGAGE_FILL    # noqa: E402
 from build_xbox_hud import PAUSE_FILL as XBOX_HUD_PAUSE_FILL            # noqa: E402
@@ -275,7 +276,12 @@ def make(work: Path) -> dict:
             # The tab strip's two cues are arrows in the game's style, not the
             # family's trigger pictures (tools/build_tab_arrows.py; this patch only).
             if glyph in ("LT", "RT"):
-                path.write_bytes(build_tab_arrows.arrow_tga(family, glyph == "RT"))
+                # Drawn by the module at the size it is shown, from its outlines
+                # (controller_drawn_art.tab_arrow, in kmrp-glyphs.bin as TAB_LEFT/TAB_RIGHT).
+                size = build_tab_arrows.SIZE
+                path.write_bytes(register_scene(build_tab_arrows.arrow_tga(family, glyph == "RT"), size, size,
+                                                [(family, "TAB_RIGHT" if glyph == "RT" else "TAB_LEFT",
+                                                  0, 0, size, size)]))
             else:
                 path.write_bytes(build_square_glyph_tga(glyph, family=family))
             common.append(path)
@@ -405,7 +411,8 @@ def scenes_for(files: dict) -> list:
             continue
         width, height, parts = scene
         out.append((name[:-4], width, height,
-                    [(f"{FAMILY_LETTERS[family]}/{glyph}", left, top, w, h) for family, glyph, left, top, w, h in parts]))
+                    [(f"{FAMILY_LETTERS[family] if family else '-'}/{glyph}", left, top, w, h)
+                     for family, glyph, left, top, w, h in parts]))
     return out
 
 
@@ -416,16 +423,27 @@ def pack_glyphs(scenes: list = ()) -> bytes:
     per scene its texture's name (u16 length, ASCII), u32 width and height, u32 parts, per
     part the glyph's name (u16 length) and its box (4 x i32: left, top, width, height in the
     texture's pixels), drawn keeping the glyph's proportions (scenes_for)."""
+    import controller_drawn_art
     import controller_glyphs
     out = b"KGLY"
     entries = []
+
+    def add(name: str, g: dict) -> None:
+        entries.append(struct.pack("<H", len(name)) + name.encode("ascii") + controller_glyphs.pack(g))
+
     for family, (_, art) in GLYPH_FAMILIES.items():
         for glyph in sorted(art):
             g = controller_glyphs.glyph(family, glyph)
             if g is None:
                 raise ValueError(f"no {family} outlines for {glyph}")
-            name = f"{FAMILY_LETTERS[family]}/{glyph}".encode("ascii")
-            entries.append(struct.pack("<H", len(name)) + name + controller_glyphs.pack(g))
+            add(f"{FAMILY_LETTERS[family]}/{glyph}", g)
+        # The patch's own drawn pictures: the tab strip's arrows, named for the family.
+        left, right = build_tab_arrows.NAMES[family]
+        add(f"{FAMILY_LETTERS[family]}/TAB_LEFT", controller_drawn_art.tab_arrow(left, True))
+        add(f"{FAMILY_LETTERS[family]}/TAB_RIGHT", controller_drawn_art.tab_arrow(right, False))
+    # And the remapping screen's symbols, the same for every controller.
+    for name, g in controller_drawn_art.remap_marks().items():
+        add(f"-/{name}", g)
     out += struct.pack("<I", len(entries)) + b"".join(entries)
     out += b"SCEN" + struct.pack("<I", len(scenes))
     for texture, width, height, parts in scenes:

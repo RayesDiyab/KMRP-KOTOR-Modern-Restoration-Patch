@@ -870,8 +870,17 @@ def build_square_glyph_tga(glyph: str, size: int = SQUARE_GLYPH_SIZE,
 
 
 # Texture SHA-256 -> (width, height, [(family, glyph, left, top, width, height)]): what each
-# texture made in this run shows (build_square_glyph_tga).
+# texture made in this run shows (build_square_glyph_tga, register_scene). A family of None
+# is a picture that is the same for every controller.
 SCENES: dict[str, tuple] = {}
+
+
+def register_scene(tga: bytes, width: int, height: int, parts: list) -> bytes:
+    """Records what a texture made elsewhere shows, as build_square_glyph_tga records its own:
+    `parts` as SCENES holds them, the glyphs named as kmrp-glyphs.bin names them. Returns the
+    texture."""
+    SCENES[hashlib.sha256(tga).hexdigest()] = (width, height, parts)
+    return tga
 
 
 def _legacy_drawn_tga(control_width: int, control_height: int, glyph: str) -> bytes:

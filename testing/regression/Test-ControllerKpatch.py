@@ -199,8 +199,14 @@ def main() -> int:
                 length = _struct.unpack_from("<H", bank, at)[0]
                 scene_glyphs.add(bank[at + 2:at + 2 + length].decode("ascii"))
                 at += 2 + length + 16
-    made = {n[:-4] for n in made_names if n.endswith(".tga") and n.startswith("kmr")
-            and n[4:].startswith(("lyt0", "lyt1", "lytbk", "rm", "cnfa", "b_cmbt", "y_cmbt", "rb_party", "rt_pause", "swap_abi"))}
+    # Every drawn picture that is not a badge: each must have its scene.
+    badge_names = set()
+    for target in prompts.PROMPT_TARGETS:
+        for family in prompts.GLYPH_FAMILIES:
+            resref = prompts.family_resref(target.resref, family)
+            badge_names |= {resref, prompts.focus_resref(resref)}
+    made = {n[:-4] for n in made_names if n.endswith(".tga")
+            and n[:-4] not in badge_names and n[:-4].rstrip("0123456789") not in badge_names}
     lacking += sorted(scene_glyphs - bank_names)
     missing_scenes = sorted(made - scenes)
     check(at == len(bank) and named and not lacking and not missing_scenes,
@@ -291,7 +297,7 @@ def main() -> int:
     # The tab strip's two cues are the drawn arrows, for every family.
     import build_tab_arrows
     wrong = [f"{family}/{fill}" for family in prompts.GLYPH_FAMILIES for index, (_, fill, _) in enumerate(assets.TAB_CUES)
-             if (FILES / (prompts.family_resref(fill, family) + ".tga")).read_bytes()
+             if (MADE / (prompts.family_resref(fill, family) + ".tga")).read_bytes()
              != build_tab_arrows.arrow_tga(family, index == 1)]
     check(not wrong, "LT and RT beside the tab strip are tools/build_tab_arrows.py's arrows, in all 4 families"
           + ("" if not wrong else f": {wrong}"))
