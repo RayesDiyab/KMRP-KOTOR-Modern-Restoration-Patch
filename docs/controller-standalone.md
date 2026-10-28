@@ -121,7 +121,9 @@ marks `kmrrmask`, `kmrrmlock` and `kmrrmdot`. Counted on 2026-10-18 in
 files in all; the bank itself was not re-counted.
 
 **Since 2026-10-28 the bank carries no texture** (phases 1 to 5 of drawing every
-controller picture at run time, 2026-10-27 and 28). It holds the 17 layout files,
+controller picture at run time, 2026-10-27 and 28). The mechanism, Controller Live
+Adaptive Layout (the first built part of Live Adaptive Layout), is described byte for
+byte in [`controller-live-adaptive-layout.md`](controller-live-adaptive-layout.md). It holds the 17 layout files,
 `kmrp-glyphs.bin` and SDL. Every picture the patch shows is drawn by its module at the
 size its control shows it, from `kmrp-glyphs.bin`: outlines ("KGLY", the badges' glyphs
 from Xelu's vector source, the patch's own pictures, the Controller Layout's diagram and

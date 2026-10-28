@@ -9,6 +9,7 @@
 
 bool ControllerTypesByItselfK1();   // K1ControllerBackend.cpp
 void ControllerLogK1(const char* text);     // K1NativeJoystick.cpp, the debug log
+const char* KmrpDrawnFillK1(const void* params, const char* fill);   // below
 extern "C" void __cdecl KmrpLogPanelsK1(const char* what);
 
 // K1NativeJoystick.cpp: the fourth letter of the detected controller family's
@@ -2250,6 +2251,91 @@ const char* KmrpLogicalFillK1(const char* fill)
     return fill;
 }
 
+namespace {
+// A word read where a control's vtable would be, 0 where it cannot be read.
+std::uintptr_t K1ReadWordGuarded(const void* at)
+{
+    __try {
+        return *static_cast<const std::uintptr_t*>(at);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 0;
+    }
+}
+
+// The control a border's parameters belong to, and where in it they are: a label's at +0x70,
+// a button's or a toggle's border and highlight at +0x80 and +0xF4, a progress bar's border
+// and progress at +0x7C and +0xF0; told by the control's vtable at the start, so a
+// parameters block that is none of these gives none.
+void* K1ControlOfParams(const void* params, std::ptrdiff_t* offset)
+{
+    struct Kind { std::uintptr_t vtable; std::ptrdiff_t at; };
+    static const Kind kinds[] = {
+        {K1_GUI_LABEL_VTABLE, 0x70},
+        {K1_GUI_BUTTON_VTABLE, K1_BUTTON_BORDER_PARAMS_OFFSET}, {K1_GUI_BUTTON_VTABLE, K1_BUTTON_HILIGHT_PARAMS_OFFSET},
+        {0x0073EB88, K1_BUTTON_BORDER_PARAMS_OFFSET}, {0x0073EB88, K1_BUTTON_HILIGHT_PARAMS_OFFSET},  // CSWGuiButtonToggle
+        {0x0073E7A0, 0x7C}, {0x0073E7A0, 0xF0},                                                  // CSWGuiProgressBar
+    };
+    for (const Kind& kind : kinds) {
+        const char* const control = static_cast<const char*>(params) - kind.at;
+        if (K1ReadWordGuarded(control) == kind.vtable) {
+            *offset = kind.at;
+            return const_cast<char*>(control);
+        }
+    }
+    return nullptr;
+}
+}
+
+// The other way: what a border whose fill is set to `fill` should show. Where `fill` is one
+// of the pictures this module draws, the drawing of it at the size this border fills now,
+// drawn here and then if it is not drawn yet (else `fill`). For code that sets a picture by
+// name: set as the bare name, which is no texture the patch carries, the border showed white
+// until the next frame's sweep drew it, at every change of picture (a slot gaining focus, a
+// target's name bar turning hostile, a grenade's slot appearing; the maintainer, 2026-10-28:
+// "on focus it flickers white then draws"). Until then only the drawing the border already
+// showed was looked up, which no change of picture finds.
+const char* KmrpDrawnFillK1(const void* params, const char* fill)
+{
+    char want[17] = {};
+    std::strncpy(want, fill, 16);
+    const K1Scene* const scene = FindK1Scene(want);
+    std::ptrdiff_t offset = 0;
+    void* const control = scene ? K1ControlOfParams(params, &offset) : nullptr;
+    if (!control) {
+        return fill;
+    }
+    const K1BadgeRect at = *reinterpret_cast<const K1BadgeRect*>(static_cast<char*>(control) + 4);
+    const int inset = K1ButtonFillInset(control, offset);
+    int width = at.width - 2 * inset, height = at.height - 2 * inset;
+    if (scene->cap > 0 && (std::max)(width, height) > scene->cap) {
+        const double k = static_cast<double>(scene->cap) / (std::max)(width, height);
+        width = (std::max)(1, static_cast<int>(std::lround(width * k)));
+        height = (std::max)(1, static_cast<int>(std::lround(height * k)));
+    }
+    char drawn[17];
+    if (width <= 0 || height <= 0 || width > 4095 || height > 4095 || !K1SceneTexture(*scene, width, height, drawn)) {
+        return fill;
+    }
+    K1SceneFill* entry = nullptr;
+    for (K1SceneFill& known : g_k1SceneFills) {
+        if (known.params == params) entry = &known;
+    }
+    if (!entry) {
+        g_k1SceneFills.push_back({const_cast<void*>(params), scene->name, {}});
+        entry = &g_k1SceneFills.back();
+    }
+    entry->scene = scene->name;
+    std::memcpy(entry->drawn, drawn, 17);
+    if (KmrpDebugLevel() >= 2) {
+        // Level 2: each picture set by name, the border it went on and the drawing it became.
+        char line[200];
+        std::snprintf(line, sizeof line, "fill by name: %p (+0x%X of %p, %dx%d) %s as %s",
+                      params, static_cast<unsigned>(offset), control, width, height, scene->name.c_str(), drawn);
+        ControllerLogK1(line);
+    }
+    return entry->drawn;
+}
+
 // The swoop race's prompt (UpdateSwoopPromptK1, K1NativeJoystick.cpp) drawn for this
 // screen: a texture on the race HUD's 3D model, which the sweep never sees. The HUD is fixed
 // to the camera, so its size on screen follows the screen's height; its 128x128 texture was
@@ -2265,6 +2351,38 @@ bool K1PanelPicture(void* panel, bool queue);
 // screen that is never shown (K1ControllerLayout.cpp, ProbeLayoutPictures): its own border
 // (true when it shows the patch's backdrop, so the copy was the screen's) and each control.
 bool KmrpQueueLayoutPanelK1(void* panel) { return K1PanelPicture(panel, true); }
+
+// One control drawn over and over at other sizes within a frame, a stamp: the Xbox HUD
+// draws the empty places of its rows, the first slot's frame, the map's frame and the name
+// bar's slices with one spare label, setting its picture and its rectangle before each draw
+// (K1XboxHud.cpp). The sweep sees only how the label is left, so each stamp asks here, after
+// its rectangle is set: the picture `name` drawn at the size the border at `paramsOffset`
+// fills now, set as its fill; the name itself where it is none of the patch's pictures.
+// Until 2026-10-28 the empty places of the target's row were white (the maintainer).
+void KmrpStampPictureK1(void* control, std::ptrdiff_t paramsOffset, const char* name)
+{
+    char* const params = static_cast<char*>(control) + paramsOffset;
+    char want[17] = {};
+    std::strncpy(want, name, 16);
+    const char* use = want;
+    char drawn[17];
+    const K1Scene* const scene = FindK1Scene(want);
+    if (scene) {
+        const K1BadgeRect at = *reinterpret_cast<const K1BadgeRect*>(static_cast<char*>(control) + 4);
+        const int inset = K1ButtonFillInset(control, paramsOffset);
+        int width = at.width - 2 * inset, height = at.height - 2 * inset;
+        if (scene->cap > 0 && (std::max)(width, height) > scene->cap) {
+            const double k = static_cast<double>(scene->cap) / (std::max)(width, height);
+            width = (std::max)(1, static_cast<int>(std::lround(width * k)));
+            height = (std::max)(1, static_cast<int>(std::lround(height * k)));
+        }
+        if (width > 0 && height > 0 && width <= 4095 && height <= 4095 && K1SceneTexture(*scene, width, height, drawn)) {
+            use = drawn;
+        }
+    }
+    if (_strnicmp(params + 0x40, use, 16) == 0) return;
+    reinterpret_cast<SetFillImageFn>(K1_GUI_BORDER_SET_FILL_IMAGE)(params, use, 1);
+}
 // True once a whole frame has gone by in which the game thread drew no badge or picture:
 // whatever the screens up need is drawn.
 bool KmrpPicturesSettledK1() { return g_k1QuietFrames >= 1; }
@@ -2331,6 +2449,13 @@ void K1BorderPicture(char* params, int width, int height, bool queue)
     if (!K1SceneTexture(*scene, width, height, drawn)) return;
     if (_strnicmp(fill, drawn, 16) != 0) {
         const std::string name = scene->name;
+        if (KmrpDebugLevel() >= 2) {
+            // Level 2: each fill the sweep replaces, what it was and what it became.
+            char line[200];
+            std::snprintf(line, sizeof line, "sweep: %p was %.16s, %s at %dx%d as %s",
+                          params, fill, name.c_str(), width, height, drawn);
+            ControllerLogK1(line);
+        }
         reinterpret_cast<SetFillImageFn>(K1_GUI_BORDER_SET_FILL_IMAGE)(params, drawn, 1);
         K1SceneFill* entry = nullptr;
         for (K1SceneFill& known : g_k1SceneFills) {
@@ -2415,6 +2540,24 @@ void K1SweepRuntimePictures(void* manager)
         if (!controls || count <= 0 || count > 4096) continue;
         for (int i = 0; i < count; ++i) {
             if (controls[i]) K1ControlPictures(controls[i], false);
+        }
+        // The in-game interface (CSWGuiMainInterface, vtable 0x00753F50, 0xC8CC bytes, the
+        // swkotor1-reconstruction project) holds its target menu (+0xBC, the name bar's
+        // background and the target's three slots) and its three party members (+0x1F88,
+        // the portraits' frames) inside itself, and their controls are in no panel's list:
+        // the Xbox HUD's frames there stayed white (the maintainer, 2026-10-28). Every
+        // control inside it begins with its class's vtable, so the object is read for those
+        // of a label, a button and a progress bar; a control whose fill is none of the
+        // patch's pictures is left as it is (K1BorderPicture).
+        if (*reinterpret_cast<const std::uintptr_t*>(panel) == 0x00753F50) {
+            constexpr std::size_t kMainInterfaceSize = 0xC8CC, kLargestControl = 0x1C4;
+            const std::uintptr_t* const words = static_cast<const std::uintptr_t*>(panel);
+            for (std::size_t i = 1; i < (kMainInterfaceSize - kLargestControl) / 4; ++i) {
+                const std::uintptr_t word = words[i];
+                if (word == K1_GUI_LABEL_VTABLE || word == K1_GUI_BUTTON_VTABLE || word == 0x0073E7A0) {
+                    K1ControlPictures(const_cast<std::uintptr_t*>(words + i), false);
+                }
+            }
         }
     }
 }
@@ -3449,8 +3592,13 @@ void SetK1ControllerPromptFill(void* control, const char* value, const char* box
             resref[3] = KmrpGlyphLetterK1();
         }
     }
-    SetFillImageFn setFill = reinterpret_cast<SetFillImageFn>(
-        K1_GUI_BORDER_SET_FILL_IMAGE);
+    // A picture the controller patch draws at its size goes on as the drawing already made
+    // for this border, where there is one (KmrpDrawnFillK1): set as its bare name, which is
+    // no texture the patch carries, it showed white until the sweep drew over it on the next
+    // frame, a flash at every change of focus (2026-10-28).
+    auto setFill = [](void* params, const char* name, int flag) {
+        reinterpret_cast<SetFillImageFn>(K1_GUI_BORDER_SET_FILL_IMAGE)(params, KmrpDrawnFillK1(params, name), flag);
+    };
 #ifdef KMRP_CONTROLLER_STANDALONE
     if (resref[0] == '\0') {
         HideK1BadgeOverlay(control);
@@ -6840,6 +6988,16 @@ extern "C" void __cdecl CancelActionBarKeyboardFocusOnMouseMoveK2(
 #ifndef KMRP_CONTROLLER_STANDALONE
 // KMRP's own module draws no pictures at run time: a fill is what it says.
 const char* KmrpLogicalFillK1(const char* fill) { return fill; }
+const char* KmrpDrawnFillK1(const void*, const char* fill) { return fill; }
+void KmrpStampPictureK1(void* control, std::ptrdiff_t paramsOffset, const char* name)
+{
+    using SetFillImageFn = void(__thiscall*)(void*, const void*, int);
+    char want[17] = {};
+    std::strncpy(want, name, 16);
+    char* const params = static_cast<char*>(control) + paramsOffset;
+    if (_strnicmp(params + 0x40, want, 16) == 0) return;
+    reinterpret_cast<SetFillImageFn>(0x00414C00)(params, want, 1);
+}
 bool KmrpDrawnPictureK1(const char*, char[17]) { return false; }
 bool KmrpQueueLayoutPanelK1(void*) { return false; }
 bool KmrpPicturesSettledK1() { return false; }

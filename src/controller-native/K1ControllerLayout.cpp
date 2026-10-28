@@ -17,6 +17,8 @@ bool KmrpPadPresentK1();              // a pad answered the last read (K1NativeJ
 void KmrpPadFocusExcludeK1(void* control, bool excluded);   // off the pad's focus (K1NativeJoystick.cpp)
 bool KmrpQueueLayoutPanelK1(void* panel);   // the screen's pictures for the background (vendor/K1XboxControls.cpp)
 bool KmrpPicturesSettledK1();               // a frame went by with nothing left to draw (the same)
+const char* KmrpLogicalFillK1(const char* fill);                     // the picture a fill stands for (the same)
+const char* KmrpDrawnFillK1(const void* params, const char* fill);   // the drawing made of it for a border
 void KmrpQueueLayoutControlK1(void* control);
 
 namespace {
@@ -271,7 +273,8 @@ void updateConfirmBadges() {
             char resref[16]={};
             sprintf_s(resref,"kmr%ccnfa",family);
             using Fill=void(__thiscall*)(void*,const void*,int);
-            fn<Fill>(0x414C00)(static_cast<char*>(b.label)+0x70,resref,1);
+            fn<Fill>(0x414C00)(static_cast<char*>(b.label)+0x70,
+                               KmrpDrawnFillK1(static_cast<char*>(b.label)+0x70,resref),1);
             b.family=family;
         }
         if (!b.shown) { showControl(b.label,true); b.shown=true; }
@@ -517,7 +520,8 @@ void updateDialogBadges() {
             char resref[16]={};
             sprintf_s(resref,"kmr%ccnfa",family);
             using Fill=void(__thiscall*)(void*,const void*,int);
-            fn<Fill>(0x414C00)(static_cast<char*>(b.label)+0x70,resref,1);
+            fn<Fill>(0x414C00)(static_cast<char*>(b.label)+0x70,
+                               KmrpDrawnFillK1(static_cast<char*>(b.label)+0x70,resref),1);
             b.family=family;
         }
         if (!b.shown) { showControl(b.label,true); b.shown=true; }
@@ -684,7 +688,8 @@ bool updateSummaryBadge(void* panel, const int* ok) {
             char resref[16]={};
             sprintf_s(resref,"kmr%ccnfa",family);
             using Fill=void(__thiscall*)(void*,const void*,int);
-            fn<Fill>(0x414C00)(static_cast<char*>(b.label)+0x70,resref,1);
+            fn<Fill>(0x414C00)(static_cast<char*>(b.label)+0x70,
+                               KmrpDrawnFillK1(static_cast<char*>(b.label)+0x70,resref),1);
             b.family=family;
         }
         if (!b.shown) { showControl(b.label,true); b.shown=true; }
@@ -942,12 +947,18 @@ void setColour(void* label, const float* rgb) {
     if (now[0] == rgb[0] && now[1] == rgb[1] && now[2] == rgb[2]) return;
     fn<void(__thiscall*)(void*, const float*)>(0x414E10)(static_cast<char*>(label) + 0xE8, rgb);
 }
+// A fill by name, unless it already shows that picture. The controller patch draws its
+// pictures at the size they are shown and gives the border the drawing's own name, so the
+// fill is compared as the picture it stands for (KmrpLogicalFillK1) and set as the drawing
+// already made for this border where there is one (KmrpDrawnFillK1). The remapping screen
+// sets its symbols every frame: compared by the bare name, the drawing never matched, the
+// missing texture went back on, and the sweep drew over it again, every frame (2026-10-28).
 void setFill(void* params, const char* resref) {
     char name[16] = {};
     strncpy_s(name, resref, _TRUNCATE);
-    if (!_strnicmp(static_cast<char*>(params) + 0x40, name, 16)) return;
+    if (!_strnicmp(KmrpLogicalFillK1(static_cast<char*>(params) + 0x40), name, 16)) return;
     using Fill = void(__thiscall*)(void*, const void*, int);
-    fn<Fill>(0x414C00)(params, name, 1);
+    fn<Fill>(0x414C00)(params, KmrpDrawnFillK1(params, name), 1);
 }
 void labelFill(void* label, const char* resref) { setFill(static_cast<char*>(label) + 0x70, resref); }
 // A border with no picture: CSWGuiBorderParams::SetCornerImage (0x00414AE0) and
@@ -1694,13 +1705,15 @@ void refresh() {
     if (array[8]) {
         char resref[16]={};
         sprintf_s(resref,"kmr%clytdiag",family);
-        fn<Fill>(0x414C00)(static_cast<char*>(array[8])+0x70,resref,1);
+        fn<Fill>(0x414C00)(static_cast<char*>(array[8])+0x70,
+                           KmrpDrawnFillK1(static_cast<char*>(array[8])+0x70,resref),1);
     }
     // The B inside Back: the pad's own glyph, and only while a pad is in use.
     if (void* backGlyph=array[K1_LAYOUT_BACK_GLYPH]) {
         char resref[16]={};
         sprintf_s(resref,"kmr%clytbk",family);
-        fn<Fill>(0x414C00)(static_cast<char*>(backGlyph)+0x70,resref,1);
+        fn<Fill>(0x414C00)(static_cast<char*>(backGlyph)+0x70,
+                           KmrpDrawnFillK1(static_cast<char*>(backGlyph)+0x70,resref),1);
         at<unsigned>(backGlyph,0x44)=(at<unsigned>(backGlyph,0x44)&~2u)|(active?2u:0);
     }
     // Glyph controls follow the fixed ten, and use the same family resrefs as HUD.
@@ -1709,7 +1722,8 @@ void refresh() {
         if (!glyph) continue;
         char resref[16]={};
         sprintf_s(resref,"kmr%clyt%02d",family,i);
-        fn<Fill>(0x414C00)(static_cast<char*>(glyph)+0x70,resref,1);
+        fn<Fill>(0x414C00)(static_cast<char*>(glyph)+0x70,
+                           KmrpDrawnFillK1(static_cast<char*>(glyph)+0x70,resref),1);
     }
     remapDirty = true;            // the rows' glyphs and the footer's are the remap screen's again
     log("refresh");

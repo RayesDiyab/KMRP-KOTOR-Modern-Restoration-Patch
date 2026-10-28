@@ -4579,8 +4579,10 @@ extern "C" void __cdecl KmrpPadFocusSkipK1(void* control, int skipped)
     KmrpPadFocusExcludeK1(control, skipped != 0);
 }
 
-// The picture a fill stands for (vendor/K1XboxControls.cpp).
+// The picture a fill stands for (vendor/K1XboxControls.cpp), and the drawing made of a
+// picture for one border.
 const char* KmrpLogicalFillK1(const char* fill);
+const char* KmrpDrawnFillK1(const void* params, const char* fill);
 // The swoop prompt drawn for this screen's size, its name in `out` (the same file).
 bool KmrpDrawnPictureK1(const char* name, char out[17]);
 
@@ -4615,7 +4617,9 @@ void MatchCueFamilyK1(void* label)
         return;
     }
     resref[3] = wanted;
-    EngineFn<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(params, resref, 1);
+    // As the drawing already made for this label where there is one: the bare name is no
+    // texture the controller patch carries, white until the sweep drew it (2026-10-28).
+    EngineFn<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(params, KmrpDrawnFillK1(params, resref), 1);
 }
 
 // A cue in the world: the picture of the button its action is on, in the pad's
@@ -4631,7 +4635,7 @@ void ShowActionCueK1(void* label, int action)
     if (_strnicmp(KmrpLogicalFillK1(shown), wanted, sizeof(wanted)) == 0) {
         return;
     }
-    EngineFn<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(params, wanted, 1);
+    EngineFn<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(params, KmrpDrawnFillK1(params, wanted), 1);
 }
 
 #ifdef KMRP_CONTROLLER_STANDALONE
@@ -6078,6 +6082,15 @@ void LogMenuSnapshotK1(void* manager)
         add("  panel %d %p vt=%08X ext=%d,%d,%d,%d active=%p controls=%d\n", i, panel,
             static_cast<unsigned>(*static_cast<std::uintptr_t*>(panel)), e[0], e[1], e[2], e[3], active,
             *FieldAt<int>(panel, 0x24));
+        // The active control's flags (bit 0: drawn highlighted, its highlight border instead
+        // of its border, CSWGuiButton::Draw) and, for a button, both borders' pictures: the
+        // Xbox HUD's selected slot lost its yellow on 2026-10-28.
+        if (IsReadableK1(active, 0x170)) {
+            const bool button = *static_cast<std::uintptr_t*>(active) == 0x0073E658;
+            add("    active flags=%X%s%.16s%s%.16s\n", *FieldAt<unsigned>(active, 0x44),
+                button ? " border=" : "", button ? FieldAt<char>(active, 0x80 + 0x40) : "",
+                button ? " hilight=" : "", button ? FieldAt<char>(active, 0xF4 + 0x40) : "");
+        }
     }
     void* tabBar = nullptr;
     void* const front = NavigationPanelK1(&tabBar);

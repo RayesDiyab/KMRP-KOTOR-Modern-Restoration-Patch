@@ -138,6 +138,30 @@ proxy, and it applies the executable changes above as well.
     drawn picture (`CARRY_DRAWN`), since the Mac's module does not draw them: since
     phase 1 the shared `make()` had been leaving them out for it.
   * Not yet seen in the game.
+  * Corrections the same night, seen in the game by the maintainer:
+    - The target's name bar, the target's slots and the leader's portrait frame were
+      white. They are inside the in-game interface's target menu and party members,
+      whose controls are in no panel's list; the sweep now reads the interface
+      (`CSWGuiMainInterface`, 0xC8CC bytes) for the vtables of labels, buttons and
+      progress bars.
+    - Empty places of the row, the first slot's frame, the map's frame and a two-line
+      name's bar slices were white: the HUD draws those by stamping one spare label at
+      several sizes in a frame. Each stamp now asks for its picture at its size
+      (`KmrpStampPictureK1`).
+    - A picture set by name flashed white until the next frame's sweep (focus moving, a
+      target turning hostile, a slot appearing). Whatever sets a picture by name now gets
+      the drawing of it at the size its border fills, drawn there and then
+      (`KmrpDrawnFillK1`: the control found from the border's place in a label, button,
+      toggle or progress bar, told by its vtable). The HUD, the Controller Layout and the
+      remapping screen, the badges' paint and the cues all set pictures through it; the
+      remapping screen had set its symbols again every frame by the bare name. The pause
+      box's test for its own picture compares the picture a fill stands for.
+    - After a cutscene and as combat ended the game left its focus on a target slot with
+      nothing in it, which this layout hides: no slot looked selected, the first place
+      was not lit, and right went left from the hidden slot's place. The HUD lets go of
+      such a focus, so the first place is the selection.
+    - Debug level 2 also logs each picture set by name, each fill the sweep replaces, and
+      each panel's active control with its flags and border pictures.
 
 - **The Controller Layout screen and the swoop prompt drawn at the size they are shown**
   (2026-10-27). Phase 3 of 5.
@@ -188,6 +212,12 @@ proxy, and it applies the executable changes above as well.
     one that runs out of memory draws nothing instead of crashing. The pixels are the
     same: `Test-ControllerGlyphs.py` compares a 950x615 drawing, which takes the banded
     path, with the Python drawer, byte for byte (925 drawings in all).
+    **Correction (2026-10-28):** the two sizes above were estimates. The board was drawn
+    at 1520x760 (the module's log), so the whole grid was 1.38 GiB, not "about 2 GB at
+    about 1800x900"; and four rows of it are 7.5 MiB for that board, not "about 2 MB"
+    (about 20 bytes a sample, 64 samples a pixel, computed). The cause and the fix are
+    as written. The mechanism as a whole is described in
+    [`docs/controller-live-adaptive-layout.md`](docs/controller-live-adaptive-layout.md).
   * Third correction: the Controller Layout's backdrop stayed white. It is the panel's
     own border (the layout file's root BORDER), not a control, and the sweep looked only
     at controls. The sweep now reads each panel's border too: `CSWGuiPanel::m_pBorder` at

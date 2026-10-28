@@ -75,6 +75,8 @@ void ControllerLogK1(const char* text);     // K1NativeJoystick.cpp, the debug l
 extern "C" char __cdecl KmrpGlyphLetterK1();   // the pad family's letter in a texture's name (K1NativeJoystick.cpp)
 
 const char* KmrpLogicalFillK1(const char* fill);     // vendor/K1XboxControls.cpp
+const char* KmrpDrawnFillK1(const void* params, const char* fill);   // the same
+void KmrpStampPictureK1(void* control, std::ptrdiff_t paramsOffset, const char* name);   // the same
 
 namespace {
 
@@ -302,12 +304,14 @@ bool SameName(const char* a, const char* b)
 
 void SetFill(void* params, const char name[16])
 {
-    // The name the fill stands for: the controller patch draws its frames at the size they
-    // are shown and gives the border the drawing's own name (KmrpLogicalFillK1,
-    // vendor/K1XboxControls.cpp), which is the frame asked for here.
+    // The controller patch draws its frames at the size they are shown and gives the border
+    // the drawing's own name (vendor/K1XboxControls.cpp): a fill that is that drawing stands
+    // for the frame asked for (KmrpLogicalFillK1), and a frame set again, after the game has
+    // written its own over it, is set as the drawing already made for this border
+    // (KmrpDrawnFillK1), not as the bare name, which is no texture the patch carries.
     if (SameName(KmrpLogicalFillK1(&At<char>(params, kParamsFill)), name)) return;
     using Fn = void(__thiscall*)(void*, const char*, int);
-    reinterpret_cast<Fn>(kSetFillImage)(params, name, 1);
+    reinterpret_cast<Fn>(kSetFillImage)(params, KmrpDrawnFillK1(params, name), 1);
 }
 
 // A layout length on this screen, rounding half up, as build_xbox_hud.py rounds.
@@ -1377,8 +1381,10 @@ extern "C" void __cdecl KmrpXboxHudBarsK1(void* menu)
                     reinterpret_cast<void*>(kNoColouring), 0, 1.0f)) {
                 const Extent* const where[3] = {&slices.top, &slices.middle, &slices.bottom};
                 for (int i = 0; i < 3; ++i) {
-                    SetFill(fill, kFrameSlices[slices.hostile][i]);
+                    // Each slice a stamp, its picture drawn at the size it is drawn here
+                    // (KmrpStampPictureK1): the rectangle first.
                     SetExtent(label, *where[i]);
+                    KmrpStampPictureK1(label, kLabelBorderParams, kFrameSlices[slices.hostile][i]);
                     draw(label, 0.0f);
                     ClampBoundTexture();
                 }
@@ -1430,22 +1436,24 @@ extern "C" void __cdecl KmrpXboxHudBarsK1(void* menu)
             }
             if (reinterpret_cast<Viewport>(kSetupViewport)(0, 0, first.width, first.height,
                     reinterpret_cast<void*>(kNoColouring), 0, 1.0f)) {
+                // Each frame a stamp of the spare label, its picture drawn at the size it
+                // is drawn here (KmrpStampPictureK1): the rectangle first.
                 if (mapFrame.width > 0 && mapFrame.height > 0) {
-                    SetFill(frame, kMapFrame);
                     SetExtent(label, mapFrame);
+                    KmrpStampPictureK1(label, kLabelBorderParams, kMapFrame);
                     draw(label);
                 }
                 if (first.empties > 0) {
-                    SetFill(frame, kSlotFrame);
                     At<float>(frame, kParamsAlpha) = 0.5f;
                     for (int i = 0; i < first.empties && i < kRowPlaces; ++i) {
                         SetExtent(label, first.empty[i]);
+                        KmrpStampPictureK1(label, kLabelBorderParams, kSlotFrame);
                         draw(label);
                     }
                     At<float>(frame, kParamsAlpha) = 1.0f;
                 }
-                SetFill(frame, first.selected ? kSlotFrameSelected : kSlotFrame);
                 SetExtent(label, first.frame);
+                KmrpStampPictureK1(label, kLabelBorderParams, first.selected ? kSlotFrameSelected : kSlotFrame);
                 draw(label);
                 SetFill(Part(button, kButtonBorderParams), first.icon);
                 SetExtent(button, first.picture);
@@ -1551,8 +1559,13 @@ unsigned g_pauseButtonFlags[2] = {};
 // until PauseNotice sets the new one, and that box is still this file's.
 bool PauseCarriesOurs(void* pause)
 {
+    char shown[17] = {};
+    std::memcpy(shown, &At<char>(Part(Part(pause, kPauseButton), kButtonBorderParams), kParamsFill), 16);
+    // The picture it stands for: the controller patch gives the button its drawing's own
+    // name, "kmz..." (KmrpLogicalFillK1), and read as that this test failed and the box was
+    // never put back (found in the audit of 2026-10-28).
     char fill[17] = {};
-    std::memcpy(fill, &At<char>(Part(Part(pause, kPauseButton), kButtonBorderParams), kParamsFill), 16);
+    strncpy_s(fill, KmrpLogicalFillK1(shown), 16);
     if (_strnicmp(fill, "kmr", 3) != 0 || !fill[3]) return false;
     const char* const rest = fill + 4;
     if (_strnicmp(rest, "rm", 2) != 0) return false;
@@ -2108,7 +2121,25 @@ extern "C" void __cdecl KmrpXboxHudK1(void* hud)
     // target's name in the name bar; the PC puts a target slot's action in the name
     // bar and nothing in the box (CSWGuiTargetActionMenu::UpdateNameLabel).
     // The slot the HUD holds, even while another screen has the input (issue 56).
-    const int focused = KmrpHeldActionSlotK1(hud);
+    int focused = KmrpHeldActionSlotK1(hud);
+    // A slot the game still holds after its list has emptied: after a cutscene, or as
+    // combat ends, the game leaves its focus on a target slot with nothing in it ("xbox
+    // row: focused 0 ... first list 0", the maintainer's log, 2026-10-28). This layout hides
+    // an empty slot (HideSlot), so the selection was nowhere to be seen, the first place
+    // was not lit because a slot held the focus, and left and right started from the hidden
+    // slot's place at the row's far end, so right went left. The focus is let go of: the
+    // first place is the selection then, as whenever no slot holds it. Through the panel's
+    // own SetActiveControl (vtable slot 2, CSWGuiPanel's 0x0040A630), with no sound.
+    if (focused >= 0) {
+        const int count = focused < kTargetSlots
+            ? At<int>(menu, kMenuActionLists + focused * 0xC + 4)
+            : At<int>(hud, kHudPersonalLists + (focused - kTargetSlots) * 0xC + 4);
+        if (count <= 0) {
+            using SetActive = void(__thiscall*)(void*, void*, int);
+            reinterpret_cast<SetActive>((*reinterpret_cast<void***>(hud))[2])(hud, nullptr, 0);
+            focused = -1;
+        }
+    }
     // debug-logs=2: the row's state each time it changes (issue 56, two places lit and
     // the selection stuck while bashing).
     if (KmrpDebugLevel() >= 2) {
