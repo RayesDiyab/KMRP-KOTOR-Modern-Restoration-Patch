@@ -4,7 +4,9 @@
 #include "K1TextFitPolicy.h"
 #include "K1TextRows.h"
 #include "K1TextOptions.h"
+#include "K1CaptionInk.h"
 #include <algorithm>
+#include <climits>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -87,6 +89,19 @@ struct StringState {
     Key key{};
     KmrpTextFit::Measurement measured{0,0,0,false};
     std::vector<int> drawWidths, drawLengths;
+    // Its letters on its box's middle (CentreLetters): the top the layout gave it, the
+    // one written, and what the move was worked out for.
+    bool inkMoved = false;
+    int inkFrom = 0, inkTo = 0;
+    const void* inkInfo = nullptr;
+    const char* inkText = nullptr;
+    std::uint64_t inkHash = 0;
+    float inkScale = 0;
+    int inkShift = 0;
+    bool inkRead = false;     // the font was read for inkShift; else it is asked again
+    // The middle, on screen, of the art its control is drawn on (ArtCaptions), or
+    // INT_MIN: its letters go there instead of its box's middle.
+    int artMiddle = INT_MIN;
 };
 std::map<void*, StringState> strings;
 unsigned generation = 1;
@@ -541,12 +556,283 @@ extern "C" void __cdecl KmrpTextIdealHeightK1(void* object) {
     Restore(object);
     if(At<float>(object,0x40)!=before)Wrap(object);
 }
+void CentreLetters(void* object, StringState& state);
 extern "C" void __cdecl KmrpTextStringWrapK1(void* object,int* width) {
     // GetIdealHeight(width) temporarily swaps its line arrays; its trial and its
     // answer must not become this control's persistent state either way.
     (void)width;
     Restore(object);
+    // CSWGuiText::SetExtent (0x00416280) places the string and then rebuilds it, which
+    // comes here: its letters go where they are drawn now, not at its next draw, so a
+    // patch that sets a caption's rectangle reads the place it will have (the
+    // controller's glyph was placed from the old top and moved a frame later, "as if it
+    // gets drawn twice once with a pixel too high up then normal", 2026-10-28).
+    if(!measuring && object) {
+        const auto found=strings.find(object);
+        if(found!=strings.end())CentreLetters(object,found->second);
+    }
 }
+// A text centred top to bottom in its box is drawn with its letters' middle on the box's
+// middle, not its lines' (the maintainer, 2026-10-28, of every caption on its button's
+// art: "on all screens please, every single one"). The letters are low in a line: in the
+// game's menu font the capitals run from 29% to 88% of it, so a centred line put them
+// about 3 px below a 39 px button's middle at 3440x1440. Where they stand is read from
+// the font's own picture (K1CaptionInk.h); Draw (0x0045A850) places the lines from the
+// string's top at +0x08 when the alignment at +0x46 has 0x10, so that top is moved up by
+// the letters' distance below the line's middle, for this draw on: kept while the layout
+// leaves it, worked out again when the layout writes another (CSWGuiText::SetExtent), and
+// given back when the text stops being centred. Its height, and so the lines Draw
+// shows, are not touched.
+#ifndef KMRP_TEXT_LAYOUT_TEST
+// A caption whose control carries no art of its own is drawn on the art behind it,
+// which the game's screens draw as part of the panel's picture (the Map screen's whole
+// background is lbl_map, stretched over the panel; its Party Selection and Return rows
+// are bars in it). The art's bars were not drawn on the controls' middles: on the Map
+// and Journal screens the bars stand 1 to 3 px above their buttons at 3440x1440 (in
+// the HD art the Party Selection bar fills texture rows 1229 to 1256, the button the
+// screen rows 1230 to 1269), so a caption centred on its button stood below its bar
+// (the maintainer, 2026-10-28: "still not centered on the art"). Its letters now go on
+// the bar's middle, found in the picture itself, so a mod's art is followed too.
+//
+// What is behind a control: the last control before it in the panel's list (drawn
+// before it) whose rectangle holds its middle and that shows a stretched fill of its
+// own, else the panel's picture (its border at +0x5C, the parameters 0x14 into it: the
+// fill's name at +0x40, the fill style's low two bits at +0x1C, 2 stretched;
+// CSWGuiBorderParams, the swkotor1-reconstruction project). A control has no art of
+// its own when its border has no corner, edge or fill (+0x20, +0x30, +0x40). Only a
+// stretched picture is read; tiled and centred ones are left.
+//
+// The bar: the picture's rows under the middle three fifths of the control, each
+// row's light the mean of its pixels' brightest channel; from the row at the control's
+// middle, up and down to the first row whose light differs from the next by more than
+// kArtEdge (the bars are smooth inside and bounded by lines: in lbl_map's rows the
+// light changes by 1 to 4 a row inside a bar and by 14 to 31 at its lines). A bar
+// under half the control's height or over half again its height, or whose middle is
+// outside the control, is no bar, and the caption keeps its box's middle.
+constexpr int kArtEdge = 10;
+constexpr int kArtTopBorder = 2;    // rows of the art's top border counted into a box
+struct ArtPicture { std::string name; int width = 0, height = 0; std::vector<unsigned char> light; bool read = false; };
+std::vector<ArtPicture> artPictures;      // the last few read, newest last
+struct ArtPlace { std::string name; Rect behind{}, control{}; int middle = INT_MIN; bool read = false; };
+std::map<void*, ArtPlace> artPlaces;      // by control
+
+std::string ResRef(const char* at) {
+    char name[17] = {};
+    std::memcpy(name, at, 16);
+    return name;
+}
+bool OwnArt(const char* params) {
+    return !ResRef(params + 0x20).empty() || !ResRef(params + 0x30).empty() || !ResRef(params + 0x40).empty();
+}
+// A picture's light read from its uploaded texture `glName` into `p`.
+bool ReadPicture(ArtPicture& p, unsigned glName) {
+    int width = 0, height = 0;
+    unsigned char* const pixels = K1CaptionInk::ReadUploaded(glName, &width, &height);
+    if (!pixels) return false;
+    p.width = width;
+    p.height = height;
+    p.light.resize(static_cast<std::size_t>(width) * height);
+    for (std::size_t i = 0; i < p.light.size(); ++i) {
+        const unsigned char* px = pixels + i * 4;
+        p.light[i] = std::max(px[0], std::max(px[1], px[2]));
+    }
+    std::free(pixels);
+    p.read = true;
+    return true;
+}
+// A picture read once its texture is uploaded: now if it is, else as the game uploads it
+// (KmrpTextureUploadedK1), which ArtCaptions finds on its next frame. Not read is not
+// recorded as a failure.
+const ArtPicture* Picture(const std::string& name) {
+    for (const ArtPicture& p : artPictures) if (p.name == name) return p.read ? &p : nullptr;
+    void* const texture = Fn<void*(__cdecl*)(const char*, int)>(0x00423A60)(name.c_str(), 0);   // AurTextureGetReference
+    const unsigned glName = texture ? K1CaptionInk::UploadedName(texture) : 0;
+    if (artPictures.size() >= 6) artPictures.erase(artPictures.begin());
+    artPictures.push_back({name});
+    if (!glName) return nullptr;              // waits for its upload
+    return ReadPicture(artPictures.back(), glName) ? &artPictures.back() : nullptr;
+}
+// The screen row of the middle of the bar `at` is drawn on, in `picture` stretched over
+// `behind`; INT_MIN when there is none. OpenGL's row 0 is v = 0, the picture's bottom
+// as drawn (a quad's top takes v = 1).
+int BarMiddle(const ArtPicture& p, const Rect& behind, const Rect& at) {
+    if (behind.width <= 0 || behind.height <= 0 || at.height <= 0) return INT_MIN;
+    const auto rowOf = [&](double y) {             // screen y to texture row, top to bottom
+        return static_cast<int>(std::floor((1.0 - (y - behind.top) / behind.height) * p.height));
+    };
+    const auto screenOf = [&](int row) {           // a texture row's middle on screen
+        return behind.top + (1.0 - (row + 0.5) / p.height) * behind.height;
+    };
+    int x0 = static_cast<int>((at.left + at.width * 0.2 - behind.left) * p.width / behind.width);
+    int x1 = static_cast<int>((at.left + at.width * 0.8 - behind.left) * p.width / behind.width);
+    x0 = std::max(0, x0);
+    x1 = std::min(p.width, x1);
+    if (x1 <= x0) return INT_MIN;
+    const int step = std::max(1, (x1 - x0) / 64);
+    const auto light = [&](int row) {
+        if (row < 0 || row >= p.height) return -1000;
+        int sum = 0, n = 0;
+        for (int x = x0; x < x1; x += step, ++n) sum += p.light[static_cast<std::size_t>(row) * p.width + x];
+        return n ? sum / n : -1000;
+    };
+    const int middle = rowOf(at.top + at.height / 2.0);
+    // A row of a higher number is higher on screen: row + 1 is above.
+    int above = middle, below = middle;
+    const int reach = std::max(2, rowOf(at.top) - rowOf(at.top + at.height)) * 2;
+    while (above - middle < reach && std::abs(light(above + 1) - light(above)) <= kArtEdge) ++above;
+    while (middle - below < reach && std::abs(light(below - 1) - light(below)) <= kArtEdge) --below;
+    // And out to a thin rim line beyond an edge, which is the bar's outline, to the rim's
+    // brightest row: within an eighth of the control's rows (at least three), the first
+    // row the light rises to and then falls from by twice kArtEdge. A wide bright band
+    // (the Map's strip between its two rows) does not fall within that reach and ends the
+    // bar where it starts. Without the rim the Map's Party Selection bar was found 3 px low
+    // (its outline at texture rows 1227 to 1229). The first peak, not the brightest row in
+    // reach: on the 84 px bottom row the reach holds the screen's frame line above the
+    // tray, brighter than the tray's own top rim, so that rim was missed, the bottom one
+    // taken, and the captions stood about 2 px low on every tab (the maintainer,
+    // 2026-10-28, of Inventory's Use Item: "it should be centered"). From rim to rim
+    // through their middles, both sides alike.
+    const int rimRows = std::max(3, (rowOf(at.top) - rowOf(at.top + at.height)) / 8);
+    const auto rim = [&](int edge, int direction) {
+        int peak = 1;
+        while (peak < rimRows && light(edge + direction * (peak + 1)) >= light(edge + direction * peak)) ++peak;
+        const int peakLight = light(edge + direction * peak);
+        for (int k = peak + 1; k <= rimRows; ++k)
+            if (light(edge + direction * k) < peakLight - 2 * kArtEdge) return edge + direction * peak;
+        return edge;
+    };
+    above = rim(above, 1);
+    below = rim(below, -1);
+    // And two more of the art's rows above, the top border's own (the maintainer,
+    // 2026-10-28: "make it 1 pixel more up? maybe include 2 more pixels from the top
+    // border of the art"): the box's middle a row higher.
+    above += kArtTopBorder;
+    const double top = screenOf(above), bottom = screenOf(below);
+    const double span = bottom - top, centre = (top + bottom) / 2.0;
+    if (span < at.height * 0.5 || span > at.height * 1.5 || centre < at.top || centre > at.top + at.height)
+        return INT_MIN;
+    return static_cast<int>(std::lround(centre));
+}
+void ArtCaptions(void* panel) {
+    void** const array = At<void**>(panel, 0x20);
+    const int count = At<int>(panel, 0x24);
+    if (!array || count <= 0 || count > 4096) return;
+    char* const panelBorder = At<char*>(panel, 0x5C);
+    for (int i = 0; i < count; ++i) {
+        void* const control = array[i];
+        if (!control) continue;
+        const std::uintptr_t table = At<std::uintptr_t>(control, 0);
+        unsigned params = 0, text = 0;
+        if (table == 0x0073E658 || table == 0x0073EB88) { params = 0x80; text = 0x154; }   // button, toggle
+        else if (table == 0x0073E5B8) { params = 0x70; text = 0xD0; }                      // label
+        else continue;
+        void* const string = At<void*>(control, text + 0x14);
+        const auto found = string ? strings.find(string) : strings.end();
+        if (found == strings.end()) continue;
+        int& artMiddle = found->second.artMiddle;
+        artMiddle = INT_MIN;
+        if (OwnArt(static_cast<char*>(control) + params)) continue;
+        const Rect at = At<Rect>(control, 4);
+        // What it is drawn on.
+        std::string name;
+        Rect behind{};
+        for (int j = i - 1; j >= 0 && name.empty(); --j) {
+            void* const under = array[j];
+            if (!under || At<std::uintptr_t>(under, 0) != 0x0073E5B8) continue;
+            const Rect r = At<Rect>(under, 4);
+            const int mx = at.left + at.width / 2, my = at.top + at.height / 2;
+            if (mx < r.left || mx >= r.left + r.width || my < r.top || my >= r.top + r.height) continue;
+            const char* const p = static_cast<char*>(under) + 0x70;
+            if ((At<unsigned>(const_cast<char*>(p), 0x1C) & 3u) != 2u || ResRef(p + 0x40).empty()) continue;
+            name = ResRef(p + 0x40);
+            behind = r;
+        }
+        if (name.empty() && panelBorder) {
+            char* const p = panelBorder + 0x14;
+            if ((At<unsigned>(p, 0x1C) & 3u) == 2u) {
+                name = ResRef(p + 0x40);
+                behind = At<Rect>(panel, 4);
+            }
+        }
+        if (name.empty()) continue;
+        ArtPlace& place = artPlaces[control];
+        if (place.name != name || !Same(place.behind, behind) || !Same(place.control, at) || !place.read) {
+            place.name = name;
+            place.behind = behind;
+            place.control = at;
+            const ArtPicture* const picture = Picture(name);
+            place.middle = picture ? BarMiddle(*picture, behind, at) : INT_MIN;
+            place.read = picture != nullptr;     // else asked again once it is uploaded
+        }
+        artMiddle = place.middle;
+        // Moved now, before the screen is drawn or a glyph is placed beside it.
+        CentreLetters(string, found->second);
+    }
+}
+
+#endif
+
+// CAurTextureBasic::BuildAndStoreTexture (0x004216A0), just after glImage (0x00420970)
+// has uploaded the picture (hook at 0x004216F1, kotor1-native-runtime.hooks.toml): a
+// font's letters are read here, once each time it is loaded (its information, +0x38, has
+// characters), and a picture a caption's art waits for (Picture). The texture's own name
+// is at +0x78, its OpenGL name at +0x58. The maintainer, 2026-10-28, of reading a font
+// again a quarter second after it failed: "Instead of retry shouldn't hook the correct
+// spot in the chain once?"
+extern "C" void __cdecl KmrpTextureUploadedK1(void* texture) {
+#ifndef KMRP_TEXT_LAYOUT_TEST
+    if (!texture) return;
+    const unsigned glName = At<unsigned>(texture, 0x58);
+    if (!glName) return;
+    const char* const info = At<const char*>(texture, 0x38);
+    if (info && At<int>(const_cast<char*>(info), 0) > 0 && At<const float*>(const_cast<char*>(info), 0x18))
+        K1CaptionInk::FontUploaded(texture, glName, info);
+    char name[33] = {};
+    std::memcpy(name, static_cast<char*>(texture) + 0x78, 32);
+    for (ArtPicture& p : artPictures)
+        if (!p.read && !_stricmp(p.name.c_str(), name)) ReadPicture(p, glName);
+#else
+    (void)texture;
+#endif
+}
+
+void CentreLetters(void* object, StringState& state) {
+    int& top = At<int>(object, 0x08);
+    const int from = state.inkMoved && top == state.inkTo ? state.inkFrom : top;
+    const auto giveBack = [&] {
+        if (state.inkMoved && top == state.inkTo) top = state.inkFrom;
+        state.inkMoved = false;
+    };
+    if ((At<unsigned char>(object, 0x46) & 0x38u) != 0x10u) return giveBack();
+    // On its art's bar instead of its box's middle, where it has one (ArtCaptions).
+    const int height = At<int>(object, 0x10);
+    const int target = state.artMiddle != INT_MIN ? state.artMiddle - height / 2 : from;
+    Metrics font;
+    const char* text = At<const char*>(object, 0x14);
+    if (!text || !Font(object, font)) return giveBack();
+    std::uint64_t hash = 1469598103934665603ull;
+    for (int i = 0; i < 4096 && text[i]; ++i) hash = (hash ^ static_cast<unsigned char>(text[i])) * 1099511628211ull;
+    const float scale = At<float>(object, 0x40);
+    if (font.info != state.inkInfo || text != state.inkText || hash != state.inkHash || scale != state.inkScale ||
+            !state.inkRead) {
+        state.inkInfo = font.info;
+        state.inkText = text;
+        state.inkHash = hash;
+        state.inkScale = scale;
+        state.inkShift = 0;
+        const K1CaptionInk::Font* letters = K1CaptionInk::FontFor(font.font, static_cast<const char*>(font.info));
+        state.inkRead = letters != nullptr;
+        double middle = 0.5;
+        if (letters && Scale(scale) && K1CaptionInk::Middle(*letters, text, &middle))
+            state.inkShift = K1CaptionInk::Shift(middle, font.height * scale);
+    }
+    if (state.inkShift == 0 && target == from) return giveBack();
+    top = target - state.inkShift;
+    state.inkFrom = from;
+    state.inkTo = top;
+    state.inkMoved = true;
+}
+
 extern "C" void __cdecl KmrpTextStringDrawK1(void* object) {
     Apply(object,false);
     const auto found=strings.find(object);
@@ -554,6 +840,7 @@ extern "C" void __cdecl KmrpTextStringDrawK1(void* object) {
     // Reinstall only this instance's verified final widths immediately before
     // drawing, including cache hits, without another wrap or shared-font write.
     if(found!=strings.end())DrawWidths(object,found->second);
+    if(found!=strings.end())CentreLetters(object,found->second);
 }
 extern "C" void __cdecl KmrpTextListDrawK1(void* list) {KmrpTextRowsK1(list);}
 
@@ -668,6 +955,11 @@ void KmrpTextLayoutFrameK1(void* manager) {
         if(item.second.resource=="pause" && At<void*>(item.first,0x18)==manager)
             Pause(item.first,hud,width,height);
     }
+#ifndef KMRP_TEXT_LAYOUT_TEST
+    // Captions on the art behind them (ArtCaptions); before the draws that use it.
+    for(auto& item:panels)
+        if(At<void*>(item.first,0x18)==manager)ArtCaptions(item.first);
+#endif
     for(auto& item:panels) {
         if(At<void*>(item.first,0x18)!=manager)continue;
         if(item.second.resource=="container")Container(item.first,width);

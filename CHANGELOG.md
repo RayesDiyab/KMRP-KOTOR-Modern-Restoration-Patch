@@ -117,6 +117,215 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **No lag opening HUD Size and HUD Text; their Y, X and B as large as the settings
+  screens'** (2026-10-28, the maintainer: "there is lag when entering hud text or hud size
+  and the glyphs there are too small"). From the controller patch's log of that game:
+  * Opening HUD Size drew 11 Xbox-style HUD frames at 1290x72 on the game's thread, 31 to
+    141 ms each, 0.7 s in all. The page makes each preview piece from Graphics' `LBL_GAMMA`
+    (1290x72 at 3440x1440) and places only the shown style's pieces (`UpdatePreview`), so
+    the other style's, hidden, kept that size and the controller's sweep drew them at it.
+    Each piece now takes its place in the preview as it is made (`AddShown`,
+    `K1HudOptions.cpp`), so they are drawn at the preview's size, before they are shown.
+  * Every picture drawn on the game's thread listed the drawn-picture folder anew, most of
+    its cost: a 44x44 badge took 31 to 109 ms, a 60x60 picture drawn without the listing 0
+    to 16. The sweep now writes every picture of the frame, lists the folder once and then
+    sets their fills, before the frame is drawn (`g_k1DeferListing`, `K1FinishSweep`,
+    `vendor/K1XboxControls.cpp`).
+  * The pages' badges were labels the caption's line and three eighths tall: 44 px at
+    3440x1440, a 38 px glyph beside Graphics Options' 67. They are now sized so their glyph
+    is as tall as a settings screen's badge on a button of that size: the area the
+    button's border fills times 0.9375 (`kmrpy_optgfxdef`), over the 0.86 of its square a
+    glyph label's picture fills (`K1OptionsPad.h`).
+  * `Test-HudOptions.py`, `Test-TextOptions.py`, `Test-NativeTextLayout.py`,
+    `Test-ControllerKpatch.py` and `Test-PartyRosterGui.py` pass. Modules `kmrp.dll`
+    `974F2A05...` and `kmrp-controller.dll` `F2BBB141...` swapped into the maintainer's
+    game with the art pack they were built with (`360EB88E...`).
+  * Seen that day: both pages flashed as they opened, and HUD Size still paused on every
+    opening, though by then its log showed no picture drawn on a second visit. The pages
+    set their pictures by name, which since the controller patch draws them is no texture:
+    each piece showed as a missing texture for the first frame, and the engine looked each
+    one up in vain at every opening. The controller patch now exports
+    `KmrpSetPictureK1` (a picture set as its drawing for the border's size) and
+    `KmrpPictureBatchK1` (a batch listed once), which the pages use through `K1OptionsPad.h`,
+    falling back to the engine's own by name without the patch. HUD Size sets its preview's
+    pictures in one batch once the preview is laid out (`SetPreviewPictures`), each drawn
+    once, at its final size; both pages set their badges in a batch. Modules `kmrp.dll`
+    `A1C04269...` and `kmrp-controller.dll` `73D69798...` swapped in.
+  * HUD Size's first frame then took 363 to 427 ms at every opening: the images the page
+    set were released as it closed, so their textures were loaded again. The page keeps
+    one image of each for the session (`KeepImage`), and the mouse and keyboard HUD's
+    textures are loaded two a frame while the intro movies play (`KmrpPreloadHudPagesK1`,
+    called from KMRP's movie frame or, with the controller patch holding that hook, through
+    `KmrpMovieFrameK1`). Seen right: "only on first opening".
+  * The first opening still waited about 200 ms ("pictures 200" in the opening log, 14 on
+    later ones): the controller patch drew the Xbox-style HUD preview's 16 pieces then, at
+    the preview's sizes, which come from Graphics Options' layout and so cannot be known
+    while the movies play. While Graphics Options is up, KMRP now works out each of those
+    pictures and its size with the page's own code (`PreviewPieces`, `PreviewArea`,
+    `SizedOnScreen`, shared with the page) and the controller patch draws them on its
+    background thread (`KmrpQueuePictureK1`, `K1QueueSceneTexture`, the thread that draws
+    the Controller Layout ahead); a picture not finished when the page opens is drawn then
+    as before. `kmrp.dll` `B7787883...`, `kmrp-controller.dll` `7E3E1AF3...`. Seen: the
+    first opening's pictures took 48 ms against 194 ("there were no delays"); the rest is
+    the engine loading the drawn pictures as textures as the page is first shown.
+  * The day's diagnostic logging (the opening's timing, slow prompt frames, the badge
+    placements and caption ink readings, the preview's queue) taken out again once each
+    question was answered. Final `kmrp.dll` `5D324F23...`, `kmrp-controller.dll`
+    `44687A62...` (both from one full build), art pack `CF75A220...`.
+  * Then the pages' Y and B stood a few pixels left of Graphics Options' own (the
+    maintainer's screenshots at 3440x1440: Default's at about 504 against 511, Close's at
+    1393 against 1398). Their Default and Close are copies of Graphics' buttons with the same
+    captions, so their glyphs now take the settings badges' own boxes,
+    `kmrpy_optgfxdef` and `kmrpb_optgfx`, read from the controller patch's table
+    (`K1ControllerBadgeShapes.inc`, included by `K1OptionsPad.h`); the HUD page's X, which
+    has no counterpart, stays beside its caption. `kmrp.dll` `D4EF8EA1...`; not yet seen in
+    the game.
+  * That box was where the build drew the glyph, beside a caption of the game's own size;
+    the controller patch places Graphics' badges beside the caption as it is on screen, so
+    at 3440x1440 the pages' Y and B stood far left of their captions (the maintainer: "in
+    advanced settings tab its correct copy it from there"). They now keep the badge's
+    height and line and stand beside the caption as the controller patch's do: the glyph's
+    right a quarter of the area's height from the caption, then 5 px further right, where
+    the maintainer still saw them off (tried 2, 8 and 4 px first). `kmrp.dll` `266025AB...`.
+  * Then the pages' Default and Close copy Graphics Options' badges exactly (the
+    maintainer: "can Text size and font copy the buttons layout for Graphics options
+    Default and close buttons?"; Close's glyph still stood about 3 px right of Graphics').
+    The badge's label is placed as `ShowK1BadgeOverlay` places it, step for step (the
+    badge sized as `K1UniformBadge` sizes it, beside the caption's font width,
+    `K1CaptionInk::CaptionWidth`, where the engine's ideal width it used before is found
+    in steps of ten), and the controller patch turns it into the glyph's box and drawing
+    with the code Graphics Options uses (`KmrpBadgeGlyphK1`, around `K1DrawnBadge`). The
+    5 px offset is gone. `kmrp.dll` `5162D648...`, `kmrp-controller.dll` `64C650BE...`.
+  * Still 3 px off in play: both modules' logs showed KMRP's pages could not read the
+    font (its letters' middle -1, so the button's middle) and KMRP had not moved those
+    captions onto their letters either (their drawn top still the layout's 1227). A font
+    whose texture was not loaded yet when its text was first placed bound nothing
+    ("the texture bound nothing", dialogfont10x10b), and the failure was kept for the
+    session. The engine's `Bind` (0x004214B0) binds nothing while textures are locked
+    or the texture is still the null placeholder. Fonts are now read where the game
+    uploads them: a new hook at 0x004216F1 in `CAurTextureBasic::BuildAndStoreTexture`,
+    just after `glImage` (`KmrpTextureUploadedK1`, `CMP [EBX+0x20],-1.0f`, 7 bytes, the
+    same in the CD and GOG builds), reads each font's letters once per load from its
+    OpenGL name (+0x58), and a picture a caption's art waits for. Read from elsewhere (the
+    controller patch, which has no such hook), a texture is read only once uploaded, from
+    that name, never through `Bind`; one not uploaded yet is not recorded as failed (a
+    quarter-second retry, tried first, was dropped: the maintainer, "Instead of retry
+    shouldn't hook the correct spot in the chain once?"). A new hook, so the game's
+    `patch_config.toml` gains its row. `kmrp.dll` `1309875E...`, `kmrp-controller.dll`
+    `1BA1971F...` (both still log the badge placements); not yet seen in the game.
+- Controller glyphs beside a caption stand on the middle of its letters, top to bottom,
+  not of its line or button (the maintainer saw them high on the Map screen's two left
+  rows, 2026-10-28: "make the glyphs be centered to the vertical middle of the button
+  text", "make it in the code linked to the button text"). Where the letters stand in
+  the line is read from the font's own picture, once a font on the game's thread (the
+  font is the texture: its Bind, then OpenGL's read of it), each character's inked rows
+  mapped through its cell's texture coordinates as `CAurGUIStringInternal::Draw`
+  (0x0045A850) maps them onto the line; the lines are placed in the text's rectangle by
+  its alignment as Draw places them. So it follows any font, a mod's too, and the
+  caption's own characters. Shared by the controller patch's badges
+  (`ShowK1BadgeOverlay`) and KMRP's pages (`K1OptionsPad.h`), in the new
+  `src/controller-native/K1CaptionInk.h`; a font that cannot be read keeps the line's
+  middle. The first build kept the glyph's label inside its button, and as the label is
+  the button's height that undid every move (its log: the menu font's capitals from 290
+  to 883 thousandths of the line, so the letters' middle 587, and each badge back at its
+  button's top); it also read the font again for each caption, as each text holds its own
+  reference to the font, so a font is now known by its information. `kmrp.dll`
+  `0F368A10...`, `kmrp-controller.dll` `81CEDBBD...`; seen right by the maintainer.
+- Every text centred top to bottom in its box is drawn with its letters' middle on the
+  box's middle, not its lines', on every screen (the maintainer, 2026-10-28, of captions
+  sitting low on their buttons' art: "on all screens please, every single one"). The
+  letters are low in a line: in the menu font the capitals run from 29% to 88% of it,
+  so a centred caption stood about 3 px below a 39 px button's middle at 3440x1440. At
+  each draw (`KmrpTextStringDrawK1`, `CentreLetters` in `K1TextLayout.cpp`) the string's
+  top (+0x08, which `CAurGUIStringInternal::Draw` places the lines from when the
+  alignment at +0x46 has 0x10) is moved up by the letters' distance below the line's
+  middle, read from the font's picture (`K1CaptionInk.h`, the same reading as the
+  glyphs); kept while the layout leaves it, worked out again when the layout writes
+  another, given back when the text stops being centred; its height is not touched. The
+  controller's glyphs follow the letters there. A controller patch without KMRP leaves
+  the captions where the game draws them. `kmrp.dll` `87EC1A84...`,
+  `kmrp-controller.dll` `659FC270...`; seen in the game.
+- A caption whose control has no art of its own goes on the middle of the box the art
+  behind it draws (the maintainer: "still not centered on the art"): KMRP reads the
+  picture behind the control (an earlier label's stretched fill that holds it, else the
+  panel's), finds the box from the control's middle row out to the lines that bound it,
+  a thin rim line included, and draws the letters on its middle (`ArtCaptions`,
+  `BarMiddle` in `K1TextLayout.cpp`; the picture read as the font is,
+  `K1CaptionInk::ReadTexture`). A wide bright band ends a box where it starts; a box
+  under half or over half again the control's height is ignored. The controller's
+  glyphs now follow the string's own drawn top (`K1CaptionSignature` places a glyph again
+  when it moves), with no test for KMRP's module. `kmrp.dll` `02403A03...`,
+  `kmrp-controller.dll` `95B9DA41...`; the maintainer found the screens "fairly okay".
+  Then the bottom row's captions looked about 2 px low on every tab (the maintainer, of
+  Inventory's Use Item: "it should be centered", "read it from the art directly"). Read
+  from the art, they were on its box: the tray's rims at texture rows 1228 and 1303, the
+  middle at 1271, where the letters stood. Two changes, chosen that day:
+  * The rim beyond each edge is the first row the light rises to and then falls from,
+    not the brightest row within reach: on the 84 px bottom row the reach held the
+    screen's frame line above the tray, so its top rim was missed and its bottom one
+    taken. The box runs from rim to rim through their middles, both sides alike (here the
+    same 1271; the Map's Party Selection a pixel lower, 1248).
+  * A caption's letters are centred on the average of each letter's own middle
+    (`K1CaptionInk::Middle`; letters and digits, punctuation only where there is nothing
+    else), not on the middle of all their rows together, which the few full capitals set:
+    the menu font's capitals run from 29% to 88% of the line and its small capitals, most
+    of a caption, from 40% to 87%. Every centred caption rises about 1 to 1.6 px at
+    3440x1440 on every screen, and the controller's glyphs with it, since the controller,
+    KMRP's captions and KMRP's pages share the function. `kmrp.dll` `5B672F24...`,
+    `kmrp-controller.dll` `83AD8161...`.
+  * Then a pixel more up ("maybe include 2 more pixels from the top border of the art"):
+    a box found in the art takes two more of the art's rows at its top
+    (`kArtTopBorder`), so its middle is a row higher. Captions on buttons with art of
+    their own are not moved by it. `kmrp.dll` `2A030AC6...`; seen: "its pixel perfect now".
+  The move was made at the caption's draw only, so a glyph placed when a screen first
+  came up stood where the caption had been and moved a frame later ("as if it gets drawn
+  twice once with a pixel too high up then normal"; hiding it for that frame was
+  refused: "it needs to still be there when I swap tabs"). It is now also made where
+  the caption is placed, in the rebuild `CSWGuiText::SetExtent` (0x00416280) ends with
+  (`KmrpTextStringWrapK1`), and as soon as the art box is found, so whoever sets a
+  caption's rectangle reads its final place back. `kmrp.dll` `90CCE8F6...`.
+- The in-game menu's Close and the button beside it have the Character screen's own
+  rectangles on every screen and at every size (the maintainer, 2026-10-28: "make all of
+  these have the same exact location and size ... so when I scroll through the tabs,
+  the close is all the same"). The game's files agree (Close 393,410 146x28, its
+  neighbour 247,410); the high-resolution sets did not: at 3440x1440 Equip's Close was
+  2117 779 wide, Inventory's 2122 774 wide, Script Selection's and Party Selection's
+  2118, against Character's 2112,1230 785x84, and Inventory's Use Item 1333 770 wide
+  and Equip's 775 wide against 1328 785 wide. `tools/menu_bottom_row.py` sets them from
+  each size's own `character.gui` as built (in `prepare_universal_resources.py`, after the
+  steps that adjust layouts), and the gold files carry it (four files, six controls), so
+  Live Adaptive Layout's table has it too. Journal's, Messages' and Map's wide buttons are
+  not the neighbour and keep theirs. The neighbour ends where Close starts: Character's
+  own pair overlapped by a pixel (Scripts to 2113, Close from 2112), which on Party
+  Selection made Done and Back overlap and KMRP's 16-slot roster refuse the layout; so
+  Scripts is now 784 wide at 3440x1440 and every neighbour with it. The roster's check
+  that a layout is a scaled copy of the game's (`CheckFit`, `K1PartyRosterGui.cpp`) now
+  allows a pixel per 1440 rows instead of one pixel at every size: at 15360x8640 Done is
+  Character's 3500 wide where one scale for Done and Accept gives 3503. `kmrp.dll`
+  `6DCFD9BA...`, art pack `CF75A220...`; not yet seen in the game.
+
+- **Live Adaptive Layout: Inventory, Equipment and Character** (2026-10-28, after the
+  options screens; [docs/live-adaptive-layout.md](docs/live-adaptive-layout.md)). The three
+  screens GUI mods change most are laid out at run time too, from a mod's file or the
+  game's own, with two of the build's steps repeated at run time:
+  * Equipment's item list made as tall as whole rows (`fit_list_to_rows`, ROW_LISTS; 336
+    to 313 px at 1024x576);
+  * the R3 cue by the party portraits (`add_party_switch_cue`), which the controller
+    patch's R3 prompt is drawn on, now that KMRP's layouts carry it beside that patch. The C
+    adds the control by appending to the file's GFF sections, nothing already in it moved.
+  * Gold's text alignments are carried too (Character's `LBL_LEVEL`, 12 to 10, at every
+    size), and a field's rule is chosen up to a constant factor, so `LBL_LEVEL`, half as
+    wide as stretching makes it, is no longer 296 px at every size. The options screens'
+    table is unchanged by that.
+  * `Test-LiveLayout.py`: 14 screens, 71,544 fields, 94.47% exact, 5.35% a pixel off, 123
+    further: 49 scroll-bar values the engine replaces, 57 on screens from 3008 px wide (the
+    portraits' second button and the cue, 2 to 5 px), Key Mapping's 8, 9 single fields at
+    15360x8640; every other field the set's at every size (checked at 3440x1440 only until
+    now); C equal to Python in every field in 3,780 layouts, the cue's included.
+  * Module `kmrp.dll` `ACA3146F...` (759,296 bytes) swapped into the maintainer's game, the
+    previous one in `KMRP\backups\kmrp.dll.before-live-layout-2-2026-10-28`. Not yet seen
+    in the game.
+
 - **X is OK on Advanced Graphics and Advanced Sound** (2026-10-28, the maintainer's
   request). A toggles the focused box there (V-Sync, Soft Shadows, Frame Buffer Effects,
   Force Software), and OK's badge was A as well, so confirming from a box meant moving to

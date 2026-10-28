@@ -2707,6 +2707,11 @@ FrameFnK1 ControllerFrameK1(const char* name)
 // and adds the pad's movie skip.
 extern "C" void __cdecl CoreMovieFrameK1(void* moviePlayer)
 {
+#ifdef KMRP_NATIVE_RUNTIME
+    // A few of the heavy pages' textures each movie frame, on the game's thread (the
+    // maintainer, 2026-10-28), so HUD Size's first opening does not load them.
+    KmrpPreloadHudPagesK1();
+#endif
     static bool looked = false;
     static FrameFnK1 controllerFrame = nullptr;
     if (!looked) {
@@ -2730,6 +2735,18 @@ extern "C" void __cdecl CoreMovieFrameK1(void* moviePlayer)
 
 extern "C" void __cdecl NativeMovieFrameK1(void* moviePlayer)
 {
+#ifndef KMRP_NATIVE_RUNTIME
+    // Beside KMRP this patch holds the movie site, so KMRP's preload of its heavy pages'
+    // textures is asked for here (KmrpMovieFrameK1, K1HudOptions.cpp); without KMRP, nothing.
+    static bool asked = false;
+    static void (__cdecl* kmrpMovieFrame)() = nullptr;
+    if (!asked) {
+        asked = true;
+        if (HMODULE kmrp = GetModuleHandleW(L"kmrp.dll"))
+            kmrpMovieFrame = reinterpret_cast<void(__cdecl*)()>(GetProcAddress(kmrp, "KmrpMovieFrameK1"));
+    }
+    if (kmrpMovieFrame) kmrpMovieFrame();
+#endif
     if (!TrackMovieFrameK1(moviePlayer)) {
         return;
     }

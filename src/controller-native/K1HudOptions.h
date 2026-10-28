@@ -4,6 +4,9 @@
 // Every GUI frame: the page's entry button, the page itself, its saving and preview.
 void KmrpHudOptionsFrameK1(void* manager);
 void KmrpHudOptionsDestroyedK1(void* panel);
+// Once a movie frame while the intro movies play (CoreMovieFrameK1): a few of the HUD Size
+// preview's textures loaded and kept, so the page's first opening does not load them.
+void KmrpPreloadHudPagesK1();
 // The page is open (the Text Size page's entry shows no A over it).
 bool KmrpHudOptionsOpenK1();
 // The size chosen for an element (KmrpHudOptions::Element), in percent; 50 is today's.

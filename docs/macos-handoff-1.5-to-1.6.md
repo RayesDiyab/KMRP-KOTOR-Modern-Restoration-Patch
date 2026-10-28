@@ -1076,6 +1076,14 @@ file is left to the game. **How to check:** `kmrp-guiadapt live` on the Mac game
 `optionsmain.gui` at 3440x1440 gives `LB_DESC` 1780, 280, 1386, 850, and
 `testing/regression/Test-LiveLayout.py` passes there (it builds the helper with clang).
 
+**Later the same day: 14 screens.** Inventory, Equipment and Character joined, and the
+helper now also fits Equipment's item list to whole rows, carries gold's text alignments,
+and adds the R3 cue (`LBL_KMRPR3`, picture `kmrprb_party`) by the party portraits, as the
+build does. Nothing more to call: `KmrpLiveLayoutCount` and `KmrpLiveLayoutName` list all
+14. **On the Mac** the cue is drawn from KMRP's sets' own art, as the Mac's controller
+assets carry it (item 99), so check the R3 cue shows on those three screens once the Mac
+calls the helper.
+
 ## 103. X is OK on Advanced Graphics (Windows 2026-10-28)
 
 Windows' pad presses Advanced Graphics' and Advanced Sound's OK with X wherever the focus
@@ -1087,6 +1095,42 @@ until** `macos/patches/kmrp-controller/prompts.cpp` names `kmrpx_optgfxadv` at 0
 (settings)": `kSlotX` presses the button at 0x2598 of `CSWGuiOptionsGraphicsAdvanced`, as
 `PressDefault` presses Default. The Mac has no Advanced Sound screen. **How to check:** on
 Advanced Graphics, with V-Sync focused, A toggles it and X saves and closes.
+
+## 104. Glyphs on the middle of their caption's letters (Windows 2026-10-28, uncommitted)
+
+Windows' badges beside a caption stand on the middle of its letters, top to bottom, not of
+the caption's line or button: the maintainer saw them high on the Map screen's two left
+rows. Where the letters stand in a line is read from the font's own picture, once a font
+(`src/controller-native/K1CaptionInk.h`: the font is the texture, so its Bind, then
+`glGetTexImage`, each character's inked rows mapped through its texture coordinates as
+`CAurGUIStringInternal::Draw` maps them onto the line). **To do on the Mac:** the same
+in the Mac's badge placement, with the Mac's Draw and texture read. **How to check:** on
+the Map screen, the X and Square of the two left rows stand level with their captions'
+letters.
+
+Then the same day, every text centred top to bottom is drawn with its letters' middle on
+its box's middle, on every screen (`CentreLetters` in `src/controller-native/K1TextLayout.cpp`,
+at the string's draw: its top at +0x08 moved up by the letters' distance below the line's
+middle). **To do on the Mac:** the same in the Mac's string draw hook. **How to check:**
+the Map screen's two left captions stand in the middle of their bars.
+
+The same day, a caption whose control has no art of its own goes on the middle of the box
+the art behind it draws (`ArtCaptions` and `BarMiddle` in `K1TextLayout.cpp`). **To do on
+the Mac:** the same, reading the panel's picture with the Mac's texture read.
+
+Fonts and those pictures are read where the game uploads them: a KMRP hook at 0x004216F1
+in `CAurTextureBasic::BuildAndStoreTexture`, just after `glImage` (`KmrpTextureUploadedK1`),
+from the texture's OpenGL name at +0x58; never through the engine's `Bind`, which binds
+nothing while textures are locked. **To do on the Mac:** the same point in the Mac's
+texture upload.
+
+## 105. Close in one place on every in-game screen (Windows 2026-10-28, uncommitted)
+
+The in-game menu's Close and the button beside it take the Character screen's rectangles
+on every screen, at every size (`tools/menu_bottom_row.py`, run by
+`prepare_universal_resources.py`; four gold files changed). **Nothing to do on the Mac**
+beyond taking the new layout sets and Live Adaptive Layout table; both are shared data.
+**How to check:** go through the tabs with L2 and R2: Close and its neighbour do not move.
 
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 

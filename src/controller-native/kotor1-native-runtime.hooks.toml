@@ -206,6 +206,19 @@ original_bytes = [0x8B, 0x8C, 0x24, 0x14, 0x20, 0x00, 0x00]
 source = "edi"
 type = "pointer"
 
+# CAurTextureBasic::BuildAndStoreTexture, just after its CALL glImage (0x004216EC)
+# uploaded the picture. EBX is the texture; its OpenGL name is at +0x58. One 7-byte
+# CMP [EBX+0x20],-1.0f, no relative operand, not a branch target; the replayed CMP sets
+# the flags for the JNE after it. A font's letters are read here (K1CaptionInk.h).
+[[hooks]]
+address = 0x004216F1
+type = "detour"
+function = "KmrpTextureUploadedK1"
+original_bytes = [0x81, 0x7B, 0x20, 0x00, 0x00, 0x80, 0xBF]
+[[hooks.parameters]]
+source = "ebx"
+type = "pointer"
+
 # Per-instance text scale is captured after the native constructor stores +0x40.
 # Each prefix below consists of complete instructions with no relative operands.
 # Explicit-width GetIdealHeight trials are excluded by the wrap callback.

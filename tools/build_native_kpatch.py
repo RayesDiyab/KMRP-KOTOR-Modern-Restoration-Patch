@@ -91,6 +91,7 @@ PARAMETERS = {
     'KmrpTextIdealHeightK1': [('ecx', 'pointer')],
     'KmrpTextListDrawK1': [('ecx', 'pointer')],
     'KmrpFontMetricsLoadedK1': [('edi', 'pointer')],
+    'KmrpTextureUploadedK1': [('ebx', 'pointer')],
     'KmrpAllowRuntimeResolutionK1': [('esp+4', 'pointer'), ('esp+8', 'pointer')],
     'KmrpResolutionRequestedK1': [('ecx', 'pointer'), ('esp+4', 'pointer'), ('esp+8', 'pointer')],
     'KmrpModeSwitchK1': [],
@@ -230,8 +231,11 @@ def functions():
     names: the size the mouse and keyboard HUD's parts are shown at (K1PcHud.cpp), which
     the controller patch's module asks for so its Xbox-style HUD keeps its own minimap's
     size; and KmrpPrepareAssets (K1RuntimeEngine.cpp), which KMRP's installer calls to
-    make the art of every size before the game first starts."""
-    return {h['function'] for h in all_hooks() if h.get('function')} | {'KmrpHudAppliedSizeK1', 'KmrpPrepareAssets'}
+    make the art of every size before the game first starts. And KmrpMovieFrameK1
+    (K1HudOptions.cpp), which the controller patch's movie frame calls, as it holds the movie
+    site beside KMRP: the heavy pages' textures preloaded while the intro movies play."""
+    return {h['function'] for h in all_hooks() if h.get('function')} | {'KmrpHudAppliedSizeK1', 'KmrpPrepareAssets',
+                                                                        'KmrpMovieFrameK1'}
 
 
 def render_hooks():

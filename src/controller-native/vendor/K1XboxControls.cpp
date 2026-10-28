@@ -6,6 +6,7 @@
 
 #include "K1XboxControlsXInput.h"
 #include "../K1PartyRosterState.h"
+#include "../K1CaptionInk.h"
 
 bool ControllerTypesByItselfK1();   // K1ControllerBackend.cpp
 void ControllerLogK1(const char* text);     // K1NativeJoystick.cpp, the debug log
@@ -1839,6 +1840,15 @@ std::vector<K1Scene> g_k1Scenes;
 std::vector<unsigned char> g_k1GlyphData;
 bool g_k1GlyphsLoaded = false;
 std::vector<std::string> g_k1DrawnBadges;           // textures written this session
+// While the frame's sweep runs, the folder is listed once at its end rather than after each
+// picture, and the fills that wait on that listing are set then (K1SweepFrame). Listing the
+// folder is most of a picture's cost on the game thread: 31 to 109 ms for a 44x44 badge,
+// against 0 to 16 for a 60x60 picture drawn without it (the maintainer's log, 2026-10-28),
+// and the HUD Size page drew 14 at once as it opened.
+bool g_k1DeferListing = false;
+bool g_k1ListingDue = false;
+struct K1WaitingFill { char* params; std::string scene; char drawn[17]; };
+std::vector<K1WaitingFill> g_k1WaitingFills;
 // Badges and pictures drawn on the game thread since the sweep last ran, and the frames in a
 // row in which none was: the Controller Layout's pictures are drawn in the background only
 // once a frame has passed with nothing left to draw (KmrpPicturesSettledK1).
@@ -1997,7 +2007,12 @@ bool K1WriteTextureFiles(const char* name, const std::vector<std::uint8_t>& shee
 // The same, once per session, and the folder listed anew so the engine finds it.
 bool K1WriteDrawnTexture(const char* name, const std::vector<std::uint8_t>& sheet, int dw, int dh)
 {
-    if (!K1WriteTextureFiles(name, sheet, dw, dh) || !KmrpControllerRelistK1()) {
+    if (!K1WriteTextureFiles(name, sheet, dw, dh)) {
+        return false;
+    }
+    if (g_k1DeferListing) {
+        g_k1ListingDue = true;            // listed once, at the end of the sweep
+    } else if (!KmrpControllerRelistK1()) {
         return false;
     }
     g_k1DrawnBadges.push_back(name);
@@ -2337,6 +2352,40 @@ const char* KmrpDrawnFillK1(const void* params, const char* fill)
     return entry->drawn;
 }
 
+namespace { void K1FinishSweep(); }
+
+// For KMRP's own option pages (K1OptionsPad.h), which set this patch's pictures on controls
+// they make at run time. Set by its bare name, a picture showed as a missing texture for a
+// frame, until the sweep drew it: the HUD Size and HUD Text pages flashed as they opened,
+// and looked up a texture that is not there for each piece, every time (the maintainer,
+// 2026-10-28). KmrpSetPictureK1 sets the drawing for the size the border fills now; between
+// KmrpPictureBatchK1(1) and KmrpPictureBatchK1(0) the folder is listed once, at the end, and
+// the fills set then, all before the frame is drawn, as the sweep does (K1FinishSweep).
+extern "C" void __cdecl KmrpPictureBatchK1(int begin)
+{
+    if (begin) {
+        g_k1DeferListing = true;
+    } else {
+        K1FinishSweep();
+    }
+}
+
+extern "C" void __cdecl KmrpSetPictureK1(void* params, const char* name)
+{
+    if (!params || !name) return;
+    char want[17] = {};
+    std::strncpy(want, name, 16);
+    const char* const use = KmrpDrawnFillK1(params, want);
+    const K1Scene* const scene = use != want ? FindK1Scene(want) : nullptr;
+    if (scene && g_k1DeferListing) {
+        K1WaitingFill waiting{static_cast<char*>(params), scene->name, {}};
+        std::memcpy(waiting.drawn, use, 17);
+        g_k1WaitingFills.push_back(waiting);
+        return;
+    }
+    reinterpret_cast<SetFillImageFn>(K1_GUI_BORDER_SET_FILL_IMAGE)(params, use, 1);
+}
+
 // The swoop race's prompt (UpdateSwoopPromptK1, K1NativeJoystick.cpp) drawn for this
 // screen: a texture on the race HUD's 3D model, which the sweep never sees. The HUD is fixed
 // to the camera, so its size on screen follows the screen's height; its 128x128 texture was
@@ -2346,6 +2395,28 @@ const char* KmrpDrawnFillK1(const void* params, const char* fill)
 namespace {
 void K1ControlPictures(void* control, bool queue);
 bool K1PanelPicture(void* panel, bool queue);
+}
+
+// For KMRP's HUD Size page (K1HudOptions.cpp, QueuePreviewPictures): the picture `name`
+// queued for drawing in the background for a border `width` by `height` (its fill area),
+// sized as KmrpDrawnFillK1 sizes it, so the page finds it drawn when it sets it. Its
+// preview's Xbox-style HUD pieces were drawn as the page first opened, 16 of them in
+// about 170 ms (the maintainer, 2026-10-28: "a small wait time on first launch").
+// Nothing where `name` is none of the patch's pictures.
+extern "C" void __cdecl KmrpQueuePictureK1(const char* name, int width, int height)
+{
+    if (!name) return;
+    char want[17] = {};
+    std::strncpy(want, name, 16);
+    const K1Scene* const scene = FindK1Scene(want);
+    if (!scene) return;
+    if (scene->cap > 0 && (std::max)(width, height) > scene->cap) {
+        const double k = static_cast<double>(scene->cap) / (std::max)(width, height);
+        width = (std::max)(1, static_cast<int>(std::lround(width * k)));
+        height = (std::max)(1, static_cast<int>(std::lround(height * k)));
+    }
+    if (width <= 0 || height <= 0 || width > 4095 || height > 4095) return;
+    K1QueueSceneTexture(*scene, width, height, false);
 }
 
 // The Controller Layout's pictures queued for drawing in the background, from a copy of the
@@ -2420,10 +2491,28 @@ const K1Scene* K1PictureFor(const char* params, char fill[17], int& width, int& 
     return width > 4095 || height > 4095 ? nullptr : scene;
 }
 
+// `drawn`, the picture `scene` drawn, set as the fill of `params` and remembered for
+// KmrpLogicalFillK1.
+void K1SetSceneFill(char* params, const std::string& scene, const char* drawn)
+{
+    reinterpret_cast<SetFillImageFn>(K1_GUI_BORDER_SET_FILL_IMAGE)(params, drawn, 1);
+    K1SceneFill* entry = nullptr;
+    for (K1SceneFill& known : g_k1SceneFills) {
+        if (known.params == params) entry = &known;
+    }
+    if (!entry) {
+        g_k1SceneFills.push_back({params, scene, {}});
+        entry = &g_k1SceneFills.back();
+    }
+    entry->scene = scene;
+    std::memcpy(entry->drawn, drawn, 17);
+}
+
 // A border's parameters that show one of the patch's pictures: the picture drawn for its size
 // and set as the fill, remembered for KmrpLogicalFillK1. With `queue`, only queued for the
 // background (a copy of the Controller Layout that is never shown), in every controller's
-// variant, the current one first.
+// variant, the current one first. During the frame's sweep the fill waits for the folder's
+// listing (K1FinishSweep).
 void K1BorderPicture(char* params, int width, int height, bool queue)
 {
     char fill[17];
@@ -2457,18 +2546,39 @@ void K1BorderPicture(char* params, int width, int height, bool queue)
                           params, fill, name.c_str(), width, height, drawn);
             ControllerLogK1(line);
         }
-        reinterpret_cast<SetFillImageFn>(K1_GUI_BORDER_SET_FILL_IMAGE)(params, drawn, 1);
-        K1SceneFill* entry = nullptr;
-        for (K1SceneFill& known : g_k1SceneFills) {
-            if (known.params == params) entry = &known;
+        if (g_k1DeferListing) {
+            // Set once the sweep has listed the folder: the engine finds no texture the
+            // folder's listing does not name.
+            K1WaitingFill waiting{params, name, {}};
+            std::memcpy(waiting.drawn, drawn, 17);
+            g_k1WaitingFills.push_back(waiting);
+            return;
         }
-        if (!entry) {
-            g_k1SceneFills.push_back({params, name, {}});
-            entry = &g_k1SceneFills.back();
-        }
-        entry->scene = name;
-        std::memcpy(entry->drawn, drawn, 17);
+        K1SetSceneFill(params, name, drawn);
     }
+}
+
+// The end of a frame's sweep: the folder listed once if a picture was written, then the
+// fills that waited on it set.
+void K1FinishSweep()
+{
+    g_k1DeferListing = false;
+    if (g_k1ListingDue) {
+        g_k1ListingDue = false;
+        if (!KmrpControllerRelistK1()) {
+            // The engine would find none of them: drawn again when next asked for.
+            for (const K1WaitingFill& waiting : g_k1WaitingFills) {
+                g_k1DrawnBadges.erase(std::remove(g_k1DrawnBadges.begin(), g_k1DrawnBadges.end(),
+                                                  std::string(waiting.drawn)), g_k1DrawnBadges.end());
+            }
+            g_k1WaitingFills.clear();
+            return;
+        }
+    }
+    for (const K1WaitingFill& waiting : g_k1WaitingFills) {
+        K1SetSceneFill(waiting.params, waiting.scene, waiting.drawn);
+    }
+    g_k1WaitingFills.clear();
 }
 
 // A panel's own border, the root BORDER of its layout file (the Controller Layout's
@@ -2588,6 +2698,34 @@ bool K1DrawnBadge(const BadgeShape& shape, char family, K1BadgeRect* rect, char 
     }
     *rect = {static_cast<int>(std::lround(middleX - dw / 2.0)), static_cast<int>(std::lround(middleY - dh / 2.0)), dw, dh};
     return true;
+}
+
+// For KMRP's own option pages (K1OptionsPad.h), whose Default and Close are copies of
+// Graphics Options' and wear its badges: `rect` (left, top, width, height) is where that
+// badge's label goes, placed as ShowK1BadgeOverlay places it, and becomes the glyph's own
+// box in it, `out` the glyph drawn at that size (K1DrawnBadge), so the two screens show
+// the same picture on the same pixels (the maintainer, 2026-10-28: "can Text size and font
+// copy the buttons layout for Graphics options Default and close buttons?"). `resref` is
+// the badge's name in any family; 0 where there is no such badge or it cannot be drawn.
+extern "C" int __cdecl KmrpBadgeGlyphK1(const char* resref, char family, int* rect, char* out)
+{
+    if (!resref || !rect || !out) return 0;
+    for (const BadgeShape& shape : kBadgeShapes) {
+        bool same = true;
+        for (int i = 0; i < 16 && same; ++i) {
+            const char a = i == 3 ? 'p' : resref[i];
+            same = a == shape.resref[i];
+            if (a == '\0') break;
+        }
+        if (!same) continue;
+        K1BadgeRect r{rect[0], rect[1], rect[2], rect[3]};
+        char drawn[17] = {};
+        if (!K1DrawnBadge(shape, family, &r, drawn)) return 0;
+        rect[0] = r.left; rect[1] = r.top; rect[2] = r.width; rect[3] = r.height;
+        std::memcpy(out, drawn, 17);
+        return 1;
+    }
+    return 0;
 }
 #endif
 // `textWas` is the caption's rectangle as it was before this file moved the caption
@@ -2967,6 +3105,17 @@ std::uint32_t K1CaptionSignature(void* button)
             hash = (hash ^ static_cast<unsigned char>(chars[i])) * 16777619u;
         }
     }
+    // And where the caption is drawn from, top to bottom: the string's own top (+0x08),
+    // which another patch may move at its draw (KMRP draws a centred caption's letters on
+    // its button's art), so the glyph follows the letters there.
+    void* const string = *reinterpret_cast<void**>(
+        static_cast<char*>(button) + K1_BUTTON_TEXT_OFFSET + K1_TEXT_STRING_OFFSET);
+    if (K1BadgeReadable(string, 0x14)) {
+        const unsigned char* const top = static_cast<const unsigned char*>(string) + 0x08;
+        for (int i = 0; i < 4; ++i) {
+            hash = (hash ^ top[i]) * 16777619u;
+        }
+    }
     return hash;
 }
 
@@ -3270,6 +3419,40 @@ bool ShowK1BadgeOverlay(void* control, const char resref[16], int tall = 0, bool
             // In the middle of its button, top to bottom; the caption is on that line
             // (above), or was there already.
             wanted.top = buttonMiddle - wanted.height / 2;
+        }
+        // On the middle of the caption's letters, not of its line: where they stand in
+        // the line is read from the font's own picture (K1CaptionInk.h), and the line
+        // from the text's rectangle and alignment as Draw places it. Until 2026-10-28
+        // the glyph took the line's middle and stood above its caption (the
+        // maintainer, on the Map screen's two rows: "make the glyphs be centered to
+        // the vertical middle of the button text").
+        double letters = 0.0;
+        int fontLine = 0;
+        void* const string = *reinterpret_cast<void**>(
+            static_cast<char*>(control) + K1_BUTTON_TEXT_OFFSET + K1_TEXT_STRING_OFFSET);
+        const bool read = K1CaptionInk::Letters(string, &letters, &fontLine);
+        if (read && fontLine <= at.height) {
+            // Where the string itself is drawn from: its own top and height (+0x08,
+            // +0x10), which its text's rectangle sets and another patch may move at its
+            // draw (K1CaptionSignature places the glyph again when it moves).
+            const K1BadgeRect block{text.left, *reinterpret_cast<const int*>(static_cast<char*>(string) + 0x08),
+                                    text.width, *reinterpret_cast<const int*>(static_cast<char*>(string) + 0x10)};
+            const int lines = *reinterpret_cast<const int*>(static_cast<char*>(string) + 0x38) > 1
+                ? *reinterpret_cast<const int*>(static_cast<char*>(string) + 0x38) : 1;
+            const int all = lines * fontLine;
+            // As Draw reads it: the string's alignment at +0x46, 0x10 the middle, 0x20
+            // the bottom, anything else the top.
+            const unsigned vertical = *(static_cast<unsigned char*>(string) + 0x46) & 0x38u;
+            int blockTop = block.top;
+            if (vertical == 0x10u) {
+                blockTop = block.top + (block.height - all) / 2;
+            } else if (vertical == 0x20u) {
+                blockTop = block.top + block.height - all;
+            }
+            const int middle = static_cast<int>(blockTop + (lines - 1) * fontLine / 2.0 + letters * fontLine + 0.5);
+            // Not kept inside the button: the label is the button's whole height, so
+            // keeping it there undid the move (the play-test log of 2026-10-28).
+            wanted.top = middle - wanted.height / 2;
         }
         const int middle = text.width > 0 ? text.left + text.width / 2 : at.left + at.width / 2;
         const int gap = height / 4, air = height / 8;
@@ -3797,11 +3980,15 @@ void UpdateK1ControllerPrompts()
     g_k1DrawsThisFrame = 0;
     K1CollectBackgroundPictures(nullptr);
     {
+        // The folder listed once for the whole sweep (g_k1DeferListing), before the frame
+        // is drawn, so no fill shows a picture the engine cannot find yet.
+        g_k1DeferListing = true;
         void* const guiManager = GetK1TitleGuiManager();
         K1SweepRuntimePictures(guiManager);
         void* const hudManager = g_mainInterface
             ? ReadPointer(g_mainInterface, K1_CONFIG.panelManagerOffset) : nullptr;
         if (hudManager && hudManager != guiManager) K1SweepRuntimePictures(hudManager);
+        K1FinishSweep();
     }
     g_k1BadgePaintPanel = panel;
     RestoreK1GrownButtons(panel);

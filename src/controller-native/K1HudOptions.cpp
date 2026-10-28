@@ -42,7 +42,9 @@
 #include <cstring>
 #include <cwchar>
 #include <map>
+#include <string>
 #include <vector>
+
 
 namespace {
 using namespace KmrpHudOptions;
@@ -149,7 +151,7 @@ KmrpOptionsPad::Glyph defaultsGlyph, otherGlyph, backGlyph;
 void* NativeRoutine(std::uintptr_t address) { return reinterpret_cast<void*>(address); }
 // A label of the preview: the element it belongs to (-1: drawn for context, never
 // scaled), its rectangle on the screen, and the HUD style it is part of.
-struct Shown { void* label; int element; Rect screen; int style; };
+struct Shown { void* label; int element; Rect screen; int style; char art[17]; };
 constexpr int Both = 2;   // a piece shown with either HUD: the screen's outline
 std::vector<Shown> pieces;
 Rect groups[ElementCount]{};
@@ -363,6 +365,21 @@ int FocusedElement() {
     return -1;
 }
 
+// Where a piece of the preview stands on the screen at the sizes asked for: `screen` is
+// its place at the default size, `e` its element (-1: context, never scaled).
+Rect SizedOnScreen(int e, const Rect& screen) {
+    const int size = e < 0 ? Default
+        : e == PcAttack ? requested.values[e]
+        : FittingSize(groups[e], CornerOf(e), requested.values[e], screenWidth, screenHeight);
+    Rect r = e < 0 ? screen : ScaleAbout(screen, groups[e], CornerOf(e), size);
+    // Kept on the screen: the combat strip spans its width and grows from the
+    // middle of the top, so a larger one would reach past both sides.
+    const int right = (std::min)(screenWidth, r.left + r.width), bottom = (std::min)(screenHeight, r.top + r.height);
+    r.left = (std::max)(0, r.left); r.top = (std::max)(0, r.top);
+    r.width = (std::max)(1, right - r.left); r.height = (std::max)(1, bottom - r.top);
+    return r;
+}
+
 // The preview's pieces of the style shown, where the requested sizes put them; the
 // focused element's at full strength, the others dimmed; the other style's hidden.
 // Only what changed is written.
@@ -375,19 +392,7 @@ void UpdatePreview() {
         unsigned& flags = At<unsigned>(piece.label, 0x44);
         flags = visible ? (flags | 2u) : (flags & ~2u);
         if (!visible) continue;
-        if (moved || switched) {
-            const int e = piece.element;
-            const int size = e < 0 ? Default
-                : e == PcAttack ? requested.values[e]
-                : FittingSize(groups[e], CornerOf(e), requested.values[e], screenWidth, screenHeight);
-            Rect r = e < 0 ? piece.screen : ScaleAbout(piece.screen, groups[e], CornerOf(e), size);
-            // Kept on the screen: the combat strip spans its width and grows from the
-            // middle of the top, so a larger one would reach past both sides.
-            const int right = (std::min)(screenWidth, r.left + r.width), bottom = (std::min)(screenHeight, r.top + r.height);
-            r.left = (std::max)(0, r.left); r.top = (std::max)(0, r.top);
-            r.width = (std::max)(1, right - r.left); r.height = (std::max)(1, bottom - r.top);
-            Extent(piece.label, preview.Map(r));
-        }
+        if (moved || switched) Extent(piece.label, preview.Map(SizedOnScreen(piece.element, piece.screen)));
         const bool lit = focus < 0 || focus == piece.element;
         At<float>(piece.label, kLabelParams + kParamsAlpha) =
             piece.label == backdrop ? 1.0f : piece.style == Both ? kEdges : lit ? 1.0f : kDimmed;
@@ -426,14 +431,51 @@ void AddShown(void* p, const char* art, int element, const Rect& r, int style, c
     if ((!hasArt && !hasText) || pieces.size() >= 128) return;
     void* label = Bind(p, "LBL_GAMMA", 0x140, 0x41ACD0);
     if (!label) return;
+    // Its place in the preview from the start, before its picture: a label made from
+    // LBL_GAMMA is that label's size (1290x72 at 3440x1440), and the other style's pieces,
+    // hidden, are not placed by UpdatePreview until shown, so the controller patch drew all
+    // eleven Xbox-style frames at 1290x72 as the page opened, 0.7 s in all (its log, the
+    // maintainer's game, 2026-10-28: "there is lag when entering hud text or hud size").
+    Extent(label, preview.Map(r));
     Text(label, text);
-    if (!hasArt) { pieces.push_back({label, element, r, style}); return; }
-    char fill[16]{};
-    std::memcpy(fill, art, (std::min)(std::strlen(art), sizeof fill));
-    Fn<void(__thiscall*)(void*, const char*, int)>(0x414C00)(static_cast<char*>(label) + kLabelParams, fill, 1);
-    unsigned& flags = At<unsigned>(label, kLabelParams + kParamsFlags);
-    flags = (flags & ~3u) | 2u;   // stretched: the art drawn at the preview's size
-    pieces.push_back({label, element, r, style});
+    Shown piece{label, element, r, style, {}};
+    if (hasArt) {
+        // The picture itself is set once the preview is laid out (SetPreviewPictures).
+        std::memcpy(piece.art, art, (std::min)(std::strlen(art), sizeof piece.art - 1));
+        unsigned& flags = At<unsigned>(label, kLabelParams + kParamsFlags);
+        flags = (flags & ~3u) | 2u;   // stretched: the art drawn at the preview's size
+    }
+    pieces.push_back(piece);
+}
+// Every piece's picture, once the preview has placed it: the controller patch's drawing for
+// the piece's size, all listed in one go (K1OptionsPad.h, SetPicture). Set by name as each
+// piece was made, until 2026-10-28, every one showed a missing texture for the page's first
+// frame (a flash as HUD Size opened) and was drawn again at its preview size the next.
+void SetPreviewPictures() {
+    KmrpOptionsPad::Batch(true);
+    for (const Shown& piece : pieces)
+        if (piece.art[0]) KmrpOptionsPad::SetPicture(static_cast<char*>(piece.label) + kLabelParams, piece.art, &NativeRoutine);
+    KmrpOptionsPad::Batch(false);
+}
+// An image of every picture the page has shown, kept for the session. A border's image is
+// made by name when its fill is set (CSWGuiBorderParams::SetFillImage, 0x00414C00, through
+// NewCAurGUIImage, 0x0045A260, the swkotor1-reconstruction project) and released when the
+// page closes, so the game loaded the preview's textures again as it first drew the page,
+// at every opening: that frame took 363 to 427 ms, the page's own making 1 to 3 (the
+// maintainer's log, 2026-10-28). One more image of the same name keeps each loaded.
+std::map<std::string, void*> keptImages;
+// The preview's game textures, loaded while the intro movies play and kept for the session
+// (KmrpPreloadHudPagesK1): AurTextureGetReference (0x00423A60) finds or makes a texture by
+// name without loading it, CAurTexture::Bind (0x004214B0) loads and uploads it, as the page's
+// first drawing did, 363 to 427 ms on its first frame (the maintainer, 2026-10-28: "lets
+// preload all these heavy screen while the game plays the intro movies").
+std::vector<void*> preloadedTextures;
+std::size_t preloadNext = 0;
+void KeepImage(const void* control, unsigned params) {
+    char name[17] = {};
+    std::memcpy(name, static_cast<const char*>(control) + params + 0x40, 16);   // the fill's resref
+    if (!name[0] || keptImages.count(name)) return;
+    if (void* image = Fn<void*(__cdecl*)(const char*)>(0x45A260)(name)) keptImages[name] = image;
 }
 // The Xbox-style HUD's element of a piece of its table, or -1 for context.
 int XboxElement(const xbox::Piece& x) {
@@ -448,21 +490,17 @@ int XboxElement(const xbox::Piece& x) {
 // frame, the target's bar (top left) and the disengage button and queue (bottom
 // centre); not the combat strip across the top. Under both, the screen in slate
 // (kBackdrop), with a faint outline, so a corner's growth reads against its edges.
-void MakePreview(void* p, const Rect& area, int width, int height) {
-    preview = Preview::Fit(area, width, height);
-    screenWidth = width; screenHeight = height;
+// `add(art, element, rect, style, text)` for each piece, in drawing order; the elements'
+// whole boxes (`groups`) found on the way.
+template<class Add> void PreviewPieces(int width, int height, Add add) {
     // The screen's edges: four lines two preview pixels thick, faint (whitefill at the
     // alpha of a dimmed piece, set by UpdatePreview), shown with either HUD.
     if (preview.scale > 0) {
         const int t = (std::max)(1, static_cast<int>(2.0 / preview.scale + 0.5));
         const Rect edges[4] = {{0, 0, width, t}, {0, height - t, width, t}, {0, 0, t, height}, {width - t, 0, t, height}};
         // The screen itself first, so every piece is drawn over it.
-        AddShown(p, "whitefill", -1, {0, 0, width, height}, Both);
-        if (!pieces.empty()) {
-            backdrop = pieces.back().label;
-            std::memcpy(&At<float>(backdrop, kLabelParams + kParamsColour), kBackdrop, sizeof kBackdrop);
-        }
-        for (const Rect& edge : edges) AddShown(p, "whitefill", -1, edge, Both);
+        add("whitefill", -1, Rect{0, 0, width, height}, Both, "");
+        for (const Rect& edge : edges) add("whitefill", -1, edge, Both, "");
     }
     bool seen[ElementCount]{};
     // The mouse and keyboard HUD from the table it is placed from in the game
@@ -485,16 +523,8 @@ void MakePreview(void* p, const Rect& area, int width, int height) {
             Rect r = Placed(piece, width, height);
             if (piece.anchor == kPcMenuSpace) { r.left += menuX; r.top += menuY; }
             Grow(piece.element, r, seen);
-            if (!std::strcmp(piece.tag, "BTN_CLEARALL")) {
-                // Centred in its box, as the game's file has it (ALIGNMENT 18); the label
-                // it is made from (LBL_GAMMA) reads from the left. CSWGuiTextParams::
-                // SetAlignment, 0x00415F20, `ret 4`.
-                const size_t before = pieces.size();
-                AddShown(p, "", piece.element, r, Pc, "Disengage");
-                if (pieces.size() > before)
-                    Fn<void(__thiscall*)(void*, int)>(0x415F20)(static_cast<char*>(pieces.back().label) + 0xE8, 18);
-            }
-            else AddShown(p, piece.fill, piece.element, r, Pc);
+            if (!std::strcmp(piece.tag, "BTN_CLEARALL")) add("", piece.element, r, Pc, "Disengage");
+            else add(piece.fill, piece.element, r, Pc, "");
         }
     }
     for (const xbox::Piece& x : xbox::kPieces) {
@@ -507,8 +537,99 @@ void MakePreview(void* p, const Rect& area, int width, int height) {
         const Rect r = xbox::Placed(x, width, height);
         Grow(element, r, seen);
         // A bar shows its filling; anything else its own art.
-        AddShown(p, x.kind == xbox::kProgress && x.progress ? x.progress : x.fill, element, r, Xbox);
+        add(x.kind == xbox::kProgress && x.progress ? x.progress : x.fill, element, r, Xbox, "");
     }
+}
+
+void MakePreview(void* p, const Rect& area, int width, int height) {
+    preview = Preview::Fit(area, width, height);
+    screenWidth = width; screenHeight = height;
+    PreviewPieces(width, height, [&](const char* art, int element, const Rect& r, int style, const char* text) {
+        const size_t before = pieces.size();
+        AddShown(p, art, element, r, style, text);
+        if (pieces.size() == before) return;
+        if (before == 0) {
+            backdrop = pieces.back().label;     // the screen in slate (kBackdrop)
+            std::memcpy(&At<float>(backdrop, kLabelParams + kParamsColour), kBackdrop, sizeof kBackdrop);
+        }
+        // Disengage centred in its box, as the game's file has it (ALIGNMENT 18); the label
+        // it is made from (LBL_GAMMA) reads from the left. CSWGuiTextParams::SetAlignment,
+        // 0x00415F20, `ret 4`.
+        if (text && text[0]) Fn<void(__thiscall*)(void*, int)>(0x415F20)(static_cast<char*>(pieces.back().label) + 0xE8, 18);
+    });
+}
+
+// The left column's places: seven, each the graphics screen's caption height (the link,
+// and each HUD's parts on the places after it).
+int Places() {
+    int most = 0, count[2]{};
+    for (int i = 0; i < ElementCount; ++i) most = (std::max)(most, ++count[StyleOf(i)]);
+    return most + 1;
+}
+
+// The right-hand box of the page, where the preview goes, from Graphics Options' own
+// controls (`owner`): inside the frame the player sees round its description list, below
+// a line for the caption "Preview". `slot` is that line's height, the left column's place.
+Rect PreviewArea(void* owner, int* slot) {
+    const auto rect = [owner](const char* tag) { return At<Rect>(KmrpRuntimeControlByTagK1(owner, tag), 4); };
+    const Rect label = rect("LBL_GAMMA"), desc = rect("LB_DESC");
+    const int bar = At<int>(KmrpRuntimeControlByTagK1(owner, "LB_DESC"), 0x110);
+    const bool barKnown = bar > 0 && bar < desc.width / 2;
+    *slot = (std::max)(1, (std::min)(label.height, desc.height / Places()));
+    // The right-hand box is the preview alone (the maintainer, 2026-10-19: "on the right
+    // side it should just be the preview"), inside the frame the player sees. It leaves
+    // out the list's scrollbar strip on the right (the bar's width at +0x110), which the
+    // frame does not cover (the first build drew past the frame at 3440x1440), and is
+    // centred in the frame: centred on the list, the preview stood 18 px right of the
+    // frame's middle (the maintainer, 2026-10-18: "the left has a wider gap"); the frame
+    // runs to 13 px short of the strip.
+    const int margin = (std::max)(2, desc.height / 32);
+    Rect area = desc;
+    if (barKnown) {
+        const int left = desc.left - Round(bar * 23 / 86.0);
+        const int right = desc.left + desc.width - bar - Round(bar * 13 / 86.0);
+        area.left = left;
+        area.width = right - left;
+    }
+    // A line at the top for its caption, "Preview" (below).
+    area.top = desc.top + margin + *slot;
+    area.height = desc.top + desc.height - margin - area.top;
+    area.left += area.width / 20; area.width -= area.width / 10;
+    return area;
+}
+
+// The preview's pictures drawn in the background while Graphics Options is up, before HUD
+// Size is opened from it: each of the controller patch's pictures the page will set, at the
+// size the page gives it as it opens (the other style's pieces at their default size,
+// hidden) and with that style shown (at the sizes asked for). Its first opening drew the
+// Xbox-style HUD's 16 pieces then, about 170 ms (the maintainer, 2026-10-28: "a small wait
+// time on first launch compared to opening after that"). The game textures of the mouse
+// and keyboard HUD are loaded while the intro movies play (KmrpPreloadHudPagesK1); these
+// cannot be, as their sizes come from Graphics Options' layout. Once per layout and sizes.
+void QueuePreviewPictures(void* manager, void* owner) {
+    if (current || !owner || !KmrpRuntimeControlByTagK1(owner, "LB_DESC") || !KmrpRuntimeControlByTagK1(owner, "LBL_GAMMA")) return;
+    const int width = At<short>(manager, 0x6C), height = At<short>(manager, 0x6E);
+    int slot = 0;
+    const Rect area = PreviewArea(owner, &slot);
+    static Rect queuedArea{};
+    static decltype(requested.values) queuedSizes{};
+    static int queuedWidth = 0, queuedHeight = 0;
+    if (!std::memcmp(&area, &queuedArea, sizeof area) && queuedSizes == requested.values &&
+            queuedWidth == width && queuedHeight == height) return;
+    queuedArea = area; queuedSizes = requested.values; queuedWidth = width; queuedHeight = height;
+    preview = Preview::Fit(area, width, height);
+    screenWidth = width; screenHeight = height;
+    struct Wanted { std::string art; int element; Rect screen; };
+    std::vector<Wanted> wanted;
+    PreviewPieces(width, height, [&](const char* art, int element, const Rect& r, int, const char*) {
+        if (art && art[0]) wanted.push_back({art, element, r});
+    });
+    // After every piece is listed: an element's sizes need its whole box (groups).
+    for (const Wanted& item : wanted)
+        for (const Rect& r : {item.screen, SizedOnScreen(item.element, item.screen)}) {
+            const Rect at = preview.Map(r);
+            KmrpOptionsPad::QueuePicture(item.art.c_str(), at.width, at.height);
+        }
 }
 
 void MakeScreen(void* manager, void* owner) {
@@ -570,30 +691,8 @@ void MakeScreen(void* manager, void* owner) {
     const int tabsTop = titleRect.top + titleRect.height + (band - tabHeight) / 2;
     const Rect tabRects[2] = {{bandLeft, tabsTop, tabWidth, tabHeight},
                               {bandRight - tabWidth, tabsTop, tabWidth, tabHeight}};
-    // The left column's places (below): seven, each the graphics screen's caption height.
-    int most = 0, count[2]{};
-    for (int i = 0; i < ElementCount; ++i) most = (std::max)(most, ++count[StyleOf(i)]);
-    const int places = most + 1;
-    const int slot = (std::max)(1, (std::min)(label.height, desc.height / places));
-    // The right-hand box is the preview alone (the maintainer, 2026-10-19: "on the right
-    // side it should just be the preview"), inside the frame the player sees. It leaves
-    // out the list's scrollbar strip on the right (the bar's width at +0x110), which the
-    // frame does not cover (the first build drew past the frame at 3440x1440), and is
-    // centred in the frame: centred on the list, the preview stood 18 px right of the
-    // frame's middle (the maintainer, 2026-10-18: "the left has a wider gap"); the frame
-    // runs to 13 px short of the strip.
-    const int margin = (std::max)(2, desc.height / 32);
-    Rect area = desc;
-    if (barKnown) {
-        const int left = desc.left - Round(bar * 23 / 86.0);
-        const int right = desc.left + desc.width - bar - Round(bar * 13 / 86.0);
-        area.left = left;
-        area.width = right - left;
-    }
-    // A line at the top for its caption, "Preview" (below).
-    area.top = desc.top + margin + slot;
-    area.height = desc.top + desc.height - margin - area.top;
-    area.left += area.width / 20; area.width -= area.width / 10;
+    int slot = 0;
+    const Rect area = PreviewArea(owner, &slot);
     MakePreview(p, area, At<short>(manager, 0x6C), At<short>(manager, 0x6E));
     void* previewCaption = Bind(p, "LBL_GAMMA", 0x140, 0x41ACD0);
     void* defaults = Bind(p, "BTN_DEFAULT", 0x1C4, 0x41C0F0);
@@ -645,6 +744,7 @@ void MakeScreen(void* manager, void* owner) {
     // link HUD sizes above them"). Until then the column ran from under the first tabs to
     // above Default, its link 120 px tall. Each HUD's rows take the same places, the
     // other HUD's being hidden.
+    const int places = Places();
     const int firstTop = frameTop - (slot - kCheckboxCircle) / 2;
     const int lastTop = desc.top + desc.height - slot;
     const auto placeTop = [&](int k) { return firstTop + k * (lastTop - firstTop) / (places - 1); };
@@ -703,6 +803,9 @@ void MakeScreen(void* manager, void* owner) {
     defaultsGlyph = KmrpOptionsPad::Glyph{}; defaultsGlyph.label = marks[0]; defaultsGlyph.button = defaults; defaultsGlyph.code = 'y';
     otherGlyph = KmrpOptionsPad::Glyph{}; otherGlyph.label = marks[1]; otherGlyph.button = other; otherGlyph.code = 'x';
     backGlyph = KmrpOptionsPad::Glyph{}; backGlyph.label = marks[2]; backGlyph.button = back; backGlyph.code = 'b';
+    // Default and Close on the pixels of Graphics Options' own Y and B (K1OptionsPad.h);
+    // the other tab's X has no counterpart there and stands beside its caption.
+    defaultsGlyph.badge = "kmrpy_optgfxdef"; backGlyph.badge = "kmrpb_optgfx";
     for (void* button : {tabs[0], tabs[1], defaults, other, back}) KmrpOptionsPad::SkipFocus(button, true);
     Fn<Event>(0x41AB20)(linkSizes, 0x27, p, reinterpret_cast<void*>(&ToggleLink));
     Fn<Event>(0x41AB20)(tabs[Pc], 0x27, p, reinterpret_cast<void*>(&SelectPc));
@@ -715,6 +818,20 @@ void MakeScreen(void* manager, void* owner) {
     // The page opens on "Link HUD Sizes", as the Text Size page on its link.
     Fn<Focus>(0x40A630)(p, linkSizes, 0);
     releasedFrames = 0; UpdateCaptions(); UpdatePreview();
+    SetPreviewPictures();
+    // The pad's Y, X and B before the page is shown, not on its next frame: they popped
+    // in after it (the maintainer, 2026-10-28).
+    {
+        const bool pad = KmrpOptionsPad::PadInUse();
+        const char family = KmrpOptionsPad::Family();
+        KmrpOptionsPad::Batch(true);
+        for (KmrpOptionsPad::Glyph* glyph : {&defaultsGlyph, &otherGlyph, &backGlyph})
+            KmrpOptionsPad::Update(*glyph, pad, family, &NativeRoutine);
+        KmrpOptionsPad::Batch(false);
+    }
+    for (const Shown& piece : pieces) if (piece.art[0]) KeepImage(piece.label, kLabelParams);
+    for (KmrpOptionsPad::Glyph* glyph : {&defaultsGlyph, &otherGlyph, &backGlyph})
+        if (glyph->label) KeepImage(glyph->label, kLabelParams);
     Fn<void(__thiscall*)(void*, void*, int, int)>(0x40BC70)(manager, p, 3, 1);
 }
 
@@ -753,6 +870,38 @@ void EntryBadge(void* owner, Entry& e, bool pad, char family) {
 
 bool KmrpHudOptionsOpenK1() { return current != nullptr; }
 
+// For the controller patch's movie frame, which holds the movie site beside KMRP
+// (NativeMovieFrameK1, K1NativeJoystick.cpp); KMRP's own frame calls the preload itself.
+extern "C" void __cdecl KmrpMovieFrameK1() { KmrpPreloadHudPagesK1(); }
+
+// Two textures a movie frame, so a movie does not stall: every texture the preview's mouse
+// and keyboard HUD shows (the pieces MakePreview draws), and the preview's screen. The
+// Xbox-style HUD's pictures are the controller patch's, drawn for the preview's sizes when
+// the page is laid out, and are not among them.
+void KmrpPreloadHudPagesK1()
+{
+    using namespace KmrpPcHud;
+    constexpr std::size_t kPerFrame = 2;
+    const std::size_t count = sizeof kPcPieces / sizeof kPcPieces[0];
+    for (std::size_t done = 0; done < kPerFrame && preloadNext <= count; ++preloadNext) {
+        const char* name = preloadNext == count ? "whitefill" : kPcPieces[preloadNext].fill;
+        if (preloadNext < count) {
+            const PcPiece& piece = kPcPieces[preloadNext];
+            if (!(piece.flags & kPreview) || piece.element < 0 || !name || !name[0]) continue;
+        }
+        static std::vector<std::string> loaded;
+        bool seen = false;
+        for (const std::string& known : loaded) seen = seen || known == name;
+        if (seen) continue;
+        loaded.push_back(name);
+        void* texture = Fn<void*(__cdecl*)(const char*, int)>(0x423A60)(name, 0);
+        if (!texture) continue;
+        Fn<void(__thiscall*)(void*)>(0x4214B0)(texture);
+        preloadedTextures.push_back(texture);
+        ++done;
+    }
+}
+
 int KmrpHudSizePercentK1(int element) {
     Initialize();
     return element >= 0 && element < ElementCount ? sizing.values[element] : Default;
@@ -781,10 +930,16 @@ void KmrpHudOptionsFrameK1(void* manager) {
     const bool pad = KmrpOptionsPad::PadInUse();
     const char family = KmrpOptionsPad::Family();
     for (void* p : KmrpRuntimePanelsK1("optgraphics"))
-        if (At<std::uintptr_t>(p, 0) == GraphicsTable) { UpdateEntry(p, entries[p]); EntryBadge(p, entries[p], pad, family); }
-    if (current)
+        if (At<std::uintptr_t>(p, 0) == GraphicsTable) {
+            UpdateEntry(p, entries[p]); EntryBadge(p, entries[p], pad, family);
+            QueuePreviewPictures(manager, p);   // drawn ahead, while Graphics Options is up
+        }
+    if (current) {
+        KmrpOptionsPad::Batch(true);
         for (KmrpOptionsPad::Glyph* glyph : {&defaultsGlyph, &otherGlyph, &backGlyph})
             KmrpOptionsPad::Update(*glyph, pad, family, &NativeRoutine);
+        KmrpOptionsPad::Batch(false);
+    }
     if (pending) {
         void* owner = pending; pending = nullptr;
         if (!current && Fn<Exists>(0x40BD70)(manager, owner)) MakeScreen(manager, owner);

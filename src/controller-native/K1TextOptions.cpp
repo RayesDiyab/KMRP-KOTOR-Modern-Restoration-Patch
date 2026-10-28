@@ -352,6 +352,8 @@ void MakeScreen(void* manager,void* owner) {
     defaultsButton=defaults;backButton=back;
     defaultsGlyph=KmrpOptionsPad::Glyph{};defaultsGlyph.label=defaultsMark;defaultsGlyph.button=defaults;defaultsGlyph.code='y';
     backGlyph=KmrpOptionsPad::Glyph{};backGlyph.label=backMark;backGlyph.button=back;backGlyph.code='b';
+    // On the pixels of Graphics Options' own Y and B: the same buttons, the same captions.
+    defaultsGlyph.badge="kmrpy_optgfxdef";backGlyph.badge="kmrpb_optgfx";
     KmrpOptionsPad::SkipFocus(defaults,true);KmrpOptionsPad::SkipFocus(back,true);
     // The right-hand column, inside the frame the player sees round the description list:
     // the frame stands 23/86 of the list's scrollbar width left of the list and ends 13/86
@@ -415,6 +417,12 @@ void MakeScreen(void* manager,void* owner) {
     Fn<Focus>(0x40A630)(p,linkSizes,0);
     displayedSizes.fill(-1);displayedLinked=displayedStyle=-1;
     releasedFrames=0;UpdateCaptions();
+    // The pad's Y and B before the page is shown, not on its next frame: they popped in
+    // after it (the maintainer, 2026-10-28).
+    KmrpOptionsPad::Batch(true);
+    KmrpOptionsPad::Update(defaultsGlyph,KmrpOptionsPad::PadInUse(),KmrpOptionsPad::Family(),&NativeRoutine);
+    KmrpOptionsPad::Update(backGlyph,KmrpOptionsPad::PadInUse(),KmrpOptionsPad::Family(),&NativeRoutine);
+    KmrpOptionsPad::Batch(false);
     Fn<void(__thiscall*)(void*,void*,int,int)>(0x40BC70)(manager,p,3,1);
 }
 void UpdateEntry(void* owner,Entry& e) {
@@ -513,8 +521,11 @@ void KmrpTextOptionsFrameK1(void* manager) {
     for(void* p:KmrpRuntimePanelsK1("optgraphics"))
         if(At<std::uintptr_t>(p,0)==GraphicsTable){UpdateEntry(p,entries[p]);EntryBadge(p,entries[p],pad,family);}
     if(current) {
+        // The two pictures listed in one go by the controller patch (K1OptionsPad.h).
+        KmrpOptionsPad::Batch(true);
         KmrpOptionsPad::Update(defaultsGlyph,pad,family,&NativeRoutine);
         KmrpOptionsPad::Update(backGlyph,pad,family,&NativeRoutine);
+        KmrpOptionsPad::Batch(false);
     }
     if(pending) {
         void* owner=pending;pending=nullptr;
