@@ -1034,6 +1034,20 @@ the Mac can compile as it is). When the Mac's controller draws
 its own badges at run time, as Windows' is about to, the option can go. **How to check:** a
 Mac package built from fresh sets shows badges as before.
 
+## 100. A on the Resolution screen confirms once (Windows 2026-10-28, uncommitted)
+
+On Windows, A on the Resolution screen ran `OnResolutionChosen` twice: once from the
+screen's own 0x27 (`CSWGuiOptionsResolution::HandleInputEvent`) and once from the focused
+row's or OK's 0x27 handler, to which the screen passes the same event on. The second call
+popped Graphics Options off the modal stack without the flags its Close sets; the player
+saw Options while the pad's focus moved unseen on Graphics, and Graphics' badges stayed up.
+Windows' fix is in its hook on that screen (`ResolveResolutionConfirmK1`,
+`src/controller-native/K1NativeJoystick.cpp`): it confirms once itself and turns the event
+into one nothing on the screen answers. The Mac has no hook there. **How to check:** with a
+pad on the Mac, choose a resolution with A: if Options shows instead of Graphics Options,
+the Mac's engine does the same, and the same fix applies at the Mac's addresses for those
+two functions. Debug level 2's menu snapshots (`LogMenuSnapshotK1`) show it in one run.
+
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
 | Change | Commit | Why not the Mac |

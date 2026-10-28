@@ -78,6 +78,17 @@ def main() -> int:
                     jobs.append(" ".join([native_helpers.arg(packed), native_helpers.arg(out), str(tw), str(th),
                                           str(left), str(top), str(dw), str(dh), *extra]))
                     expected.append((name, backed, (tw, th, left, top, dw, dh), out, sheet))
+        # One drawing too large to keep (over the drawer's 8 MB): drawn and written four rows
+        # at a time, which must come out the same. Drawn whole, the Controller Layout's board
+        # took 2 GB and crashed the 32-bit game (2026-10-27).
+        packed = tmp / "xbox-DIAGRAM.bin"
+        packed.write_bytes(cg.pack(cg.glyph("xbox", "DIAGRAM")))
+        big = (960, 640, 3, 5, 950, 615)
+        sheet = np.zeros((big[1], big[0], 4), np.uint8)
+        cg.draw_into(sheet, "xbox", "DIAGRAM", big[2], big[3], big[4], big[5], None)
+        out = tmp / f"out-{len(jobs)}.rgba"
+        jobs.append(" ".join([native_helpers.arg(packed), native_helpers.arg(out), *map(str, big)]))
+        expected.append(("xbox/DIAGRAM", False, big, out, sheet))
         if any(" " in str(path) for path in (tmp,)):
             raise SystemExit(f"{tmp}: the harness reads job paths without spaces")
         job_file = tmp / "jobs.txt"

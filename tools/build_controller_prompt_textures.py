@@ -865,21 +865,24 @@ def build_square_glyph_tga(glyph: str, size: int = SQUARE_GLYPH_SIZE,
     # control is shown (scenes_for, build_controller_assets.py): the glyph and its box, in
     # the texture's pixels, kept by the texture's bytes so that every caller is covered.
     SCENES[hashlib.sha256(tga).hexdigest()] = (size, height, [(family, glyph, (size - dw) // 2,
-                                                                (height - dh) // 2, dw, dh)])
+                                                                (height - dh) // 2, dw, dh)], False, 0)
     return tga
 
 
-# Texture SHA-256 -> (width, height, [(family, glyph, left, top, width, height)]): what each
-# texture made in this run shows (build_square_glyph_tga, register_scene). A family of None
-# is a picture that is the same for every controller.
+# Texture SHA-256 -> (width, height, [(family, glyph, left, top, width, height)], stretch,
+# cap): what each texture made in this run shows (build_square_glyph_tga, register_scene). A
+# family of None is a picture that is the same for every controller. Each glyph keeps its
+# proportions in its box unless `stretch`; `cap`, when not 0, is the most pixels the
+# picture is drawn on its longer side, the engine stretching it from there.
 SCENES: dict[str, tuple] = {}
 
 
-def register_scene(tga: bytes, width: int, height: int, parts: list) -> bytes:
+def register_scene(tga: bytes, width: int, height: int, parts: list,
+                   stretch: bool = False, cap: int = 0) -> bytes:
     """Records what a texture made elsewhere shows, as build_square_glyph_tga records its own:
-    `parts` as SCENES holds them, the glyphs named as kmrp-glyphs.bin names them. Returns the
-    texture."""
-    SCENES[hashlib.sha256(tga).hexdigest()] = (width, height, parts)
+    `parts`, `stretch` and `cap` as SCENES holds them, the glyphs named as kmrp-glyphs.bin
+    names them. Returns the texture."""
+    SCENES[hashlib.sha256(tga).hexdigest()] = (width, height, parts, stretch, cap)
     return tga
 
 

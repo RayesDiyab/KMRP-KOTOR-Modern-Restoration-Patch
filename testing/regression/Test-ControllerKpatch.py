@@ -193,8 +193,8 @@ def main() -> int:
             length = _struct.unpack_from("<H", bank, at)[0]
             scenes.add(bank[at + 2:at + 2 + length].decode("ascii"))
             at += 2 + length
-            parts = _struct.unpack_from("<III", bank, at)[2]
-            at += 12
+            parts = _struct.unpack_from("<IIIII", bank, at)[2]
+            at += 20
             for _ in range(parts):
                 length = _struct.unpack_from("<H", bank, at)[0]
                 scene_glyphs.add(bank[at + 2:at + 2 + length].decode("ascii"))
@@ -220,9 +220,9 @@ def main() -> int:
                if prompts.family_resref(t.resref, family) + ".tga" not in made_names]
     check(not missing, f"all {len(targets)} badges in all {len(prompts.GLYPH_FAMILIES)} families")
 
-    check(all((FILES / (prompts.family_resref("kmrpp_swoop", family) + ".tga")).read_bytes()
+    check(all((MADE / (prompts.family_resref("kmrpp_swoop", family) + ".tga")).read_bytes()
               == assets.build_swoop_prompt_tga(family) for family in prompts.GLYPH_FAMILIES),
-          "the swoop shift cue carries all four confirm glyphs in Plane14's UV window")
+          "the swoop shift cue shows all four confirm glyphs in Plane14's UV window (drawn by the module, made for the tests)")
 
     # 5. Badge shape, from the layouts the game loads and the textures in the bank.
     worst = 0.0

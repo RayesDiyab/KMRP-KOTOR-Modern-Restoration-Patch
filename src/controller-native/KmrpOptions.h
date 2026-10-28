@@ -118,7 +118,11 @@ inline bool KmrpDebugLogs()
 }
 // The option's number: 1 is what the installer's switch writes. 2, written by hand,
 // adds the controller's frame-by-frame lines to kmrp-controller-events.log
-// (ControllerLogK1, K1NativeJoystick.cpp).
+// (ControllerLogK1, K1NativeJoystick.cpp): the pad's readings, the screens up whenever
+// they change (each panel's type, size and active control, and every control of the
+// one the pad navigates; LogMenuSnapshotK1), each move the pad makes on a screen and
+// from where to what (NavigateFocusK1), and the badges placed again after a screen is
+// laid out for another size (K1BadgesLaidOutAgain, vendor/K1XboxControls.cpp).
 inline int KmrpDebugLevel()
 {
     static const int level = KmrpPatchOption(L"debug-logs", 0);

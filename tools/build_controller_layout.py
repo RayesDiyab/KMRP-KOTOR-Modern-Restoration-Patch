@@ -444,7 +444,15 @@ def build_art(output: Path):
             p.write_bytes(build_square_glyph_tga(glyph, family=family))
             paths.append(p)
         p = output / f"kmr{letter}lytdiag.tga"
-        p.write_bytes(_tga(build_diagram(family)))
+        # Drawn by the controller patch at the size it is shown: the silhouette and glow,
+        # the family's face buttons, the leader lines over them
+        # (controller_drawn_art.layout_diagram, in kmrp-glyphs.bin as LAYOUT_BODY/LINES).
+        import controller_drawn_art
+        _, _, faces = controller_drawn_art.layout_diagram(family)
+        parts = ([(family, "LAYOUT_BODY", 0, 0, *TEXTURE)]
+                 + [(family, key, x, y, w, h) for key, x, y, w, h in faces]
+                 + [(family, "LAYOUT_LINES", 0, 0, *TEXTURE)])
+        p.write_bytes(register_scene(_tga(build_diagram(family)), *TEXTURE, parts))
         paths.append(p)
         # The B inside the layout screen's own Back button.
         p = output / f"kmr{letter}lytbk.tga"
@@ -466,10 +474,17 @@ def build_art(output: Path):
         p.write_bytes(register_scene(_tga(image), image.width, image.height,
                                      [(None, name, 0, 0, image.width, image.height)]))
         paths.append(p)
-    # The backdrop and edge art do not change with the controller.
+    # The backdrop and edge art do not change with the controller. Drawn by the controller
+    # patch at the size each is shown too (controller_layout_backdrop.outlines, in
+    # kmrp-glyphs.bin as -/<name>). The backdrop and the hairline are stretched over their
+    # controls, so their outlines fill them; the backdrop, a gradient with no edge, at most
+    # 1024 px wide, the engine stretching it from there as it did the texture.
     for name, image in backdrop.build_all().items():
         p = output / f"{name}.tga"
-        p.write_bytes(_tga(image))
+        p.write_bytes(register_scene(_tga(image), image.width, image.height,
+                                     [(None, name, 0, 0, image.width, image.height)],
+                                     stretch=name in ("kmrlytbg", "kmrlythair"),
+                                     cap=1024 if name == "kmrlytbg" else 0))
         paths.append(p)
     return paths
 

@@ -964,7 +964,7 @@ namespace Kmrp
         {
             Glyph glyph = new Glyph { Width = (int)r.U32(), Height = (int)r.U32() };
             uint itemCount = r.U32();
-            if (glyph.Width <= 0 || glyph.Height <= 0 || glyph.Width > 65536 || glyph.Height > 65536 || itemCount > 64)
+            if (glyph.Width <= 0 || glyph.Height <= 0 || glyph.Width > 65536 || glyph.Height > 65536 || itemCount > 4096)
                 throw new InvalidDataException("The blend table has a bad glyph.");
             glyph.Items = new GlyphItem[itemCount];
             for (int i = 0; i < itemCount; i++)

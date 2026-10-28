@@ -117,6 +117,113 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **The Controller Layout screen and the swoop prompt drawn at the size they are shown**
+  (2026-10-27). Phase 3 of 5.
+  * The diagram's controller is now Xelu's own outlines: frame 0 of the Xbox Series and
+    PS5 layers of `Vector Source.fla`. The PNGs it was made from are those frames at twice
+    the size, without the logo, the button letters, the small icons and the D-pad's
+    arrows. The vector tool leaves out each outline that is not on the PNG's ink
+    (`diagram()` in `build_controller_glyph_vectors.py`); drawn over the PNGs they differ
+    by 2.3 and 1.7 of 255 in alpha. The board is three parts: the silhouette with its
+    glow, the family's A, B, X and Y, and the leader lines over them
+    (`controller_drawn_art.layout_diagram`). Drawn at 2048x1024 it differs from today's
+    texture by 0.38 (Xbox) and 0.41 (PlayStation) of 255 on average.
+  * The backdrop's ten pieces (`controller_layout_backdrop.py`) are drawn by an outline
+    twin of their pen, `OutlinePen`, from the same calls. PIL replaces the pixels a shape
+    covers instead of blending, so each shape is cut by every shape drawn after it, which
+    also lets one colour be one item. Each piece is within 0.02 to 1.06 of 255 of today's.
+  * The swoop race's prompt is a texture on the race HUD's 3D model, which the sweep does
+    not see: the module draws it before loading it (`KmrpDrawnPictureK1`), at
+    128 x screen height / 480 (384 at 1440 rows).
+  * Module: a scene can have its glyphs fill their boxes (the backdrop and hairline,
+    which the screen stretches) and a cap on its size. The full-screen backdrop, a
+    gradient with no edge, is drawn at most 1024 px wide and stretched as before; at
+    full size it would be a 20 MB file and a pause for nothing to see. `kmrp-glyphs.bin`
+    scenes carry two more u32 per scene. The drawer reads up to 4096 items in a glyph,
+    not 64 (C and C#; the illustrations have up to 61 after merging).
+  * The controller patch is 2.58 MB instead of 5.3, the installer 61.0 MB instead of
+    63.7.
+  * The build: `build_controller_glyph_vectors.py` loads the font tools only where it
+    fits pictures, so the build does not need scipy. scipy is now listed in
+    `requirements.txt`, which the font tools always needed.
+  * Tests: `Test-ControllerKpatch.py`, `Test-ControllerGlyphs.py`,
+    `Test-NativeAssetsBank.py` and `Test-ControllerPromptAssets.py` pass.
+  * Correction, the same night: the first build showed white boxes in place of every
+    picture drawn at run time, phases 1 to 3 (seen by the maintainer). The hairline's
+    gradient had 17 stops; the module reads at most 16, and it reads the bank in order
+    and stops at the first glyph it cannot read, so it read 104 of 113 glyphs and none of
+    the pictures (its log: "104 glyph outlines and 0 pictures read"). The Python drawer
+    has no such limit, which is why the comparisons passed. The hairline has 13 stops
+    now, and `controller_glyphs.pack` refuses any glyph the module would refuse, so the
+    build fails instead.
+  * Second correction: opening the Controller Layout then crashed the game (an access
+    violation in `kmrp-controller.dll`, seen by the maintainer at 3440x1440). The C drawer
+    (`macos/tools/kmrp-glyphs.c`) made a picture's whole 8x8 sample grid at once, about
+    1.3 KB a pixel: nothing for a badge, about 2 GB for the board at about 1800x900, which
+    the 32-bit game could not have, and the drawer did not check. It now draws four pixel
+    rows at a time (`glyph_rows`), about 2 MB for the board, freed when the picture's file
+    is written. A drawing over its 8 MB cache is written band by band and not kept, and
+    one that runs out of memory draws nothing instead of crashing. The pixels are the
+    same: `Test-ControllerGlyphs.py` compares a 950x615 drawing, which takes the banded
+    path, with the Python drawer, byte for byte (925 drawings in all).
+  * Third correction: the Controller Layout's backdrop stayed white. It is the panel's
+    own border (the layout file's root BORDER), not a control, and the sweep looked only
+    at controls. The sweep now reads each panel's border too: `CSWGuiPanel::m_pBorder` at
+    +0x5C, its parameters at +0x14, the panel's extent at +0x04
+    (`CSWGuiPanel::StartLoadFromLayout`, 0x0040A680, in the swkotor1-reconstruction
+    project).
+  * The screen took about 2.5 s to open the first time each session at 3440x1440: the
+    board 1.39 s, the gunnery station 0.49 s, the freighter 0.34 s (the maintainer's log).
+    The drawing is 64 samples a pixel by the exact integer rules; filling each row only
+    between its crossings was tried and measured no faster (1.15 s against 1.00 s for the
+    board, slower for the backdrop), so it was not kept. Instead the pictures are drawn
+    before the screen is opened (the maintainer: in the background as the game starts and
+    right after the resolution changes, the change itself still instant). By events, not
+    by time (the maintainer: a delay depends on each machine's processor and drive): when
+    the size changes, the screens up are noted; once the game has laid them out again for
+    the new size and they have held for a frame, and a whole frame has gone by in which the
+    patch drew nothing (`KmrpPicturesSettledK1`), the module makes the screen as it is
+    when opened, `kmrplayout` loaded and every control bound, never shown, reads each
+    picture's size and takes the copy apart (`probeLayoutPictures`,
+    `K1ControllerLayout.cpp`). As the game starts, from the first such frame with a screen
+    up. `layout-predraw=0` in `configs\kmrp-controller.ini` turns it off. Its own thread
+    draws each picture, the current controller's first, then the other three families,
+    and writes the files (`K1BackgroundWorker`): it calls nothing of the engine's and
+    draws without the drawer's kept drawings (`kmrp_glyph_draw_alone`). The game thread
+    lists the folder anew once for what is finished. A picture the screen asks for before
+    the thread has reached it is taken out of the queue and drawn at once; one being
+    drawn is waited for, not drawn twice. Seen working by the maintainer: the Controller
+    Layout opens at once after the game starts and after a change of resolution.
+
+- **A on the Resolution screen no longer closes Graphics Options too** (2026-10-28).
+  After a resolution was chosen with the pad, the game showed Options, the pad's focus
+  moved unseen (up seemed to do nothing), and a small badge stood where Screen
+  Resolution's had been, until the screen was left and opened again (the maintainer).
+  The cause, read from the swkotor1-reconstruction project and confirmed in the 1.03
+  executable: the screen's own A (`CSWGuiOptionsResolution::HandleInputEvent`,
+  0x006E0CF0, event 0x27) plays the sound and calls `OnResolutionChosen(0)`
+  (0x006DF690), which sets the mode and pops the top modal panel, the Resolution screen;
+  then it passes the same 0x27 on to its focused control, and every resolution row and OK
+  has `OnResolutionChosen` as its own 0x27 handler (the screen's constructor), with
+  `m_n4c` set from the press (`CSWGuiControl::HandleInputEvent`, 0x00418750), so it ran a
+  second time and popped Graphics Options without the flags its own Close sets. The
+  manager's modal stack then had Options on top, which the badges painted, while
+  Graphics stayed first in the panel list, which the pad's navigation walks. The
+  controller patch's hook on that screen (`ResolveResolutionConfirmK1`) now confirms
+  once itself (the sound at 0x0040A140, then `OnResolutionChosen(0)`, `ret 4`, as the
+  screen's own call at 0x006E0F1E) and turns the event into one nothing there answers. A
+  mouse click on OK reaches only the button and is unchanged. Found with debug level 2,
+  which now also writes the screens up whenever they change (each panel, and every
+  control of the one the pad navigates, with its rectangle), each move the pad makes,
+  and each badge as painted with its label's rectangle (`KmrpOptions.h`). A bisect of the
+  controller module back to 2026-10-20 had shown the same fault in every build: it is
+  the engine's own screen, not a recent change. Seen fixed by the maintainer.
+  * With it, the badges follow a screen laid out again for another size: KMRP's runtime
+    layout moves the controls of the screens up in place when the new size is observed,
+    and the badges, labels of this patch's in no layout file, kept the old size's places
+    until something the badge update watches changed. The panel's own size is now one of
+    those things (`UpdateK1ControllerPrompts`, `K1BadgesLaidOutAgain`).
+
 - **The tab strip's LT and RT arrows and the remapping screen's symbols drawn at the size
   they are shown** (2026-10-27). Phase 2 of 5. Until now these were PIL drawings at
   128x128 (`build_tab_arrows.py`, `_remap_marks` in `build_controller_layout.py`).

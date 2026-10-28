@@ -45,6 +45,11 @@ KMRP_GLYPHS_API int kmrp_glyph_read(const uint8_t *data, size_t size, size_t *po
 KMRP_GLYPHS_API void kmrp_glyph_draw(const KmrpGlyph *g, uint8_t *sheet, int tw, int th, int left, int top,
                                      int dw, int dh, const uint8_t *backing);
 
+/* The same drawing without the kept ones: nothing shared between calls, so safe on another
+ * thread while kmrp_glyph_draw runs. */
+KMRP_GLYPHS_API void kmrp_glyph_draw_alone(const KmrpGlyph *g, uint8_t *sheet, int tw, int th, int left, int top,
+                                           int dw, int dh, const uint8_t *backing);
+
 /* Forgets the kept drawings (kmrp_glyph_draw keeps its latest, up to 8 MB). */
 KMRP_GLYPHS_API void kmrp_glyph_cache_reset(void);
 

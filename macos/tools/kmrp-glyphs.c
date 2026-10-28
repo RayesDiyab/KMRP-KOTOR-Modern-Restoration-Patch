@@ -79,116 +79,138 @@ KMRP_GLYPHS_API void kmrp_glyph_cache_reset(void) {
     glyph_cache_bytes = 0;
 }
 
+/* Pixel rows py0..py1 of the glyph drawn into a dw x dh rectangle, into `out`: per pixel the
+ * sums of its 64 samples' P (three channels) and Q, before any backing. Drawn GLYPH_BAND
+ * pixel rows at a time, so the samples never take more than one band's memory: the whole
+ * grid at once is about 1.3 KB a pixel, which for the Controller Layout's board at 3440x1440
+ * (about 1800x900) is 2 GB, and the 32-bit game crashed when it could not have it
+ * (2026-10-27). Samples are independent row by row and the items are painted in the same
+ * order in every band, so the drawing is the same as in one piece. 0 when memory runs out. */
+#define GLYPH_BAND 4
+static int glyph_rows(const KmrpGlyph *g, int dw, int dh, int py0, int py1, int64_t *out) {
+    const int cols = dw * GLYPH_SS, band_rows = GLYPH_BAND * GLYPH_SS;
+    const int64_t W = g->width, H = g->height;
+    uint32_t edge_room = 1;
+    for (uint32_t i = 0; i < g->item_count; i++)
+        if (g->items[i].edge_count > edge_room) edge_room = g->items[i].edge_count;
+    int32_t *P = malloc(sizeof(int32_t) * (size_t)band_rows * cols * 3);
+    int32_t *Q = malloc(sizeof(int32_t) * (size_t)band_rows * cols);
+    int32_t *diff = malloc(sizeof(int32_t) * (size_t)band_rows * (cols + 1));
+    int32_t *paint = malloc(sizeof(int32_t) * (size_t)GLYPH_BAND * dw * 4);
+    int64_t *edge = malloc(sizeof(int64_t) * 4 * edge_room);
+    int ok = P && Q && diff && paint && edge;
+    for (int b = py0; ok && b < py1; b += GLYPH_BAND) {
+        const int b_end = b + GLYPH_BAND < py1 ? b + GLYPH_BAND : py1;
+        const int rows = (b_end - b) * GLYPH_SS, row0 = b * GLYPH_SS;
+        memset(P, 0, sizeof(int32_t) * (size_t)rows * cols * 3);
+        memset(Q, 0, sizeof(int32_t) * (size_t)rows * cols);
+        for (uint32_t i = 0; i < g->item_count; i++) {
+            const KmrpGlyphItem *it = &g->items[i];
+            /* The edges in sample units; the band's rows each crosses, and the item's box. */
+            int r_lo = rows, r_hi = -1;
+            int64_t x_lo = INT64_MAX, x_hi = INT64_MIN;
+            uint32_t n = 0;
+            for (uint32_t e = 0; e < it->edge_count; e++) {
+                const int32_t *ed = &it->edges[e * 4];
+                int64_t *q = &edge[n * 4];
+                q[0] = floor_div((int64_t)ed[0] * dw * GLYPH_SUB, W);
+                q[1] = floor_div((int64_t)ed[1] * dh * GLYPH_SUB, H);
+                q[2] = floor_div((int64_t)ed[2] * dw * GLYPH_SUB, W);
+                q[3] = floor_div((int64_t)ed[3] * dh * GLYPH_SUB, H);
+                if (q[1] == q[3]) continue;
+                n++;
+            }
+            memset(diff, 0, sizeof(int32_t) * (size_t)rows * (cols + 1));
+            for (uint32_t e = 0; e < n; e++) {
+                const int64_t x0 = edge[e * 4], y0 = edge[e * 4 + 1], x1 = edge[e * 4 + 2], y1 = edge[e * 4 + 3];
+                const int64_t lo = y0 < y1 ? y0 : y1, hi = y0 < y1 ? y1 : y0;
+                /* the sample rows with lo <= sy < hi, sy = r * GLYPH_SAMPLE + GLYPH_SAMPLE / 2 */
+                int64_t first = -floor_div(GLYPH_SAMPLE / 2 - lo, GLYPH_SAMPLE);
+                int64_t last = -floor_div(GLYPH_SAMPLE / 2 - hi, GLYPH_SAMPLE) - 1;
+                if (first < row0) first = row0;
+                if (last > row0 + rows - 1) last = row0 + rows - 1;
+                const int32_t dir = y1 > y0 ? 1 : -1;
+                for (int64_t r = first; r <= last; r++) {
+                    const int64_t sy = r * GLYPH_SAMPLE + GLYPH_SAMPLE / 2;
+                    const int64_t xc = x0 + floor_div((x1 - x0) * (sy - y0), y1 - y0);
+                    int64_t k = -floor_div(GLYPH_SAMPLE / 2 - xc, GLYPH_SAMPLE);
+                    if (k < 0) k = 0;
+                    if (k > cols) k = cols;
+                    diff[(size_t)(r - row0) * (cols + 1) + k] += dir;
+                    if (k < x_lo) x_lo = k;
+                    if (k > x_hi) x_hi = k;
+                }
+                if (first <= last) {
+                    if (first - row0 < r_lo) r_lo = (int)(first - row0);
+                    if (last - row0 > r_hi) r_hi = (int)(last - row0);
+                }
+            }
+            if (r_hi < r_lo) continue;
+            if (x_hi > cols) x_hi = cols;
+            /* The paint, for the pixels the item can cover: one colour, or a gradient's. */
+            const int px_lo = (int)(x_lo / GLYPH_SS), px_hi = (int)((x_hi - 1) / GLYPH_SS);
+            const int py_lo = r_lo / GLYPH_SS, py_hi = r_hi / GLYPH_SS;   /* in the band */
+            if (it->kind != 0)
+                for (int py = py_lo; py <= py_hi; py++)
+                    for (int px = px_lo; px <= px_hi && px < dw; px++) {
+                        int64_t c[4];
+                        glyph_paint(it, ((2 * (int64_t)px + 1) * W) / (2 * (int64_t)dw),
+                                    ((2 * (int64_t)(b + py) + 1) * H) / (2 * (int64_t)dh), c);
+                        for (int k = 0; k < 4; k++) paint[((size_t)py * dw + px) * 4 + k] = (int32_t)c[k];
+                    }
+            for (int r = r_lo; r <= r_hi; r++) {
+                const int32_t *d = &diff[(size_t)r * (cols + 1)];
+                int32_t winding = 0;
+                for (int s = (int)x_lo; s < (int)x_hi; s++) {
+                    winding += d[s];
+                    if (it->rule ? (winding & 1) == 0 : winding == 0) continue;
+                    int32_t c[4];
+                    if (it->kind == 0) {
+                        for (int k = 0; k < 4; k++) c[k] = it->rgba[k];
+                    } else {
+                        memcpy(c, &paint[((size_t)(r / GLYPH_SS) * dw + s / GLYPH_SS) * 4], sizeof c);
+                    }
+                    const int32_t a = c[3], inv = 255 - a;
+                    int32_t *ps = &P[((size_t)r * cols + s) * 3], *qs = &Q[(size_t)r * cols + s];
+                    for (int k = 0; k < 3; k++) ps[k] = c[k] * a + (ps[k] * inv + 127) / 255;
+                    *qs = 255 * a + (*qs * inv + 127) / 255;
+                }
+            }
+        }
+        for (int py = b; py < b_end; py++)
+            for (int px = 0; px < dw; px++) {
+                int64_t sp[3] = {0, 0, 0}, sq = 0;
+                for (int y = 0; y < GLYPH_SS; y++) {
+                    size_t at = (size_t)((py - b) * GLYPH_SS + y) * cols + (size_t)px * GLYPH_SS;
+                    for (int x = 0; x < GLYPH_SS; x++, at++) {
+                        sp[0] += P[at * 3];
+                        sp[1] += P[at * 3 + 1];
+                        sp[2] += P[at * 3 + 2];
+                        sq += Q[at];
+                    }
+                }
+                int64_t *o = &out[((size_t)(py - py0) * dw + px) * 4];
+                o[0] = sp[0]; o[1] = sp[1]; o[2] = sp[2]; o[3] = sq;
+            }
+    }
+    free(P); free(Q); free(diff); free(paint); free(edge);
+    return ok;
+}
+
+/* The whole drawing, kept: the same glyph comes up at the same size on many buttons of a
+ * set. NULL when memory runs out. */
 static const int64_t *glyph_tile(const KmrpGlyph *g, int dw, int dh) {
     for (int j = 1; j <= glyph_cache_count; j++) {   /* the kept ones, newest first */
         const GlyphTile *kept = &glyph_cache[(glyph_cache_next + GLYPH_CACHE - j) % GLYPH_CACHE];
         if (kept->glyph == g && kept->dw == dw && kept->dh == dh)
             return kept->sums;
     }
-    const int rows = dh * GLYPH_SS, cols = dw * GLYPH_SS;
-    const int64_t W = g->width, H = g->height;
-    int32_t *P = calloc((size_t)rows * cols * 3, sizeof(int32_t));
-    int32_t *Q = calloc((size_t)rows * cols, sizeof(int32_t));
-    int32_t *diff = malloc(sizeof(int32_t) * (size_t)rows * (cols + 1));
-    int32_t *paint = malloc(sizeof(int32_t) * (size_t)dw * dh * 4);
-    int64_t *edge = NULL;
-    uint32_t edge_room = 0;
-    for (uint32_t i = 0; i < g->item_count; i++) {
-        const KmrpGlyphItem *it = &g->items[i];
-        if (it->edge_count > edge_room) {
-            free(edge);
-            edge_room = it->edge_count;
-            edge = malloc(sizeof(int64_t) * 4 * edge_room);
-        }
-        /* The edges in sample units, once; the rows each crosses, and the item's box. */
-        int r_lo = rows, r_hi = -1;
-        int64_t x_lo = INT64_MAX, x_hi = INT64_MIN;
-        uint32_t n = 0;
-        for (uint32_t e = 0; e < it->edge_count; e++) {
-            const int32_t *ed = &it->edges[e * 4];
-            int64_t *q = &edge[n * 4];
-            q[0] = floor_div((int64_t)ed[0] * dw * GLYPH_SUB, W);
-            q[1] = floor_div((int64_t)ed[1] * dh * GLYPH_SUB, H);
-            q[2] = floor_div((int64_t)ed[2] * dw * GLYPH_SUB, W);
-            q[3] = floor_div((int64_t)ed[3] * dh * GLYPH_SUB, H);
-            if (q[1] == q[3]) continue;
-            n++;
-        }
-        memset(diff, 0, sizeof(int32_t) * (size_t)rows * (cols + 1));
-        for (uint32_t e = 0; e < n; e++) {
-            const int64_t x0 = edge[e * 4], y0 = edge[e * 4 + 1], x1 = edge[e * 4 + 2], y1 = edge[e * 4 + 3];
-            const int64_t lo = y0 < y1 ? y0 : y1, hi = y0 < y1 ? y1 : y0;
-            /* the sample rows with lo <= sy < hi, sy = r * GLYPH_SAMPLE + GLYPH_SAMPLE / 2 */
-            int64_t first = -floor_div(GLYPH_SAMPLE / 2 - lo, GLYPH_SAMPLE);
-            int64_t last = -floor_div(GLYPH_SAMPLE / 2 - hi, GLYPH_SAMPLE) - 1;
-            if (first < 0) first = 0;
-            if (last > rows - 1) last = rows - 1;
-            const int32_t dir = y1 > y0 ? 1 : -1;
-            for (int64_t r = first; r <= last; r++) {
-                const int64_t sy = r * GLYPH_SAMPLE + GLYPH_SAMPLE / 2;
-                const int64_t xc = x0 + floor_div((x1 - x0) * (sy - y0), y1 - y0);
-                int64_t k = -floor_div(GLYPH_SAMPLE / 2 - xc, GLYPH_SAMPLE);
-                if (k < 0) k = 0;
-                if (k > cols) k = cols;
-                diff[(size_t)r * (cols + 1) + k] += dir;
-                if (k < x_lo) x_lo = k;
-                if (k > x_hi) x_hi = k;
-            }
-            if (first <= last) {
-                if (first < r_lo) r_lo = (int)first;
-                if (last > r_hi) r_hi = (int)last;
-            }
-        }
-        if (r_hi < r_lo) continue;
-        if (x_hi > cols) x_hi = cols;
-        /* The paint, for the pixels the item can cover: one colour, or a gradient's. */
-        const int px_lo = (int)(x_lo / GLYPH_SS), px_hi = (int)((x_hi - 1) / GLYPH_SS);
-        const int py_lo = r_lo / GLYPH_SS, py_hi = r_hi / GLYPH_SS;
-        if (it->kind != 0)
-            for (int py = py_lo; py <= py_hi; py++)
-                for (int px = px_lo; px <= px_hi && px < dw; px++) {
-                    int64_t c[4];
-                    glyph_paint(it, ((2 * (int64_t)px + 1) * W) / (2 * (int64_t)dw),
-                                ((2 * (int64_t)py + 1) * H) / (2 * (int64_t)dh), c);
-                    for (int k = 0; k < 4; k++) paint[((size_t)py * dw + px) * 4 + k] = (int32_t)c[k];
-                }
-        for (int r = r_lo; r <= r_hi; r++) {
-            const int32_t *d = &diff[(size_t)r * (cols + 1)];
-            int32_t winding = 0;
-            for (int s = (int)x_lo; s < (int)x_hi; s++) {
-                winding += d[s];
-                if (it->rule ? (winding & 1) == 0 : winding == 0) continue;
-                int32_t c[4];
-                if (it->kind == 0) {
-                    for (int k = 0; k < 4; k++) c[k] = it->rgba[k];
-                } else {
-                    memcpy(c, &paint[((size_t)(r / GLYPH_SS) * dw + s / GLYPH_SS) * 4], sizeof c);
-                }
-                const int32_t a = c[3], inv = 255 - a;
-                int32_t *ps = &P[((size_t)r * cols + s) * 3], *qs = &Q[(size_t)r * cols + s];
-                for (int k = 0; k < 3; k++) ps[k] = c[k] * a + (ps[k] * inv + 127) / 255;
-                *qs = 255 * a + (*qs * inv + 127) / 255;
-            }
-        }
-    }
-    int64_t *sums = malloc(sizeof(int64_t) * 4 * (size_t)dw * dh);
-    for (int py = 0; py < dh; py++)
-        for (int px = 0; px < dw; px++) {
-            int64_t sp[3] = {0, 0, 0}, sq = 0;
-            for (int y = 0; y < GLYPH_SS; y++) {
-                size_t at = (size_t)(py * GLYPH_SS + y) * cols + (size_t)px * GLYPH_SS;
-                for (int x = 0; x < GLYPH_SS; x++, at++) {
-                    sp[0] += P[at * 3];
-                    sp[1] += P[at * 3 + 1];
-                    sp[2] += P[at * 3 + 2];
-                    sq += Q[at];
-                }
-            }
-            int64_t *o = &sums[((size_t)py * dw + px) * 4];
-            o[0] = sp[0]; o[1] = sp[1]; o[2] = sp[2]; o[3] = sq;
-        }
-    free(P); free(Q); free(diff); free(paint); free(edge);
     const size_t bytes = sizeof(int64_t) * 4 * (size_t)dw * dh;
+    int64_t *sums = malloc(bytes);
+    if (!sums || !glyph_rows(g, dw, dh, 0, dh, sums)) {
+        free(sums);
+        return NULL;
+    }
     while (glyph_cache_count > 0 &&
            (glyph_cache_count == GLYPH_CACHE || glyph_cache_bytes + bytes > GLYPH_BUDGET)) {
         GlyphTile *oldest = &glyph_cache[(glyph_cache_next + GLYPH_CACHE - glyph_cache_count) % GLYPH_CACHE];
@@ -204,14 +226,14 @@ static const int64_t *glyph_tile(const KmrpGlyph *g, int dw, int dh) {
     return sums;
 }
 
-KMRP_GLYPHS_API void kmrp_glyph_draw(const KmrpGlyph *g, uint8_t *sheet, int tw, int th, int left, int top,
-                                     int dw, int dh, const uint8_t *backing) {
-    const int64_t *sums = glyph_tile(g, dw, dh);
-    for (int py = 0; py < dh; py++) {
+/* Rows py0..py1 of a drawing's sums onto the sheet, over `backing` where there is one. */
+static void glyph_emit(const int64_t *sums, int py0, int py1, uint8_t *sheet, int tw, int th, int left,
+                       int top, int dw, const uint8_t *backing) {
+    for (int py = py0; py < py1; py++) {
         if (top + py < 0 || top + py >= th) continue;
         for (int px = 0; px < dw; px++) {
             if (left + px < 0 || left + px >= tw) continue;
-            const int64_t *o = &sums[((size_t)py * dw + px) * 4];
+            const int64_t *o = &sums[((size_t)(py - py0) * dw + px) * 4];
             int64_t sp[3] = {o[0], o[1], o[2]}, sq = o[3];
             if (backing) {
                 const int64_t rest = GLYPH_FULL - sq, ba = backing[3];
@@ -226,6 +248,35 @@ KMRP_GLYPHS_API void kmrp_glyph_draw(const KmrpGlyph *g, uint8_t *sheet, int tw,
             d[3] = (uint8_t)((sq + GLYPH_SS * GLYPH_SS * 127) / (GLYPH_SS * GLYPH_SS * 255));
         }
     }
+}
+
+/* kmrp_glyph_draw without the kept drawings: drawn and written a band at a time, nothing
+ * shared between calls, so it may run on one thread while kmrp_glyph_draw runs on another
+ * (the controller patch draws the Controller Layout's pictures in the background,
+ * 2026-10-27). The same pixels. Nothing is drawn where memory runs out. */
+KMRP_GLYPHS_API void kmrp_glyph_draw_alone(const KmrpGlyph *g, uint8_t *sheet, int tw, int th, int left, int top,
+                                           int dw, int dh, const uint8_t *backing) {
+    if (dw <= 0 || dh <= 0) return;
+    int64_t *band = malloc(sizeof(int64_t) * 4 * (size_t)dw * GLYPH_BAND);
+    for (int b = 0; band && b < dh; b += GLYPH_BAND) {
+        const int b_end = b + GLYPH_BAND < dh ? b + GLYPH_BAND : dh;
+        if (!glyph_rows(g, dw, dh, b, b_end, band)) break;
+        glyph_emit(band, b, b_end, sheet, tw, th, left, top, dw, backing);
+    }
+    free(band);
+}
+
+/* A drawing too large to keep (over GLYPH_BUDGET, the Controller Layout's board and backdrop)
+ * is drawn as kmrp_glyph_draw_alone draws it and not kept. */
+KMRP_GLYPHS_API void kmrp_glyph_draw(const KmrpGlyph *g, uint8_t *sheet, int tw, int th, int left, int top,
+                                     int dw, int dh, const uint8_t *backing) {
+    if (dw <= 0 || dh <= 0) return;
+    if (sizeof(int64_t) * 4 * (size_t)dw * dh > GLYPH_BUDGET) {
+        kmrp_glyph_draw_alone(g, sheet, tw, th, left, top, dw, dh, backing);
+        return;
+    }
+    const int64_t *sums = glyph_tile(g, dw, dh);
+    if (sums) glyph_emit(sums, 0, dh, sheet, tw, th, left, top, dw, backing);
 }
 
 /* Readers of the buffer, each 0 when it runs out. */
@@ -245,7 +296,7 @@ KMRP_GLYPHS_API int kmrp_glyph_read(const uint8_t *data, size_t size, size_t *po
     if (!glyph_u32(data, size, pos, &g->width) || !glyph_u32(data, size, pos, &g->height) ||
         !glyph_u32(data, size, pos, &g->item_count))
         return 0;
-    if (g->width == 0 || g->height == 0 || g->width > 65536 || g->height > 65536 || g->item_count > 64)
+    if (g->width == 0 || g->height == 0 || g->width > 65536 || g->height > 65536 || g->item_count > 4096)
         return 0;
     g->items = calloc(g->item_count ? g->item_count : 1, sizeof(KmrpGlyphItem));
     if (!g->items) return 0;

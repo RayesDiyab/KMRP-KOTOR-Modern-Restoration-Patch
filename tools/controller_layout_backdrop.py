@@ -210,10 +210,200 @@ class Pen:
                     fill=_rgba(colour, alpha), anchor=anchor)
         return self.d.textlength(value, font=font) / self.k
 
-    def finish(self):
+    def finish(self, flip_x=False, flip_y=False):
         from PIL import Image
         out = (round(self.size[0] * self.res), round(self.size[1] * self.res))
-        return self.image.resize(out, Image.LANCZOS)
+        image = self.image.resize(out, Image.LANCZOS)
+        if flip_x:
+            image = image.transpose(Image.FLIP_LEFT_RIGHT)
+        if flip_y:
+            image = image.transpose(Image.FLIP_TOP_BOTTOM)
+        return image
+
+
+class OutlinePen:
+    """Pen's twin that keeps outlines instead of pixels, for the controller patch to draw
+    each piece at the size it is shown (2026-10-27): the same calls, the same numbers.
+
+    PIL's drawing on an RGBA image replaces the pixels a shape covers rather than blending
+    over them, so each shape here is cut by every shape drawn after it; what is left of the
+    shapes then never overlaps, and those of one colour are one item. A line is its path
+    widened with round joins and flat ends, as PIL's joint="curve" draws it; a circle's or
+    an arc's outline lies inside its radius, as PIL's does. `finish()` gives the outlines as
+    tools/controller_glyphs.py holds them, the box the piece's logical size.
+    """
+
+    def __init__(self, size, res=1):
+        self.size, self.res = size, res
+        self.k = SS * res
+        self.shapes = []                          # (geometry, RGBA), in drawing order
+
+    def _add(self, geometry, colour, alpha):
+        a = max(0, min(255, round(alpha)))
+        if a and not geometry.is_empty:
+            self.shapes.append((geometry, tuple(colour) + (a,)))
+
+    def _w(self, width):
+        return max(1, round(width * self.k)) / self.k
+
+    def _stroke(self, pts, width, closed=False):
+        from shapely.geometry import LinearRing, LineString
+        line = LinearRing(pts) if closed else LineString(pts)
+        return line.buffer(self._w(width) / 2, quad_segs=16, cap_style="flat", join_style="round")
+
+    def line(self, pts, colour, alpha, width=1.0):
+        self._add(self._stroke(pts, width), colour, alpha)
+
+    def poly(self, pts, colour, alpha, fill_alpha=0, width=1.0):
+        from shapely.geometry import Polygon
+        if fill_alpha:
+            self._add(Polygon(pts).buffer(0), colour, fill_alpha)
+        if alpha:
+            self._add(self._stroke(pts, width, closed=True), colour, alpha)
+
+    def _disc(self, c, r):
+        from shapely.geometry import Point
+        return Point(c).buffer(r, quad_segs=32)
+
+    def circle(self, c, r, colour, alpha, width=1.0, fill_alpha=0):
+        if fill_alpha:
+            self._add(self._disc(c, r), colour, fill_alpha)
+        if alpha:
+            inner = r - self._w(width)
+            ring = self._disc(c, r)
+            self._add(ring.difference(self._disc(c, inner)) if inner > 0 else ring, colour, alpha)
+
+    def _sector(self, c, r0, r1, a0, a1):
+        from shapely.geometry import Polygon
+        steps = max(2, math.ceil(abs(a1 - a0) / 3))
+        angles = [math.radians(a0 + (a1 - a0) * i / steps) for i in range(steps + 1)]
+        outer = [(c[0] + r1 * math.cos(a), c[1] + r1 * math.sin(a)) for a in angles]
+        inner = ([(c[0] + r0 * math.cos(a), c[1] + r0 * math.sin(a)) for a in reversed(angles)]
+                 if r0 > 0 else [tuple(c)])
+        return Polygon(outer + inner).buffer(0)
+
+    def arc(self, c, r, a0, a1, colour, alpha, width=1.0):
+        self._add(self._sector(c, max(0.0, r - self._w(width)), r, a0, a1), colour, alpha)
+
+    def wedge(self, c, r, a0, a1, colour, alpha):
+        self._add(self._sector(c, 0, r, a0, a1), colour, alpha)
+
+    def rect(self, box, colour, alpha, fill_alpha=0, width=1.0):
+        x0, y0, x1, y1 = box
+        self.poly([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], colour, alpha, fill_alpha, width)
+
+    def fill(self, box, colour, alpha):
+        from shapely.geometry import box as rectangle
+        self._add(rectangle(*box), colour, alpha)
+
+    dashed = Pen.dashed
+
+    def text(self, xy, text, size, colour, alpha, anchor="ls"):
+        """Aurebesh at cap height `size`, from the font's outlines at the size Pen.text
+        sets it (its kerning too); returns the text's logical width."""
+        from shapely.affinity import affine_transform
+        value = aurebesh(text)
+        em = round(size * self.k * 1.25) / self.k
+        font = _aurebesh_font()
+        scale = em / font["units"]
+        x, shapes = 0.0, []
+        previous = None
+        for ch in value:
+            name = font["cmap"][ord(ch)]
+            if previous is not None:
+                x += font["kern"].get((previous, name), 0) * scale
+            outline = font["outlines"][name]
+            if outline is not None:
+                shapes.append(affine_transform(outline, [scale, 0, 0, -scale, x, 0]))
+            x += font["advance"][name] * scale
+            previous = name
+        dx = {"l": 0.0, "m": -x / 2, "r": -x}[anchor[0]]
+        if anchor[1] != "s":
+            raise ValueError(f"anchor {anchor!r}: only baseline anchors are drawn")
+        for shape in shapes:
+            self._add(affine_transform(shape, [1, 0, 0, 1, xy[0] + dx, xy[1]]), colour, alpha)
+        return x
+
+    def finish(self, flip_x=False, flip_y=False, dim=1.0):
+        """The outlines: each shape less what was drawn over it, merged by colour, flipped
+        across the piece as asked; `dim` scales every alpha (_dim)."""
+        import build_controller_glyph_vectors as vectors
+        from shapely.affinity import scale as flip
+        from shapely.geometry import MultiPolygon, Polygon
+        from shapely.ops import unary_union
+        w, h = self.size
+        above, kept = None, {}
+        for geometry, rgba in reversed(self.shapes):
+            seen = geometry if above is None else geometry.difference(above)
+            above = geometry if above is None else above.union(geometry)
+            if not seen.is_empty:
+                kept.setdefault(rgba, []).append(seen)
+        items = []
+        for (r, g, b, a), parts in sorted(kept.items(), key=lambda kv: kv[0]):
+            area = unary_union(parts).simplify(0.01, preserve_topology=True)
+            if flip_x or flip_y:
+                area = flip(area, -1 if flip_x else 1, -1 if flip_y else 1, origin=(w / 2, h / 2))
+            polys = []
+            for part in getattr(area, "geoms", [area]):
+                if isinstance(part, Polygon) and not part.is_empty:
+                    polys.append(list(part.exterior.coords)[:-1])
+                    polys.extend(list(ring.coords)[:-1] for ring in part.interiors)
+            if polys:
+                items.append(vectors.Item(polys, "evenodd", ("solid", (r, g, b, round(a * dim)))))
+        return vectors.encode(items, (0, 0, w, h))
+
+
+_FONT = None
+
+
+def _aurebesh_font():
+    """The Aurebesh font's outlines (shapely, font units, y up), advances, kerning pairs."""
+    global _FONT
+    if _FONT is None:
+        from fontTools.pens.recordingPen import DecomposingRecordingPen
+        from fontTools.ttLib import TTFont
+        from shapely.geometry import Polygon
+        font = TTFont(AUREBESH_FONT)
+        glyph_set = font.getGlyphSet()
+        outlines = {}
+        for name in glyph_set.keys():
+            pen = DecomposingRecordingPen(glyph_set)
+            glyph_set[name].draw(pen)
+            loops, loop = [], []
+            for op, args in pen.value:
+                if op == "moveTo":
+                    loop = [args[0]]
+                elif op == "lineTo":
+                    loop.append(args[0])
+                elif op == "qCurveTo":
+                    # TrueType: implied on-curve points between consecutive off-curve ones.
+                    points = list(args)
+                    start = loop[-1]
+                    for i, c in enumerate(points[:-1]):
+                        end = points[-1] if i == len(points) - 2 else (
+                            ((c[0] + points[i + 1][0]) / 2, (c[1] + points[i + 1][1]) / 2))
+                        for s in range(1, 9):
+                            u = s / 8
+                            loop.append(((1 - u) ** 2 * start[0] + 2 * (1 - u) * u * c[0] + u * u * end[0],
+                                         (1 - u) ** 2 * start[1] + 2 * (1 - u) * u * c[1] + u * u * end[1]))
+                        start = end
+                elif op in ("closePath", "endPath"):
+                    if len(loop) >= 3:
+                        loops.append(loop)
+                    loop = []
+            area = None
+            for points in loops:
+                ring = Polygon(points).buffer(0)
+                area = ring if area is None else area.symmetric_difference(ring)
+            outlines[name] = area
+        kern = {}
+        if "kern" in font:
+            for table in font["kern"].kernTables:
+                kern.update(table.kernTable)
+        _FONT = {"units": font["head"].unitsPerEm, "cmap": font.getBestCmap(),
+                 "advance": {n: font["hmtx"][n][0] for n in glyph_set.keys()},
+                 "kern": kern, "outlines": outlines}
+    return _FONT
 
 
 def _screw(p, c, r=3.2, alpha=110):
@@ -252,10 +442,9 @@ def backdrop():
     return Image.fromarray(np.concatenate([rgb, alpha], axis=2), "RGBA")
 
 
-def corner(index):
+def corner(index, pen=None):
     """A top-left bracket, turned for the other three corners. 256x256."""
-    from PIL import Image
-    p = Pen((256, 256))
+    p = (pen or Pen)((256, 256))
     t = 3
     # Main L, with the corner itself cut at 45 degrees.
     p.line([(t, 150), (t, 22), (22, t), (150, t)], INK, 150, 3)
@@ -270,9 +459,7 @@ def corner(index):
     # A node where the echo ends, and one amber light.
     p.circle((92, 16), 3, INK, 140, 1.3)
     p.circle((16, 92), 2.2, AMBER, 0, fill_alpha=150)
-    img = p.finish()
-    turn = [None, Image.FLIP_LEFT_RIGHT, Image.FLIP_TOP_BOTTOM, Image.ROTATE_180][index]
-    return img if turn is None else img.transpose(turn)
+    return p.finish(flip_x=index in (1, 3), flip_y=index in (2, 3))
 
 
 def hairline():
@@ -298,10 +485,10 @@ READOUTS = (
 )
 
 
-def readout(index):
+def readout(index, pen=None):
     """512x128 at 2x: a status light, three lines of Aurebesh, a short gauge."""
     title, line2, line3, lit = READOUTS[index]
-    p = Pen((256, 64), res=2)
+    p = (pen or Pen)((256, 64), res=2)
     p.circle((6, 9), 3, AMBER, 0, fill_alpha=180)
     w = p.text((14, 13), title, 10, INK, 200)
     p.line([(18 + w, 9), (250, 9)], STEEL, 50, 0.6)
@@ -312,9 +499,9 @@ def readout(index):
     return p.finish()
 
 
-def gunnery_station():
+def gunnery_station(pen=None):
     """1024x2048: a turret gunner's station, drawn at 512x1024 logical."""
-    p = Pen((512, 1024), res=2)
+    p = (pen or Pen)((512, 1024), res=2)
 
     # Header plate.
     p.circle((40, 42), 5, AMBER, 0, fill_alpha=190)
@@ -456,9 +643,9 @@ def gunnery_station():
     return p.finish()
 
 
-def freighter():
+def freighter(pen=None):
     """1024x2048: a light freighter's deck plan, drawn at 512x1024 logical."""
-    p = Pen((512, 1024), res=2)
+    p = (pen or Pen)((512, 1024), res=2)
     cx = 256
 
     # Header plate.
@@ -592,8 +779,64 @@ def freighter():
     return p.finish()
 
 
+def backdrop_outlines():
+    """backdrop() as outlines, 1024x512: the vertical gradient, the centre glow and the
+    vignette. The glow adds to the base, which painting over cannot; it is a colour over the
+    base at half its strength, chosen so the sum matches where the glow is (the base there
+    is about 7, 15, 30). The vignette darkens by a factor, which black over it does exactly.
+    No noise: drawn at the size it is shown, nothing is stretched into bands."""
+    import build_controller_glyph_vectors as vectors
+    import controller_drawn_art as drawn
+    import numpy as np
+    w, h = 1024, 512
+    span = 1638.4
+    whole = [[(0, 0), (w, 0), (w, h), (0, h)]]
+    down = ("linear", np.array([[0.0, span / h, -span / 2]]),
+            [(0.0, (11, 22, 42, 255)), (1.0, (3, 7, 17, 255))])
+    glow = [(i / 8, (7, 103, 187, int((1 - i / 8) ** 1.8 * 0.5 * 255))) for i in range(9)]
+    vignette = [(0.0, (0, 0, 0, 0)), (0.45, (0, 0, 0, 0)), (1.0, (0, 0, 0, round(0.45 * 0.55 * 255)))]
+    items = [vectors.Item(whole, "nonzero", down),
+             vectors.Item(whole, "nonzero", drawn._radial((0.5 * w, 0.46 * h), (0.55 * w, 0.62 * h), glow)),
+             vectors.Item(whole, "nonzero", drawn._radial((0.5 * w, 0.5 * h), (0.72 * w, 0.78 * h), vignette))]
+    return vectors.encode(items, (0, 0, w, h))
+
+
+def hairline_outlines():
+    """hairline() as outlines, 1024x32: two rows at full strength, one either side at 0.35,
+    fading to both ends as (1 - |u - 0.5| / 0.5) ^ 0.8 of 150."""
+    import build_controller_glyph_vectors as vectors
+    import numpy as np
+    w, h = 1024, 32
+    span = 1638.4
+    items = []
+    for (y0, y1), f in (((15, 17), 1.0), ((14, 15), 0.35), ((17, 18), 0.35)):
+        # 13 stops, one in the middle: the drawer takes at most 16 (kmrp_glyph_read).
+        stops = [(i / 12, INK + (int((1 - abs(i / 12 - 0.5) / 0.5) ** 0.8 * 150 * f),)) for i in range(13)]
+        paint = ("linear", np.array([[span / w, 0.0, -span / 2]]), stops)
+        items.append(vectors.Item([[(0, y0), (w, y0), (w, y1), (0, y1)]], "nonzero", paint))
+    return vectors.encode(items, (0, 0, w, h))
+
+
+def outlines():
+    """{resref: outlines} for every texture in TEXTURES, for the controller patch to draw
+    at the size each is shown."""
+    art = {"kmrlytbg": backdrop_outlines(), "kmrlythair": hairline_outlines(),
+           "kmrlytrd0": readout(0, OutlinePen), "kmrlytrd1": readout(1, OutlinePen),
+           "kmrlytgun": _dim(gunnery_station(OutlinePen), 0.8),
+           "kmrlytship": _dim(freighter(OutlinePen), 0.8)}
+    for i in range(4):
+        art[f"kmrlytcn{i}"] = corner(i, OutlinePen)
+    assert set(art) == set(TEXTURES)
+    return art
+
+
 def _dim(image, factor):
-    """Scale an image's alpha: the illustrations sit back behind the diagram."""
+    """Scale an image's alpha: the illustrations sit back behind the diagram. Outlines
+    (OutlinePen) have every paint's alpha scaled the same way."""
+    if isinstance(image, dict):
+        for item in image["items"]:
+            item["paint"]["solid"][3] = round(item["paint"]["solid"][3] * factor)
+        return image
     image.putalpha(image.getchannel("A").point(lambda a: round(a * factor)))
     return image
 

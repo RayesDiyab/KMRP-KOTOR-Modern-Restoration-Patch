@@ -99,12 +99,19 @@ def build_swoop_prompt_tga(family: str) -> bytes:
 
     # m17mg_camera.mdl Plane14: u=.185497..842288, v=.134816..867799.
     # The TGA is bottom-up; Pillow's canvas uses the top-left corner.
-    tile = Image.open(BytesIO(build_square_glyph_tga("A", 84, 94, family=family)))
+    from build_controller_prompt_textures import SCENES
+    tile_tga = build_square_glyph_tga("A", 84, 94, family=family)
+    tile = Image.open(BytesIO(tile_tga))
     canvas = Image.new("RGBA", (128, 128))
     canvas.paste(tile, (24, 17))
     canvas = canvas.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
     header = struct.pack("<BBBHHBHHHHBB", 0, 0, 2, 0, 0, 0, 0, 0, 128, 128, 32, 0x08)
-    return header + canvas.tobytes("raw", "BGRA") + b"\0" * 8 + b"TRUEVISION-XFILE.\0"
+    tga = header + canvas.tobytes("raw", "BGRA") + b"\0" * 8 + b"TRUEVISION-XFILE.\0"
+    # The module draws it for the screen's size (KmrpDrawnPictureK1, vendor/K1XboxControls.cpp):
+    # the tile's A where the tile is pasted.
+    parts = [(f, glyph, left + 24, top + 17, w, h)
+             for f, glyph, left, top, w, h in SCENES[hashlib.sha256(tile_tga).hexdigest()][2]]
+    return register_scene(tga, 128, 128, parts)
 
 
 def extract(game: Path) -> int:
@@ -309,7 +316,7 @@ def make(work: Path) -> dict:
     # again, as they were until then: the module shows a carried one wherever drawing fails
     # (the maintainer, the same day: keep the fallback in the repository, in case they are
     # wanted back).
-    unshipped = {f"{name}.tga" for name, _, _, _ in scenes}
+    unshipped = {f"{scene[0]}.tga" for scene in scenes}
     unshipped |= {path.name.lower() for path in prompts if path.suffix.lower() == ".tga"}
     UNSHIPPED.clear()
     if not CARRY_DRAWN:
@@ -409,10 +416,10 @@ def scenes_for(files: dict) -> list:
         scene = SCENES.get(hashlib.sha256(path.read_bytes()).hexdigest())
         if scene is None:
             continue
-        width, height, parts = scene
+        width, height, parts, stretch, cap = scene
         out.append((name[:-4], width, height,
                     [(f"{FAMILY_LETTERS[family] if family else '-'}/{glyph}", left, top, w, h)
-                     for family, glyph, left, top, w, h in parts]))
+                     for family, glyph, left, top, w, h in parts], stretch, cap))
     return out
 
 
@@ -420,11 +427,14 @@ def pack_glyphs(scenes: list = ()) -> bytes:
     """Every family's glyphs for the module: "KGLY", u32 count, then per glyph its name (u16
     length, "<family letter>/<glyph>", as "p/RT_NOTICE") and its outlines as
     controller_glyphs.pack writes them, which kmrp_glyph_read reads. Then "SCEN", u32 count,
-    per scene its texture's name (u16 length, ASCII), u32 width and height, u32 parts, per
-    part the glyph's name (u16 length) and its box (4 x i32: left, top, width, height in the
-    texture's pixels), drawn keeping the glyph's proportions (scenes_for)."""
+    per scene its texture's name (u16 length, ASCII), u32 width and height, u32 parts, u32
+    flags (1: each glyph fills its box, else it keeps its proportions in it) and u32 cap (the
+    most pixels it is drawn on its longer side, 0 for any), per part the glyph's name (u16
+    length) and its box (4 x i32: left, top, width, height in the texture's pixels)
+    (scenes_for)."""
     import controller_drawn_art
     import controller_glyphs
+    import controller_layout_backdrop
     out = b"KGLY"
     entries = []
 
@@ -441,13 +451,21 @@ def pack_glyphs(scenes: list = ()) -> bytes:
         left, right = build_tab_arrows.NAMES[family]
         add(f"{FAMILY_LETTERS[family]}/TAB_LEFT", controller_drawn_art.tab_arrow(left, True))
         add(f"{FAMILY_LETTERS[family]}/TAB_RIGHT", controller_drawn_art.tab_arrow(right, False))
-    # And the remapping screen's symbols, the same for every controller.
+        # The Controller Layout's board: the silhouette with its glow, and the leader lines.
+        body, leaders, _ = controller_drawn_art.layout_diagram(family)
+        add(f"{FAMILY_LETTERS[family]}/LAYOUT_BODY", body)
+        add(f"{FAMILY_LETTERS[family]}/LAYOUT_LINES", leaders)
+    # And the remapping screen's symbols and the Controller Layout's backdrop and edge art,
+    # the same for every controller.
     for name, g in controller_drawn_art.remap_marks().items():
+        add(f"-/{name}", g)
+    for name, g in controller_layout_backdrop.outlines().items():
         add(f"-/{name}", g)
     out += struct.pack("<I", len(entries)) + b"".join(entries)
     out += b"SCEN" + struct.pack("<I", len(scenes))
-    for texture, width, height, parts in scenes:
-        out += struct.pack("<H", len(texture)) + texture.encode("ascii") + struct.pack("<III", width, height, len(parts))
+    for texture, width, height, parts, stretch, cap in scenes:
+        out += struct.pack("<H", len(texture)) + texture.encode("ascii")
+        out += struct.pack("<IIIII", width, height, len(parts), 1 if stretch else 0, cap)
         for glyph, left, top, w, h in parts:
             out += struct.pack("<H", len(glyph)) + glyph.encode("ascii") + struct.pack("<4i", left, top, w, h)
     return out

@@ -2359,10 +2359,34 @@ extern "C" int __cdecl ResolveResolutionConfirmK1(void* panel, int* event, int* 
         return 0;
     }
     const bool onCancel = MessageBoxCancelHasFocusK1(panel);
-    LogConfirmK1("resolution", *event, *value, onCancel ? "a-on-cancel -> b" : "a-on-ok");
+    LogConfirmK1("resolution", *event, *value, onCancel ? "a-on-cancel -> b" : "a-on-ok, confirmed once here");
     if (onCancel) {
         *event = K1_GUI_EVENT_CANCEL;
+        return 0;
     }
+    // A on OK or on a resolution: confirmed here, once, and the event made one that
+    // nothing on this screen answers. The panel's own 0x27 (CSWGuiOptionsResolution::
+    // HandleInputEvent, 0x006E0CF0) plays the sound and calls OnResolutionChosen(0)
+    // (0x006DF690), which sets the mode and pops the top modal panel, this one; then it
+    // passes the same 0x27 on to its focused control (CSWGuiPanel::HandleInputEvent),
+    // the list and its focused row, or OK, and every row and OK has OnResolutionChosen
+    // as its own 0x27 handler (the screen's constructor), with m_n4c set from the press
+    // (CSWGuiControl::HandleInputEvent, 0x00418750) so its guard lets it through. So it
+    // ran twice: the second pop took Graphics Options off the modal stack without the
+    // flags its own Close sets, the Options screen showed, and the pad went on moving an
+    // unseen focus on Graphics behind it, with Graphics' badges left where they were (the
+    // maintainer, 2026-10-28; read from the swkotor1-reconstruction project and level 2's
+    // menu snapshots, which showed the badges painting Options while the pad moved on
+    // Graphics). A mouse click on OK reaches only the button, once, and is unchanged.
+    constexpr int kNothing = 0x7FFF;
+    void* const manager = *FieldAt<void*>(panel, 0x18);           // CSWGuiPanel::m_pManager
+    if (LooksLikePointerK1(manager)) {
+        using PlayGuiSoundFn = void(__thiscall*)(void*, int);
+        EngineFn<PlayGuiSoundFn>(0x0040A140)(manager, 0);
+    }
+    using OnResolutionChosenFn = void(__thiscall*)(void*, void*);
+    EngineFn<OnResolutionChosenFn>(0x006DF690)(panel, nullptr);
+    *event = kNothing;
     return 0;
 }
 
@@ -4557,6 +4581,8 @@ extern "C" void __cdecl KmrpPadFocusSkipK1(void* control, int skipped)
 
 // The picture a fill stands for (vendor/K1XboxControls.cpp).
 const char* KmrpLogicalFillK1(const char* fill);
+// The swoop prompt drawn for this screen's size, its name in `out` (the same file).
+bool KmrpDrawnPictureK1(const char* name, char out[17]);
 
 // For the prompt layer in vendor/K1XboxControls.cpp, which names the Xbox art.
 extern "C" char __cdecl KmrpGlyphLetterK1()
@@ -5694,6 +5720,16 @@ bool NavigateFocusK1(int dx, int dy)
     }
 
     void* target = ChooseNeighbourK1(panel, from, dx, dy);
+    if (KmrpDebugLevel() >= 2) {
+        // Level 2: each move the pad makes on a screen, from where to what (2026-10-28).
+        const int* f = IsReadableK1(from, 0x14) ? FieldAt<int>(from, 4) : nullptr;
+        const int* g = IsReadableK1(target, 0x14) ? FieldAt<int>(target, 4) : nullptr;
+        char line[200];
+        std::snprintf(line, sizeof line, "nav %d,%d on %p from %p (%d,%d,%d,%d) to %p (%d,%d,%d,%d)",
+                      dx, dy, panel, from, f ? f[0] : 0, f ? f[1] : 0, f ? f[2] : 0, f ? f[3] : 0, target,
+                      g ? g[0] : 0, g ? g[1] : 0, g ? g[2] : 0, g ? g[3] : 0);
+        ControllerLogK1(line);
+    }
     // Never onto a row's arrow: the row's value holds the focus.
     if (const CycleRowK1* landed = CycleRowForK1(panel, target)) {
         target = static_cast<char*>(panel) + landed->value;
@@ -6011,6 +6047,68 @@ bool KmrpIsBesideK1()
 }
 #endif
 
+// Debug level 2: the screens up, written whenever they change (2026-10-28, to find why the
+// Options screen's pad focus stuck after a change of resolution): each panel, its type,
+// extent and active control, and every control of the panel the pad navigates, with its
+// type, extent and flags (+0x44; bit 2 drawn).
+void ControllerLogK1(const char* text);
+void LogMenuSnapshotK1(void* manager)
+{
+    if (KmrpDebugLevel() < 2 || !IsReadableK1(manager, 0x90)) return;
+    static char last[24576];
+    static char now[24576];
+    std::size_t used = 0;
+    auto add = [&](const char* format, auto... values) {
+        if (used < sizeof now) {
+            const int n = std::snprintf(now + used, sizeof now - used, format, values...);
+            if (n > 0) used += static_cast<std::size_t>(n);
+        }
+        if (used >= sizeof now) used = sizeof now - 1;
+    };
+    void** const panels = *FieldAt<void**>(manager, 0x88);
+    const int count = *FieldAt<int>(manager, 0x8C);
+    if (!panels || count < 0 || count > 64 || !IsReadableK1(panels, count * 4u)) return;
+    const int width = *reinterpret_cast<const int*>(0x0078D1D4), height = *reinterpret_cast<const int*>(0x0078D1D8);
+    add("menus: screen %dx%d, %d panels\n", width, height, count);
+    for (int i = 0; i < count; ++i) {
+        void* const panel = panels[i];
+        if (!IsReadableK1(panel, 0x60)) { add("  panel %d %p unreadable\n", i, panel); continue; }
+        const int* e = FieldAt<int>(panel, 4);
+        void* const active = *FieldAt<void*>(panel, 0x1C);
+        add("  panel %d %p vt=%08X ext=%d,%d,%d,%d active=%p controls=%d\n", i, panel,
+            static_cast<unsigned>(*static_cast<std::uintptr_t*>(panel)), e[0], e[1], e[2], e[3], active,
+            *FieldAt<int>(panel, 0x24));
+    }
+    void* tabBar = nullptr;
+    void* const front = NavigationPanelK1(&tabBar);
+    if (IsReadableK1(front, 0x60)) {
+        void** const controls = *FieldAt<void**>(front, 0x20);
+        const int n = *FieldAt<int>(front, 0x24);
+        add("  navigated %p tabbar=%p active=%p\n", front, tabBar, *FieldAt<void*>(front, 0x1C));
+        if (controls && n > 0 && n <= 512 && IsReadableK1(controls, n * 4u)) {
+            for (int i = 0; i < n; ++i) {
+                void* const c = controls[i];
+                if (!IsReadableK1(c, 0x60)) { add("    %d %p\n", i, c); continue; }
+                const int* e = FieldAt<int>(c, 4);
+                add("    %d %p vt=%08X ext=%d,%d,%d,%d flags=%X\n", i, c,
+                    static_cast<unsigned>(*static_cast<std::uintptr_t*>(c)), e[0], e[1], e[2], e[3],
+                    *FieldAt<unsigned>(c, 0x44));
+            }
+        }
+    }
+    now[used] = '\0';
+    if (std::strcmp(now, last) == 0) return;
+    std::memcpy(last, now, used + 1);
+    char* line = now;
+    while (*line) {
+        char* end = std::strchr(line, '\n');
+        if (end) *end = '\0';
+        ControllerLogK1(line);
+        if (!end) break;
+        line = end + 1;
+    }
+}
+
 extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
 {
     (void)guiManager;
@@ -6018,6 +6116,7 @@ extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
     KmrpResolutionObservedK1(guiManager);   // as CoreGuiFrameK1 does, above
 #endif
     g_stick.lastGuiTick = GetTickCount();
+    LogMenuSnapshotK1(guiManager);
 #ifdef KMRP_CONTROLLER_STANDALONE
     // Beside KMRP its module confines the cursor, from its own hook (it knows the
     // sizes it adds); alone, the cursor is this module's to confine.
@@ -7080,7 +7179,11 @@ void UpdateSwoopPromptK1()
                 const char letters[] = "psnd";
                 char glyphName[16] = "kmrpp_swoop";
                 glyphName[3] = letters[family];
-                void* const loaded = EngineFn<LoadTextureRefFn>(K1_LOAD_TEXTURE_REF)(glyphName, nullptr);
+                // The controller patch draws it at a size for this screen (2026-10-27) and
+                // carries no texture of it; KMRP's own module loads the one it carries.
+                char drawn[17] = {};
+                const char* const load = KmrpDrawnPictureK1(glyphName, drawn) ? drawn : glyphName;
+                void* const loaded = EngineFn<LoadTextureRefFn>(K1_LOAD_TEXTURE_REF)(load, nullptr);
                 if (loaded) EngineFn<AssignTextureRefFn>(K1_ASSIGN_TEXTURE_REF)(&glyphs[family], loaded);
             }
             if (glyphs[family] && EngineFn<TextureRefIdFn>(K1_TEXTURE_REF_ID)(glyphs[family]) != 0) {

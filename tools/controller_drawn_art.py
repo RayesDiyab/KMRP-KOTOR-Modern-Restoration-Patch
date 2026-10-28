@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import math
 import sys
+from functools import lru_cache
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,9 +30,20 @@ GLOW_ARC = 8               # segments per quarter circle of a glow ring (a soft 
 SIMPLIFY = 0.02            # an outline kept within this many of the picture's pixels
 
 
-def _encode(items, size):
+def _encode(items, size, height=None):
     import build_controller_glyph_vectors as vectors
-    return vectors.encode(items, (0, 0, size, size))
+    return vectors.encode(items, (0, 0, size, size if height is None else height))
+
+
+def _radial(centre, radii, stops):
+    """A radial paint, t = 0 at `centre` and 1 on the ellipse of `radii`, in the picture's
+    pixels; `stops` as (t, RGBA). In the vector tool's terms: Flash's gradient box, whose
+    radius is 819.2."""
+    import numpy as np
+    span = 819.2
+    (cx, cy), (rx, ry) = centre, radii
+    m = np.array([[span / rx, 0.0, -cx * span / rx], [0.0, span / ry, -cy * span / ry]])
+    return ("radial", m, [(t, tuple(int(v) for v in c)) for t, c in stops])
 
 
 def _item(geometry, colour, alpha=255):
@@ -176,3 +188,64 @@ def remap_marks() -> dict:
     # The dot: PIL's ellipse over [24, 24, 103, 103].
     marks[layout.REMAP_DOT] = _encode([_item(Point(64, 64).buffer(40, quad_segs=64), layout.DOT_YELLOW)], size)
     return marks
+
+
+@lru_cache(maxsize=None)
+def layout_diagram(family: str):
+    """build_controller_layout.build_diagram's board as the module draws it: (the silhouette
+    with its glow, the leader lines, the face buttons' boxes). The first two are outlines in
+    the board texture's pixels (TEXTURE); the boxes are where the family's own A, B, X and Y
+    go between them, as that function pastes them, for the scene."""
+    import build_controller_glyph_vectors as vectors
+    import build_controller_layout as layout
+    import controller_glyphs
+    from shapely.geometry import LineString, Point
+    from shapely.ops import unary_union
+    tw, th = layout.TEXTURE
+    k = tw / layout.BOARD[2]
+    sw, sh = layout.SOURCE_SIZE
+    # The silhouette, where build_diagram pastes the PNG it resized, in its colour.
+    placed_w = round(layout.DIAGRAM_W * k)
+    placed_h = round(layout.DIAGRAM_W * k * sh / sw)
+    left, top = round(layout.DIAGRAM_X * k), round(layout.DIAGRAM_Y * k)
+    sx, sy = placed_w / sw, placed_h / sh
+    art = controller_glyphs.glyph(family, "DIAGRAM")
+    units = sw / art["size"][0]                    # the PNG's pixels per glyph unit
+    items = []
+    # The glow: (1 - d)^2 of 70 at distance d of the ellipse, as _glow draws it.
+    cx = (layout.DIAGRAM_X + layout.DIAGRAM_W / 2) * k
+    cy = (layout.DIAGRAM_Y + layout.DIAGRAM_W * sh / sw / 2) * k
+    rx, ry = layout.DIAGRAM_W * 0.62 * k, layout.DIAGRAM_W * 0.42 * k
+    stops = [(t / 8, layout.INK + (int((1 - t / 8) ** 2 * 70),)) for t in range(9)]
+    ellipse = [(cx + rx * 1.01 * math.cos(a * math.pi / 64), cy + ry * 1.01 * math.sin(a * math.pi / 64))
+               for a in range(128)]
+    items.append(vectors.Item([ellipse], "nonzero", _radial((cx, cy), (rx, ry), stops)))
+    for item in art["items"]:
+        polys = [[(left + x * units * sx, top + y * units * sy) for x, y in zip(p[0::2], p[1::2])]
+                 for p in item["polygons"]]
+        alpha = item["paint"]["solid"][3]
+        items.append(vectors.Item(polys, item["rule"], ("solid", layout.BODY + (alpha,))))
+    body = _encode(items, tw, th)
+    # The leader lines: 2.25 px wide (PIL's 9 px at 4x), round joins, flat ends, 235 of
+    # 255; a dot of 2.6 design units at each end, opaque.
+    lines, dots = [], []
+    for i, y in enumerate(layout.rows()):
+        side = layout.LAYOUT[i][2]
+        (bend, by), (ax, ay) = layout._line(i, y, family)
+        if side == "T":
+            points = [(bend, by), (ax, ay)]
+        else:
+            start = (layout.LEFT_GLYPH_X + layout.GLYPH + 4) if side == "L" else (layout.RIGHT_GLYPH_X - 4)
+            points = [(start, y), (bend, y), (ax, ay)]
+        lines.append(LineString([(x * k, y * k) for x, y in points]).buffer(9 / 8, cap_style="flat", join_style="round",
+                                                                           quad_segs=16))
+        dots.append(Point(ax * k, ay * k).buffer(2.6 * k, quad_segs=32))
+    leaders = _encode([_item(unary_union(lines), layout.INK, 235), _item(unary_union(dots), layout.INK)], tw, th)
+    # The face buttons: each glyph's larger side 88 of the PNG's pixels, centred on its anchor.
+    boxes = []
+    for key, size in layout.FACE_GLYPHS.items():
+        ax, ay = layout.ANCHORS[layout.SILHOUETTES[family][1]][key]
+        x0, y0 = left + (ax - size / 2) * sx, top + (ay - size / 2) * sy
+        x1, y1 = left + (ax + size / 2) * sx, top + (ay + size / 2) * sy
+        boxes.append((key, round(x0), round(y0), round(x1) - round(x0), round(y1) - round(y0)))
+    return body, leaders, boxes

@@ -22,6 +22,9 @@ A maintainer's tool, run when a picture changes; the build only reads its output
     (fonts/tools/measure.py, redraw2.py), within 0.5 to 1.6 of 255 of the PNG.
   * The swap-tabs phrase is the family's X-position button from the vector file, where
     the old picture had it, and the yellow arrows redrawn from the 2000 px picture.
+  * The Controller Layout's silhouettes (DIAGRAM) are frame 0 of the Xbox Series and PS5
+    layers, less what Xelu's Simple PNGs leave out (diagram()); drawn over those PNGs they
+    differ by 2.3 and 1.7 of 255 on average in alpha.
 
 Faces: the letter or symbol is moved so its outline's box is centred on the disc (the
 maintainer's rule: letters centred), and the picture's box is the disc's with 4% around
@@ -48,8 +51,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(ROOT / "fonts" / "tools"))
 import build_controller_prompt_textures as prompts  # noqa: E402
-import measure  # noqa: E402
-import redraw2  # noqa: E402
 
 PACK = prompts.GLYPH_PACK
 FLA = PACK / "Vector Source.fla"
@@ -110,6 +111,13 @@ SWAP_SOURCE = "Xbox/Swap_tabs_360.png.png"
 SWAP_BOX = (325, 746, 1743, 1384)        # the picture's ink, in the 2000 px source
 SWAP_BUTTON = (644.0, 1064.0, 638.0)     # the X button's centre and disc, the same
 SWAP_YELLOW = (255, 255, 0, 255)
+# The Controller Layout screen's silhouettes (tools/build_controller_layout.py), frame 0 of
+# the layer: Xelu's Diagram_Simple PNGs are these at twice the size. The box is the PNG's,
+# 1452x940, so the layout's anchors (in the PNG's pixels) hold; the offset is where the
+# frame's origin lands in it, measured by drawing the outlines over the PNG.
+DIAGRAMS = {"xbox": ("Xbox Series", (629.90, 422.46)), "playstation": ("Playstation 5", (622.54, 330.53))}
+DIAGRAM_SAME = {"switch/DIAGRAM": "xbox/DIAGRAM", "steamdeck/DIAGRAM": "xbox/DIAGRAM"}
+DIAGRAM_PNG = (1452, 940)
 
 
 # ---------------------------------------------------------------- the vector file
@@ -525,6 +533,10 @@ def flatten(start, parts):
 def fit_layer(cov, height):
     """A coverage layer's edges redrawn as lines and cubic arcs, flattened, in the
     picture's pixels (y down)."""
+    # Here and not at the top: the build imports this module for encode() and Item
+    # (controller_drawn_art), and these need scipy, which only this maintainer's step uses.
+    import measure
+    import redraw2
     out = []
     for P in measure.outlines(cov, height, spacing=0.5):
         if len(P) < 8:
@@ -581,6 +593,43 @@ def deck_shoulder(root, glyph: str):
 
 
 # ---------------------------------------------------------------- output
+
+def diagram(root, family: str):
+    """The Controller Layout's silhouette: frame 0 of the layer, less what the Simple PNG
+    the layout was made with leaves out. The frame is the full diagram, with the logo, the
+    letters on the face buttons, the small icons and the D-pad's arrows; each outline loop
+    and stroked path is kept only where at least half its points lie on the PNG's ink
+    (within 2 px). The box is the PNG's."""
+    layer, (ox, oy) = DIAGRAMS[family]
+    png = {"xbox": "Xbox/XboxSeriesX_Diagram_Simple.png", "playstation": "PS5/PS5_Diagram_Simple.png"}[family]
+    solid = np.pad(np.asarray(Image.open(PACK / png).convert("RGBA"))[..., 3] > 40, 2)
+    h0, w0 = solid.shape[0] - 4, solid.shape[1] - 4
+    ink = np.zeros((h0, w0), bool)
+    for dy in range(5):
+        for dx in range(5):
+            ink |= solid[dy:dy + h0, dx:dx + w0]
+
+    def on_ink(points) -> bool:
+        p = np.asarray(points, np.float64)
+        xs = np.clip(np.round(p[:, 0] * 2 + ox).astype(int), 0, ink.shape[1] - 1)
+        ys = np.clip(np.round(p[:, 1] * 2 + oy).astype(int), 0, ink.shape[0] - 1)
+        return ink[ys, xs].mean() >= 0.5
+
+    fr = Frame(root, layer, 0)
+    items = []
+    for style in sorted(fr.fills):
+        loops = [loop for loop in loops_for(fr.edges, style) if on_ink(loop)]
+        if loops:
+            items.append(Item(loops, "nonzero", fr.fills[style]))
+    for style in sorted(fr.strokes):
+        weight, paint = fr.strokes[style]
+        paths = [seg for _, _, st, segs in fr.edges if st == style for seg in segs if on_ink(seg)]
+        polys = stroke_polys(paths, weight)
+        if polys:
+            items.append(Item(polys, "evenodd", paint))
+    w, h = DIAGRAM_PNG
+    return items, (-ox / 2, -oy / 2, (w - ox) / 2, (h - oy) / 2)
+
 
 def encode(items, box) -> dict:
     """Items in a box as glyphs.json holds them: integer units, the larger side UNITS."""
@@ -646,6 +695,11 @@ def main() -> None:
                 items, box = plain(root, family, glyph)
             result[name] = encode(items, box)
             print(f"{name}: {len(result[name]['items'])} items", file=sys.stderr)
+    for family in DIAGRAMS:
+        items, box = diagram(root, family)
+        result[f"{family}/DIAGRAM"] = encode(items, box)
+    for name, same in DIAGRAM_SAME.items():
+        result[name] = {"same_as": same}
     args.out.parent.mkdir(parents=True, exist_ok=True)
     # one glyph per line, so a change to one picture is one line of the diff
     lines = [json.dumps(name) + ":" + json.dumps(g, separators=(",", ":")) for name, g in result.items()]

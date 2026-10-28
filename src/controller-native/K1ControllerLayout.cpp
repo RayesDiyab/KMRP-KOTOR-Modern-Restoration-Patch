@@ -15,6 +15,9 @@ bool ControllerConfirmHeldK1();
 std::uint16_t KmrpPadButtonsK1();     // the pad's buttons as pressed (K1NativeJoystick.cpp)
 bool KmrpPadPresentK1();              // a pad answered the last read (K1NativeJoystick.cpp)
 void KmrpPadFocusExcludeK1(void* control, bool excluded);   // off the pad's focus (K1NativeJoystick.cpp)
+bool KmrpQueueLayoutPanelK1(void* panel);   // the screen's pictures for the background (vendor/K1XboxControls.cpp)
+bool KmrpPicturesSettledK1();               // a frame went by with nothing left to draw (the same)
+void KmrpQueueLayoutControlK1(void* control);
 
 namespace {
 // Rows on the Controller Layout screen: GLYPH_nn and TEXT_nn each. Must equal
@@ -1823,7 +1826,107 @@ void ControllerLayoutReleaseGffK1(void* panel) {
     }
 }
 
+// The tag of the screen's i-th control, in the order of `owned`.
+void layoutTag(int i, char (&tag)[24]) {
+    static const char* const fixed[]={"LBL_TITLE","BTN_BACK","LBL_XBOX","LBL_PS","LBL_SWITCH","LBL_DECK","LBL_KBM","LBL_PAD","LBL_DIAGRAM","LBL_HELP"};
+    const int row=i-K1_LAYOUT_FIXED;
+    memset(tag,0,sizeof tag);
+    if (i<K1_LAYOUT_FIXED) strcpy_s(tag,fixed[i]);
+    else if (row<K1_LAYOUT_ROWS) sprintf_s(tag,"GLYPH_%02d",row);
+    else if (row<2*K1_LAYOUT_ROWS) sprintf_s(tag,"TEXT_%02d",row-K1_LAYOUT_ROWS);
+    else if (i==K1_LAYOUT_BACK_GLYPH) strcpy_s(tag,"GLYPH_BACK");
+    else sprintf_s(tag,"DECO_%02d",row-2*K1_LAYOUT_ROWS);
+}
+
+// The screen's pictures drawn in the background before it is opened (2026-10-27, the
+// maintainer: as the game starts, and right after the resolution changes, without delaying
+// the change). Their sizes are what the layout file the game loads now gives them, so the
+// screen is made as it is when opened, kmrplayout loaded and every control bound, but never
+// added to the manager or shown; each control's picture is queued, and the copy taken apart
+// as destroy() takes the screen apart. A few milliseconds on the game thread; the drawing is
+// on the patch's own (vendor/K1XboxControls.cpp, K1BackgroundWorker). Done again only for
+// another size, and tried again later when the layout file is not there yet.
+//
+// When, by events and not by time (the maintainer, 2026-10-28: after the last thing the
+// resolution change draws, not after a delay): when the size changes, the screens up are
+// noted; once the game has made them again for the new size (the panels up, or their
+// sizes, differ) and they have held for a frame, and a whole frame has gone by in which the
+// patch drew no badge or picture (KmrpPicturesSettledK1), the copy is made. As the game
+// starts, from the first such frame with a screen up. The first rule, 15 frames after the
+// size changed, came one frame after the switch finished, while the game was making its
+// screens again, and the maintainer then found Options' pad focus stuck and a small badge
+// under its last button (2560x1440 from 3440x1440). Whether the copy caused that is not
+// known: layout-predraw=0 in configs\kmrp-controller.ini turns it off, to tell.
+enum class Predraw { Start, Rebuild, Drawn, Done };
+Predraw predraw=Predraw::Start;
+int seenWidth=0, seenHeight=0;
+unsigned long long panelsAtChange=0, panelsLastFrame=0;
+
+// The screens up, as one number: each panel and its size.
+unsigned long long panelSignature(void* manager, int& count) {
+    auto panels=at<void**>(manager,0x88);              // MANAGER_PANEL_LIST_OFFSET
+    count=at<int>(manager,0x8C);                        // MANAGER_PANEL_COUNT_OFFSET
+    if (!panels || count<0 || count>64) { count=0; return 0; }
+    unsigned long long h=1469598103934665603ull;
+    for (int i=0;i<count;++i) {
+        void* p=panels[i];
+        const unsigned long long parts[3]={reinterpret_cast<std::uintptr_t>(p),
+            p ? static_cast<unsigned>(at<int>(p,0x0C)) : 0u, p ? static_cast<unsigned>(at<int>(p,0x10)) : 0u};
+        for (unsigned long long v:parts) h=(h^v)*1099511628211ull;
+    }
+    return h;
+}
+
+void probeLayoutPictures(void* manager) {
+    static const bool enabled = KmrpPatchOption(L"layout-predraw", 1) != 0;
+    if (!enabled) return;
+    const int width=*reinterpret_cast<const int*>(0x0078D1D4), height=*reinterpret_cast<const int*>(0x0078D1D8);
+    if (width<=0 || height<=0) return;
+    int panelCount=0;
+    const unsigned long long panels=panelSignature(manager,panelCount);
+    const bool held=panels==panelsLastFrame;
+    panelsLastFrame=panels;
+    if (width!=seenWidth || height!=seenHeight) {
+        predraw=seenWidth==0 ? Predraw::Drawn : Predraw::Rebuild;
+        panelsAtChange=panels;
+        seenWidth=width; seenHeight=height;
+        return;
+    }
+    if (predraw==Predraw::Rebuild) {
+        if (panels==panelsAtChange) return;             // not made again yet
+        predraw=Predraw::Drawn;
+    }
+    if (predraw!=Predraw::Drawn || current || pending || panelCount==0) return;
+    if (!held || !KmrpPicturesSettledK1()) return;
+    void* p=fn<New>(0x6FA7E6)(0x64);
+    if (!p) return;
+    fn<PanelCtor>(0x40B570)(p,manager);
+    char resref[16]="kmrplayout";
+    fn<void(__thiscall*)(void*,void*)>(0x40A680)(p,resref);
+    void* copies[K1_LAYOUT_CONTROLS]={};
+    const bool theScreen=KmrpQueueLayoutPanelK1(p);
+    for (int i=0;theScreen && i<K1_LAYOUT_CONTROLS;++i) {
+        char tag[24];
+        layoutTag(i,tag);
+        copies[i]=bind(p,tag,i==1);
+        if (copies[i]) KmrpQueueLayoutControlK1(copies[i]);
+    }
+    auto array=at<void**>(p,0x20);
+    for (int i=0;array && i<at<int>(p,0x24);++i) array[i]=nullptr;
+    for (void* c:copies) destroyControl(c);
+    fn<Simple>(0x40CF70)(p);
+    fn<Delete>(0x6FA390)(p);
+    if (theScreen) {
+        predraw=Predraw::Done; log("pictures-queued");
+    } else {
+        predraw=Predraw::Rebuild; panelsAtChange=panels;   // tried again when the screens change
+    }
+}
+
 void ControllerLayoutFrameK1(void* manager) {
+#ifdef KMRP_CONTROLLER_STANDALONE
+    if (manager) probeLayoutPictures(manager);
+#endif
     if (pending) {
         void* owner=pending; pending=nullptr;
         if (!current && fn<Exists>(0x40BD70)(manager,owner)) {
@@ -1839,17 +1942,11 @@ void ControllerLayoutFrameK1(void* manager) {
             ++created; ownedCount=0;
             char resref[16]="kmrplayout";
             fn<void(__thiscall*)(void*,void*)>(0x40A680)(p,resref);
-            const char* tags[]={"LBL_TITLE","BTN_BACK","LBL_XBOX","LBL_PS","LBL_SWITCH","LBL_DECK","LBL_KBM","LBL_PAD","LBL_DIAGRAM","LBL_HELP"};
             bool complete=true;
             void* backButton=nullptr;
             for (int i=0;i<K1_LAYOUT_CONTROLS;++i) {
-                char tag[24]={};
-                const int row=i-K1_LAYOUT_FIXED;
-                if (i<K1_LAYOUT_FIXED) strcpy_s(tag,tags[i]);
-                else if (row<K1_LAYOUT_ROWS) sprintf_s(tag,"GLYPH_%02d",row);
-                else if (row<2*K1_LAYOUT_ROWS) sprintf_s(tag,"TEXT_%02d",row-K1_LAYOUT_ROWS);
-                else if (i==K1_LAYOUT_BACK_GLYPH) strcpy_s(tag,"GLYPH_BACK");
-                else sprintf_s(tag,"DECO_%02d",row-2*K1_LAYOUT_ROWS);
+                char tag[24];
+                layoutTag(i,tag);
                 void* c=bind(p,tag,i==1);
                 if (!c) { complete=false; break; }
                 owned[ownedCount++]=c;

@@ -97,7 +97,22 @@ def pack(g: dict) -> bytes:
     """One glyph as gui-blend.bin carries it (build_gui_blend_table.py's badge section):
     u32 W, u32 H, u32 items; per item: u8 rule, u8 paint, then the paint (solid: 4 bytes
     RGBA; linear: 3 x i64; radial: 6 x i64, then u32 stops, per stop u32 position and 4
-    bytes RGBA), u32 polygons, per polygon u32 n and n x (i32 x, i32 y)."""
+    bytes RGBA), u32 polygons, per polygon u32 n and n x (i32 x, i32 y).
+
+    Refuses a glyph kmrp_glyph_read (macos/tools/kmrp-glyphs.c) would refuse: the module
+    reads the bank in order and stops at the first glyph it cannot read, losing every one
+    after it and every picture made from them. A hairline with 17 gradient stops did that on
+    2026-10-27 and showed white boxes in place of every picture drawn at run time."""
+    w, h = g["size"]
+    if not (0 < w <= 65536 and 0 < h <= 65536) or len(g["items"]) > 4096:
+        raise ValueError(f"glyph {w}x{h} with {len(g['items'])} items: the module reads at most 65536 "
+                         "units a side and 4096 items")
+    for item in g["items"]:
+        stops = item["paint"].get("stops")
+        if stops is not None and not 1 <= len(stops) <= 16:
+            raise ValueError(f"a gradient of {len(stops)} stops: the module reads 1 to 16")
+        if any(len(poly) // 2 > 1000000 for poly in item["polygons"]):
+            raise ValueError("a polygon of over 1000000 points: the module reads at most that")
     out = struct.pack("<III", g["size"][0], g["size"][1], len(g["items"]))
     for item in g["items"]:
         paint = item["paint"]
