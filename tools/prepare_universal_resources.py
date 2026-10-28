@@ -37,6 +37,7 @@ from build_scaled_fonts import export_font_txis, export_fonts, scale_txi
 from fix_hud_menubg import fix_menubg_file
 from scale_hud_minimap import patch_gui
 from transfer_gold_gui_geometry import transfer_geometry
+import menu_bottom_row
 from scale_listbox_padding import (FEEDBACK_LIST, JOURNAL_ROWS, LIST_GUTTER_AT_UNIT_SCALE,
                                    ROW_LISTS, SCRIPTSELECT_FRAME, centre_rows_in_frame,
                                    fit_list_to_rows, fit_rows_to_list, scale_listbox_padding,
@@ -1349,6 +1350,20 @@ def build_resolution(job) -> str:
                     fitted[screen, tag] = fit_list_to_rows(
                         gutter_file, gutter_file, height, tag, bases, popup=kind == "popup")
             packaged_files[index] = gutter_file
+
+        # The in-game menu's Close and the button beside it at the Character screen's
+        # own rectangles on every screen, from this size's character.gui as built
+        # (tools/menu_bottom_row.py).
+        by_name = {path.name.lower(): index for index, path in enumerate(packaged_files)}
+        if menu_bottom_row.REFERENCE in by_name:
+            row_dir = temp_dir / "bottom-row"
+            row_dir.mkdir(exist_ok=True)
+            close, neighbour = menu_bottom_row.reference(packaged_files[by_name[menu_bottom_row.REFERENCE]])
+            for screen in menu_bottom_row.SCREENS:
+                if screen in by_name:
+                    row_file = row_dir / packaged_files[by_name[screen]].name
+                    menu_bottom_row.match(packaged_files[by_name[screen]], row_file, close, neighbour)
+                    packaged_files[by_name[screen]] = row_file
 
         # The R3 party-switch cue, on the four screens that switch.
         # Placed from each resolution's own portrait extents, so there is

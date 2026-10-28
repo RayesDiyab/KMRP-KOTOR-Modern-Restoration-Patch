@@ -34,9 +34,11 @@ on the same spot of the galaxy (`macos/tools/kmrp-guiadapt.c`). A `galaxymap.gui
 other size is left to replace KMRP's, as above. Run on the maintainer's Steam game at
 3440x1440 with a test file (Yavin moved beside Korriban): not yet with a real mod.
 
-**A third, since 2026-10-28: the options screens.** Eleven of them (`optionsmain.gui`,
-`optgraphics.gui`, `optsound.gui` and the rest, listed in
-[live-adaptive-layout.md](live-adaptive-layout.md)) are laid out at run time from the file
+**A third, since 2026-10-28: the options screens, Inventory, Equipment and Character.**
+Fourteen of them (`optionsmain.gui`, `optgraphics.gui`, `optsound.gui`, `inventory.gui`,
+`equip.gui`, `character.gui` and the rest, listed in
+[live-adaptive-layout.md](live-adaptive-layout.md); the last three later that day, not yet
+seen in the game) are laid out at run time from the file
 the game would load: a mod's in `Override`, when it is laid out for the game's own size,
 keeps everything it changes, its controls laid out for the screen; KMRP's corrections apply
 only to controls the mod left where the game has them. A mod's file laid out for another

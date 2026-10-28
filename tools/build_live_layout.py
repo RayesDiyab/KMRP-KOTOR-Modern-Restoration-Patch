@@ -50,7 +50,12 @@ control the table does not know (a mod's own) gets the default rule:
 
 With it go the list gutters (PADDING) the build sets (prepare_universal_resources.py:
 DESCRIPTION_LISTBOXES, LIST_LISTBOXES, HAND_TUNED_GUTTERS), at the build's font scale, and
-a PADDING the gold file sets by hand, which the build ships at 3440x1440 only, so this does.
+a PADDING the gold file sets by hand, which the build ships at 3440x1440 only, so this does;
+a text alignment the gold file changes, at every size; and, for the screens that have them,
+the build's lists made as tall as whole rows (scale_listbox_padding.py ROW_LISTS) and the
+R3 cue by the party portraits (add_party_switch_cue). For those two the Python here runs
+the build's own functions on a file; the C repeats them, adding the cue's control by
+appending to the GFF's sections.
 
 The table holds rule numbers and the gold file's values, which are in this repository;
 nothing of the game's. The game's own files are read at run time from chitin.key, and here
@@ -63,14 +68,21 @@ import math
 import sys
 from pathlib import Path
 
-from pykotor.resource.formats.gff import GFFList, GFFStruct, read_gff
+import tempfile
+
+from pykotor.resource.formats.gff import GFF, GFFContent, GFFList, GFFStruct, read_gff, write_gff
+from pykotor.resource.type import ResourceType
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
 from prepare_universal_resources import (DESCRIPTION_LISTBOXES, FONT_HEIGHT_DIVISOR,  # noqa: E402
-                                         FONT_SCALE_OFFSET, HAND_TUNED_GUTTERS, LIST_LISTBOXES)
-from scale_listbox_padding import GUTTER_AT_UNIT_SCALE, LIST_GUTTER_AT_UNIT_SCALE  # noqa: E402
+                                         FONT_SCALE_OFFSET, HAND_TUNED_GUTTERS, LIST_LISTBOXES,
+                                         R3_CUE_BLOCKING_TYPES, R3_CUE_FILL, R3_CUE_GAP_MARGIN,
+                                         R3_CUE_SCALE, R3_CUE_SCREENS, R3_CUE_TAG,
+                                         add_party_switch_cue)
+from scale_listbox_padding import (GUTTER_AT_UNIT_SCALE, LIST_GUTTER_AT_UNIT_SCALE,  # noqa: E402
+                                   LOOSE_GAP, ROW_GAP_DIVISOR, ROW_LISTS, fit_list_to_rows)
 
 VANILLA = ROOT / "build-inputs" / "vanilla-gui"
 UPSTREAM = ROOT / "third_party" / "Included" / "kotor-high-resolution-menus-1.5"
@@ -81,11 +93,15 @@ GOLD_SIZE = (3440, 1440)
 # The screens laid out at run time. The options screens first (2026-10-28): rules and
 # gold alone make them, with nothing of KMRP's own added. optgameplay.gui (the Controller
 # Layout entry) and optfeedback.gui (its row template) are made by build steps of their
-# own and stay with the sets for now.
+# own and stay with the sets for now. Then (the same day) Inventory, Equipment and
+# Character, which GUI mods change most: those take two of the build's steps as well,
+# Equipment's list made as tall as whole rows (ROW_LISTS) and the R3 cue by the party
+# portraits that the controller patch prompts with (add_party_switch_cue).
 FILES = (
     "optionsmain.gui", "optionsingame.gui", "optautopause.gui", "optgraphics.gui",
     "optgraphicsadv.gui", "optmouse.gui", "optsound.gui", "optsoundadv.gui",
     "optkeymapping.gui", "optkeyentry.gui", "optresolution.gui",
+    "inventory.gui", "equip.gui", "character.gui",
 )
 
 FIELDS = ("LEFT", "TOP", "WIDTH", "HEIGHT")
@@ -168,6 +184,12 @@ def value(rule: str, field: int, v: int, w: int, width: int, height: int, base: 
     raise ValueError(rule)
 
 
+def alignment(struct: GFFStruct) -> int | None:
+    """A structure's TEXT.ALIGNMENT, or None."""
+    text = child(struct, "TEXT")
+    return text.get_int32("ALIGNMENT") if text is not None and text.exists("ALIGNMENT") else None
+
+
 def default_rule(field: int, sub: str, ctype: int, e: list[int]) -> str:
     if sub == "PROTOITEM":
         return "fixed"
@@ -222,10 +244,20 @@ def choose_rules(name: str, sets) -> dict:
             default = default_rule(field, key[1], ctype, v4)
             candidates = ("scale", "fixed") if field in (1, 3) else RULES
 
-            def hits(rule):
-                return sum(abs(e[field] - value(rule, field, v4[field], v4[2], w, h, base)) <= 1.5
+            def hits(rule, scaled):
+                # Scaled: up to the factor between upstream's 3440x1440 value and the
+                # rule's there, which the run time's ratio to gold supplies. Character's
+                # LBL_LEVEL is half as wide as stretching makes it at every size, and no
+                # rule fitted it unscaled ("fixed" was picked: 296 px at every size).
+                factor = 1.0
+                if scaled:
+                    at = value(rule, field, v4[field], v4[2], *GOLD_SIZE, base)
+                    up = next((e[field] for size, e in seen.get(key, ()) if size == GOLD_SIZE), None)
+                    if at and up is not None:
+                        factor = up / at
+                return sum(abs(e[field] - factor * value(rule, field, v4[field], v4[2], w, h, base)) <= 1.5
                            for (w, h), e in seen.get(key, ()))
-            best = max(candidates, key=lambda r: (hits(r), r == default))
+            best = max(candidates, key=lambda r: (hits(r, True), hits(r, False), r == default))
             rules.append(best)
         chosen[key] = rules
     return chosen
@@ -244,7 +276,11 @@ def table_entries() -> list[tuple[str, list]]:
             g, gs = gold.get(key, (None, None))
             vpad = struct.get_int32("PADDING") if struct.exists("PADDING") else None
             gpad = gs.get_int32("PADDING") if gs is not None and gs.exists("PADDING") else None
-            rows.append((key, rules[key], g, gpad if gpad is not None and gpad != vpad else None))
+            # A text alignment the gold file changed: transfer_gold_gui_geometry carries it
+            # to every size as it is (Character's LBL_LEVEL, 12 to 10).
+            valign, galign = alignment(struct), alignment(gs) if gs is not None else None
+            rows.append((key, rules[key], g, gpad if gpad is not None and gpad != vpad else None,
+                         galign if galign is not None and valign is not None and galign != valign else None))
         files.append((name, rows))
     return files
 
@@ -264,11 +300,13 @@ def render() -> str:
         "#define KMRP_LIVELAYOUT_TABLE_H",
         "",
         "/* Rules: " + ", ".join(f"{i} {r}" for i, r in enumerate(RULES)) + ". NO_GOLD: the gold",
-        " * file has no such structure. NO_PADDING: the gold file sets no PADDING of its own. */",
+        " * file has no such structure. NO_PADDING: the gold file sets no PADDING of its own.",
+        " * NO_ALIGN: the gold file keeps the game's TEXT.ALIGNMENT. */",
         "#define LL_NO_GOLD (-2147483647 - 1)",
         "#define LL_NO_PADDING (-1)",
+        "#define LL_NO_ALIGN (-1)",
         "",
-        "typedef struct { const char *tag, *sub; unsigned char rule[4]; int gold[4]; int gold_padding; } LLRow;",
+        "typedef struct { const char *tag, *sub; unsigned char rule[4]; int gold[4]; int gold_padding; int gold_align; } LLRow;",
         "typedef struct { const char *name; const LLRow *rows; int count; } LLFile;",
         "typedef struct { const char *tag; double unit; int force; } LLGutter;",
         "",
@@ -295,14 +333,52 @@ def render() -> str:
                 lines.append(f"    {{ {c_string(file)}, {c_string(tag)}, {unit!r} }},")
     lines.append("};")
     lines.append("")
+    # The lists made as tall as whole rows (scale_listbox_padding.py ROW_LISTS,
+    # fit_list_to_rows), for the screens this lays out.
+    lines.append("/* Lists made as tall as whole rows (fit_list_to_rows): popup lists grow or shrink and")
+    lines.append(" * move what is below them; a screen's list only shrinks, when its rows are loose. */")
+    lines.append("typedef struct { const char *file, *tag; int popup; int bases[4]; int count; } LLRowList;")
+    lines.append(f"#define LL_ROW_GAP_DIVISOR {ROW_GAP_DIVISOR}")
+    lines.append(f"#define LL_LOOSE_GAP {LOOSE_GAP!r}")
+    lines.append("static const LLRowList LL_ROW_LISTS[] = {")
+    rows_listed = [(s, t, k, b) for (s, t), (k, b) in sorted(ROW_LISTS.items()) if s in FILES]
+    for screen, tag, kind, bases in rows_listed:
+        if len(bases) > 4:
+            raise ValueError(f"{screen} {tag}: more than four row kinds")
+        padded = ", ".join(str(x) for x in (list(bases) + [0] * 4)[:4])
+        lines.append(f"    {{ {c_string(screen)}, {c_string(tag)}, {int(kind == 'popup')}, {{ {padded} }}, {len(bases)} }},")
+    if not rows_listed:
+        lines.append("    { 0, 0, 0, { 0 }, 0 },")
+    lines.append("};")
+    lines.append(f"#define LL_ROW_LIST_COUNT {len(rows_listed)}")
+    lines.append("")
+    # The R3 cue (prepare_universal_resources.py add_party_switch_cue, r3_cue_extent).
+    blocking = 0
+    for t in R3_CUE_BLOCKING_TYPES:
+        blocking |= 1 << t
+    lines.append("/* The R3 cue by the party portraits (add_party_switch_cue): its side is R3_PERCENT of")
+    lines.append(" * the portraits' height, centred in their gap when the gap holds it with R3_MARGIN of")
+    lines.append(" * it free each side, else a third of it right of the second portrait. */")
+    lines.append(f"#define LL_R3_TAG {c_string(R3_CUE_TAG)}")
+    lines.append(f"#define LL_R3_FILL {c_string(R3_CUE_FILL)}")
+    lines.append(f"#define LL_R3_PERCENT {round(R3_CUE_SCALE * 100)}")
+    lines.append(f"#define LL_R3_MARGIN {R3_CUE_GAP_MARGIN!r}")
+    lines.append(f"#define LL_R3_BLOCKING 0x{blocking:X}u   /* CONTROLTYPEs a cue may not cover */")
+    lines.append("static const char *const LL_R3_SCREENS[] = {")
+    for screen in sorted(s for s in R3_CUE_SCREENS if s in FILES):
+        lines.append(f"    {c_string(screen)},")
+    lines.append("    0,")
+    lines.append("};")
+    lines.append("")
     entries = table_entries()
     for index, (name, rows) in enumerate(entries):
         lines.append(f"static const LLRow LL_ROWS_{index}[] = {{  /* {name} */")
-        for (tag, sub), rules, gold, pad in rows:
+        for (tag, sub), rules, gold, pad, align in rows:
             r = ", ".join(str(RULES.index(x)) for x in rules)
             g = ", ".join("LL_NO_GOLD" if gold is None else str(x) for x in (gold or [None] * 4))
             p = "LL_NO_PADDING" if pad is None else str(pad)
-            lines.append(f"    {{ {c_string(tag)}, {c_string(sub)}, {{ {r} }}, {{ {g} }}, {p} }},")
+            a = "LL_NO_ALIGN" if align is None else str(align)
+            lines.append(f"    {{ {c_string(tag)}, {c_string(sub)}, {{ {r} }}, {{ {g} }}, {p}, {a} }},")
         lines.append("};")
     lines.append("")
     lines.append("static const LLFile LL_FILES[] = {")
@@ -316,7 +392,7 @@ def render() -> str:
 
 # ----------------------------------------------------------------------------- the layout
 def table_by_file() -> dict:
-    return {name: {key: (rules, gold, pad) for key, rules, gold, pad in rows}
+    return {name: {key: (rules, gold, pad, align) for key, rules, gold, pad, align in rows}
             for name, rows in table_entries()}
 
 
@@ -336,6 +412,7 @@ def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height:
         return None
     base = base_of(source)
     own = {key: extent(s) for key, s, _ in structures(vanilla)}
+    own_align = {key: alignment(s) for key, s, _ in structures(vanilla)}
     for key, struct, ctype in structures(source):
         v4 = extent(struct)
         row = rows.get(key)
@@ -348,6 +425,10 @@ def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height:
             e.set_int32(f, x)
         if unmoved and row[2] is not None and (width, height) == GOLD_SIZE and struct.exists("PADDING"):
             struct.set_int32("PADDING", row[2])
+        # Gold's text alignment, where the file still has the game's own.
+        align = alignment(struct)
+        if row is not None and row[3] is not None and align is not None and align == own_align.get(key):
+            child(struct, "TEXT").set_int32("ALIGNMENT", row[3])
     # The build's gutters, never reducing one but for the hand-set ones.
     for key, struct, ctype in structures(source):
         if key[1] or ctype != LISTBOX or not struct.exists("PADDING"):
@@ -360,7 +441,42 @@ def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height:
                 g = gutter(unit, height)
                 if force or struct.get_int32("PADDING") < g:
                     struct.set_int32("PADDING", g)
-    return source
+    lists = [(t, k, b) for (s, t), (k, b) in sorted(ROW_LISTS.items()) if s == name]
+    cue = name in R3_CUE_SCREENS and cue_template(source) is not None
+    if not lists and not cue:
+        return source
+    # The build's own steps, on a file: the lists made as tall as whole rows, then the R3
+    # cue. A list or a cue the file cannot have (a mod's without the control, a row that
+    # does not fit, portraits the cue would cover) is left out, as the C leaves it out.
+    with tempfile.TemporaryDirectory(prefix="kmrp-livelayout-") as tmp:
+        path = Path(tmp) / name
+        gff = GFF(GFFContent.GUI)
+        gff.root = source
+        write_gff(gff, path, ResourceType.GUI)
+        for tag, kind, bases in lists:
+            try:
+                fit_list_to_rows(path, path, height, tag, bases, popup=kind == "popup")
+            except (ValueError, AttributeError):
+                pass
+        if cue:
+            try:
+                add_party_switch_cue(path, path)
+            except (ValueError, AttributeError):
+                pass
+        return read_gff(path).root
+
+
+def cue_template(root: GFFStruct) -> GFFStruct | None:
+    """The label the R3 cue is cloned from (add_party_switch_cue: the first CONTROLTYPE 4),
+    when it has every field the cue sets, else None: the C changes fields in place and adds
+    none, so a template without one gets no cue on either side."""
+    for control in root.acquire("CONTROLS", GFFList(), GFFList):
+        if control.exists("CONTROLTYPE") and control.get_int32("CONTROLTYPE") == 4:
+            border = child(control, "BORDER")
+            ok = (control.exists("ID") and control.exists("TAG") and extent(control) is not None
+                  and border is not None and border.exists("FILL"))
+            return control if ok else None
+    return None
 
 
 def main() -> int:

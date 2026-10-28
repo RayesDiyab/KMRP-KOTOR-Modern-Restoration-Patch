@@ -219,11 +219,15 @@ Extent Place(const Map& m,Extent e) {
     return {static_cast<int>(std::lround(m.ax*(e.x+e.w/2.0)+m.bx-w/2.0)),
             static_cast<int>(std::lround(m.ay*(e.y+e.h/2.0)+m.by-h/2.0)),w,h};
 }
-void CheckFit(const Map& m,const std::vector<Pair>& pairs) {
+// Within `tolerance` px: a pixel per 1440 rows of the panel (KmrpBuildPartyRosterGui). At
+// 15360x8640 the bottom row's Done takes Character's Scripts, 3500 wide where one scale
+// for it and Accept gives 3503 (tools/menu_bottom_row.py, 2026-10-28); a 1 px limit there
+// refused the layout.
+void CheckFit(const Map& m,const std::vector<Pair>& pairs,int tolerance) {
     for(const auto& p:pairs) {
         const Extent got=Place(m,p.first),want=p.second;
-        Require(std::abs(got.x-want.x)<=1 && std::abs(got.y-want.y)<=1 &&
-                std::abs(got.w-want.w)<=1 && std::abs(got.h-want.h)<=1,"KMRP layout is outside the verified mapping");
+        Require(std::abs(got.x-want.x)<=tolerance && std::abs(got.y-want.y)<=tolerance &&
+                std::abs(got.w-want.w)<=tolerance && std::abs(got.h-want.h)<=tolerance,"KMRP layout is outside the verified mapping");
     }
 }
 void Style(Gff& dst,U control,const Gff& source,U templateControl,bool keepFill = false) {
@@ -270,7 +274,8 @@ bool KmrpBuildPartyRosterGui(const Bytes& roster,const Bytes& kmrp,Bytes& output
         buttons.push_back({{73,372,235,33},Ext(target,control(templates,"BTN_ACCEPT"))});
         buttons.push_back({{247,410,146,28},Ext(target,control(templates,"BTN_DONE"))});
         const Map slotMap=Fit(slots),buttonMap=Fit(buttons);
-        CheckFit(slotMap,slots);CheckFit(buttonMap,buttons);
+        const int tolerance=std::max(1,static_cast<int>(std::lround(Ext(target,0).h/1440.0)));
+        CheckFit(slotMap,slots,tolerance);CheckFit(buttonMap,buttons,tolerance);
         std::map<int,bool> ids;
         for(const auto& item:controls) {
             const int id=out.integer(item.second,"ID");

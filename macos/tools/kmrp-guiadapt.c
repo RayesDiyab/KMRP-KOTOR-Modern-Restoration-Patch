@@ -483,6 +483,8 @@ static int ll_game_size(const Gff *source, const Gff *game) {
     return ev(&root, 0) >= 0 && ev(&root, 1) >= 0 && ev(&root, 0) + ev(&root, 2) <= sw && ev(&root, 1) + ev(&root, 3) <= sh;
 }
 
+static void ll_fit_rows(Gff *g, const LLRowList *list, int height);
+
 /* `source` laid out in place for width x height. */
 static void ll_layout(const char *name, const LLFile *file, Gff *source, const Gff *game, int width, int height) {
     int bw, bh;
@@ -510,6 +512,14 @@ static void ll_layout(const char *name, const LLFile *file, Gff *source, const G
         uint8_t *padding = int_field(source, st.s, "PADDING");
         if (unmoved && row->gold_padding != LL_NO_PADDING && width == LL_GOLD_WIDTH && height == LL_GOLD_HEIGHT && padding)
             put_u32(padding, (uint32_t)(int32_t)row->gold_padding);
+        /* Gold's text alignment, where the file still has the game's own. */
+        if (row && row->gold_align != LL_NO_ALIGN) {
+            long text = gff_child(source, st.s, "TEXT"), own = ll_find(game, st.tag, st.sub), own_text;
+            uint8_t *align = text >= 0 ? int_field(source, (uint32_t)text, "ALIGNMENT") : NULL, *own_align;
+            if (align && own >= 0 && (own_text = gff_child(game, (uint32_t)own, "TEXT")) >= 0 &&
+                (own_align = int_field(game, (uint32_t)own_text, "ALIGNMENT")) && u32(own_align) == u32(align))
+                put_u32(align, (uint32_t)(int32_t)row->gold_align);
+        }
     }
     /* The build's gutters, never reducing one but for the hand-set ones. */
     for (int i = 1; ll_struct(source, i, &st); i++) {
@@ -524,6 +534,291 @@ static void ll_layout(const char *name, const LLFile *file, Gff *source, const G
             if (strcasecmp(LL_FILE_GUTTERS[t].file, name) == 0 && strcasecmp(LL_FILE_GUTTERS[t].tag, st.tag) == 0)
                 put_u32(padding, (uint32_t)ll_gutter(LL_FILE_GUTTERS[t].unit, height));
     }
+    /* Then the lists made as tall as whole rows, as the build does after the gutters. */
+    for (int t = 0; t < LL_ROW_LIST_COUNT; t++)
+        if (strcasecmp(LL_ROW_LISTS[t].file, name) == 0) ll_fit_rows(source, &LL_ROW_LISTS[t], height);
+}
+
+static int ll_r3_screen(const char *name) {
+    for (int i = 0; LL_R3_SCREENS[i]; i++)
+        if (strcasecmp(LL_R3_SCREENS[i], name) == 0) return 1;
+    return 0;
+}
+
+/* Python's floor division, for the build's arithmetic on numbers that can be negative. */
+static int ll_floordiv(int a, int b) {
+    int q = a / b;
+    if ((a % b) != 0 && ((a < 0) != (b < 0))) q--;
+    return q;
+}
+
+/* The control of the root's CONTROLS tagged `tag`, or -1: the first (case-insensitive, as
+ * fit_list_to_rows finds it) or the last (exact, as add_party_switch_cue's by_tag keeps it). */
+static long ll_control(const Gff *g, const char *tag, int last_exact) {
+    uint32_t at, n = controls_of(g, &at);
+    long found = -1;
+    for (uint32_t i = 0; i < n; i++) {
+        uint32_t c = u32(g->d + g->lists + at + 4 + i * 4);
+        char name[64];
+        if (c >= g->nstructs || !control_tag(g, c, name, sizeof name)) continue;
+        if (last_exact ? strcmp(name, tag) == 0 : strcasecmp(name, tag) == 0) {
+            found = (long)c;
+            if (!last_exact) break;
+        }
+    }
+    return found;
+}
+
+/* scale_listbox_padding.row_height: a template row's height at a screen height, the
+ * template times max(1, H / 720), both single precision, rounded half to even. */
+static int ll_row_height(int base, int height) {
+    float scale = (float)(height / 720.0);
+    if (scale < 1.0f) scale = 1.0f;
+    return (int)nearbyint((double)((float)base * scale));
+}
+
+/* scale_listbox_padding.fit_list_to_rows on `g`, in place: the list as tall as whole rows,
+ * each an eleventh of a row from the next. A screen's list only shrinks, when a kind of row
+ * sits looser than LOOSE_GAP; a popup's grows or shrinks and moves what is below it, its panel
+ * kept centred. Nothing changes where the build would stop with an error. */
+static void ll_fit_rows(Gff *g, const LLRowList *list, int height) {
+    long target = ll_control(g, list->tag, 0), border;
+    Extent te, be, root;
+    uint8_t *dimension;
+    if (target < 0 || !extent_of(g, (uint32_t)target, &te) || (border = gff_child(g, (uint32_t)target, "BORDER")) < 0 ||
+        !(dimension = int_field(g, (uint32_t)border, "DIMENSION")) || !extent_of(g, 0, &root)) return;
+    const int top = ev(&te, 1), old = ev(&te, 3), inner = old - 2 * (int32_t)u32(dimension);
+    int best = 0, loose = 0;
+    for (int i = 0; i < list->count; i++) {
+        const int row = ll_row_height(list->bases[i], height);
+        if (row <= 0) return;
+        const int rows = ll_floordiv(inner, row);
+        if (rows < 1) return;
+        loose |= ll_floordiv(inner - rows * row, rows) > row * LL_LOOSE_GAP;
+        const int fit = rows * (row + ll_floordiv(row, LL_ROW_GAP_DIVISOR));
+        if (i == 0 || fit > best) best = fit;
+    }
+    const int change = best - inner;
+    if (change == 0 || (!list->popup && (!loose || change > 0))) return;
+    long bar = gff_child(g, (uint32_t)target, "SCROLLBAR");
+    int bar_ok = bar < 0 || extent_of(g, (uint32_t)bar, &be);
+    uint32_t at, n = controls_of(g, &at);
+    if (!bar_ok) return;
+    if (list->popup)       /* every control's extent is read before anything moves */
+        for (uint32_t i = 0; i < n; i++) {
+            Extent ce;
+            if (!extent_of(g, u32(g->d + g->lists + at + 4 + i * 4), &ce)) return;
+        }
+    put_u32(te.v[3], (uint32_t)(old + change));
+    if (bar >= 0) put_u32(be.v[3], (uint32_t)(ev(&be, 3) + change));
+    if (!list->popup) return;
+    for (uint32_t i = 0; i < n; i++) {
+        uint32_t c = u32(g->d + g->lists + at + 4 + i * 4);
+        Extent ce;
+        if ((long)c == target || !extent_of(g, c, &ce)) continue;
+        if (ev(&ce, 1) >= top + old) put_u32(ce.v[1], (uint32_t)(ev(&ce, 1) + change));
+    }
+    put_u32(root.v[1], (uint32_t)(ev(&root, 1) - ll_floordiv(change, 2)));
+    put_u32(root.v[3], (uint32_t)(ev(&root, 3) + change));
+}
+
+/* A GFF written again with structures added: every section copied as it is and new entries
+ * appended at its end, so every offset already in the file stays right. */
+typedef struct { uint8_t *d; size_t n, cap; } Grow;
+static int grow(Grow *b, const void *p, size_t n) {
+    if (b->n + n > b->cap) {
+        size_t cap = b->cap ? b->cap * 2 : 4096;
+        while (cap < b->n + n) cap *= 2;
+        uint8_t *d = realloc(b->d, cap);
+        if (!d) return 0;
+        b->d = d; b->cap = cap;
+    }
+    if (n) memcpy(b->d + b->n, p, n);
+    b->n += n;
+    return 1;
+}
+static int grow_u32(Grow *b, uint32_t v) { uint8_t p[4]; put_u32(p, v); return grow(b, p, 4); }
+typedef struct { Grow s, f, l, d, i, li; int ok; } Sections;
+
+/* The `k`th field of structure `s`, or -1. */
+static long ll_field_at(const Gff *g, uint32_t s, uint32_t k) {
+    const uint8_t *st = g->d + g->structs + (size_t)s * 12;
+    uint32_t data = u32(st + 4), count = u32(st + 8);
+    if (k >= count) return -1;
+    if (count == 1) return data < g->nfields ? (long)data : -1;
+    if ((uint64_t)data + (uint64_t)k * 4 + 4 > g->nindices) return -1;
+    uint32_t f = u32(g->d + g->indices + data + k * 4);
+    return f < g->nfields ? (long)f : -1;
+}
+
+/* What the cue's clone changes: by the role of the structure being cloned. */
+enum { ROLE_NONE, ROLE_CUE, ROLE_EXTENT, ROLE_BORDER, ROLE_TEXT };
+typedef struct { int id, box[4]; } CueValues;
+
+static int ll_label_is(const Gff *g, long f, const char *name) {
+    uint32_t label = u32(g->d + g->fields + (size_t)f * 12 + 4);
+    return label < g->nlabels && strncmp((const char *)g->d + g->labels + (size_t)label * 16, name, 16) == 0;
+}
+
+static uint32_t ll_clone_struct(const Gff *g, uint32_t s, Sections *out, int role, const CueValues *cue);
+
+/* One field of a clone: its label kept; inline values copied, complex data shared (it is only
+ * read), structures and lists cloned; the cue's own values written with pykotor's types. */
+static uint32_t ll_clone_field(const Gff *g, long f, Sections *out, int role, const CueValues *cue) {
+    const uint8_t *entry = g->d + g->fields + (size_t)f * 12;
+    uint32_t type = u32(entry), label = u32(entry + 4), data = u32(entry + 8);
+    int set_int = 0, int_type = 5;
+    int32_t int_value = 0;
+    const char *text = NULL;
+    int text_type = 10;
+    if (role == ROLE_CUE && ll_label_is(g, f, "TAG")) { text = LL_R3_TAG; text_type = 10; }
+    else if (role == ROLE_CUE && ll_label_is(g, f, "ID")) { set_int = 1; int_value = cue->id; }
+    else if (role == ROLE_EXTENT) {
+        static const char *names[4] = { "LEFT", "TOP", "WIDTH", "HEIGHT" };
+        for (int k = 0; k < 4; k++)
+            if (ll_label_is(g, f, names[k])) { set_int = 1; int_value = cue->box[k]; }
+    } else if (role == ROLE_BORDER) {
+        if (ll_label_is(g, f, "FILL")) { text = LL_R3_FILL; text_type = 11; }
+        else if (ll_label_is(g, f, "CORNER") || ll_label_is(g, f, "EDGE")) { text = ""; text_type = 11; }
+        else if (ll_label_is(g, f, "DIMENSION")) { set_int = 1; int_value = 0; }
+    } else if (role == ROLE_TEXT) {
+        if (ll_label_is(g, f, "TEXT")) { text = ""; text_type = 10; }
+        else if (ll_label_is(g, f, "STRREF")) { set_int = 1; int_type = 4; int_value = (int32_t)0xFFFFFFFFu; }
+    }
+    if (set_int) { type = (uint32_t)int_type; data = (uint32_t)int_value; }
+    else if (text) {
+        size_t n = strlen(text);
+        type = (uint32_t)text_type;
+        data = (uint32_t)out->d.n;
+        if (text_type == 11) { uint8_t len = (uint8_t)n; out->ok &= grow(&out->d, &len, 1); }
+        else out->ok &= grow_u32(&out->d, (uint32_t)n);
+        out->ok &= grow(&out->d, text, n);
+    } else if (type == 14) {
+        int child = ROLE_NONE;
+        if (role == ROLE_CUE && ll_label_is(g, f, "EXTENT")) child = ROLE_EXTENT;
+        if (role == ROLE_CUE && ll_label_is(g, f, "BORDER")) child = ROLE_BORDER;
+        if (role == ROLE_CUE && ll_label_is(g, f, "TEXT")) child = ROLE_TEXT;
+        data = data < g->nstructs ? ll_clone_struct(g, data, out, child, cue) : (out->ok = 0);
+    } else if (type == 15) {
+        uint32_t n = (uint64_t)data + 4 <= g->nlists ? u32(g->d + g->lists + data) : 0;
+        if (n > 4096 || (uint64_t)data + 4 + (uint64_t)n * 4 > g->nlists) { out->ok = 0; n = 0; }
+        uint32_t *items = n ? malloc(n * sizeof *items) : NULL;
+        for (uint32_t k = 0; k < n && items; k++) {
+            uint32_t c = u32(g->d + g->lists + data + 4 + k * 4);
+            items[k] = c < g->nstructs ? ll_clone_struct(g, c, out, ROLE_NONE, cue) : (out->ok = 0);
+        }
+        if (n && !items) out->ok = 0;
+        data = (uint32_t)out->li.n;
+        out->ok &= grow_u32(&out->li, n);
+        for (uint32_t k = 0; k < n && items; k++) out->ok &= grow_u32(&out->li, items[k]);
+        free(items);
+    }
+    uint32_t index = (uint32_t)(out->f.n / 12);
+    out->ok &= grow_u32(&out->f, type) && grow_u32(&out->f, label) && grow_u32(&out->f, data);
+    return index;
+}
+
+static uint32_t ll_clone_struct(const Gff *g, uint32_t s, Sections *out, int role, const CueValues *cue) {
+    const uint8_t *st = g->d + g->structs + (size_t)s * 12;
+    uint32_t type = u32(st), count = u32(st + 8);
+    if (count > 4096) { out->ok = 0; count = 0; }
+    /* The structure's entry first, so the clone's index is known; its fields after. */
+    uint32_t index = (uint32_t)(out->s.n / 12);
+    out->ok &= grow_u32(&out->s, type) && grow_u32(&out->s, 0) && grow_u32(&out->s, count);
+    uint32_t *fields = count ? malloc(count * sizeof *fields) : NULL;
+    for (uint32_t k = 0; k < count && fields; k++) {
+        long f = ll_field_at(g, s, k);
+        fields[k] = f >= 0 ? ll_clone_field(g, f, out, role, cue) : (out->ok = 0);
+    }
+    if (count && !fields) out->ok = 0;
+    uint32_t data = 0;
+    if (count == 1 && fields) data = fields[0];
+    else if (count > 1 && fields) {
+        data = (uint32_t)out->i.n;
+        for (uint32_t k = 0; k < count; k++) out->ok &= grow_u32(&out->i, fields[k]);
+    }
+    if (out->ok) put_u32(out->s.d + (size_t)index * 12 + 4, data);
+    free(fields);
+    return index;
+}
+
+/* Does extent `b` overlap the square (x, y, size)? */
+static int ll_overlaps(const Extent *b, int x, int y, int size) {
+    return x < ev(b, 0) + ev(b, 2) && ev(b, 0) < x + size && y < ev(b, 1) + ev(b, 3) && ev(b, 1) < y + size;
+}
+
+/* prepare_universal_resources.add_party_switch_cue on `g`: the R3 cue, a clone of the first
+ * label with its tag, the next ID, its square and its picture, appended to the controls. 1 and
+ * `out` the new file; 0 where the build would leave the file as it is or stop with an error. */
+static int ll_cue(const Gff *g, Buffer *out) {
+    if (ll_control(g, LL_R3_TAG, 1) >= 0) return 0;
+    long c1 = ll_control(g, "BTN_CHANGE1", 1), c2 = ll_control(g, "BTN_CHANGE2", 1);
+    Extent a, b, root;
+    if (c1 < 0 || c2 < 0 || !extent_of(g, (uint32_t)c1, &a) || !extent_of(g, (uint32_t)c2, &b) || !extent_of(g, 0, &root))
+        return 0;
+    if (ev(&b, 0) < ev(&a, 0) + ev(&a, 2)) return 0;
+    int size = ll_floordiv(ev(&a, 3) * LL_R3_PERCENT + 50, 100);   /* r3_cue_size */
+    if (size < 1) size = 1;
+    const int y = ev(&a, 1) + ll_floordiv(ev(&a, 3) - size, 2);
+    const int gap_left = ev(&a, 0) + ev(&a, 2), gap = ev(&b, 0) - gap_left;
+    const int x = gap >= size + 2 * (int)(size * LL_R3_MARGIN) ? gap_left + ll_floordiv(gap - size, 2)
+                                                                : ev(&b, 0) + ev(&b, 2) + size / 3;
+    if (x < 0 || y < 0 || x + size > ev(&root, 2) || y + size > ev(&root, 3)) return 0;
+    uint32_t at, n = controls_of(g, &at);
+    long template = -1;
+    int id = 0, any_id = 0;
+    for (uint32_t i = 0; i < n; i++) {
+        uint32_t c = u32(g->d + g->lists + at + 4 + i * 4);
+        if (c >= g->nstructs) return 0;
+        uint8_t *type = int_field(g, c, "CONTROLTYPE");
+        const int t = type ? (int32_t)u32(type) : -1;
+        if (type && t >= 0 && t < 32 && (LL_R3_BLOCKING >> t) & 1u) {
+            Extent ce;
+            if (!extent_of(g, c, &ce)) return 0;
+            if (ll_overlaps(&ce, x, y, size)) return 0;
+        }
+        if (template < 0 && type && t == 4) template = (long)c;
+        uint8_t *cid = int_field(g, c, "ID");
+        if (cid && (!any_id || (int32_t)u32(cid) > id)) { id = (int32_t)u32(cid); any_id = 1; }
+    }
+    long border;
+    Extent te;
+    if (template < 0 || !any_id || !int_field(g, (uint32_t)template, "ID") || gff_field(g, (uint32_t)template, "TAG") < 0 ||
+        !extent_of(g, (uint32_t)template, &te) || (border = gff_child(g, (uint32_t)template, "BORDER")) < 0 ||
+        gff_field(g, (uint32_t)border, "FILL") < 0) return 0;
+    Sections s = { { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, 1 };
+    s.ok &= grow(&s.s, g->d + g->structs, (size_t)g->nstructs * 12) && grow(&s.f, g->d + g->fields, (size_t)g->nfields * 12) &&
+            grow(&s.l, g->d + g->labels, (size_t)g->nlabels * 16) && grow(&s.d, g->d + g->values, g->nvalues) &&
+            grow(&s.i, g->d + g->indices, g->nindices) && grow(&s.li, g->d + g->lists, g->nlists);
+    const CueValues values = { id + 1, { x, y, size, size } };
+    const uint32_t cue = ll_clone_struct(g, (uint32_t)template, &s, ROLE_CUE, &values);
+    /* The controls again, at the end of the list indices, with the cue last. */
+    long controls = gff_field(g, 0, "CONTROLS");
+    if (controls >= 0 && s.ok) {
+        const uint32_t list = (uint32_t)s.li.n;
+        s.ok &= grow_u32(&s.li, n + 1);
+        for (uint32_t i = 0; i < n; i++) s.ok &= grow_u32(&s.li, u32(g->d + g->lists + at + 4 + i * 4));
+        s.ok &= grow_u32(&s.li, cue);
+        if (s.ok) put_u32(s.f.d + (size_t)controls * 12 + 8, list);
+    }
+    int done = 0;
+    Grow file = { 0 };
+    if (controls >= 0 && s.ok) {
+        const Grow *parts[6] = { &s.s, &s.f, &s.l, &s.d, &s.i, &s.li };
+        const size_t counts[6] = { s.s.n / 12, s.f.n / 12, s.l.n / 16, s.d.n, s.i.n, s.li.n };
+        uint32_t offset = 56;
+        done = grow(&file, g->d, 8);
+        for (int k = 0; k < 6; k++) {
+            done &= grow_u32(&file, offset) && grow_u32(&file, (uint32_t)counts[k]);
+            offset += (uint32_t)parts[k]->n;
+        }
+        for (int k = 0; k < 6; k++) done &= grow(&file, parts[k]->d, parts[k]->n);
+    }
+    free(s.s.d); free(s.f.d); free(s.l.d); free(s.d.d); free(s.i.d); free(s.li.d);
+    if (!done) { free(file.d); return 0; }
+    out->data = file.d;
+    out->size = file.n;
+    return 1;
 }
 
 /* The layout `name` for width x height into OUT_GUI, from SOURCE_GUI (a mod's, when given)
@@ -560,12 +855,17 @@ int KmrpLiveLayout(const char *key_path, const char *name, const char *source_gu
         if (!ll_game_size(&source, &own)) result = 3;
         else {
             ll_layout(name, file, &source, &own, width, height);
+            /* The R3 cue by the party portraits, which the controller patch prompts with:
+             * a file of its own, the laid-out one with the cue added, where it fits. */
+            Buffer cue = { NULL, 0 };
+            const Buffer *written = ll_r3_screen(name) && ll_cue(&source, &cue) ? &cue : &theirs;
             FILE *f = fopen(out_gui, "wb");
             result = 2;
             if (f) {
-                int ok = fwrite(theirs.data, 1, theirs.size, f) == theirs.size;
+                int ok = fwrite(written->data, 1, written->size, f) == written->size;
                 if (fclose(f) == 0 && ok) result = 0;
             }
+            free(cue.data);
         }
     }
     free(game.data); free(theirs.data);
