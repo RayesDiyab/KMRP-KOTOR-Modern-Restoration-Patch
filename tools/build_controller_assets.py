@@ -317,6 +317,9 @@ def make(work: Path) -> dict:
     # (the maintainer, the same day: keep the fallback in the repository, in case they are
     # wanted back).
     unshipped = {f"{scene[0]}.tga" for scene in scenes}
+    # A drawn picture's TXI goes with it (the HUD frames' "clamp 3"; the module writes
+    # its own beside each picture it draws).
+    unshipped |= {f"{scene[0]}.txi" for scene in scenes}
     unshipped |= {path.name.lower() for path in prompts if path.suffix.lower() == ".tga"}
     UNSHIPPED.clear()
     if not CARRY_DRAWN:
@@ -460,6 +463,9 @@ def pack_glyphs(scenes: list = ()) -> bytes:
     for name, g in controller_drawn_art.remap_marks().items():
         add(f"-/{name}", g)
     for name, g in controller_layout_backdrop.outlines().items():
+        add(f"-/{name}", g)
+    # And the Xbox-style HUD's frames (tools/build_xbox_hud_art.py).
+    for name, g in build_xbox_hud_art.outlines().items():
         add(f"-/{name}", g)
     out += struct.pack("<I", len(entries)) + b"".join(entries)
     out += b"SCEN" + struct.pack("<I", len(scenes))

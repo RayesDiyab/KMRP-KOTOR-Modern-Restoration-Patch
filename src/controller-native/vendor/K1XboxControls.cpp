@@ -1982,7 +1982,9 @@ bool K1WriteTextureFiles(const char* name, const std::vector<std::uint8_t>& shee
     if (written) {
         written = false;
         if (FILE* file = _wfopen((base + L".txi").c_str(), L"wb")) {
-            static const char kTxi[] = "mipmap 0\r\n";
+            // And no repeat past the edges ("clamp 3"): the Xbox HUD's frames had it, so
+            // that the description box's two ends meet without a seam (2026-10-05).
+            static const char kTxi[] = "mipmap 0\r\nclamp 3\r\n";
             written = std::fwrite(kTxi, 1, sizeof kTxi - 1, file) == sizeof kTxi - 1;
             written = std::fclose(file) == 0 && written;
         }
@@ -2371,6 +2373,13 @@ void K1ControlPictures(void* control, bool queue)
     } else if (vtable == K1_GUI_BUTTON_VTABLE) {
         offsets[0] = K1_BUTTON_BORDER_PARAMS_OFFSET;
         offsets[1] = K1_BUTTON_HILIGHT_PARAMS_OFFSET;
+    } else if (vtable == 0x0073E7A0) {
+        // CSWGuiProgressBar (vtable 0x0073E7A0): its border at +0x68 and its progress at
+        // +0xDC, each CSWGuiBorder's parameters 0x14 in (the swkotor1-reconstruction
+        // project; K1XboxHud.cpp's kBarBorderParams and kBarFillParams). The HUD's health
+        // and Force bars. The engine draws as much of the progress as the value fills.
+        offsets[0] = 0x7C;
+        offsets[1] = 0xF0;
     } else {
         return;
     }
@@ -2389,9 +2398,6 @@ void K1ControlPictures(void* control, bool queue)
 void K1SweepRuntimePictures(void* manager)
 {
     constexpr std::ptrdiff_t kPanelArray = 0x20, kPanelCount = 0x24;
-    g_k1QuietFrames = g_k1DrawsThisFrame == 0 ? g_k1QuietFrames + 1 : 0;
-    g_k1DrawsThisFrame = 0;
-    K1CollectBackgroundPictures(nullptr);
     if (!manager) {
         return;
     }
@@ -3634,7 +3640,20 @@ void UpdateK1ControllerPrompts()
         ? *reinterpret_cast<std::uintptr_t*>(panel)
         : 0;
 #ifdef KMRP_CONTROLLER_STANDALONE
-    K1SweepRuntimePictures(manager);
+    // The frame's pictures: what the background finished, then every screen of the GUI
+    // manager and, if it is another, the in-game interface's (the HUD's frames, phase 4).
+    // The manager the menu lookup found is none in play with no menu up, so the HUD was
+    // not swept by it.
+    g_k1QuietFrames = g_k1DrawsThisFrame == 0 ? g_k1QuietFrames + 1 : 0;
+    g_k1DrawsThisFrame = 0;
+    K1CollectBackgroundPictures(nullptr);
+    {
+        void* const guiManager = GetK1TitleGuiManager();
+        K1SweepRuntimePictures(guiManager);
+        void* const hudManager = g_mainInterface
+            ? ReadPointer(g_mainInterface, K1_CONFIG.panelManagerOffset) : nullptr;
+        if (hudManager && hudManager != guiManager) K1SweepRuntimePictures(hudManager);
+    }
     g_k1BadgePaintPanel = panel;
     RestoreK1GrownButtons(panel);
     if (controllerMode) {

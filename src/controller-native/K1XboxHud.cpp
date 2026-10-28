@@ -74,6 +74,8 @@ void ControllerLogK1(const char* text);     // K1NativeJoystick.cpp, the debug l
 
 extern "C" char __cdecl KmrpGlyphLetterK1();   // the pad family's letter in a texture's name (K1NativeJoystick.cpp)
 
+const char* KmrpLogicalFillK1(const char* fill);     // vendor/K1XboxControls.cpp
+
 namespace {
 
 struct Extent { int left, top, width, height; };
@@ -300,7 +302,10 @@ bool SameName(const char* a, const char* b)
 
 void SetFill(void* params, const char name[16])
 {
-    if (SameName(&At<char>(params, kParamsFill), name)) return;
+    // The name the fill stands for: the controller patch draws its frames at the size they
+    // are shown and gives the border the drawing's own name (KmrpLogicalFillK1,
+    // vendor/K1XboxControls.cpp), which is the frame asked for here.
+    if (SameName(KmrpLogicalFillK1(&At<char>(params, kParamsFill)), name)) return;
     using Fn = void(__thiscall*)(void*, const char*, int);
     reinterpret_cast<Fn>(kSetFillImage)(params, name, 1);
 }

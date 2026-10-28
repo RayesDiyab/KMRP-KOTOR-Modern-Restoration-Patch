@@ -77,6 +77,11 @@ def main() -> int:
     args = parser.parse_args()
     logging.disable(logging.DEBUG)   # pykotor and PIL narrate every struct and chunk
     import build_controller_assets as shared
+    # The Mac's module does not draw pictures at run time as Windows' does (2026-10-27,
+    # phases 1 to 4: badges, cues, the Controller Layout, the Xbox HUD's frames), so it
+    # carries every one made (Windows' --carry-drawn). Without this, make() leaves them
+    # out for Windows' module and the Mac would show none.
+    shared.CARRY_DRAWN = True
 
     if args.extract:
         print(f"{shared.extract(args.extract)} layout files written to {shared.VANILLA_GUI}")

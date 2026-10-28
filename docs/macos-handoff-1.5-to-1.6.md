@@ -1048,6 +1048,19 @@ pad on the Mac, choose a resolution with A: if Options shows instead of Graphics
 the Mac's engine does the same, and the same fix applies at the Mac's addresses for those
 two functions. Debug level 2's menu snapshots (`LogMenuSnapshotK1`) show it in one run.
 
+## 101. Windows' controller draws every picture at run time; the Mac carries them
+
+From 2026-10-27 to 28 Windows' controller patch came to draw every picture it shows at the
+size its control shows it (badges, cues, the Controller Layout, the Xbox HUD's frames),
+from `kmrp-glyphs.bin`, and to carry no texture. The shared `make()` in
+`tools/build_controller_assets.py` therefore leaves those textures out unless
+`CARRY_DRAWN` is set. `macos/tools/make_controller_assets.py` now sets it, so the Mac's
+controller assets hold every picture as before. **How to check:** a Mac build's controller
+files include the `kmrx_*` HUD frames, the `kmr?lyt*` Layout pictures and the cue
+textures. Drawing at run time on the Mac too needs the module's sweep, scene drawing and
+`macos/tools/kmrp-glyphs.c` (already plain C) at the Mac's addresses; until then the
+carried textures are the Mac's.
+
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
 | Change | Commit | Why not the Mac |

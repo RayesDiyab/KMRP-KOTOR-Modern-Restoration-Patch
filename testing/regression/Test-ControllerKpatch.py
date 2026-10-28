@@ -154,9 +154,21 @@ def main() -> int:
                       + [p.name for p in assets.VANILLA_GUI.glob("mipc*.gui")])
     check(guis == expected,
           f"{len(guis)} layout files: the ones the controller changes and its own screen")
+    # Nothing prebuilt (phase 5, 2026-10-28): every picture the patch shows is drawn by its
+    # module at the size it is shown, so it carries no texture and no texture's TXI. The
+    # pictures are still made, into build/controller-standalone/made, for the tests and for
+    # the fallback build_controller_assets.py --carry-drawn keeps in the repository.
+    textures = [n for n in names if n.lower().endswith((".tga", ".tpc", ".dds", ".txi"))]
+    check(not textures, "no texture carried: every picture is drawn by the module"
+          + (f" (carried: {textures[:6]})" if textures else ""))
+    # The Xbox HUD's frames are drawn by the module at the size each is shown since
+    # 2026-10-28 (phase 4): none is carried, each is made, with its clamp setting, for the
+    # tests and the fallback (build_controller_assets.py --carry-drawn).
     hud_art = sorted(n for n in names if n.startswith(build_xbox_hud_art.PREFIX))
-    check(hud_art == sorted(f"{v}.{kind}" for v in build_xbox_hud_art.NAMES.values() for kind in ("tga", "txi")),
-          f"{len(build_xbox_hud_art.NAMES)} drawn Xbox HUD frames, each with its clamp setting")
+    hud_made = sorted(n for n in made_names if n.startswith(build_xbox_hud_art.PREFIX))
+    check(not hud_art and hud_made == sorted(f"{v}.{kind}" for v in build_xbox_hud_art.NAMES.values()
+                                              for kind in ("tga", "txi")),
+          f"{len(build_xbox_hud_art.NAMES)} Xbox HUD frames drawn by the module, none carried, each made with its clamp setting")
     check(all(n.endswith((".gui", ".tga")) or n in hud_art or n == assets.GLYPH_BANK_NAME for n in names),
           "nothing but layout files, textures and the glyphs' outlines")
     # Every glyph the table names, in every family, is in the outlines the module draws

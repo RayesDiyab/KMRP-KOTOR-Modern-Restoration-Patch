@@ -117,6 +117,28 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **The Xbox HUD's frames drawn at the size they are shown; the controller patch carries no
+  texture** (2026-10-28). Phases 4 and 5 of 5.
+  * The 17 frames of `tools/build_xbox_hud_art.py` and the name bar's six slices are
+    outlines now (`outlines()`, from the same numbers: each region between two curves
+    followed at a sixteenth of a pixel, each widened polygon by shapely, each paint an item
+    at its opacity). Drawn at the size of today's drawings they differ by 0.01 to 0.65 of
+    255 on average. They are scenes that fill their boxes, as the HUD stretches its frames
+    over their controls.
+  * Module: the sweep reads progress bars too (`CSWGuiProgressBar`, vtable 0x0073E7A0, its
+    border's parameters at +0x7C and its progress's at +0xF0: the health and Force bars),
+    and sweeps the GUI manager and the in-game interface's every frame; the manager the
+    menu lookup gave is none in play with no menu up. The HUD's `SetFill` compares the
+    name a fill stands for (`KmrpLogicalFillK1`), so that it does not set its frame again
+    over the drawing every frame. A drawn texture's TXI adds `clamp 3`, which the frames
+    had, so the description box's two ends meet without a seam.
+  * Phase 5: the patch carries 17 layout files, the glyph bank and SDL, and no texture;
+    `Test-ControllerKpatch.py` fails if one is carried. The controller patch is 2.61 MB.
+  * The Mac's controller assets (`macos/tools/make_controller_assets.py`) carry every
+    drawn picture (`CARRY_DRAWN`), since the Mac's module does not draw them: since
+    phase 1 the shared `make()` had been leaving them out for it.
+  * Not yet seen in the game.
+
 - **The Controller Layout screen and the swoop prompt drawn at the size they are shown**
   (2026-10-27). Phase 3 of 5.
   * The diagram's controller is now Xelu's own outlines: frame 0 of the Xbox Series and

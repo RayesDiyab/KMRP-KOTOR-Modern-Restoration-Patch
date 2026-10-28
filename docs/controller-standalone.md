@@ -120,6 +120,23 @@ marks `kmrrmask`, `kmrrmlock` and `kmrrmdot`. Counted on 2026-10-18 in
 `build\controller-standalone\files` as built at 19:10 that day, which held 1,060
 files in all; the bank itself was not re-counted.
 
+**Since 2026-10-28 the bank carries no texture** (phases 1 to 5 of drawing every
+controller picture at run time, 2026-10-27 and 28). It holds the 17 layout files,
+`kmrp-glyphs.bin` and SDL. Every picture the patch shows is drawn by its module at the
+size its control shows it, from `kmrp-glyphs.bin`: outlines ("KGLY", the badges' glyphs
+from Xelu's vector source, the patch's own pictures, the Controller Layout's diagram and
+backdrop, the Xbox HUD's frames) and scenes ("SCEN": per texture name, its size, whether
+its glyphs keep their proportions or fill their boxes, an optional size cap, and each
+glyph's box). The module sweeps every control of every panel up each frame, and each
+panel's own border, and gives a border whose fill names a scene that scene drawn at the
+border's size, written as a `kmz…` texture with `mipmap 0` and `clamp 3` into its folder.
+The Controller Layout's pictures are drawn on a thread of the module's own once the game's
+screens are up and drawn, as the game starts and after a change of resolution. The
+textures the build makes are still written to `build\controller-standalone\made`, for the
+tests and for `build_controller_assets.py --carry-drawn`, which carries them again as a
+fallback. `Test-ControllerKpatch.py` fails if a texture is carried. The counts above are
+the bank as it was before.
+
 The layout steps are the ones KMRP's resource build runs on its own sets
 (`tools\prepare_universal_resources.py`), called here on the game's files:
 
