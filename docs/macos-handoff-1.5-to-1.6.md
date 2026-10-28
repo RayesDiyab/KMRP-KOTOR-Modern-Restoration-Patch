@@ -1076,6 +1076,18 @@ file is left to the game. **How to check:** `kmrp-guiadapt live` on the Mac game
 `optionsmain.gui` at 3440x1440 gives `LB_DESC` 1780, 280, 1386, 850, and
 `testing/regression/Test-LiveLayout.py` passes there (it builds the helper with clang).
 
+## 103. X is OK on Advanced Graphics (Windows 2026-10-28)
+
+Windows' pad presses Advanced Graphics' and Advanced Sound's OK with X wherever the focus
+is, since A toggles the focused box (`PressOkK1`, `K1_OK_BUTTONS` in
+`src/controller-native/K1NativeJoystick.cpp`). The shared prompt table now makes OK's badge
+`kmrpx_optgfxadv` (X) instead of `kmrpa_optgfxadv` (A), so **the Mac's OK badge is gone
+until** `macos/patches/kmrp-controller/prompts.cpp` names `kmrpx_optgfxadv` at 0x2598.
+**To do on the Mac:** that rename, and a row in `gui.cpp`'s remap table beside "Y: Default
+(settings)": `kSlotX` presses the button at 0x2598 of `CSWGuiOptionsGraphicsAdvanced`, as
+`PressDefault` presses Default. The Mac has no Advanced Sound screen. **How to check:** on
+Advanced Graphics, with V-Sync focused, A toggles it and X saves and closes.
+
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
 | Change | Commit | Why not the Mac |

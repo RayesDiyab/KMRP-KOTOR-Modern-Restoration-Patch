@@ -117,6 +117,41 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **X is OK on Advanced Graphics and Advanced Sound** (2026-10-28, the maintainer's
+  request). A toggles the focused box there (V-Sync, Soft Shadows, Frame Buffer Effects,
+  Force Software), and OK's badge was A as well, so confirming from a box meant moving to
+  OK first. X now presses OK wherever the focus is, as Y presses Default (`PressOkK1` and
+  `K1_OK_BUTTONS` in `K1NativeJoystick.cpp`, the remap table's new row), and the badges
+  are `kmrpx_optgfxadv` and `kmrpx_optsndadv` (`build_controller_prompt_textures.py`,
+  `K1XboxControls.cpp`, `K1ControllerBadgeShapes.inc` regenerated: the same areas, glyph
+  X). `Test-ControllerKpatch.py` passes; `Test-ControllerPromptAssets.py` needs KMRP's sets
+  built again, since their prompt manifests still name the A badges. Modules swapped into
+  the maintainer's Steam game the same day (`kmrp.dll` `C131A070...`, `kmrp-controller.dll`
+  `719C062E...`; the previous ones in `KMRP\backups\*.before-x-ok-2026-10-28`), and seen
+  working there with the correction below. The Mac:
+  [handoff item 103](docs/macos-handoff-1.5-to-1.6.md).
+  * **V-Sync and Frame Buffer Effects chosen with the pad were not saved** (the maintainer,
+    the same day: with the mouse they were). The pad's A reaches a focused check box as a
+    press and a release. `CSWGuiButtonToggle::HandleInputEvent` (0x0041ADB0) ticks the box
+    on the press only, but the button's handlers run on both (0x00418750 stores the value
+    at `+0x4C` and calls them either way), and `OnVSync` (0x006DDB60) and `OnFrameBuffer`
+    (0x006DDB10) flip their setting on every call, where `OnSoftShadows` (0x006DDB30) and
+    Force Software's handler (0x006DFC50) test `+0x4C` first. So the box showed ticked and
+    the setting was flipped back. The echo guard on `CSWGuiPanel::HandleInputEvent`
+    (`GuardPanelEchoK1`) now makes a release of 0x27 handed to a focused check box inert.
+    Modules `kmrp.dll` `CD8E1904...`, `kmrp-controller.dll` `96E0E017...` swapped in
+    (previous ones `*.before-toggle-release-2026-10-28`). **Seen in the game** by the
+    maintainer the same day at 3440x1440: V-Sync and Frame Buffer Effects chosen with A and
+    confirmed with X are kept ("all works good").
+  * EAX on Advanced Sound: Left and Right press its arrows (`K1_CYCLE_ROWS`, the offsets
+    checked against the panel's binds: `BTN_EAXRIGHT` +0x4E0, `BTN_EAXLEFT` +0x6A4) with a
+    press, as Texture Quality's, which work. The game's own `OnEAXRight` (0x006DFBF0) raises
+    the level only up to `min(3, CExoSound::GetBestEAXAvailable)` (0x005D6460), the best EAX
+    level the sound device reported at start; without an EAX device that is 0 and the row
+    cannot be raised by the mouse either. `EnableEAXControls` (0x006DDF40) also disables it
+    while Force Software is on. In the maintainer's game the + does nothing with the mouse
+    either (2026-10-28), so the row is capped by the game and nothing is changed.
+
 - **`Test-OverrideFontMetrics.py` links again** (2026-10-28). Since the art pack
   (`b5cbd6a`, 2026-10-19) `K1RuntimeAssets.cpp` calls `KmrpPack::ReadHeader`, `ReadIndex`,
   `Unpack`, `Unfilter` and `IdentityText` (`K1AssetPack.cpp`), which its harness neither

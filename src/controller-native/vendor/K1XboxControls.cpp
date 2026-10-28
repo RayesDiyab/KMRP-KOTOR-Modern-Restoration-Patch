@@ -1146,7 +1146,8 @@ constexpr ControllerPromptBinding K1_OPTIONS_GRAPHICS_PROMPTS[] = {
 
 constexpr ControllerPromptBinding K1_OPTIONS_GRAPHICS_ADVANCED_PROMPTS[] = {
     {K1_OPTIONS_GRAPHICS_ADVANCED_CANCEL_OFFSET, "kmrpb_optgfxadv"},
-    {K1_OPTIONS_GRAPHICS_ADVANCED_OK_OFFSET, "kmrpa_optgfxadv"},
+    // X: OK wherever the focus is (K1_OK_BUTTONS, K1NativeJoystick.cpp); A toggles the box.
+    {K1_OPTIONS_GRAPHICS_ADVANCED_OK_OFFSET, "kmrpx_optgfxadv"},
     {K1_OPTIONS_GRAPHICS_ADVANCED_DEFAULT_OFFSET, "kmrpy_optgfxadef"},
 };
 
@@ -1158,7 +1159,7 @@ constexpr ControllerPromptBinding K1_OPTIONS_SOUND_PROMPTS[] = {
 
 constexpr ControllerPromptBinding K1_OPTIONS_SOUND_ADVANCED_PROMPTS[] = {
     {K1_OPTIONS_SOUND_ADVANCED_CANCEL_OFFSET, "kmrpb_optsndadv"},
-    {K1_OPTIONS_SOUND_ADVANCED_OK_OFFSET, "kmrpa_optsndadv"},
+    {K1_OPTIONS_SOUND_ADVANCED_OK_OFFSET, "kmrpx_optsndadv"},   // X: OK, as Advanced Graphics'
     {K1_OPTIONS_SOUND_ADVANCED_DEFAULT_OFFSET, "kmrpy_optsndadef"},
 };
 

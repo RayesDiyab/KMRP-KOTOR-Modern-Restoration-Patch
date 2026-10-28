@@ -3554,6 +3554,54 @@ void PressDefaultK1(void* panel)
         button, K1_GUI_EVENT_CONFIRM, 1);
 }
 
+// X is OK on Advanced Graphics and Advanced Sound (the maintainer, 2026-10-28), pressed as
+// Default is, wherever the focus is. A toggles the focused box there (V-Sync, Soft Shadows,
+// Frame Buffer Effects, Force Software), so with OK on A as well the pad could not both
+// choose and confirm from the box. Both screens call their OK button BTN_BACK
+// (build_controller_prompt_textures.py); offsets from the bind calls, as the badges'.
+constexpr DefaultButtonK1 K1_OK_BUTTONS[] = {
+    {0x007584A0, 0x1DC4},   // Advanced Graphics
+    {0x00758550, 0x0DC8},   // Advanced Sound
+};
+
+void* OkButtonOfK1(void* panel)
+{
+    if (!LooksLikePointerK1(panel)) {
+        return nullptr;
+    }
+    const std::uintptr_t vtable = *reinterpret_cast<std::uintptr_t*>(panel);
+    for (const DefaultButtonK1& entry : K1_OK_BUTTONS) {
+        if (entry.vtable == vtable) {
+            return static_cast<char*>(panel) + entry.offset;
+        }
+    }
+    return nullptr;
+}
+
+bool HasOkButtonK1(void* panel)
+{
+    return OkButtonOfK1(panel) != nullptr;
+}
+
+void PressOkK1(void* panel)
+{
+    void* const button = OkButtonOfK1(panel);
+    if (!button) {
+        return;
+    }
+    const std::uint32_t flags = *FieldAt<std::uint32_t>(button, K1_CTL_FLAGS);
+    if ((flags & K1_CTL_FLAG_VISIBLE) == 0 || (flags & K1_CTL_FLAG_DISABLED) != 0) {
+        return;
+    }
+    if (void* const manager = *FieldAt<void*>(panel, 0x18)) {
+        using PlayGuiSoundFn = void(__thiscall*)(void*, int);
+        EngineFn<PlayGuiSoundFn>(0x0040A140)(manager, 0);   // as Default
+    }
+    using HandleFn = void(__thiscall*)(void*, int, int);
+    reinterpret_cast<HandleFn>((*reinterpret_cast<void***>(button))[K1_VTABLE_HANDLE_INPUT / 4])(
+        button, K1_GUI_EVENT_CONFIRM, 1);
+}
+
 // ------------------------------------------------ the echo guard (2026-09-28)
 //
 // Many buttons do nothing of their own: their click presses a button on their own
@@ -3594,6 +3642,10 @@ constexpr RaiseThunkK1 K1_RAISE_THUNKS[] = {
 constexpr std::uintptr_t K1_PANEL_RAISE_A = 0x0040B640;   // +0x50; B, X, Y 0x10 apart
 constexpr std::uintptr_t K1_BUTTON_HANDLE_INPUT = 0x0041AD40;   // CSWGuiButton: sound, then 0x0041A9D0
 constexpr std::uintptr_t K1_CONTROL_HANDLE_INPUT = 0x00418750;  // CSWGuiControl: enter/exit, then the table
+// CSWGuiButtonToggle (a check box): flips its tick on a press of its event, then runs the
+// button's handlers for the press and the release alike (0x00418750 stores the value at
+// +0x4C and calls them either way).
+constexpr std::uintptr_t K1_TOGGLE_HANDLE_INPUT = 0x0041ADB0;
 
 void LogGuardK1(const char* what, void* panel, int event, int value)
 {
@@ -3680,6 +3732,23 @@ extern "C" int __cdecl GuardPanelEchoK1(void* panel, int* event, int* value)
         return 0;
     }
     void* const focused = *FieldAt<void*>(panel, K1_PANEL_ACTIVE);
+    // A check box's release (2026-10-28). The pad's A reaches a focused box as a press and
+    // a release; the box ticks on the press only, but its handlers run on both, and
+    // Advanced Graphics' OnVSync (0x006DDB60) and OnFrameBuffer (0x006DDB10) flip their
+    // setting on every call without testing the value at +0x4C, as OnSoftShadows does. So
+    // the box showed ticked and the setting was flipped back: V-Sync chosen with the pad
+    // was not saved (the maintainer; the mouse, one call a click, saved it). The box
+    // ignores the release anyway, so it is made inert for it.
+    if (*event == K1_GUI_EVENT_CONFIRM && *value == 0 && LooksLikePointerK1(focused) &&
+        IsReadableK1(focused, 4)) {
+        void** const vtable = *reinterpret_cast<void***>(focused);
+        if (IsReadableK1(vtable, 0x40) &&
+            reinterpret_cast<std::uintptr_t>(vtable[K1_VTABLE_HANDLE_INPUT / 4]) == K1_TOGGLE_HANDLE_INPUT) {
+            LogGuardK1("a check box's release would run its handlers again -> inert", panel, *event, *value);
+            *event = K1_GUI_EVENT_INERT;
+            return 0;
+        }
+    }
     const int raised = focused ? RaisedOnPanelK1(focused, panel, *event, false) : 0;
     if (raised == 0) {
         return 0;
@@ -3831,6 +3900,8 @@ constexpr ButtonRemapK1 K1_BUTTON_REMAPS[] = {
     { K1_FEATS_DISPATCHER,   0x76, K1_EVENT_A,     "X: Add Feat (Feats)", FeatsAddK1 },
     { 0,                     0x77, K1_EVENT_Y,     "Y: Default (settings)", PressDefaultK1,
       HasDefaultButtonK1 },
+    { 0,                     0x76, K1_EVENT_X,     "X: OK (Advanced Graphics, Advanced Sound)", PressOkK1,
+      HasOkButtonK1 },
     // Last, so Pazaak's and Feats' own A come first. See the echo guard.
     { 0,                     0x74, K1_EVENT_A,     "A: the focused button", PressFocusedRaiseButtonK1,
       HasFocusedRaiseButtonK1 },

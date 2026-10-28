@@ -324,8 +324,12 @@ PROMPT_TARGETS = (
     # controller button performed restore-defaults at all; since 2026-09-25 Y
     # does, and every Default carries a Y (the settings block at the end).
     PromptTarget("optkeymapping.gui", "BTN_Accept", 2, "A", "kmrpa_optkeys"),
-    PromptTarget("optgraphicsadv.gui", "BTN_BACK", 4, "A", "kmrpa_optgfxadv"),
-    PromptTarget("optsoundadv.gui", "BTN_BACK", 3, "A", "kmrpa_optsndadv"),
+    # Advanced Graphics' and Advanced Sound's OK is X, which presses it wherever the focus
+    # is (K1_OK_BUTTONS in the module), since A toggles the focused box: V-Sync, Soft
+    # Shadows, Frame Buffer Effects, Force Software (the maintainer, 2026-10-28: "X is what
+    # we choose. So we can't choose and do OK at the same time"). A was OK's until then.
+    PromptTarget("optgraphicsadv.gui", "BTN_BACK", 4, "X", "kmrpx_optgfxadv"),
+    PromptTarget("optsoundadv.gui", "BTN_BACK", 3, "X", "kmrpx_optsndadv"),
     PromptTarget("upgradeitems.gui", "BTN_UPGRADEITEM", 3, "A", "kmrpa_upgitm"),
     PromptTarget("upgrade.gui", "BTN_ASSEMBLE", 24, "A", "kmrpa_upgasm"),
     PromptTarget("abilities.gui", "BTN_EXIT", 14, "B", "kmrpb_abilexit"),

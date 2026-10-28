@@ -413,11 +413,19 @@ STRREFs are checked in all 49 archives by the build and by
 | Feedback | `optfeedback.gui` | — | Close | Default | — |
 | Auto-Pause | `optautopause.gui` | — | Close | Default | — |
 | Graphics | `optgraphics.gui` | Screen Resolution and Advanced Options when focused | Close | Default | Gamma's own |
-| Advanced Graphics | `optgraphicsadv.gui` | OK | Cancel | Default | Texture Quality, Anti-aliasing, Anisotropy |
+| Advanced Graphics | `optgraphicsadv.gui` | the focused box or button; **X is OK** | Cancel | Default | Texture Quality, Anti-aliasing, Anisotropy |
 | Sound | `optsound.gui` | Advanced Options when focused | Close | Default | the sliders' own |
-| Advanced Sound | `optsoundadv.gui` | OK | Cancel | Default | EAX |
+| Advanced Sound | `optsoundadv.gui` | the focused box or button; **X is OK** | Cancel | Default | EAX |
 | Key Mapping | `optkeymapping.gui` | OK | Cancel | Default | — |
 | Pazaak's wager | `pazaakwager.gui` | Wager | Quit | — | Less and More |
+
+**X presses OK on Advanced Graphics and Advanced Sound** (2026-10-28), wherever the
+focus is, as Y presses Default (`PressOkK1`, `K1_OK_BUTTONS`, `K1NativeJoystick.cpp`),
+and their OK badges are X (`kmrpx_optgfxadv`, `kmrpx_optsndadv`). A is Return there and
+toggles the focused box (V-Sync, Soft Shadows, Frame Buffer Effects, Force Software), so
+with OK on A too a player on the box could not confirm without moving to OK first; the
+maintainer asked for OK on Square, PlayStation's X. Until that day this table gave both
+screens' A as OK. A on a focused OK still presses it.
 
 **Y presses Default**, which no settings panel does itself. The module presses
 the button as a click does (`PressDefaultK1`, `K1NativeJoystick.cpp`). The five Y
