@@ -117,6 +117,16 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **`Test-OverrideFontMetrics.py` links again** (2026-10-28). Since the art pack
+  (`b5cbd6a`, 2026-10-19) `K1RuntimeAssets.cpp` calls `KmrpPack::ReadHeader`, `ReadIndex`,
+  `Unpack`, `Unfilter` and `IdentityText` (`K1AssetPack.cpp`), which its harness neither
+  compiled nor stubbed, so the test stopped at the link (LNK2019, five symbols) and had not
+  run since. The harness stubs them as `party_roster_runtime_harness.cpp` does, in place of
+  its stub of `KmrpXpressDecode`, which the module no longer calls there: the font
+  callback takes its metrics from the test's fixture, never from the pack. It passes: 11,880
+  font cases and the loader's checks. Its pass recorded in `docs/font-scaling.md` on
+  2026-10-18 was before the pack, and true then.
+
 - **Live Adaptive Layout: the options screens laid out at run time, from a mod's file or
   the game's own** (2026-10-28; [docs/live-adaptive-layout.md](docs/live-adaptive-layout.md)).
   * A GUI mod's options screen in `Override` used to take the place of KMRP's whole file,

@@ -20,7 +20,16 @@ extern "C" int KmrpMainMenuBars(const char*,const char*) {return 1;}
 extern "C" int KmrpLiveLayout(const char*,const char*,const char*,int,int,const char*) {return 1;}
 extern "C" int KmrpLiveLayoutCount(void) {return 0;}
 extern "C" const char* KmrpLiveLayoutName(int) {return nullptr;}
-bool KmrpXpressDecode(const unsigned char*,std::size_t,unsigned char*,std::size_t) {return false;}
+// The art pack is not read here (K1AssetPack.cpp, not in this harness): the font callback
+// takes its metrics from the fixture. Until 2026-10-28 this stubbed KmrpXpressDecode, the
+// bank's decoder before the pack (b5cbd6a, 2026-10-19), and the harness no longer linked.
+namespace KmrpPack {
+bool ReadHeader(const unsigned char*,std::size_t,Key&,std::uint32_t&) {return false;}
+bool ReadIndex(const unsigned char*,std::size_t,std::uint64_t,Index&) {return false;}
+bool Unpack(const Block&,const unsigned char*,unsigned char*) {return false;}
+bool Unfilter(unsigned char,unsigned char*,std::size_t) {return false;}
+std::string IdentityText(const Key&) {return std::string();}
+}
 void KmrpRuntimeLog(const char*) {}
 int testTextPercent=50;
 bool testGrouped=false;
