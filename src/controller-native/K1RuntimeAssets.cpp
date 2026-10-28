@@ -81,6 +81,14 @@ extern "C" int KmrpSwoopHud(const char* key, const char* outdir, unsigned width,
 extern "C" int KmrpGalaxyMap(const char* key, const char* setGui, const char* outGui, const char* sourceGui);
 // The same file: the main menu's buttons on the bars of their art. 0 written.
 extern "C" int KmrpMainMenuBars(const char* setGui, const char* outGui);
+// The same file: Live Adaptive Layout, a screen the game's own file or a mod's (in Override)
+// lays out, laid out for the size (tools/build_live_layout.py). 0 written, 1 a layout could
+// not be read, 2 could not write, 3 the mod's file is not laid out for the game's size (left
+// to the game), 4 not a screen it lays out.
+extern "C" int KmrpLiveLayout(const char* key, const char* name, const char* sourceGui, int width, int height,
+                              const char* outGui);
+extern "C" int KmrpLiveLayoutCount(void);
+extern "C" const char* KmrpLiveLayoutName(int i);
 void KmrpRuntimeLog(const char* line);       // K1RuntimeEngine.cpp: one line into kmrp-kpm.log
 
 namespace {
@@ -1078,6 +1086,53 @@ bool AdaptMainMenuK1(const std::wstring& set, const std::wstring& folder)
     return any;
 }
 
+// Live Adaptive Layout: the screens its table lists, laid out for the size from the file the
+// game would load, a mod's 640x480 file in Override or else the game's own (through
+// chitin.key), written into `folder` as the galaxy map is, over the set's. A mod's file laid
+// out for another size is left to the game, as before. Until 2026-10-28 these screens came
+// only from the set, and a mod's file took the place of the whole screen at 640x480.
+bool AdaptLiveLayoutK1(const std::wstring& folder, int width, int height)
+{
+    const std::wstring game = GameFolder();
+    if (game.empty()) return false;
+    const std::string key = Narrow(game + L"\\chitin.key");
+    if (key.empty()) return false;
+    int written = 0, theirs = 0;
+    for (int i = 0; i < KmrpLiveLayoutCount(); ++i) {
+        const std::wstring name = Wide(KmrpLiveLayoutName(i));
+        const bool mod = OverrideHas(name);
+        const std::wstring target = folder + L"\\" + name, work = target + L".tmp" + Pid();
+        const std::string out = Narrow(work), source = mod ? Narrow(game + L"\\override\\" + name) : std::string();
+        if (out.empty() || (mod && source.empty())) continue;
+        const int result = KmrpLiveLayout(key.c_str(), KmrpLiveLayoutName(i), mod ? source.c_str() : nullptr,
+                                          width, height, out.c_str());
+        if (result != 0) {
+            DeleteFileW(work.c_str());
+            char line[200];
+            if (result == 3) sprintf_s(line, "[KMRP] live layout: the Override folder's %s is not laid out for the "
+                                             "game's size; it is left to the game", KmrpLiveLayoutName(i));
+            else sprintf_s(line, "[KMRP] live layout: %s could not be laid out (%d); the set's is used",
+                           KmrpLiveLayoutName(i), result);
+            KmrpRuntimeLog(line);
+            continue;
+        }
+        SetFileAttributesW(target.c_str(), FILE_ATTRIBUTE_NORMAL);
+        if (!MoveFileExW(work.c_str(), target.c_str(), MOVEFILE_REPLACE_EXISTING)) {
+            DeleteFileW(work.c_str());
+            continue;
+        }
+        ++written;
+        if (mod) ++theirs;
+    }
+    if (theirs || KmrpDebugLogs()) {
+        char line[200];
+        sprintf_s(line, "[KMRP] live layout: %d screens laid out for %dx%d, %d of them from the Override folder's files",
+                  written, width, height, theirs);
+        KmrpRuntimeLog(line);
+    }
+    return written > 0;
+}
+
 // A file of the bundled HD item icons (JackInTheBox's KOTOR 1 HD Icon Pack): among
 // the common files those are the .tpc files named ia_*, ii_* and iw_*, the game's
 // own names for armour, item and weapon icons, 351 of them and nothing else
@@ -1544,13 +1599,14 @@ bool KmrpRuntimeAssetsDimensions(int width, int height)
     bool theirs = false;
     for (const auto& name : Names(set)) if (OverrideHas(name)) { theirs = true; break; }
     std::wstring view = set, roster;
-    // The galaxy map (AdaptGalaxyMapK1) and the main menu (AdaptMainMenuK1) are adapted the
-    // same way, beside the roster.
+    // The galaxy map (AdaptGalaxyMapK1), the main menu (AdaptMainMenuK1) and the screens Live
+    // Adaptive Layout lays out (AdaptLiveLayoutK1) are adapted the same way, beside the roster.
     if (theirs) {
         if (!LinkSet(set, view)) return false;
         AdaptPartyRosterK1(set, view);
         AdaptGalaxyMapK1(set, view);
         AdaptMainMenuK1(set, view);
+        AdaptLiveLayoutK1(view, width, height);
     } else {
         ++generation;
         roster = root + L"\\roster-" + Pid() + L"-" + std::to_wstring(generation);
@@ -1560,7 +1616,8 @@ bool KmrpRuntimeAssetsDimensions(int width, int height)
             const bool party = AdaptPartyRosterK1(set, roster);
             const bool galaxy = AdaptGalaxyMapK1(set, roster);
             const bool menu = AdaptMainMenuK1(set, roster);
-            adapted = party || galaxy || menu;
+            const bool live = AdaptLiveLayoutK1(roster, width, height);
+            adapted = party || galaxy || menu || live;
         }
         if (!adapted) {
             RemoveFlat(roster);

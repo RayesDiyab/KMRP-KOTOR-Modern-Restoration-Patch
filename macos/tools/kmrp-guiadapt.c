@@ -2,10 +2,12 @@
  *
  *   kmrp-guiadapt galaxy KEY SET_GUI OUT_GUI [SOURCE_GUI]
  *   kmrp-guiadapt mainmenu SET_GUI OUT_GUI
+ *   kmrp-guiadapt live KEY|GAME_GUI NAME WIDTH HEIGHT OUT_GUI [SOURCE_GUI]
  *
- * Two things, sharing the reading and writing of a layout's EXTENTs: the galaxy map's
- * planets (KmrpGalaxyMap, below) and the main menu's buttons on the bars of their art
- * (KmrpMainMenuBars, at the end).
+ * Three things, sharing the reading and writing of a layout's EXTENTs: the galaxy map's
+ * planets (KmrpGalaxyMap, below), the main menu's buttons on the bars of their art
+ * (KmrpMainMenuBars) and Live Adaptive Layout, a screen laid out for the size in use from
+ * the game's own file or a mod's (KmrpLiveLayout, at the end).
  *
  * The galaxy map: the planets where the game's own layout has them, on this
  * size's KMRP map. Made from the player's own game; no release carries the positions.
@@ -334,8 +336,257 @@ int KmrpMainMenuBars(const char *set_gui, const char *out_gui) {
     return result;
 }
 
+/* Live Adaptive Layout: a screen's layout, the game's own or a mod's, laid out for the size
+ * in use (tools/build_live_layout.py has the method and the measurements; it makes the table
+ * and holds the same layout in Python, which testing/regression/Test-LiveLayout.py holds
+ * this to). Every structure with an EXTENT (the root, each control by TAG, a list's
+ * PROTOITEM and SCROLLBAR) is placed by its rule from its value in the file, with s = H / BH
+ * and BW x BH the file's own size (its root's when that fills the screen from 0,0, else
+ * 640x480). Where the table has the structure and the file has the game's own extent there,
+ * the gold 3440x1440 value carries it, as a ratio, to the size; a control a mod moved keeps
+ * the mod's place, by its rule alone, and one the table does not know gets the default rule.
+ * Then the build's list gutters (PADDING). Only those numbers change, in place. */
+#include "kmrp-livelayout-table.h"
+
+enum { LL_SCALE, LL_STRETCH, LL_FIXED, LL_ASPECT, LL_CENTRE, LL_RIGHT };
+#define LL_LISTBOX 11
+
+/* An INT field of structure `s` (the inline value), or NULL. */
+static uint8_t *int_field(const Gff *g, uint32_t s, const char *name) {
+    long f = gff_field(g, s, name);
+    return f >= 0 && (field_type(g, f) == 5 || field_type(g, f) == 4) ? field_data(g, f) : NULL;
+}
+
+/* The root's CONTROLS: their count and where their indices are, or 0. */
+static uint32_t controls_of(const Gff *g, uint32_t *at) {
+    long f = gff_field(g, 0, "CONTROLS");
+    if (f < 0 || field_type(g, f) != 15) return 0;
+    *at = u32(field_data(g, f));
+    if ((uint64_t)*at + 4 > g->nlists) return 0;
+    uint32_t n = u32(g->d + g->lists + *at);
+    return n <= 512 && (uint64_t)*at + 4 + (uint64_t)n * 4 <= g->nlists ? n : 0;
+}
+
+/* The structures a layout has an EXTENT in, in the order build_live_layout.structures gives
+ * them, one at a time: `index` from 0; 0 when there are no more. */
+typedef struct { uint32_t s; char tag[64]; const char *sub; int type; } LLStruct;
+static int ll_struct(const Gff *g, int index, LLStruct *out) {
+    static const char *subs[2] = { "PROTOITEM", "SCROLLBAR" };
+    Extent e;
+    if (index == 0) {
+        out->s = 0; out->tag[0] = 0; out->sub = ""; out->type = -1;
+        return 1;
+    }
+    uint32_t at, n = controls_of(g, &at);
+    int k = 1;
+    for (uint32_t i = 0; i < n; i++) {
+        uint32_t c = u32(g->d + g->lists + at + 4 + i * 4);
+        if (c >= g->nstructs) continue;
+        char tag[64];
+        if (!control_tag(g, c, tag, sizeof tag) || !tag[0]) snprintf(tag, sizeof tag, "#%u", i);
+        uint8_t *type = int_field(g, c, "CONTROLTYPE");
+        /* The control itself, then its prototype and scroll bar, each where it has an EXTENT. */
+        uint32_t found[3];
+        const char *names[3];
+        int m = 0;
+        if (extent_of(g, c, &e)) { found[m] = c; names[m++] = ""; }
+        for (int j = 0; j < 2; j++) {
+            long sub = gff_child(g, c, subs[j]);
+            if (sub >= 0 && extent_of(g, (uint32_t)sub, &e)) { found[m] = (uint32_t)sub; names[m++] = subs[j]; }
+        }
+        if (index < k + m) {
+            out->s = found[index - k];
+            memcpy(out->tag, tag, sizeof tag);
+            out->sub = names[index - k];
+            out->type = type ? (int32_t)u32(type) : -1;
+            return 1;
+        }
+        k += m;
+    }
+    return 0;
+}
+
+static const LLFile *ll_file(const char *name) {
+    for (size_t i = 0; i < sizeof LL_FILES / sizeof *LL_FILES; i++)
+        if (strcasecmp(LL_FILES[i].name, name) == 0) return &LL_FILES[i];
+    return NULL;
+}
+
+static const LLRow *ll_row(const LLFile *file, const char *tag, const char *sub) {
+    for (int i = 0; i < file->count; i++)
+        if (strcmp(file->rows[i].tag, tag) == 0 && strcmp(file->rows[i].sub, sub) == 0) return &file->rows[i];
+    return NULL;
+}
+
+/* The structure of `g` with this key, or -1. */
+static long ll_find(const Gff *g, const char *tag, const char *sub) {
+    LLStruct st;
+    for (int i = 0; ll_struct(g, i, &st); i++)
+        if (strcmp(st.tag, tag) == 0 && strcmp(st.sub, sub) == 0) return (long)st.s;
+    return -1;
+}
+
+static void ll_base(const Gff *g, int *bw, int *bh) {
+    Extent e;
+    *bw = 640; *bh = 480;
+    if (extent_of(g, 0, &e) && ev(&e, 0) == 0 && ev(&e, 1) == 0 && ev(&e, 2) >= 640 && ev(&e, 3) >= 480) {
+        *bw = ev(&e, 2); *bh = ev(&e, 3);
+    }
+}
+
+static int ll_rhalf(double x) { return (int)copysign(floor(fabs(x) + 0.5), x); }
+
+/* A rule's unrounded value, as build_live_layout.value computes it, operation for operation. */
+static double ll_value(int rule, int field, int v, int w, int width, int height, int bw, int bh) {
+    const double s = (double)height / bh;
+    switch (rule) {
+    case LL_SCALE: return v * s;
+    case LL_FIXED: return (double)v;
+    case LL_STRETCH: return (double)((long long)v * width) / bw;
+    case LL_ASPECT: return field == 0 ? (v + w / 2.0) * width / bw - w * s / 2 : v * s;
+    case LL_CENTRE: return field == 0 ? width / 2.0 + (v - bw / 2.0) * s : v * s;
+    case LL_RIGHT: return field == 0 ? width - (bw - v) * s : v * s;
+    }
+    return (double)v;
+}
+
+static int ll_default(int field, const char *sub, int type, int w, int h) {
+    if (strcmp(sub, "PROTOITEM") == 0) return LL_FIXED;
+    if (field == 1 || field == 3) return LL_SCALE;
+    if (!*sub && type != LL_LISTBOX && type != -1 && h > 0 && 0.8 <= (double)w / h && (double)w / h <= 1.25)
+        return field == 0 ? LL_ASPECT : LL_SCALE;
+    return LL_STRETCH;
+}
+
+static int ll_placed(int field, int rule, const int v4[4], int gold, int width, int height, int bw, int bh) {
+    const double r = ll_value(rule, field, v4[field], v4[2], width, height, bw, bh);
+    if (gold == LL_NO_GOLD) return ll_rhalf(r);
+    const double at_gold = ll_value(rule, field, v4[field], v4[2], LL_GOLD_WIDTH, LL_GOLD_HEIGHT, bw, bh);
+    if (gold == ll_rhalf(at_gold)) return ll_rhalf(r);
+    if (at_gold == 0) return ll_rhalf(r + gold);
+    return ll_rhalf(gold * (r / at_gold));
+}
+
+static int ll_gutter(double unit, int height) {
+    double scale = height / LL_FONT_HEIGHT_DIVISOR - LL_FONT_SCALE_OFFSET;
+    if (scale < 1.0) scale = 1.0;
+    return (int)nearbyint(unit * scale);   /* half to even, as Python's round */
+}
+
+/* Is `source` laid out for the game's size: the game's own base, and its root inside it? */
+static int ll_game_size(const Gff *source, const Gff *game) {
+    int sw, sh, gw, gh;
+    Extent root;
+    ll_base(source, &sw, &sh);
+    ll_base(game, &gw, &gh);
+    if (sw != gw || sh != gh || !extent_of(source, 0, &root)) return 0;
+    return ev(&root, 0) >= 0 && ev(&root, 1) >= 0 && ev(&root, 0) + ev(&root, 2) <= sw && ev(&root, 1) + ev(&root, 3) <= sh;
+}
+
+/* `source` laid out in place for width x height. */
+static void ll_layout(const char *name, const LLFile *file, Gff *source, const Gff *game, int width, int height) {
+    int bw, bh;
+    ll_base(source, &bw, &bh);
+    LLStruct st;
+    for (int i = 0; ll_struct(source, i, &st); i++) {
+        Extent e;
+        if (!extent_of(source, st.s, &e)) continue;
+        int v4[4];
+        for (int f = 0; f < 4; f++) v4[f] = ev(&e, f);
+        const LLRow *row = ll_row(file, st.tag, st.sub);
+        int unmoved = 0;
+        if (row) {
+            long own = ll_find(game, st.tag, st.sub);
+            Extent oe;
+            unmoved = own >= 0 && extent_of(game, (uint32_t)own, &oe);
+            for (int f = 0; f < 4 && unmoved; f++) unmoved = ev(&oe, f) == v4[f];
+        }
+        int out[4];
+        for (int f = 0; f < 4; f++) {
+            const int rule = row ? row->rule[f] : ll_default(f, st.sub, st.type, v4[2], v4[3]);
+            out[f] = ll_placed(f, rule, v4, unmoved ? row->gold[f] : LL_NO_GOLD, width, height, bw, bh);
+        }
+        for (int f = 0; f < 4; f++) put_u32(e.v[f], (uint32_t)(int32_t)out[f]);
+        uint8_t *padding = int_field(source, st.s, "PADDING");
+        if (unmoved && row->gold_padding != LL_NO_PADDING && width == LL_GOLD_WIDTH && height == LL_GOLD_HEIGHT && padding)
+            put_u32(padding, (uint32_t)(int32_t)row->gold_padding);
+    }
+    /* The build's gutters, never reducing one but for the hand-set ones. */
+    for (int i = 1; ll_struct(source, i, &st); i++) {
+        uint8_t *padding;
+        if (*st.sub || st.type != LL_LISTBOX || !(padding = int_field(source, st.s, "PADDING"))) continue;
+        for (size_t t = 0; t < sizeof LL_GUTTERS / sizeof *LL_GUTTERS; t++) {
+            if (strcasecmp(LL_GUTTERS[t].tag, st.tag) != 0) continue;
+            const int g = ll_gutter(LL_GUTTERS[t].unit, height);
+            if ((int32_t)u32(padding) < g) put_u32(padding, (uint32_t)g);
+        }
+        for (size_t t = 0; t < sizeof LL_FILE_GUTTERS / sizeof *LL_FILE_GUTTERS; t++)
+            if (strcasecmp(LL_FILE_GUTTERS[t].file, name) == 0 && strcasecmp(LL_FILE_GUTTERS[t].tag, st.tag) == 0)
+                put_u32(padding, (uint32_t)ll_gutter(LL_FILE_GUTTERS[t].unit, height));
+    }
+}
+
+/* The layout `name` for width x height into OUT_GUI, from SOURCE_GUI (a mod's, when given)
+ * or the game's own; GAME is the game's own file, read through chitin.key when KEY_PATH ends
+ * in ".key", else read as it is. 0: written. 1: a layout could not be read; nothing written.
+ * 2: could not write. 3: SOURCE is not laid out for the game's size; nothing written, and the
+ * player's file is left to the game. 4: not a layout this lays out. */
+int KmrpLiveLayout(const char *key_path, const char *name, const char *source_gui, int width, int height,
+                   const char *out_gui) {
+    const LLFile *file = ll_file(name);
+    if (!file) return 4;
+    Buffer game = { NULL, 0 }, theirs = { NULL, 0 };
+    size_t length = strlen(key_path);
+    if (length > 4 && strcasecmp(key_path + length - 4, ".key") == 0) {
+        Buffer key = read_file(key_path);
+        char resref[17] = { 0 };
+        const char *dot = strrchr(name, '.');
+        size_t n = dot ? (size_t)(dot - name) : strlen(name);
+        if (n < sizeof resref) {
+            memcpy(resref, name, n);
+            game = keyed_resource(&key, key_path, resref, TYPE_GUI);
+        }
+        free(key.data);
+    } else game = read_file(key_path);
+    if (source_gui && *source_gui) theirs = read_file(source_gui);
+    else if (game.data && (theirs.data = malloc(game.size))) {
+        memcpy(theirs.data, game.data, game.size);
+        theirs.size = game.size;
+    }
+    int result = 1;
+    Gff own, source;
+    if (game.data && theirs.data && width > 0 && height > 0 && gff_open(&own, game.data, game.size) &&
+        gff_open(&source, theirs.data, theirs.size)) {
+        if (!ll_game_size(&source, &own)) result = 3;
+        else {
+            ll_layout(name, file, &source, &own, width, height);
+            FILE *f = fopen(out_gui, "wb");
+            result = 2;
+            if (f) {
+                int ok = fwrite(theirs.data, 1, theirs.size, f) == theirs.size;
+                if (fclose(f) == 0 && ok) result = 0;
+            }
+        }
+    }
+    free(game.data); free(theirs.data);
+    return result;
+}
+
+/* How many layouts KmrpLiveLayout lays out, and the name of one. */
+int KmrpLiveLayoutCount(void) { return (int)(sizeof LL_FILES / sizeof *LL_FILES); }
+const char *KmrpLiveLayoutName(int i) { return i >= 0 && i < KmrpLiveLayoutCount() ? LL_FILES[i].name : NULL; }
+
 #ifndef KMRP_EMBEDDED
 int main(int argc, char **argv) {
+    if (argc >= 7 && argc <= 8 && strcmp(argv[1], "live") == 0) {
+        int result = KmrpLiveLayout(argv[2], argv[3], argc == 8 ? argv[7] : NULL, atoi(argv[4]), atoi(argv[5]), argv[6]);
+        if (result == 0) printf("%s written: %s laid out for %sx%s\n", argv[6], argv[3], argv[4], argv[5]);
+        if (result == 1) fprintf(stderr, "kmrp-guiadapt: a layout could not be read; nothing written\n");
+        if (result == 2) fprintf(stderr, "kmrp-guiadapt: %s: %s\n", argv[6], strerror(errno));
+        if (result == 3) printf("%s is not laid out for the game's size; nothing written\n", argv[7]);
+        if (result == 4) fprintf(stderr, "kmrp-guiadapt: %s is not a layout this lays out\n", argv[3]);
+        return result == 3 ? 0 : result;
+    }
     if (argc >= 4 && strcmp(argv[1], "mainmenu") == 0) {
         int result = KmrpMainMenuBars(argv[2], argv[3]);
         if (result == 0) printf("%s written: the buttons on their bars\n", argv[3]);

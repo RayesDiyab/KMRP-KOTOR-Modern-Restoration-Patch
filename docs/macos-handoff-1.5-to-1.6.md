@@ -1061,6 +1061,21 @@ textures. Drawing at run time on the Mac too needs the module's sweep, scene dra
 `macos/tools/kmrp-glyphs.c` (already plain C) at the Mac's addresses; until then the
 carried textures are the Mac's.
 
+## 102. Live Adaptive Layout: the options screens laid out at run time
+
+Since 2026-10-28 Windows lays out 11 options screens when a size's set is made ready, from
+the player's `Override` file when it is laid out for the game's size, else from the game's
+own: `KmrpLiveLayout` in `macos/tools/kmrp-guiadapt.c` (plain C, the table
+`macos/tools/kmrp-livelayout-table.h` beside it), called per screen by `AdaptLiveLayoutK1`
+in `src/controller-native/K1RuntimeAssets.cpp`, which writes beside the target and moves
+the file over it ([docs/live-adaptive-layout.md](live-adaptive-layout.md)). **To do on the
+Mac:** call it wherever `KmrpGalaxyMap` is called, with the Mac game's `chitin.key`, the
+screen's name from `KmrpLiveLayoutName`, the player's `Override` file or `NULL`, and the
+display's size, into the folder searched before the set; a result of 3 means the player's
+file is left to the game. **How to check:** `kmrp-guiadapt live` on the Mac game's
+`optionsmain.gui` at 3440x1440 gives `LB_DESC` 1780, 280, 1386, 850, and
+`testing/regression/Test-LiveLayout.py` passes there (it builds the helper with clang).
+
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
 | Change | Commit | Why not the Mac |

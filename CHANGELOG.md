@@ -117,6 +117,42 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Live Adaptive Layout: the options screens laid out at run time, from a mod's file or
+  the game's own** (2026-10-28; [docs/live-adaptive-layout.md](docs/live-adaptive-layout.md)).
+  * A GUI mod's options screen in `Override` used to take the place of KMRP's whole file,
+    laid out for 640x480. Now the module lays out the file the game would load, the
+    player's when it is laid out for the game's size and else the game's own (from
+    `chitin.key`), for the size in use, into the folder searched before the set and
+    `Override`. Eleven screens: `optionsmain`, `optionsingame`, `optautopause`,
+    `optgraphics`, `optgraphicsadv`, `optmouse`, `optsound`, `optsoundadv`,
+    `optkeymapping`, `optkeyentry`, `optresolution`. A mod's file laid out for another
+    size is left to the game, as before.
+  * The method, measured first, read-only: High Resolution Menus' hand-made sets follow a
+    few rules on each control's value in the game's file (scale with the height, stretch
+    with the width, keep a square's shape, keep a row template). One rule per field
+    reproduces 92.1% of the fields of its 48 sets exactly in every set, 99.0% of the
+    values. KMRP's corrections are the gold 3440x1440 file's, carried to each size as a
+    ratio against the rule, applied only where the file has the game's own extent: a
+    control a mod moved keeps the mod's place, and one the game does not have gets a
+    default rule told from its shape.
+  * `tools/build_live_layout.py` makes the table (`macos/tools/kmrp-livelayout-table.h`:
+    rule numbers and gold's values, nothing of the game's) and holds the layout in Python;
+    `KmrpLiveLayout` in `macos/tools/kmrp-guiadapt.c` is the same in C, for the Windows
+    module (`AdaptLiveLayoutK1`) and the Mac; the list gutters (`PADDING`) are the build's.
+  * `testing/regression/Test-LiveLayout.py`: against KMRP's 66 sets the 11 screens' 35,640
+    `EXTENT` fields are 95.13% exact, 4.85% a pixel off (the maintainer accepted the
+    rounding pixel, 2026-10-28) and 9 two or three pixels off, listed in the document;
+    3440x1440 identical but for colours' last decimals; C equal to Python in 2,970
+    layouts, mods' files included; a file laid out for 1920x1080 refused.
+  * Found on the way: the engine re-places a list's scroll bar from the list's own extent
+    as it loads (`CSWGuiListBox::Load`, 0x0041D5B0, then `SetExtent`, 0x0041BF80), so the
+    wrong scroll-bar extents High Resolution Menus gives about 12 lists never show.
+  * Module `BD9742A5...` (744,448 bytes) installed in the maintainer's Steam game the same
+    day, the previous one (`876BAF04...`) in `KMRP\backups`. **Seen in the game** by the
+    maintainer the same day at 3440x1440, the options screens from the main menu and the
+    pause menu: "works perfectly". Other sizes and a mod's file in `Override` are verified
+    by the test only.
+
 - **The Xbox HUD's frames drawn at the size they are shown; the controller patch carries no
   texture** (2026-10-28). Phases 4 and 5 of 5.
   * The 17 frames of `tools/build_xbox_hud_art.py` and the name bar's six slices are
