@@ -1864,6 +1864,7 @@ struct K1BadgeRect { int left, top, width, height; };
 #include <chrono>
 #include <cmath>
 #include <condition_variable>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -1886,7 +1887,7 @@ struct K1ScenePart { std::string glyph; int left, top, width, height; };
 struct K1Scene { std::string name; int width, height; bool stretch; int cap; std::vector<K1ScenePart> parts; };
 std::vector<K1Scene> g_k1Scenes;
 std::vector<unsigned char> g_k1GlyphData;
-bool g_k1GlyphsLoaded = false;
+std::once_flag g_k1GlyphOnce;
 std::vector<std::string> g_k1DrawnBadges;           // textures written this session
 // While the frame's sweep runs, the folder is listed once at its end rather than after each
 // picture, and the fills that wait on that listing are set then (K1SweepFrame). Listing the
@@ -1905,8 +1906,7 @@ unsigned g_k1QuietFrames = 0;
 
 const KmrpGlyph* FindK1Glyph(const std::string& name)
 {
-    if (!g_k1GlyphsLoaded) {
-        g_k1GlyphsLoaded = true;
+    std::call_once(g_k1GlyphOnce, [] {
         const std::wstring path = KmrpRuntimeAssetDirectory() + L"\\kmrp-glyphs.bin";
         FILE* file = _wfopen(path.c_str(), L"rb");
         if (file) {
@@ -1980,7 +1980,7 @@ const KmrpGlyph* FindK1Glyph(const std::string& name)
         std::snprintf(line, sizeof line, "badges: %u glyph outlines and %u pictures read for drawing at the shown size",
                       static_cast<unsigned>(g_k1Glyphs.size()), static_cast<unsigned>(g_k1Scenes.size()));
         ControllerLogK1(line);
-    }
+    });
     for (const K1GlyphEntry& entry : g_k1Glyphs) {
         if (entry.name == name) {
             return &entry.glyph;
@@ -2016,8 +2016,10 @@ bool K1AlreadyDrawn(const char* name)
 // `sheet` (dw x dh, RGBA, top row first) written as `name`.tga with a TXI that turns
 // mipmaps off into this patch's folder. Files only: safe on the background thread
 // (K1BackgroundWorker); the engine learns of them when the folder is listed anew.
+std::mutex g_k1PictureFilesLock;
 bool K1WriteTextureFiles(const char* name, const std::vector<std::uint8_t>& sheet, int dw, int dh)
 {
+    std::lock_guard<std::mutex> lock(g_k1PictureFilesLock);
     std::vector<std::uint8_t> tga(18 + sheet.size() + 26, 0);
     tga[2] = 2;
     tga[12] = static_cast<std::uint8_t>(dw); tga[13] = static_cast<std::uint8_t>(dw >> 8);
@@ -2090,9 +2092,7 @@ bool K1BadgeTexture(const std::string& name, const KmrpGlyph& glyph, int dw, int
 
 const K1Scene* FindK1Scene(const char* fill)
 {
-    if (!g_k1GlyphsLoaded) {
-        FindK1Glyph(std::string());
-    }
+    FindK1Glyph(std::string());
     for (const K1Scene& scene : g_k1Scenes) {
         if (_strnicmp(scene.name.c_str(), fill, 16) == 0 && scene.name.size() <= 16 &&
             (scene.name.size() == 16 || fill[scene.name.size()] == '\0')) {
@@ -2167,6 +2167,7 @@ std::vector<std::string> g_bgClaimed;             // waiting or being drawn
 std::string g_bgDrawing;                          // being drawn now
 std::vector<K1BackgroundDone> g_bgDone;           // finished, not yet listed
 bool g_bgRunning = false;
+std::vector<std::function<void()>> g_bgGuiWork;
 
 bool K1BackgroundClaimed(const char* name)
 {
@@ -2180,13 +2181,24 @@ void K1BackgroundWorker()
 {
     for (;;) {
         K1BackgroundJob job;
+        std::function<void()> work;
         {
             std::unique_lock<std::mutex> lock(g_bgLock);
-            g_bgWake.wait(lock, [] { return !g_bgJobs.empty() || !g_bgLater.empty(); });
-            std::vector<K1BackgroundJob>& from = g_bgJobs.empty() ? g_bgLater : g_bgJobs;
-            job = from.front();
-            from.erase(from.begin());
-            g_bgDrawing = job.name;
+            g_bgWake.wait(lock, [] { return !g_bgJobs.empty() || !g_bgLater.empty() || !g_bgGuiWork.empty(); });
+            if (!g_bgGuiWork.empty()) {
+                work = std::move(g_bgGuiWork.front());
+                g_bgGuiWork.erase(g_bgGuiWork.begin());
+            } else {
+                std::vector<K1BackgroundJob>& from = g_bgJobs.empty() ? g_bgLater : g_bgJobs;
+                job = from.front();
+                from.erase(from.begin());
+                g_bgDrawing = job.name;
+            }
+        }
+        if (work) {
+            try { work(); }
+            catch (...) { ControllerLogK1("preload: background GUI work failed; live fallback retained"); }
+            continue;
         }
         const DWORD started = GetTickCount();
         std::vector<std::uint8_t> sheet;
@@ -2465,6 +2477,48 @@ extern "C" void __cdecl KmrpQueuePictureK1(const char* name, int width, int heig
     }
     if (width <= 0 || height <= 0 || width > 4095 || height > 4095) return;
     K1QueueSceneTexture(*scene, width, height, false);
+}
+
+// File work and vector drawing share the controller's one background worker.
+void KmrpQueueControllerGuiWorkK1(std::function<void()> work)
+{
+    {
+        std::lock_guard<std::mutex> lock(g_bgLock);
+        g_bgGuiWork.push_back(std::move(work));
+        if (!g_bgRunning) { g_bgRunning = true; std::thread(K1BackgroundWorker).detach(); }
+    }
+    g_bgWake.notify_all();
+}
+
+bool KmrpWritePreloadPictureK1(const char* name, const std::vector<std::uint8_t>& sheet, int width, int height)
+{
+    const bool ok = K1WriteTextureFiles(name, sheet, width, height);
+    std::lock_guard<std::mutex> lock(g_bgLock);
+    g_bgDone.push_back({name, "controller GUI preload", width, height, 0, ok});
+    return ok;
+}
+
+bool KmrpPreloadPictureReadyK1(const char* name) { return K1AlreadyDrawn(name); }
+
+// Called only by that worker. Bank metadata is immutable after call_once loading.
+void KmrpWarmControllerPictureK1(const char* name, int width, int height, bool later)
+{
+    const K1Scene* scene = FindK1Scene(name);
+    if (!scene || width <= 0 || height <= 0 || width > 4095 || height > 4095) return;
+    if (scene->cap > 0 && (std::max)(width, height) > scene->cap) {
+        const double k = static_cast<double>(scene->cap) / (std::max)(width, height);
+        width = (std::max)(1, static_cast<int>(std::lround(width * k)));
+        height = (std::max)(1, static_cast<int>(std::lround(height * k)));
+    }
+    K1BackgroundJob job{scene, width, height, {}};
+    K1DrawnName('s', scene->name, width, height, job.name);
+    {
+        std::lock_guard<std::mutex> lock(g_bgLock);
+        if (K1BackgroundClaimed(job.name)) return;
+        for (const auto& done : g_bgDone) if (done.ok && done.name == job.name) return;
+        g_bgClaimed.push_back(job.name);
+        (later ? g_bgLater : g_bgJobs).push_back(job);
+    }
 }
 
 // A picture this patch drew (`sheet`, RGBA, top row first) written and listed, as the badges

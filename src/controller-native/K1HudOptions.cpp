@@ -883,6 +883,9 @@ void KmrpPreloadHudPagesK1()
     using namespace KmrpPcHud;
     constexpr std::size_t kPerFrame = 2;
     const std::size_t count = sizeof kPcPieces / sizeof kPcPieces[0];
+    using Queue = void(__cdecl*)(const char*);
+    HMODULE controller = GetModuleHandleW(L"kmrp-controller.dll");
+    Queue queue = controller ? reinterpret_cast<Queue>(GetProcAddress(controller, "KmrpQueueTexturePreloadK1")) : nullptr;
     for (std::size_t done = 0; done < kPerFrame && preloadNext <= count; ++preloadNext) {
         const char* name = preloadNext == count ? "whitefill" : kPcPieces[preloadNext].fill;
         if (preloadNext < count) {
@@ -894,6 +897,7 @@ void KmrpPreloadHudPagesK1()
         for (const std::string& known : loaded) seen = seen || known == name;
         if (seen) continue;
         loaded.push_back(name);
+        if (queue) { queue(name); ++done; continue; }
         void* texture = Fn<void*(__cdecl*)(const char*, int)>(0x423A60)(name, 0);
         if (!texture) continue;
         Fn<void(__thiscall*)(void*)>(0x4214B0)(texture);

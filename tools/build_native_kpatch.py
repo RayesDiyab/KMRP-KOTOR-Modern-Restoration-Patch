@@ -235,7 +235,7 @@ def functions():
     (K1HudOptions.cpp), which the controller patch's movie frame calls, as it holds the movie
     site beside KMRP: the heavy pages' textures preloaded while the intro movies play."""
     return {h['function'] for h in all_hooks() if h.get('function')} | {'KmrpHudAppliedSizeK1', 'KmrpPrepareAssets',
-                                                                        'KmrpMovieFrameK1'}
+                                                                        'KmrpMovieFrameK1', 'KmrpPreloadGuiPathK1'}
 
 
 def render_hooks():

@@ -117,6 +117,51 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **3D preview rendering has first preload priority** (2026-10-29). The six
+  class-selection previews and the main-menu preview get one initial native
+  render with color output disabled before their first visible draw. The hidden
+  pass uses zero local/global animation delta and temporarily disables framebuffer
+  effects, restoring the original draw buffer, effects and time before display.
+  Optional GUI texture uploads wait for these previews. File preparation still
+  runs on the controller worker; graphics work runs on the GUI thread. Verified
+  in the Steam game at 3440x1440: the maintainer reported "it looks correct now",
+  and logs confirm hidden initialization before the first visible draw on both
+  class-screen openings and the main menu. Other sizes remain not play-tested.
+
+- **Level 2 class-model diagnostics** (2026-10-29): record the native texture
+  build queue, texture count, lock state and changed/unuploaded texture IDs
+  before and after the first four class-selection draws. The existing GUI log
+  records visible model controls but cannot establish texture readiness. This
+  diagnostic records the reported black models on the first New Game opening;
+  the underlying cold-render cause remains unidentified. It delegates the native draw
+  once and does not overwrite another patch's Draw handler. After the first
+  test found no pending uploads on either opening, it also records each model
+  scene's render count and light state. Snapshots are buffered until draw four
+  to reduce file I/O during the initial frames.
+
+- **Controller GUI preloading shares the controller picture worker** (2026-10-29).
+  Movie frames submit class-selection footer preparation and controller GUI scene
+  dependencies; file reads, decoding and drawing run on the existing background
+  worker. Skipped movies and resolution changes use the same queue. KMRP's HUD
+  texture requests can join it through an optional export; the controller works
+  alone using the game's normal GUI sources. Engine texture upload and resource
+  registration stay on the GUI thread. Standalone controller HUD sizing now
+  ignores leftover KMRP size settings, keeping the standard size; HUD and text
+  sizing belong to KMRP. Production worker tests cover standalone and combined
+  source paths, deduplication, resize and the HUD sizing boundary. In-game preload
+  timing and appearance remain untested.
+
+- **Class selection uses Live Adaptive Layout** (2026-10-29), bringing the total
+  to 45 screens. Both mouse/keyboard and controller modes use the live geometry.
+  The enlarged class option and model preview keep their fixed frame margins;
+  the game's old class-button border art is cleared where the source still uses
+  it, while a mod's replacement art is preserved. The existing controller Select
+  and Cancel treatment reads the resulting live rectangles. Geometry matches the
+  66 prebuilt layouts within the existing rounding tolerance, exactly at
+  3440x1440. The full 45-screen regression passes 12,146 C/Python comparisons,
+  and the core module build and package checks pass. In-game verification of
+  this migration is pending.
+
 - **Pazaak gameplay has four action areas with the controller** (2026-10-29).
   Play Hand Card (X), Flip Hand Card (LB), End Turn (A) and Stand (Y) share one
   row, with the right action strip and red backing mirrored onto the left. The

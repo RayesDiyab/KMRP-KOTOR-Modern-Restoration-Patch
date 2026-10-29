@@ -769,16 +769,21 @@ void SetFont(void* label, const char* name)
 // (K1HudOptions.cpp, since 2026-10-18): the action menu, the party, the minimap, the
 // target's bar at the top left and the Disengage button, each made larger or smaller
 // about its corner of the screen, 50% being the HUD as it was. The page is KMRP's, and
-// this patch works without KMRP, so it reads the page's section of swkotor.ini itself:
+// this patch works without KMRP. Only while KMRP is loaded does it read the page's
+// section of swkotor.ini:
 // once, and again whenever the file has been written since (looked at twice a second
 // at most, which costs a file's attributes), so a slider moved on the page shows on
-// the HUD when the game is back. Without KMRP the section is not there and every part
-// is at 50%.
+// the HUD when the game is back. Without KMRP every part stays at the standard 50%,
+// even when that INI section remains from an earlier KMRP installation.
 using KmrpHudOptions::ElementCount;
 using HudSizes = std::array<int, ElementCount>;
 const HudSizes& Sizes()
 {
     static HudSizes sizes = [] { HudSizes all; all.fill(KmrpHudOptions::Default); return all; }();
+    if (!GetModuleHandleW(L"kmrp.dll")) {
+        sizes.fill(KmrpHudOptions::Default);
+        return sizes;
+    }
     static FILETIME written{};
     static DWORD looked = 0;
     static bool once = false;

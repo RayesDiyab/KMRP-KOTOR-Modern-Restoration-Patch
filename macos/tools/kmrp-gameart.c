@@ -161,6 +161,106 @@ static uint8_t *decode_tpc(const uint8_t *tpc, size_t size, int *width, int *hei
     return rgba;
 }
 
+#include "../../src/controller-native/K1GuiPreloadData.h"
+
+/* Top mip for the controller preload worker. Decode without calling the engine. */
+static uint8_t *preload_tpc(const uint8_t *data, size_t size, int *width, int *height) {
+    if (size < 128) return NULL;
+    const int w = u16(data + 8), h = u16(data + 10);
+    if (w < 1 || h < 1 || w > 8192 || h > 8192) return NULL;
+    if (!u32(data) || data[12] == 4) return decode_tpc(data, size, width, height);
+    const int bw = (w + 3) / 4, bh = (h + 3) / 4;
+    if (data[12] != 2 || (size_t)bw * bh * 8 > size - 128) return NULL;
+    uint8_t *rgba = malloc((size_t)w * h * 4);
+    if (!rgba) return NULL;
+    for (int by = 0; by < bh; ++by) for (int bx = 0; bx < bw; ++bx) {
+        const uint8_t *b = data + 128 + ((size_t)by * bw + bx) * 8;
+        int color[4][3]; unpack565(u16(b), color[0]); unpack565(u16(b + 2), color[1]);
+        const int four = u16(b) > u16(b + 2);
+        for (int c = 0; c < 3; ++c) {
+            color[2][c] = four ? (2 * color[0][c] + color[1][c]) / 3 : (color[0][c] + color[1][c]) / 2;
+            color[3][c] = four ? (color[0][c] + 2 * color[1][c]) / 3 : 0;
+        }
+        const uint32_t bits = u32(b + 4);
+        for (int y = 0; y < 4; ++y) for (int x = 0; x < 4; ++x) {
+            const int px = bx * 4 + x, py = by * 4 + y, ci = (bits >> (2 * (y * 4 + x))) & 3;
+            if (px >= w || py >= h) continue;
+            uint8_t *out = rgba + ((size_t)py * w + px) * 4;
+            for (int c = 0; c < 3; ++c) out[c] = (uint8_t)color[ci][c];
+            out[3] = !four && ci == 3 ? 0 : 255;
+        }
+    }
+    *width = w; *height = h; return rgba;
+}
+
+static uint8_t *preload_tga(const uint8_t *data, size_t size, int *width, int *height) {
+    if (size < 18 || data[1] || (data[2] != 2 && data[2] != 10)) return NULL;
+    const int w = u16(data + 12), h = u16(data + 14), channels = data[16] / 8;
+    if (w < 1 || h < 1 || w > 8192 || h > 8192 || (channels != 3 && channels != 4)) return NULL;
+    const size_t count = (size_t)w * h;
+    size_t at = 18 + data[0], pixel = 0;
+    uint8_t *rgba = malloc(count * 4);
+    if (!rgba) return NULL;
+    while (pixel < count) {
+        int repeated = 0; size_t run = 1;
+        if (data[2] == 10) {
+            if (at >= size) { free(rgba); return NULL; }
+            repeated = data[at] & 128; run = (data[at++] & 127) + 1;
+        }
+        if (run > count - pixel || at + (repeated ? 1 : run) * channels > size) { free(rgba); return NULL; }
+        for (size_t k = 0; k < run; ++k, ++pixel) {
+            const uint8_t *p = data + at + (repeated ? 0 : k * channels);
+            size_t x = pixel % w, y = pixel / w;
+            if (data[17] & 32) y = h - 1 - y;
+            if (data[17] & 16) x = w - 1 - x;
+            uint8_t *o = rgba + (y * w + x) * 4;
+            o[0] = p[2]; o[1] = p[1]; o[2] = p[0]; o[3] = channels == 4 ? p[3] : 255;
+        }
+        at += (repeated ? 1 : run) * channels;
+    }
+    *width = w; *height = h; return rgba;
+}
+
+unsigned char *KmrpReadPreloadTexture(const char *game, const char *assets, const char *name, int *width, int *height) {
+    if (!game || !name || !*name || strlen(name) > 16 || strpbrk(name, "/\\:")) return NULL;
+    char path[4096];
+    for (int pass = 0; pass < 4; ++pass) {
+        const int tga = pass & 1;
+        if (pass >= 2 && (!assets || !*assets)) continue;
+        if (pass < 2) snprintf(path, sizeof path, "%s/Override/%s.%s", game, name, tga ? "tga" : "tpc");
+        else snprintf(path, sizeof path, "%s/%s.%s", assets, name, tga ? "tga" : "tpc");
+        FILE *f = fopen(path, "rb");
+        if (!f) continue;
+        fseek(f, 0, SEEK_END); long length = ftell(f); rewind(f);
+        uint8_t *data = length > 0 && length <= (64L << 20) ? malloc((size_t)length) : NULL;
+        const int read = data && fread(data, 1, (size_t)length, f) == (size_t)length;
+        fclose(f);
+        uint8_t *rgba = read ? (tga ? preload_tga(data, (size_t)length, width, height)
+                                  : preload_tpc(data, (size_t)length, width, height)) : NULL;
+        free(data); return rgba; /* Never silently replace a mod's unsupported texture. */
+    }
+    snprintf(path, sizeof path, "%s/TexturePacks/swpc_tex_gui.erf", game);
+    FILE *f = fopen(path, "rb");
+    if (!f) return NULL;
+    uint8_t head[160], key[24], resource[8];
+    uint8_t *rgba = NULL;
+    if (fread(head, 1, sizeof head, f) != sizeof head) { fclose(f); return NULL; }
+    const uint32_t count = u32(head + 16), keys = u32(head + 24), resources = u32(head + 28);
+    for (uint32_t i = 0; i < count && i < 100000; ++i) {
+        if (fseek(f, (long)keys + (long)i * 24, SEEK_SET) || fread(key, 1, 24, f) != 24) break;
+        char ref[17] = {0}; memcpy(ref, key, 16);
+        if (u16(key + 20) != TYPE_TPC || strcasecmp(ref, name)) continue;
+        const uint32_t id = u32(key + 16);
+        if (id >= count || fseek(f, (long)resources + (long)id * 8, SEEK_SET) || fread(resource, 1, 8, f) != 8) break;
+        const uint32_t length = u32(resource + 4);
+        uint8_t *data = length && length <= (64u << 20) ? malloc(length) : NULL;
+        if (data && !fseek(f, (long)u32(resource), SEEK_SET) && fread(data, 1, length, f) == length)
+            rgba = preload_tpc(data, length, width, height);
+        free(data); break;
+    }
+    fclose(f); return rgba;
+}
+
 static uint8_t *flip_rows(const uint8_t *pixels, int width, int height) {
     size_t stride = (size_t)width * 4;
     uint8_t *out = malloc(stride * height);

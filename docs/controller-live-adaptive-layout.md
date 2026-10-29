@@ -6,7 +6,7 @@
 > tabulated, rejected alternatives and corrections kept visible, and anything untested
 > labelled as untested.
 
-**Reference.** This is the mechanism as it is in the source on 2026-10-28. The order in
+**Reference.** This is the mechanism as it is in the source on 2026-10-29. The order in
 which it was built, and every fault found on the way, is in [`CHANGELOG.md`](../CHANGELOG.md)
 (the entries for phases 1 to 5, 2026-10-27 and 28) and in section 9 here.
 
@@ -20,8 +20,8 @@ that shows it, and written into the module's folder as a texture the engine then
 the module code that decides what to draw, at what size, and when. It is the first built
 part of Live Adaptive Layout, the project to make KMRP's interface follow any screen and
 any layout at run time instead of from prebuilt files (the maintainer's names, 2026-10-27
-and 28). The rest of that project, laying out any `.gui`, the game's or a mod's, by rules
-per aspect ratio, is not built.
+and 28). The shared layout rules now cover 45 screens; see the
+[layout reference](live-adaptive-layout.md).
 
 Provenance. Engine structures and addresses are read from the swkotor1-reconstruction
 project (a byte-matching decompilation, `matching/`), and the ones this module calls were
@@ -35,7 +35,8 @@ was seen in the game, and what was not, is in section 8.
 
 | | |
 | --- | --- |
-| Source | `master` at f688a48 plus the corrections of 2026-10-28 listed in the CHANGELOG (uncommitted when this was written) |
+| Source | `master` at `33a3b4d` plus the class-selection migration and controller preload of 2026-10-29 (uncommitted when written) |
+| Controller module built for priority model preload and buffered diagnostics | `build\controller-standalone\kmrp-controller.dll`, 2,691,072 bytes, SHA-256 `8C18C537AE47E1B02BDB1016A5B8CDB4885B6BDAF414DB94488230C650E8BEF0`; verified by the maintainer in Steam at 3440x1440 on 2026-10-29 |
 | Executable the addresses were checked in | `build-inputs\swkotornopatch.exe`, the 1.03 executable, 4,042,752 bytes, SHA-256 `761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886` |
 | Executable played | Steam's `swkotor.exe` (`build-inputs\swkotor-steam.exe`, 4,395,008 bytes, SHA-256 `34E6D971C034222A417995D8E1E8FDD9F8781795C9C289BD86C499A439F34C88`). Its code is wrapped on disk, so it was not disassembled; KPM runs the module against it at the same addresses |
 | Glyph bank | `build\controller-standalone\files\kmrp-glyphs.bin`, 1,712,499 bytes: 136 outlines and 172 scenes |
@@ -263,6 +264,212 @@ They are drawn before the screen is opened:
 5. **A picture asked for before it is ready**: taken out of the queue and drawn at once if
    the thread has not reached it; waited for if the thread is drawing it.
 
+### Movie-triggered controller GUI preload (2026-10-29)
+
+The controller owns the additional preload queue in `K1ControllerPreload.cpp`.
+`NativeMovieFrameK1` submits it when movie frames begin. The callback snapshots paths,
+viewport dimensions and controller family; it does not decode or draw the art. The
+existing `K1BackgroundWorker` runs the file work and drawing, alongside the Controller
+Layout and HUD picture jobs. No second worker is introduced. Repeated movie frames
+are deduplicated by viewport size and the optional KMRP class-layout path. The GUI
+frame submits the same work after a resize or when movies were skipped.
+
+| Source | Work prepared on the controller worker |
+| --- | --- |
+| `classsel.gui` | panel and Cancel geometry, source texture decode, split Select/Cancel footer written to the private picture folder |
+| `kmrplayout.gui`, `pazaaksetup.gui`, `pazaakgame.gui`, `savename.gui`, `galaxymap.gui` | scene dependencies named by border/highlight fills, at the file's dimensions; current controller family before the other families |
+| `lbl_pazaak` | source texture read/decode before Pazaak opens |
+| KMRP HUD preview texture requests | optional `KmrpQueueTexturePreloadK1` export, using the same worker |
+
+Sources come from the optional KMRP live-layout path, otherwise the player's Override,
+otherwise the controller's own GUI or the game's keyed resource. Textures come from
+Override, optional KMRP common art, then the game's GUI texture pack. Unsupported mod
+textures retain the live fallback. The pure class-footer algorithm is shared with that
+fallback. It handles both KMRP's brighter art and the original dark-blue footer; the
+earlier brightness-threshold detector reached the image edges on the original art
+because its middle and gaps both measured 21/255. The added detector finds the brighter
+rounded ends first. On the native 512x512 source they span columns 188 through 323,
+with arrows at 186 and 325.
+
+KMRP is optional. Its `KmrpPreloadGuiPathK1` export only copies a source path; no engine
+object crosses the module boundary. Its HUD movie callback submits texture names when
+the controller export is present, retaining its original path when it is absent.
+HUD and text sizing remain KMRP features. The controller's `Sizes()` ignores the KMRP
+INI section unless `kmrp.dll` is loaded, even if saved values remain from an older
+installation; standalone uses the standard 50% policy value, whose factor is 1.0.
+
+Worker decoding warms source files and supplies class pixels; normal source textures
+still enter the engine through the GUI thread. With a current OpenGL context,
+`KmrpControllerGuiPreloadFrameK1` retains/binds at most two queued textures per frame.
+Completed drawings are registered through the existing GUI-thread collection path.
+The worker calls neither engine resource functions nor OpenGL. Panel-dependent
+Pazaak composition and exact live probe dimensions retain their existing fallbacks;
+scanning a GUI's static dependencies does not construct a hidden engine panel.
+
+| Existing engine use | VA | Thread |
+| --- | --- | --- |
+| `AurTextureGetReference` | `0x00423A60` | GUI collection only |
+| texture bind | `0x004214B0` | GUI collection only |
+| viewport width/height reads | `0x0078D1D4`, `0x0078D1D8` | submission callback |
+
+These are existing 1.03 VAs, not new hook sites or executable-file writes.
+`Test-ControllerPreload.py` compiles the production callback, worker loop and HUD size
+reader against local game files, replacing hardware addresses and module lookup.
+It passes with no KMRP and with a KMRP source snapshot: native 512x512 and KMRP
+2868x1436 class textures; worker identity differs from the caller; repeated movie
+events deduplicate; stale geometry is refused; GUI-only resize submits work; and
+unsupported source textures retain their engine preload request. It also checks
+standalone ignores nondefault KMRP sizes while the combined mode reads them.
+Actual GPU upload, startup timing and this preload's appearance in game are
+**not play-tested**.
+
+### First-opening class model diagnostic (2026-10-29)
+
+The maintainer reports black character models for the first visible frame of
+New Game after launch, with later openings correct. The existing level 2 log
+records all six `CSWGui3DSceneView` controls visible, but not their materials or
+texture upload state. The new preload is file/GUI artwork preparation and does
+not establish that model materials are uploaded. No cause or fix is claimed yet.
+
+`K1ClassModelTrace.h` is enabled only at debug level 2. On class-panel binding,
+it compares the native class Draw vtable entry with the expected handler before
+atomically replacing that one pointer. A different patch's handler is left alone.
+The wrapper snapshots the texture table before and after calling native Draw
+exactly once. It records the first four draws of each bound class panel, then
+only delegates. It performs no texture build, upload or model update of its own.
+After the first diagnostic test, these snapshots are buffered in memory and
+written only after draw four; there is no trace-file write during the first
+three draws. Each of the six native model-view draws is also wrapped, retaining
+its original call once and capturing its scene state before and after it.
+
+| Read or temporary in-memory replacement | VA / object offset | Meaning |
+| --- | --- | --- |
+| class-selection Draw | `0x006DC030` | original function always called |
+| class-selection Draw vtable entry | `0x00758054` | native pointer checked before level 2 trace installation |
+| model-view Draw / vtable entry | `0x0067ACB0` / `0x00752E68` | native pointer checked before scene tracing; unrelated views only delegate |
+| texture build queue count | `0x007A4774` | pending work before and after the draw |
+| hashed texture array / count | `0x007A4798` / `0x007A479C` | texture table snapshot, limited to 16,384 entries |
+| textures locked | `0x007A4714` | global engine lock state |
+| texture GL name | basic texture `+0x58` | zero before upload |
+| texture dimensions | `+0x68`, `+0x6C` | width and height |
+| texture name | `+0x78`, 32 bytes | material resource name |
+| texture built flag | `+0xE0` | engine's image-construction flag |
+| model view within the class panel | `+0x230 + index * 0x25C` | six views, index 0 through 5 |
+| scene pointer within model view | `+0x70` | `CSWGuiScene` at +0x5C, scene pointer at +0x14 |
+| scene render count | scene `+0x50` | native scene render counter |
+| scene children / animated counts | scene `+0x58` / `+0xF0` | before/after native view draw |
+| scene light manager / ambient | scene `+0x80` / `+0x88` | light list and ambient RGB |
+| light list / count | manager `+0x08` / `+0x0C` | first light's RGB read at light +0x4C, if present |
+
+Addresses are 1.03 VAs. The matching reconstruction's `sw_gui_class_selection.cpp`,
+`gui_scene.cpp` and `aur_texture.cpp` establish constructor/draw/queue ordering;
+the native class Draw entry and table bytes were checked in the GOG executable
+SHA-256 `9C10E0450A6EECA417E036E3CDE7474FED1F0A92AAB018446D156944DEA91435`.
+REA/Ghidra evidence `ev_613fc64937c74a5fefe08d90f136ec5f06fa43d2297c754a6366c611bb30c0cf`
+also confirms `OnPanelAdded` calls `HideLoadScreen(1,1)` at VA `0x006DB977`.
+This is static evidence, not a capture of the failing frame.
+
+A debugger attachment to the Steam session exited at its frame swap with Windows
+exception `0x4000001F`, reported at `swkotor.exe+0x48C1`. The next measurement uses
+this in-process log instead. `Test-ClassModelTrace.py` verifies native delegation,
+bounded logging, unchanged texture data, level-0 delegation and refusal to replace
+another patch's handler. The diagnostic was installed as a single controller-module
+test on 2026-10-29, after the maintainer approved it. The previous Steam controller
+hash was `985656DD1B8B108D2EB9CCA98142F4924980811FF7E6F0F033D49F7C985EA8F3`;
+the first diagnostic hash was `096DE669A0D44B12B5FFF7586E7DE8BF56546D682B66F89092B8E4ED9C4B5CC2`.
+Its owned manifest row was updated and both old files backed up. The buffered
+scene/light diagnostic subsequently replaced that module within the same test;
+its hash was `840CD5CE60EB504D6CE0BD2042D30BF3962DB8090A36BF27D0B966B9BFED7B2C`.
+Both installs were verified by re-reading the module and manifest. The buffered
+capture found the preexisting scene state reported below; the subsequent priority
+preload build is the current build-table module.
+Launch fresh, open New Game once, return and reopen, then compare
+the `class-model` lines in `KMRP/logs/kmrp-controller-events.log`.
+
+First diagnostic result (2026-10-29): the maintainer saw the black frame on
+both openings. Both panels' first four native Draw calls recorded
+`pending=0->0` and `locked=0->0`, with texture counts unchanged at 82 for panel
+`1CE7A348` and 80 for panel `1CDE00E8`. Only `kmrpcnfa` and `NULL` retained GL
+name zero; both were unchanged on every recorded frame. These are observed
+texture-table values, not pixel captures. The pending-texture-upload hypothesis
+is not supported by this trace. The maintainer suggested logging may expose a
+race; the current evidence does not establish that. The next measurement adds
+scene/light state and defers file output until after the first three frames.
+The black-frame cause and fix remain unverified.
+
+### Priority 3D preview initialization (2026-10-29)
+
+The buffered follow-up found all six previews already had three lights, one
+animated object and five children before their first render. Their first light's
+RGB was `(0.867,0.867,0.867)` and unchanged afterward; scene ambient remained zero.
+Texture queues remained empty. Those measurements do not support delayed CPU
+light creation or pending texture uploads as the explanation. The native scene
+render count alone changed from 0 to 1 on the first draw. The maintainer then
+requested the models take first preload priority, including the main menu.
+The maintainer confirmed the black frame remained on both openings with buffered
+logging and reported it may also occur on the main menu. A logging-related race
+has not been established.
+
+`K1GuiModelPreload.h` queues the six class views or the main-menu view as their
+panel binds, removes jobs on panel destruction, and primes each actual scene
+immediately before its first visible model-view draw. This is the first graphics
+preload work; the optional GUI texture upload loop returns while models are
+pending. CPU file preparation remains on the existing controller worker.
+
+The initial native model-view draw uses `GL_NONE` color output and zero delta.
+Its scene's framebuffer-effects flag is temporarily zero, so postprocessing
+cannot redirect the hidden pass to a visible buffer. Native render-side animation
+also uses a global delta; that is saved, zeroed and restored too. The original
+draw buffer and effect flag are restored before the normal draw. The native view
+clears depth/stencil again for that visible draw. No loading delay, resource-name
+guess or change to the player's sizing settings is involved. Scenes already
+rendered are left alone, disabled 3D does not block uploads, and missing graphics
+context defers initialization. A different patch's model-view Draw is preserved.
+
+| Additional state | VA / offset | Operation |
+| --- | --- | --- |
+| main-menu class / view offset | `0x00752F70` / panel `+0x360` | queue its bound preview |
+| 3D GUI flag | `0x0078D1E4` | do not wait on disabled previews |
+| framebuffer effects | scene `+0xD4`, DWORD | zero only during the hidden render, then restore |
+| engine animation delta | `0x0078E574`, float | zero only during the hidden render, then restore |
+| `GL_DRAW_BUFFER` / `GL_NONE` | `0x0C01` / `0` | read, disable color output, restore |
+
+Native DWORD reads of scene +0xD4 were verified at VAs `0x00451746`,
+`0x00451946` and `0x0045197A` in the identified GOG 1.03 executable.
+The matching GUI scene/viewport source establishes the depth/stencil clear and
+model-view draw calls. These are in-memory renderer operations; no game executable
+file or resource is changed. The black-frame root cause remains unconfirmed;
+this implements preview initialization before presentation. Its successful
+fresh-launch result is recorded below; the underlying cold-render subcomponent
+is not identified.
+
+`Test-GuiModelPreload.py` exercises six class views and one main-menu view,
+hidden/visible call ordering, restored graphics state, zero animation delta,
+single initialization, panel cleanup and missing-context deferral. The buffered
+scene trace remains available at level 2; `model-preload priority=1` records its
+hidden render count and output check after four visible draws.
+
+The helper, trace and worker tests pass, including restoration of global render
+time, hidden-view/disabled-3D handling and optional-upload deferral. The controller
+module builds and its package checks pass. On 2026-10-29 the current module was
+swapped directly into the ongoing Steam single-file test, with its prior module
+`840CD5CE...` backed up and the owned manifest row updated. The native first-frame
+visual result was subsequently confirmed by the maintainer, below.
+
+Final play-test (2026-10-29): the maintainer fresh-launched, checked the main menu,
+opened New Game, returned and reopened it, then reported "done it looks correct
+now". The log records `model-preload priority=1` with `renders=0->1 hidden=1`
+for the main-menu views and all six views on each class opening. Each first
+visible class view records `renders=1->2`, with no pending texture uploads.
+The logged viewport is 3440x1440. This confirms the preload occurred before
+presentation and the reported black frame was resolved in that Steam test.
+Other resolutions, controller-only vanilla and debug level 0 are covered by
+source/mock checks, not by this native visual test.
+After acceptance, the three temporary diagnostic/test backups were verified
+against their ownership records and removed as required by the live-test policy.
+Their installation metadata was retained in the ignored build records. The
+accepted controller module and its manifest row remain installed.
+
 ## 5. How this stays isolated
 
 * Only fills whose name begins `kmr` or `kmz` and names a scene are touched; every other
@@ -319,6 +526,7 @@ They are drawn before the screen is opened:
 | --- | --- |
 | Shipping the pictures prebuilt (the state until 2026-10-27) | One size stretched over every screen: soft at most sizes (issue 68) |
 | Drawing at install time, for every resolution | About 3 s and 8 to 10 MB per resolution for the Layout alone, 66 resolutions; and the controller patch works without KMRP's installer, whose code may not write controller art (the maintainer's rule). The maintainer chose the background thread |
+| **Correction, 2026-10-29:** assuming KMRP's HUD-size INI section is absent without KMRP | Saved settings can remain after removing KMRP. The controller now requires `kmrp.dll` before reading those sizes; its standalone standard sizes are verified even with nondefault saved values |
 | Keeping drawings in a lasting folder | Offered; the maintainer chose drawing in the background as the game starts and after a change of resolution |
 | Filling each row only between its crossings (to draw faster) | Measured no faster: the board 1.15 s against 1.00 s, the backdrop slower (sorting). Not kept |
 | A delay before the probe (15 frames, then 2.5 s) | Ran while the game made its screens again; and a delay depends on each machine (the maintainer). Replaced by events |
@@ -494,3 +702,12 @@ check pass. Other resolutions and controller families remain **not play-tested**
    game: set it back to 1 or 0 after.
 5. **The tests.** `python testing\regression\Test-ControllerKpatch.py`,
    `Test-ControllerGlyphs.py`, `Test-NativeAssetsBank.py` and `Test-GuiBlendHelper.py`.
+6. **Preload ownership and standalone sizes.** Build the controller files first with
+   `src\controller-native\build_controller_standalone.cmd`, then run
+   `python testing/regression/Test-ControllerPreload.py --game "C:\path\to\game"`.
+   It needs the game's `chitin.key`, data and GUI texture pack, the generated controller
+   files, and `build/kmrp/resources/gui-3440x1440.zip` plus `override-common.zip` for the
+   optional-core fixture (`--controller-files` and `--resources` override these paths).
+   The local production-worker, HUD policy and Pazaak regressions pass, as do both
+   module builds, both package checks and documentation links. This is automated
+   verification; native renderer collection and preload timing still need a play-test.

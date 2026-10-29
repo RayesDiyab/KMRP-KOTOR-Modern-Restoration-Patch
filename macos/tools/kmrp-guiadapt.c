@@ -348,7 +348,7 @@ int KmrpMainMenuBars(const char *set_gui, const char *out_gui) {
  * Then the build's list gutters (PADDING). Only those numbers change, in place. */
 #include "kmrp-livelayout-table.h"
 
-enum { LL_SCALE, LL_STRETCH, LL_FIXED, LL_ASPECT, LL_CENTRE, LL_RIGHT };
+enum { LL_SCALE, LL_STRETCH, LL_FIXED, LL_ASPECT, LL_CENTRE, LL_RIGHT, LL_FRAME, LL_FRAME_INCLUSIVE };
 #define LL_LISTBOX 11
 
 /* An INT field of structure `s` (the inline value), or NULL. */
@@ -437,6 +437,11 @@ static void ll_base(const Gff *g, int *bw, int *bh) {
 static int ll_rhalf(double x) { return (int)copysign(floor(fabs(x) + 0.5), x); }
 
 /* A rule's unrounded value, as build_live_layout.value computes it, operation for operation. */
+static double ll_origin(int rule, int field) {
+    if (rule != LL_FRAME && rule != LL_FRAME_INCLUSIVE) return 0;
+    return field < 2 ? -LL_FRAME_MARGIN : 2 * LL_FRAME_MARGIN + (rule == LL_FRAME_INCLUSIVE && field == 3);
+}
+
 static double ll_value(int rule, int field, int v, int w, int width, int height, int bw, int bh) {
     const double s = (double)height / bh;
     switch (rule) {
@@ -446,6 +451,12 @@ static double ll_value(int rule, int field, int v, int w, int width, int height,
     case LL_ASPECT: return field == 0 ? (v + w / 2.0) * width / bw - w * s / 2 : v * s;
     case LL_CENTRE: return field == 0 ? width / 2.0 + (v - bw / 2.0) * s : v * s;
     case LL_RIGHT: return field == 0 ? width - (bw - v) * s : v * s;
+    case LL_FRAME:
+    case LL_FRAME_INCLUSIVE: {
+        const double origin = ll_origin(rule, field);
+        const double factor = field == 0 || field == 2 ? (double)width / bw : s;
+        return (v - origin) * factor + origin;
+    }
     }
     return (double)v;
 }
@@ -463,8 +474,9 @@ static int ll_placed(int field, int rule, const int v4[4], int gold, int width, 
     if (gold == LL_NO_GOLD) return ll_rhalf(r);
     const double at_gold = ll_value(rule, field, v4[field], v4[2], LL_GOLD_WIDTH, LL_GOLD_HEIGHT, bw, bh);
     if (gold == ll_rhalf(at_gold)) return ll_rhalf(r);
-    if (at_gold == 0) return ll_rhalf(r + gold);
-    return ll_rhalf(gold * (r / at_gold));
+    const double origin = ll_origin(rule, field);
+    if (at_gold == origin) return ll_rhalf(r + gold - at_gold);
+    return ll_rhalf((gold - origin) * ((r - origin) / (at_gold - origin)) + origin);
 }
 
 static int ll_gutter(double unit, int height) {
@@ -484,6 +496,34 @@ static int ll_game_size(const Gff *source, const Gff *game) {
 }
 
 static void ll_fit_rows(Gff *g, const LLRowList *list, int height);
+
+/* Redirect only this field to an empty resref. Never zero a shared value payload:
+ * a mod may have another field pointing at the same bytes. */
+static const uint8_t *ll_resref(const Gff *g, long f) {
+    if (f < 0 || field_type(g, f) != 11) return NULL;
+    const uint32_t at = u32(field_data(g, f));
+    if (at >= g->nvalues) return NULL;
+    const uint8_t *p = g->d + g->values + at;
+    return *p <= 16 && (uint64_t)at + 1 + *p <= g->nvalues ? p : NULL;
+}
+
+static void ll_clear_border(Gff *source, const Gff *game, uint32_t s, long own, unsigned mask) {
+    const char *borders[] = {"BORDER", "BORDER", "HILIGHT", "HILIGHT"};
+    const char *parts[] = {"CORNER", "EDGE", "CORNER", "EDGE"};
+    /* Any existing zero byte in FieldData encodes a valid empty resref. Reusing
+     * it changes no payload and needs no appended section. */
+    const uint8_t *empty = (const uint8_t *)memchr(source->d + source->values, 0, source->nvalues);
+    if (own < 0 || !empty) return;
+    for (int bit = 0; bit < 4; ++bit) {
+        if (!(mask & (1u << bit))) continue;
+        const long sb = gff_child(source, s, borders[bit]), gb = gff_child(game, (uint32_t)own, borders[bit]);
+        const long sf = sb >= 0 ? gff_field(source, (uint32_t)sb, parts[bit]) : -1;
+        const long gf = gb >= 0 ? gff_field(game, (uint32_t)gb, parts[bit]) : -1;
+        const uint8_t *sv = ll_resref(source, sf), *gv = ll_resref(game, gf);
+        if (sv && gv && *sv == *gv && memcmp(sv, gv, 1 + *sv) == 0)
+            put_u32(field_data(source, sf), (uint32_t)(empty - source->d - source->values));
+    }
+}
 
 /* `source` laid out in place for width x height. */
 static void ll_layout(const char *name, const LLFile *file, Gff *source, const Gff *game, int width, int height) {
@@ -528,6 +568,8 @@ static void ll_layout(const char *name, const LLFile *file, Gff *source, const G
                 (own_fill = int_field(game, (uint32_t)own_border, "FILLSTYLE")) && u32(own_fill) == u32(fill))
                 put_u32(fill, (uint32_t)(int32_t)row->gold_fill);
         }
+        if (row && row->clear_border)
+            ll_clear_border(source, game, st.s, ll_find(game, st.tag, st.sub), row->clear_border);
     }
     /* The build's gutters, never reducing one but for the hand-set ones. */
     for (int i = 1; ll_struct(source, i, &st); i++) {
@@ -882,6 +924,48 @@ int KmrpLiveLayout(const char *key_path, const char *name, const char *source_gu
 
 /* How many layouts KmrpLiveLayout lays out, and the name of one. */
 int KmrpLiveLayoutCount(void) { return (int)(sizeof LL_FILES / sizeof *LL_FILES); }
+#include "../../src/controller-native/K1GuiPreloadData.h"
+
+/* File-only metadata for the controller's preload worker. No engine objects. */
+int KmrpReadPreloadGui(const char *key_path, const char *source, const char *name,
+                      K1PreloadClassInfo *info, K1PreloadPicture *pictures, int capacity) {
+    Buffer bytes = source && *source ? read_file(source) : (Buffer){NULL, 0};
+    if (!bytes.data) {
+        Buffer key = read_file(key_path);
+        bytes = keyed_resource(&key, key_path, name, TYPE_GUI);
+        free(key.data);
+    }
+    Gff g;
+    if (!bytes.data || !gff_open(&g, bytes.data, bytes.size)) { free(bytes.data); return -1; }
+    memset(info, 0, sizeof *info);
+    Extent box;
+    if (extent_of(&g, 0, &box)) for (int i = 0; i < 4; ++i) info->panel[i] = ev(&box, i);
+    const long cancel = control(&g, "BTN_BACK");
+    if (cancel >= 0 && extent_of(&g, (uint32_t)cancel, &box))
+        for (int i = 0; i < 4; ++i) info->cancel[i] = ev(&box, i);
+    int count = 0;
+    LLStruct st;
+    for (int i = 0; ll_struct(&g, i, &st); ++i) {
+        if (*st.sub || !extent_of(&g, st.s, &box)) continue;
+        for (int which = 0; which < 2; ++which) {
+            const long border = gff_child(&g, st.s, which ? "HILIGHT" : "BORDER");
+            if (border < 0) continue;
+            const uint8_t *fill = ll_resref(&g, gff_field(&g, (uint32_t)border, "FILL"));
+            if (!fill || !*fill) continue;
+            if (i == 0 && !which) { memcpy(info->fill, fill + 1, *fill); info->fill[*fill] = 0; }
+            const uint8_t *corner = ll_resref(&g, gff_field(&g, (uint32_t)border, "CORNER"));
+            const uint8_t *dimension = int_field(&g, (uint32_t)border, "DIMENSION");
+            const int inset = corner && *corner && dimension ? (int32_t)u32(dimension) : 0;
+            if (count < capacity) {
+                K1PreloadPicture *p = &pictures[count++];
+                memset(p, 0, sizeof *p); memcpy(p->fill, fill + 1, *fill);
+                p->width = ev(&box, 2) - 2 * inset; p->height = ev(&box, 3) - 2 * inset;
+            }
+        }
+    }
+    free(bytes.data);
+    return count;
+}
 const char *KmrpLiveLayoutName(int i) { return i >= 0 && i < KmrpLiveLayoutCount() ? LL_FILES[i].name : NULL; }
 
 #ifndef KMRP_EMBEDDED

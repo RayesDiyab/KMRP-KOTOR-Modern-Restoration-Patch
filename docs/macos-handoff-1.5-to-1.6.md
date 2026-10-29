@@ -1235,6 +1235,91 @@ in the Steam game at 3440x1440 and reported "works flawlessly". Module SHA-256
 relative documentation links pass. Other resolutions and controller families
 remain not play-tested. The Mac port of this item is still to do.
 
+## 111. Class selection joins Live Adaptive Layout (2026-10-29)
+
+`classsel.gui` is screen 45. The shared Python/C layout adds `frame` and
+`frame_inclusive` rules: `(v-b)*scale+b`, with `b=-10` for positions, +20 for
+dimensions, and +21 for inclusive HEIGHT. Gold ratios apply to the quantity
+after subtracting `b`, then put `b` back. The first model uses the frame rule for
+TOP/WIDTH/HEIGHT; the first class button uses it for WIDTH and inclusive HEIGHT.
+The other 44 screens' rule tables remain unchanged.
+
+The table also carries a mask for clearing gold's empty border/hilight corner
+and edge fields. On class selection this clears 24 fields on the six class
+buttons only while their art matches the game's own; a mod's art is preserved.
+The C redirects field references instead of zeroing shared resref data. The
+class title alignment changes from 10 to 18, using the existing alignment path.
+
+Mouse/keyboard and controller modes share the live layout. The Windows
+controller's existing Select/Cancel treatment already reads the live panel and
+Cancel extents. Porting it is still item 106; calling the shared layout helper
+remains item 102. The generated header and C changes in this item must travel
+together. Class geometry matches all 66 sets within the existing tolerance,
+exactly at 3440x1440; in-game verification of this migration is pending. See the
+[layout reference](live-adaptive-layout.md) for formulas and verification.
+
+Verified on Windows: all 45 screens against 66 sets (240,504 extent fields,
+94.55% exact, 5.26% one pixel off, 459 further within existing allowances),
+12,146 C/Python layout comparisons and 45 refused hires mods, including a
+class-selection mod's widened button and replacement frame. The core build,
+package checks and documentation links pass. No executable bytes change.
+
+## 112. Controller-owned GUI preload during movies (2026-10-29)
+
+Keep preload ownership in the controller patch, independent of KMRP. Windows
+submits copied file paths from the movie callback and does GUI file reads,
+texture decoding, class-footer composition and scene drawing on the existing
+controller picture worker. The GUI thread collects completed files and performs
+engine texture upload with its current graphics context. No engine or graphics
+call runs on the worker. A GUI-frame fallback submits after resize or skipped
+movies. Existing live geometry probes and panel-dependent Pazaak composition
+remain in place.
+
+Shared file-only readers `KmrpReadPreloadGui` and `KmrpReadPreloadTexture` are in
+`kmrp-guiadapt.c` and `kmrp-gameart.c`, with their C interface in
+`src/controller-native/K1GuiPreloadData.h`. The latter supports raw RGB/RGBA,
+DXT1/DXT5 TPC and truecolor/RLE TGA; it reads Override, optional KMRP common art,
+then the GUI ERF. The pure class-footer helper also handles the original game's
+dark-blue art. KMRP can supply live GUI/common-art paths and submit HUD texture
+requests, but neither is required for standalone controller operation.
+
+HUD and text sizing belong to KMRP. Standalone controller mode must use standard
+sizes even when its game INI still contains older KMRP settings. Windows now
+gates its Xbox HUD size reader on `kmrp.dll` being loaded. Retain that boundary
+in the Mac integration.
+
+The Windows production-worker harness passes with native and KMRP class sources,
+including callback/worker separation, repeated event deduplication, stale geometry
+rejection, GUI-only resize and the sizing boundary. In-game startup performance,
+GPU collection and the Mac port remain untested. See the
+[controller layout reference](controller-live-adaptive-layout.md#movie-triggered-controller-gui-preload-2026-10-29)
+for scope, addresses and verification.
+
+## 113. First-priority 3D preview initialization (2026-10-29)
+
+The maintainer reports black models on the first New Game opening and, during
+diagnosis, on reopening and the main menu. Windows traces show no pending
+texture uploads and all three scene lights already present before the first
+render. No root cause is claimed from those measurements.
+
+`K1GuiModelPreload.h` gives the six class previews and main-menu preview first
+graphics preload priority. Each actual view renders once to `GL_NONE` before
+the normal visible draw, with zero local/global animation delta and framebuffer
+effects disabled only for that hidden pass. Restore the original draw buffer,
+time and effects before display. Optional GUI texture uploads wait for pending
+models; file-only preparation continues independently on the controller worker.
+Do not move engine rendering onto that worker. No KMRP dependency or standalone
+sizing change is introduced.
+
+The Windows helper and guarded model-view callback are in the controller module.
+Map the corresponding Mac classes/fields and graphics owner thread before
+porting; Windows addresses are not Mac addresses. The
+[controller reference](controller-live-adaptive-layout.md#priority-3d-preview-initialization-2026-10-29)
+records offsets, the buffered diagnostics and mock verification. The maintainer
+confirmed the Windows result in Steam at 3440x1440: "it looks correct now".
+Logs show each main-menu/class preview primed `0->1` with hidden output before
+its visible class draw `1->2`. Other sizes and the Mac port remain unverified.
+
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
 | Change | Commit | Why not the Mac |

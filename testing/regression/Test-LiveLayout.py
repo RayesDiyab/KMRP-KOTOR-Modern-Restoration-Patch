@@ -44,6 +44,7 @@ import build_live_layout as ll  # noqa: E402
 import native_helpers  # noqa: E402
 from pykotor.resource.formats.gff import GFFList, GFFStruct, read_gff, write_gff  # noqa: E402
 from pykotor.resource.type import ResourceType  # noqa: E402
+from pykotor.common.misc import ResRef  # noqa: E402
 
 RESOURCES = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "build" / "kmrp" / "resources"
 # The rounding pixel was accepted (2026-10-28); a few fields carry upstream's own rounding
@@ -125,6 +126,17 @@ def mod_files(name: str, out: Path) -> tuple[Path | None, Path, str | None]:
     e = ll.child(moved, "EXTENT")
     e.set_int32("LEFT", e.get_int32("LEFT") + 7)
     e.set_int32("TOP", e.get_int32("TOP") + 5)
+    if name == "classsel.gui":
+        by_tag = {c.get_string("TAG"): c for c in controls}
+        # Exercise both affine axes without gold's correction, and preserve a
+        # mod's own frame instead of clearing it with the game's border art.
+        selected = by_tag["BTN_SEL1"]
+        box = ll.child(selected, "EXTENT")
+        box.set_int32("WIDTH", box.get_int32("WIDTH") + 8)
+        box.set_int32("HEIGHT", box.get_int32("HEIGHT") + 6)
+        ll.child(selected, "BORDER").set_resref("CORNER", ResRef("mod_frame"))
+        model = ll.child(by_tag["3D_MODEL1"], "EXTENT")
+        model.set_int32("TOP", model.get_int32("TOP") + 4)
     added = controls.add(0)
     added.set_string("TAG", "LBL_MOD_ADDED")
     added.set_int32("CONTROLTYPE", 4)
@@ -251,6 +263,15 @@ def main() -> int:
                     fail(f"{name}: {moved_tag}, moved by the mod, took gold's place")
                 if ((("LBL_MOD_ADDED", ""), "LEFT")) not in ours:
                     fail(f"{name}: the mod's own control was not laid out")
+                if name == "classsel.gui":
+                    root = python_layout(name, mod, 1920, 1080, rows[name])
+                    controls = {c.get_string("TAG"): c for c in root.acquire("CONTROLS", None, GFFList)}
+                    if ll.extent(controls["BTN_SEL1"])[2] != 269:
+                        fail("classsel.gui: the mod's widened button did not retain its 20 px frame")
+                    if str(ll.child(controls["BTN_SEL1"], "BORDER").get_resref("CORNER")) != "mod_frame":
+                        fail("classsel.gui: the mod's own corner art was cleared")
+                    if str(ll.child(controls["BTN_SEL1"], "BORDER").get_resref("EDGE")):
+                        fail("classsel.gui: the game's original edge art was not cleared")
             # A file laid out for another size: refused by both.
             out = tmp / "refused.gui"
             out.unlink(missing_ok=True)

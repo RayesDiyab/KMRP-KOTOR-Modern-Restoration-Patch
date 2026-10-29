@@ -242,7 +242,8 @@ def functions():
     return {h['function'] for h in hooks()} | {'KmrpControllerConfirmHeldK1', 'KmrpXboxHudOwnsK1',
                                                'KmrpPadInUseK1', 'KmrpGlyphLetterK1', 'KmrpPadFocusSkipK1',
                                                'KmrpPaintGraphicsEntryPromptK1', 'KmrpPictureBatchK1',
-                                               'KmrpSetPictureK1', 'KmrpBadgeGlyphK1', 'KmrpQueuePictureK1'}
+                                               'KmrpSetPictureK1', 'KmrpBadgeGlyphK1', 'KmrpQueuePictureK1',
+                                               'KmrpQueueTexturePreloadK1'}
 
 
 def render_manifest(version: str) -> str:

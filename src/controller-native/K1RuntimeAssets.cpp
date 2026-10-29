@@ -1667,3 +1667,15 @@ std::wstring KmrpRuntimeLayoutFile(const std::wstring& name)
     }
     return setView + L"\\" + name;
 }
+
+// Optional copied path for the independent controller preload worker. No GUI or
+// resource object crosses the module boundary and the worker never calls this.
+extern "C" int __cdecl KmrpPreloadGuiPathK1(const char* name, wchar_t* out, unsigned capacity)
+{
+    if (!name || !out || !capacity || std::strlen(name) > 16 || std::strpbrk(name, "/\\:")) return 0;
+    const std::wstring resource(name, name + std::strlen(name));
+    const std::wstring path = *name ? KmrpRuntimeLayoutFile(resource + L".gui") : cache;
+    if (path.size() >= capacity || GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES) return 0;
+    std::memcpy(out, path.c_str(), (path.size() + 1) * sizeof(wchar_t));
+    return 1;
+}

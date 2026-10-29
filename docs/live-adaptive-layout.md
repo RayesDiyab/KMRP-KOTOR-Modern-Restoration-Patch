@@ -20,6 +20,9 @@ screens (`e237578`), then Inventory, Equipment and Character (`8ddb433`), then t
 KMRP's build gives no step of its own (character creation, saving and loading, Messages,
 Quest Items, the Galaxy Map, Pazaak, the workbench, the HUD's base file `maininterface`, and
 the screens with nothing to fit); the rest still come from the sets (section 7).
+Class selection (`classsel.gui`) joins them on 2026-10-29, making **45 screens**.
+Both mouse/keyboard and controller modes use the same live geometry; the existing
+controller Select/Cancel treatment reads the resulting rectangles.
 
 Provenance: every number below was computed from files in this repository and the
 game's own layout files (`build-inputs/vanilla-gui`, extracted from the Steam game's
@@ -31,8 +34,9 @@ the game at 3440x1440 only (section 6).
 
 | | |
 | --- | --- |
-| Source | master `80607b2` and the changes of 2026-10-28 after it (uncommitted when written) |
-| Module | `build\native-runtime\kmrp-native.dll`, 759,296 bytes, SHA-256 `ACA3146F97263EEDAE09BF84C0CDDF0EE75446BBD762D7BA376176A6CDC07132`; the options screens alone were `BD9742A55E7788CD82E8D7E964EC5DBE692D5C96AAD5B5DEDE293DC2BAB12DB4`, 744,448 bytes |
+| Source | master `33a3b4d` plus the class-selection migration and optional controller preload bridge of 2026-10-29 (uncommitted when written) |
+| Module | `build\native-runtime\kmrp-native.dll`, 837,632 bytes, SHA-256 `DE6FD58D9F8C9C3B5AA6F56C03EC4EE5BCFD52CE7C5840F4066D5300DDEA7541` |
+| Previous module | the 14-screen build was 759,296 bytes, SHA-256 `ACA3146F97263EEDAE09BF84C0CDDF0EE75446BBD762D7BA376176A6CDC07132`; the options-only build was 744,448 bytes, `BD9742A55E7788CD82E8D7E964EC5DBE692D5C96AAD5B5DEDE293DC2BAB12DB4` |
 | Table | `macos/tools/kmrp-livelayout-table.h`, made by `python tools/build_live_layout.py` |
 | Executable | not changed: this writes layout files, no byte of `swkotor.exe` |
 
@@ -80,6 +84,13 @@ in the game's file, with `s = H / BH`:
 | fixed | `v` | list row templates (`PROTOITEM`) |
 | centre | `W/2 + (v - BW/2) * s` | 4 fields in all of upstream |
 | right | `W - (BW - v) * s` | 2 fields |
+| frame | `(v - b) * a + b`, `a = W/BW` for LEFT/WIDTH, `H/BH` for TOP/HEIGHT | class selection's enlarged model and first class button |
+
+For `frame`, `b` is -10 for a position and +20 for a dimension. Its
+`frame_inclusive` variant uses +21 for HEIGHT: the first class button is exactly
+21 px taller than the other class buttons in all 66 sets, measured by reading
+their extents. Only class selection currently considers these rules when fitting
+fields; the previously migrated 44 screens keep exactly their old rule tables.
 
 `BW x BH` is the file's own size: its root panel's when that fills the screen from 0,0,
 else 640x480. The game's file names do not say it: `mainmenu10x7.gui`'s root is 800x600.
@@ -103,6 +114,27 @@ placed   = round(r)                 where gold equals round(r_gold), or the tabl
          = round(gold * (r / r_gold))   otherwise (round(r + gold) when r_gold is 0)
 round    = half away from zero
 ```
+
+For the frame rules the fixed margin is kept outside the gold ratio:
+`placed = round((gold - b) * (r - b) / (r_gold - b) + b)`, except where gold
+already equals the rounded rule. If `r_gold == b`, use `round(r + gold - r_gold)`.
+All older rules have `b = 0`, so their calculation is unchanged. Multiplying the
+margin itself by the gold ratio was rejected: at 15360x8640 the first class
+button's height missed the existing set by 8 px. The 21 px inclusive height
+margin reduces that difference to the accepted rounding allowance.
+
+Class selection examples, read back from the Python live layout (LEFT, TOP, WIDTH,
+HEIGHT). The 1920x1080 set has 672 rather than 673 for the first button's height;
+the 15360x8640 set has 1480 and 5232 rather than 1482 and 5235 for its left and
+height. The gold size is identical in every field.
+
+| Size | First class button | First model | Cancel, also used by the controller split |
+| --- | --- | --- | --- |
+| 800x600 | 77,118,114,383 | 81,154,106,254 | 311,513,178,35 |
+| 1280x720 | 124,118,170,456 | 129,187,158,301 | 498,615,284,42 |
+| 1920x1080 | 185,118,245,673 | 194,285,227,441 | 747,923,426,63 |
+| 3440x1440 | 332,118,423,890 | 348,383,391,581 | 1338,1230,763,84 |
+| 15360x8640 | 1482,118,1820,5235 | 1554,2348,1676,3386 | 5976,7380,3408,504 |
 
 At 3440x1440 `r / r_gold` is 1 exactly, so gold comes out as it is. Measured once the same
 day: over the 67 screens that are not the HUD, the debug panel or made by a step of their
@@ -163,6 +195,7 @@ before `Override` (the roster folder, or this run's folder of links when the pla
 | --- | --- | --- |
 | `optionsmain.gui`, `optionsingame.gui`, `optautopause.gui`, `optgraphics.gui`, `optgraphicsadv.gui`, `optmouse.gui`, `optsound.gui`, `optsoundadv.gui`, `optkeymapping.gui`, `optkeyentry.gui`, `optresolution.gui` | the game's own, from `chitin.key` | the player's, if it is laid out for the game's size; else nothing is written and the player's file is left to the game, as before |
 | `inventory.gui`, `equip.gui`, `character.gui` | the same, and the R3 cue added | the same, and the R3 cue added where the player's portraits leave room for it |
+| `classsel.gui` | the game's own, with the frame rules and gold's alignment/border corrections | the player's file at the game's base size; replacement border art is preserved |
 
 "Laid out for the game's size": its base (section 2) is the game's file's and its root lies
 inside it. A mod's file laid out for 1920x1080 is refused (`Test-LiveLayout.py` part 4).
@@ -175,6 +208,7 @@ inside it. A mod's file laid out for 1920x1080 is refused (`Test-LiveLayout.py` 
 | `PADDING` of a list box (CONTROLTYPE 11) | the build's gutters, at `max(1, H / 720)`: 36 per unit for `LB_DESC`, `LB_DESCRIPTION`, `LBL_ITEM_DESCRIPTION`, `LB_ITEM_DESCRIPTION`, `LB_DESC_LS`; 12.5 for `LB_ITEMS`, `LB_ABILITY`, `LB_FEATS`, `LB_POWERS`, `LB_SHOPITEMS`, `LB_INVITEMS`; never reduced; then the per-file hand-set ones, which may reduce; rounded half to even (`prepare_universal_resources.py` `DESCRIPTION_LISTBOXES`, `LIST_LISTBOXES`, `HAND_TUNED_GUTTERS`, copied into the table by the script) |
 | `PADDING` the gold file sets by hand | at 3440x1440 only, before the gutters: `optresolution.gui`'s resolution list, 20, and `optionsmain.gui LB_DESC`, 40, which the gutter then raises to 72 as in the set |
 | `TEXT.ALIGNMENT` the gold file changes | at every size, where the file has the game's own alignment there, as `transfer_gold_gui_geometry.py` carries it: Character's `LBL_LEVEL`, 12 to 10 |
+| class selection's cleared `BORDER` and `HILIGHT` `CORNER`/`EDGE` resrefs | six class buttons, four fields each (24 fields); cleared only where the source still names the game's own art. A mod's different art is kept. The C redirects each field to an existing empty resref encoding, leaving shared value bytes intact |
 | a list made as tall as whole rows | after the gutters, `scale_listbox_padding.py` `fit_list_to_rows` for the lists of `ROW_LISTS` on these screens: Equipment's `LB_ITEMS`, rows of 56 at `max(1, H / 720)` in single precision, rounded half to even, each an eleventh of a row apart; a screen's list only shrinks, when a kind of row sits looser than an eighth of a row (at 1024x576, 336 to 313 px) |
 | the R3 cue, `LBL_KMRPR3` | added last on Inventory, Equipment and Character, as `prepare_universal_resources.py` `add_party_switch_cue` adds it: a clone of the file's first label with the tag, the next free ID, the picture `kmrprb_party` and no frame or text, its side 90% of the portraits' height, centred in their gap when the gap holds it with a tenth of it free each side, else a third of it right of the second portrait. Left out, as the build would stop, where it would leave the panel or cover a button, check box, slider, scroll bar, progress bar or list, where `BTN_CHANGE1` or `BTN_CHANGE2` is missing or they overlap, or where the label it is cloned from lacks a field it sets |
 
@@ -212,9 +246,9 @@ the player's machine. `Test-LiveLayout.py` fails when it is not what the script 
 It runs where the galaxy map's and the main menu's adapters run
 (`KmrpRuntimeAssetsDimensions`), into the same folders, and writes a file beside its target
 and moves it over, because those folders can hold hard links into the cache's sets. The
-sets themselves are not changed; their copies of these 44 files are still made and simply
+sets themselves are not changed; their copies of these 45 files are still made and simply
 no longer what the game reads. `KmrpRuntimeLayoutFile` returns the roster folder's file
-first, so the module's own readers of these layouts see the laid-out one. Of the 44 the
+first, so the module's own readers of these layouts see the laid-out one. Among the first 44, the
 controller patch changes only the three with the R3 cue, the same cue under the same tag
 (`tools/build_controller_assets.py`), and leaves its copies to KMRP beside it (section 3).
 
@@ -230,6 +264,17 @@ controller patch changes only the three with the R3 cue, the same cue under the 
 | Laying out the panels in memory after the game built them | The engine keeps panels across a change of size and other code reads the files; writing the file the game loads is what the galaxy map, main menu and party roster already do |
 
 ## 6. Limits
+
+- Current full regression (2026-10-29): **45 screens, 240,504 extent fields**
+  against all 66 sets, 94.55% exact, 5.26% one pixel off, 459 further within the
+  existing allowances. At 3440x1440 every extent is identical. C and Python agree
+  on **12,146 layouts**, including modified class-button dimensions and border
+  art; both refuse 45 files already laid out for a different resolution.
+
+- Class selection (added 2026-10-29): against the 66 sets, 4,752 extent fields,
+  4,434 exact, 308 one pixel off, 10 two or three pixels off; 3440x1440 identical.
+  Its `LBL_CLASS` alignment is carried from 10 to 18. Its layout migration has
+  **not yet been play-tested**, including the existing controller split artwork.
 
 - **Seen in the game at 3440x1440 only.** The maintainer opened the options screens from
   the main menu and the pause menu in their Steam game with the module above on 2026-10-28:
@@ -278,14 +323,16 @@ controller patch changes only the three with the R3 cue, the same cue under the 
 ## 7. What is deliberately not changed
 
 - The 30 screens added after the first 14 also carry gold's border fill style where it
-  changed one (Pazaak's `BTN_PLRSIDE1`, 1 to 2), as its alignment is carried. With them,
-  `Test-LiveLayout.py` covers 44 screens: 235,752 `EXTENT` fields, 94.58% exact, 5.23% a
+  changed one (Pazaak's `BTN_PLRSIDE1`, 1 to 2), as its alignment is carried. Before class selection was added,
+  `Test-LiveLayout.py` covered 44 screens: 235,752 `EXTENT` fields, 94.58% exact, 5.23% a
   pixel off, 449 further, 3440x1440 identical; a value gold moved far may be off by the
   rounding allowance times gold's move (the Galaxy Map's `LBL_Live01`, 2.7 times, 6 px at
   15360x8640). Screens without controls are laid out and compared, with no mod's file.
   Seen in the game: not yet.
-- `classsel.gui` waits for a rule of its own: upstream sizes its class buttons from the
-  screen's width plus a fixed margin (about 0.117 W + 20 px wide), which no rule makes.
+- **Correction, 2026-10-29:** class selection no longer waits for a rule. The earlier
+  description of its buttons as about `0.117 W + 20` was incomplete: the first button
+  keeps a 20 px width margin and a 21 px height margin; the first model also needs
+  fixed position/dimension margins. Those fields now use the frame rules above.
   `startscreen.gui` is in no set; the build ships the game's own. `dialog.gui`,
   `pause.gui`, `partyselection.gui` and `statussummary.gui` wait for a check against the
   module's own code that places them at run time.
@@ -295,7 +342,7 @@ controller patch changes only the three with the R3 cue, the same cue under the 
   (the Controller Layout entry), `optfeedback.gui` (its row template), `confirm.gui`
   (KMRP's own popup), `map.gui`, the container, the other row-fitted lists, and the HUD
   (`apply_proportions`).
-- The sets keep their copies of the 44 files; removing them from the bank is a size change
+- The sets keep their copies of the 45 files; removing them from the bank is a size change
   for later.
 - The Mac does not call `KmrpLiveLayout` yet ([handoff item 102](macos-handoff-1.5-to-1.6.md)).
 - No byte of the executable.

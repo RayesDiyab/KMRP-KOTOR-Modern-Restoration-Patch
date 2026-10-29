@@ -12,6 +12,12 @@ pushd "%~dp0..\.."
 pwsh -NoProfile -ExecutionPolicy Bypass -File tools\prepare_sdl3.ps1
 if errorlevel 1 exit /b %errorlevel%
 if not exist build\controller-standalone mkdir build\controller-standalone
+cl /nologo /O2 /fp:strict /MT /TC /DKMRP_EMBEDDED /D_CRT_SECURE_NO_WARNINGS /c ^
+  macos\tools\kmrp-guiadapt.c /Fobuild\controller-standalone\kmrp-preload-gui.obj
+if errorlevel 1 exit /b %errorlevel%
+cl /nologo /O2 /fp:strict /MT /TC /DKMRP_EMBEDDED /D_CRT_SECURE_NO_WARNINGS /c ^
+  macos\tools\kmrp-gameart.c /Fobuild\controller-standalone\kmrp-preload-texture.obj
+if errorlevel 1 exit /b %errorlevel%
 rem build_kmrp.ps1 names its Python in KMRP_PYTHON; vcvars may put another first on PATH.
 if not defined KMRP_PYTHON set KMRP_PYTHON=python
 "%KMRP_PYTHON%" tools\build_controller_assets.py
@@ -27,9 +33,11 @@ cl /nologo /MP /Brepro /std:c++17 /O2 /fp:strict /EHsc /MT /LD /DKMRP_CONTROLLER
   src\controller-native\K1ControllerStandalone.cpp src\controller-native\K1Xpress.cpp ^
   src\controller-native\K1NativeJoystick.cpp src\controller-native\K1ControllerBackend.cpp ^
   src\controller-native\K1ControllerLayout.cpp src\controller-native\K1Rumble.cpp src\controller-native\K1ButtonRemap.cpp ^
+  src\controller-native\K1ControllerPreload.cpp ^
   src\controller-native\K1XboxHud.cpp ^
   src\controller-native\vendor\K1XboxControls.cpp src\controller-native\vendor\K1XboxControlsXInput.cpp ^
   macos\tools\kmrp-glyphs.c ^
+  build\controller-standalone\kmrp-preload-gui.obj build\controller-standalone\kmrp-preload-texture.obj ^
   build\controller-standalone\controller-assets.res ^
   /Fobuild\controller-standalone\ /Febuild\controller-standalone\kmrp-controller.dll ^
   /link /Brepro user32.lib gdi32.lib bcrypt.lib ^

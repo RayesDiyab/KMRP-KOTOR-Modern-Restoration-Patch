@@ -72,6 +72,7 @@ import tempfile
 
 from pykotor.resource.formats.gff import GFF, GFFContent, GFFList, GFFStruct, read_gff, write_gff
 from pykotor.resource.type import ResourceType
+from pykotor.common.misc import ResRef
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
@@ -105,9 +106,7 @@ FILES = (
     # The screens KMRP's build gives no step of its own (2026-10-28, the maintainer: "Ok
     # lets start"): character creation, saving and loading, messages, the galaxy map,
     # Pazaak, the workbench, and the screens with nothing to fit. startscreen.gui is in no
-    # set, so the build ships the game's own. classsel.gui waits for a rule of its own:
-    # upstream sizes its class buttons from the screen's width plus a fixed margin (about
-    # 0.117 W + 20 px wide), which no rule here makes.
+    # set, so the build ships the game's own.
     "abchrgen.gui", "maincg.gui", "name.gui", "portcust.gui", "skchrgen.gui",
     "custpnl.gui", "qorcpnl.gui", "quickpnl.gui", "leveluppnl.gui",
     "saveload.gui", "savename.gui", "messages.gui", "questitem.gui", "galaxymap.gui",
@@ -115,13 +114,16 @@ FILES = (
     "pazaakgame.gui", "pazaaksetup.gui", "pazaakwager.gui", "upgrade.gui", "upgradesel.gui",
     "loadscreen.gui", "splashscreen.gui", "titlemovie.gui", "credits.gui", "fade.gui",
     "debug.gui", "ntscpat.gui",
+    "classsel.gui",
 )
 
 FIELDS = ("LEFT", "TOP", "WIDTH", "HEIGHT")
 # Rule numbers, as kmrp-guiadapt.c has them.
-RULES = ("scale", "stretch", "fixed", "aspect", "centre", "right")
+RULES = ("scale", "stretch", "fixed", "aspect", "centre", "right", "frame", "frame_inclusive")
+FRAME_MARGIN = 10
 LISTBOX = 11
 SUBS = ("PROTOITEM", "SCROLLBAR")
+BORDER_PARTS = (("BORDER", "CORNER"), ("BORDER", "EDGE"), ("HILIGHT", "CORNER"), ("HILIGHT", "EDGE"))
 # Upstream sets more than 2% off their family's shape are no family's (the 21-by-9
 # folder's 1280x1080).
 OFF_FAMILY = {(1280, 1080)}
@@ -178,6 +180,12 @@ def structures(root: GFFStruct):
                 yield (tag, sub), inner, ctype
 
 
+def rule_origin(rule: str, field: int) -> int:
+    if rule not in ("frame", "frame_inclusive"):
+        return 0
+    return -FRAME_MARGIN if field < 2 else 2 * FRAME_MARGIN + int(rule == "frame_inclusive" and field == 3)
+
+
 def value(rule: str, field: int, v: int, w: int, width: int, height: int, base: tuple[int, int]) -> float:
     """A rule's unrounded value for field `field` (0..3) of `v`, `w` the structure's width."""
     bw, bh = base
@@ -194,6 +202,10 @@ def value(rule: str, field: int, v: int, w: int, width: int, height: int, base: 
         return width / 2 + (v - bw / 2) * s if field == 0 else v * s
     if rule == "right":
         return width - (bw - v) * s if field == 0 else v * s
+    if rule in ("frame", "frame_inclusive"):
+        origin = rule_origin(rule, field)
+        factor = width / bw if field in (0, 2) else s
+        return (v - origin) * factor + origin
     raise ValueError(rule)
 
 
@@ -229,9 +241,10 @@ def placed(field: int, rule: str, v4: list[int], gold: int | None, width: int, h
     at_gold = value(rule, field, v4[field], v4[2], *GOLD_SIZE, base)
     if gold == rhalf(at_gold):
         return rhalf(r)
-    if at_gold == 0:
-        return rhalf(r + gold)
-    return rhalf(gold * (r / at_gold))
+    origin = rule_origin(rule, field)
+    if at_gold == origin:
+        return rhalf(r + gold - at_gold)
+    return rhalf((gold - origin) * ((r - origin) / (at_gold - origin)) + origin)
 
 
 # ----------------------------------------------------------------------------- the table
@@ -261,7 +274,12 @@ def choose_rules(name: str, sets) -> dict:
         rules = []
         for field in range(4):
             default = default_rule(field, key[1], ctype, v4)
-            candidates = ("scale", "fixed") if field in (1, 3) else RULES
+            # Only class selection is migrated to the fixed-frame rule in this batch.
+            candidates = ("scale", "fixed") if field in (1, 3) else RULES[:6]
+            if name == "classsel.gui":
+                candidates += ("frame",)
+                if field == 3:
+                    candidates += ("frame_inclusive",)
 
             def hits(rule, scaled):
                 # Scaled: up to the factor between upstream's 3440x1440 value and the
@@ -272,9 +290,11 @@ def choose_rules(name: str, sets) -> dict:
                 if scaled:
                     at = value(rule, field, v4[field], v4[2], *GOLD_SIZE, base)
                     up = next((e[field] for size, e in seen.get(key, ()) if size == GOLD_SIZE), None)
-                    if at and up is not None:
-                        factor = up / at
-                return sum(abs(e[field] - factor * value(rule, field, v4[field], v4[2], w, h, base)) <= 1.5
+                    origin = rule_origin(rule, field)
+                    if at != origin and up is not None:
+                        factor = (up - origin) / (at - origin)
+                origin = rule_origin(rule, field)
+                return sum(abs(e[field] - (factor * (value(rule, field, v4[field], v4[2], w, h, base) - origin) + origin)) <= 1.5
                            for (w, h), e in seen.get(key, ()))
             best = max(candidates, key=lambda r: (hits(r, True), hits(r, False), r == default))
             rules.append(best)
@@ -301,9 +321,16 @@ def table_entries() -> list[tuple[str, list]]:
             # And a border's fill style it changed, which every size's set has from
             # upstream (Pazaak's BTN_PLRSIDE1, 1 to 2: its card back stretched).
             vfill, gfill = fill_style(struct), fill_style(gs) if gs is not None else None
+            clear = 0
+            for bit, (border_name, part) in enumerate(BORDER_PARTS):
+                vb = child(struct, border_name)
+                gb = child(gs, border_name) if gs is not None else None
+                if (vb is not None and gb is not None and vb.exists(part) and gb.exists(part)
+                        and str(vb.get_resref(part)) and not str(gb.get_resref(part))):
+                    clear |= 1 << bit
             rows.append((key, rules[key], g, gpad if gpad is not None and gpad != vpad else None,
                          galign if galign is not None and valign is not None and galign != valign else None,
-                         gfill if gfill is not None and vfill is not None and gfill != vfill else None))
+                         gfill if gfill is not None and vfill is not None and gfill != vfill else None, clear))
         files.append((name, rows))
     return files
 
@@ -330,12 +357,13 @@ def render() -> str:
         "#define LL_NO_ALIGN (-1)",
         "#define LL_NO_FILL (-1)",
         "",
-        "typedef struct { const char *tag, *sub; unsigned char rule[4]; int gold[4]; int gold_padding; int gold_align; int gold_fill; } LLRow;",
+        "typedef struct { const char *tag, *sub; unsigned char rule[4]; int gold[4]; int gold_padding; int gold_align; int gold_fill; unsigned char clear_border; } LLRow;",
         "typedef struct { const char *name; const LLRow *rows; int count; } LLFile;",
         "typedef struct { const char *tag; double unit; int force; } LLGutter;",
         "",
         f"#define LL_GOLD_WIDTH {GOLD_SIZE[0]}",
         f"#define LL_GOLD_HEIGHT {GOLD_SIZE[1]}",
+        f"#define LL_FRAME_MARGIN {FRAME_MARGIN}",
         f"#define LL_FONT_HEIGHT_DIVISOR {FONT_HEIGHT_DIVISOR!r}",
         f"#define LL_FONT_SCALE_OFFSET {FONT_SCALE_OFFSET!r}",
         "",
@@ -397,13 +425,13 @@ def render() -> str:
     entries = table_entries()
     for index, (name, rows) in enumerate(entries):
         lines.append(f"static const LLRow LL_ROWS_{index}[] = {{  /* {name} */")
-        for (tag, sub), rules, gold, pad, align, fill in rows:
+        for (tag, sub), rules, gold, pad, align, fill, clear in rows:
             r = ", ".join(str(RULES.index(x)) for x in rules)
             g = ", ".join("LL_NO_GOLD" if gold is None else str(x) for x in (gold or [None] * 4))
             p = "LL_NO_PADDING" if pad is None else str(pad)
             a = "LL_NO_ALIGN" if align is None else str(align)
             fs = "LL_NO_FILL" if fill is None else str(fill)
-            lines.append(f"    {{ {c_string(tag)}, {c_string(sub)}, {{ {r} }}, {{ {g} }}, {p}, {a}, {fs} }},")
+            lines.append(f"    {{ {c_string(tag)}, {c_string(sub)}, {{ {r} }}, {{ {g} }}, {p}, {a}, {fs}, {clear} }},")
         lines.append("};")
     lines.append("")
     lines.append("static const LLFile LL_FILES[] = {")
@@ -417,7 +445,7 @@ def render() -> str:
 
 # ----------------------------------------------------------------------------- the layout
 def table_by_file() -> dict:
-    return {name: {key: (rules, gold, pad, align, fill) for key, rules, gold, pad, align, fill in rows}
+    return {name: {key: (rules, gold, pad, align, fill, clear) for key, rules, gold, pad, align, fill, clear in rows}
             for name, rows in table_entries()}
 
 
@@ -439,6 +467,7 @@ def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height:
     own = {key: extent(s) for key, s, _ in structures(vanilla)}
     own_align = {key: alignment(s) for key, s, _ in structures(vanilla)}
     own_fill = {key: fill_style(s) for key, s, _ in structures(vanilla)}
+    own_structs = {key: s for key, s, _ in structures(vanilla)}
     for key, struct, ctype in structures(source):
         v4 = extent(struct)
         row = rows.get(key)
@@ -459,6 +488,15 @@ def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height:
         fill = fill_style(struct)
         if row is not None and row[4] is not None and fill is not None and fill == own_fill.get(key):
             child(struct, "BORDER").set_int32("FILLSTYLE", row[4])
+        if row is not None and row[5]:
+            for bit, (border_name, part) in enumerate(BORDER_PARTS):
+                if not row[5] & (1 << bit):
+                    continue
+                border = child(struct, border_name)
+                own_border = child(own_structs[key], border_name)
+                if (border is not None and border.exists(part) and own_border is not None
+                        and str(border.get_resref(part)) == str(own_border.get_resref(part))):
+                    border.set_resref(part, ResRef.from_blank())
     # The build's gutters, never reducing one but for the hand-set ones.
     for key, struct, ctype in structures(source):
         if key[1] or ctype != LISTBOX or not struct.exists("PADDING"):
