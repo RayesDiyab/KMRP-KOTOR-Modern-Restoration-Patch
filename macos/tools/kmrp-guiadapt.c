@@ -520,6 +520,14 @@ static void ll_layout(const char *name, const LLFile *file, Gff *source, const G
                 (own_align = int_field(game, (uint32_t)own_text, "ALIGNMENT")) && u32(own_align) == u32(align))
                 put_u32(align, (uint32_t)(int32_t)row->gold_align);
         }
+        /* And its border's fill style, the same way. */
+        if (row && row->gold_fill != LL_NO_FILL) {
+            long border = gff_child(source, st.s, "BORDER"), own = ll_find(game, st.tag, st.sub), own_border;
+            uint8_t *fill = border >= 0 ? int_field(source, (uint32_t)border, "FILLSTYLE") : NULL, *own_fill;
+            if (fill && own >= 0 && (own_border = gff_child(game, (uint32_t)own, "BORDER")) >= 0 &&
+                (own_fill = int_field(game, (uint32_t)own_border, "FILLSTYLE")) && u32(own_fill) == u32(fill))
+                put_u32(fill, (uint32_t)(int32_t)row->gold_fill);
+        }
     }
     /* The build's gutters, never reducing one but for the hand-set ones. */
     for (int i = 1; ll_struct(source, i, &st); i++) {

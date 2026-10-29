@@ -188,6 +188,8 @@ constexpr std::uintptr_t K1_PAZAAK_WAGER_PANEL_VTABLE = 0x007534C8;
 constexpr std::uintptr_t K1_SKILL_INFO_PANEL_VTABLE = 0x00757940;
 constexpr std::uintptr_t K1_PARTY_SELECT_PANEL_VTABLE = 0x00756D28;
 constexpr std::uintptr_t K1_CLASS_SELECT_PANEL_VTABLE = 0x00758020;
+constexpr std::uintptr_t K1_GALAXY_MAP_PANEL_VTABLE = 0x00754910;    // CSWGuiInGameGalaxyMap
+constexpr std::uintptr_t K1_SAVE_NAME_PANEL_VTABLE = 0x007576D0;     // CSWGuiSaveNamePanel
 // Character creation's own screens, from their constructors (2026-09-25):
 // CSWGuiQuickOrCustomPanel 0x006F09F0, CSWGuiCustomPanel 0x006EF730,
 // CSWGuiQuickPanel 0x006F0390, CSWGuiPortraitCharGen 0x006F9430.
@@ -1243,13 +1245,44 @@ constexpr ControllerPromptBinding K1_UPGRADE_ITEM_SELECT_PROMPTS[] = {
 constexpr ControllerPromptBinding K1_CLASS_SELECT_PROMPTS[] = {
     {0x1394, "kmrpb_clsback", PromptVariantK1::None},
 };
+// The galaxy map answers A with Travel and B with Cancel whatever holds focus (its
+// dispatcher, 0x00695980: 0x27 runs k_sup_galaxymap, 0x28 closes), so both are hints and
+// never focused; the D-pad picks the planet (NavigateGalaxyMapK1, K1NativeJoystick.cpp).
+// The buttons are bound at +0x1F24 (BTN_ACCEPT) and +0x20E8 (BTN_BACK) by the panel's
+// constructor (0x006953F6, 0x00695432) (the maintainer, 2026-10-28: "the button glyphs need
+// to be added and the buttons need to be non focusable").
+constexpr ControllerPromptBinding K1_GALAXY_MAP_PROMPTS[] = {
+    {0x1F24, "kmrpa_galtravel", PromptVariantK1::None},
+    {0x20E8, "kmrpb_galback",   PromptVariantK1::None},
+};
+// The save name popup (savename.gui) answers A with OK and B with Cancel whatever holds
+// focus (CSWGuiSaveNamePanel::HandleInputEvent, 0x006CB040, which hands nothing on to its
+// controls), so both are hints. BTN_OK and BTN_CANCEL are bound at +0x68 and +0x22C by its
+// constructor (0x006CAF29, 0x006CAF59) (the maintainer, 2026-10-28: "the popup has no
+// glyphs now").
+// Pazaak's side deck screen with the pad in use: Add Card (its m_btnSwitch, BTN_YTEXT, which
+// the PC layout hides and the controller patch shows) is Y, the dispatcher's own (0x2A), and
+// Play (BTN_ATEXT) is A, pressed by the module (K1_BUTTON_REMAPS); both hints, never
+// focused. The module lays the two out side by side (UpdatePazaakSetupPadK1,
+// K1NativeJoystick.cpp).
+constexpr ControllerPromptBinding K1_PAZAAK_SETUP_PROMPTS[] = {
+    {0x6F34, "kmrpy_pzswitch", PromptVariantK1::None},
+    {0x7108, "kmrpa_pzplay",   PromptVariantK1::None},
+};
+constexpr ControllerPromptBinding K1_SAVE_NAME_PROMPTS[] = {
+    {0x0068, "kmrpa_svnmok",   PromptVariantK1::None},
+    {0x022C, "kmrpb_svnmcncl", PromptVariantK1::None},
+};
 constexpr ControllerPromptBinding K1_QUICK_OR_CUSTOM_PROMPTS[] = {
     {0x006C, "kmrpa_qcquick", PromptVariantK1::FocusOnly},
     {0x0230, "kmrpa_qccust",  PromptVariantK1::FocusOnly},
     {0x0BD4, "kmrpb_qcback",  PromptVariantK1::None},
 };
 // Only the current step is enabled (SetState 0x006EEFD0), so the one A lands on
-// it. Cancel asks for confirmation past the first step (0x006EF6A0) and is not B.
+// it. Cancel asks for confirmation past the first step (0x006EF6A0) and is not B: it is
+// X, pressed wherever the focus is and never focused (the maintainer, 2026-10-28: "please
+// add square for cancel (it should not be focusable)"; PressCancelK1, K1NativeJoystick.cpp).
+// Until then an A shown only while the D-pad was on it.
 constexpr ControllerPromptBinding K1_CUSTOM_CHARGEN_PROMPTS[] = {
     {0x1224, "kmrpa_cust1",    PromptVariantK1::FocusOnly},
     {0x13E8, "kmrpa_cust2",    PromptVariantK1::FocusOnly},
@@ -1258,14 +1291,14 @@ constexpr ControllerPromptBinding K1_CUSTOM_CHARGEN_PROMPTS[] = {
     {0x1934, "kmrpa_cust5",    PromptVariantK1::FocusOnly},
     {0x1AF8, "kmrpa_cust6",    PromptVariantK1::FocusOnly},
     {0x1DFC, "kmrpb_custback", PromptVariantK1::None},
-    {0x1FC0, "kmrpa_custcncl", PromptVariantK1::FocusOnly},
+    {0x1FC0, "kmrpx_custcncl", PromptVariantK1::None},
 };
 constexpr ControllerPromptBinding K1_QUICK_CHARGEN_PROMPTS[] = {
     {0x0A88, "kmrpa_quik1",    PromptVariantK1::FocusOnly},
     {0x0C4C, "kmrpa_quik2",    PromptVariantK1::FocusOnly},
     {0x0E10, "kmrpa_quik3",    PromptVariantK1::FocusOnly},
     {0x0FD4, "kmrpb_quikback", PromptVariantK1::None},
-    {0x1198, "kmrpa_quikcncl", PromptVariantK1::FocusOnly},
+    {0x1198, "kmrpx_quikcncl", PromptVariantK1::None},
 };
 // Portrait's arrows keep their own art; Left and Right pick the portrait
 // (NavigateFocusK1) whatever holds focus.
@@ -1435,6 +1468,12 @@ bool IsK1MenuPanel(void* panel)
         vtable == K1_SKILL_INFO_PANEL_VTABLE ||
         vtable == K1_PARTY_SELECT_PANEL_VTABLE ||
         vtable == K1_CLASS_SELECT_PANEL_VTABLE ||
+        // The galaxy map, 2026-10-28: its table alone showed nothing until it was
+        // here too (the maintainer: "no glyphs are there, on the buttons").
+        vtable == K1_GALAXY_MAP_PANEL_VTABLE ||
+        // The save name popup, the same day: the top modal while it is up, so until it was
+        // here the save screen behind it lost its badges too.
+        vtable == K1_SAVE_NAME_PANEL_VTABLE ||
         vtable == K1_CONTAINER_PANEL_VTABLE ||
         vtable == K1_SAVELOAD_PANEL_VTABLE ||
         vtable == K1_UPGRADE_SELECTION_PANEL_VTABLE ||
@@ -1702,6 +1741,15 @@ const ControllerPromptBinding* GetK1ControllerPrompts(
     case K1_CLASS_SELECT_PANEL_VTABLE:
         *count = sizeof(K1_CLASS_SELECT_PROMPTS) / sizeof(K1_CLASS_SELECT_PROMPTS[0]);
         return K1_CLASS_SELECT_PROMPTS;
+    case K1_GALAXY_MAP_PANEL_VTABLE:
+        *count = sizeof(K1_GALAXY_MAP_PROMPTS) / sizeof(K1_GALAXY_MAP_PROMPTS[0]);
+        return K1_GALAXY_MAP_PROMPTS;
+    case K1_SAVE_NAME_PANEL_VTABLE:
+        *count = sizeof(K1_SAVE_NAME_PROMPTS) / sizeof(K1_SAVE_NAME_PROMPTS[0]);
+        return K1_SAVE_NAME_PROMPTS;
+    case K1_PAZAAK_SETUP_PANEL_VTABLE:
+        *count = sizeof(K1_PAZAAK_SETUP_PROMPTS) / sizeof(K1_PAZAAK_SETUP_PROMPTS[0]);
+        return K1_PAZAAK_SETUP_PROMPTS;
     case K1_QUICK_OR_CUSTOM_PANEL_VTABLE:
         *count = sizeof(K1_QUICK_OR_CUSTOM_PROMPTS) / sizeof(K1_QUICK_OR_CUSTOM_PROMPTS[0]);
         return K1_QUICK_OR_CUSTOM_PROMPTS;
@@ -2419,6 +2467,13 @@ extern "C" void __cdecl KmrpQueuePictureK1(const char* name, int width, int heig
     K1QueueSceneTexture(*scene, width, height, false);
 }
 
+// A picture this patch drew (`sheet`, RGBA, top row first) written and listed, as the badges
+// are (K1NativeJoystick.cpp: class selection's background with two capsules).
+bool KmrpWriteDrawnPictureK1(const char* name, const std::vector<std::uint8_t>& sheet, int width, int height)
+{
+    return K1AlreadyDrawn(name) || K1WriteDrawnTexture(name, sheet, width, height);
+}
+
 // The Controller Layout's pictures queued for drawing in the background, from a copy of the
 // screen that is never shown (K1ControllerLayout.cpp, ProbeLayoutPictures): its own border
 // (true when it shows the patch's backdrop, so the copy was the screen's) and each control.
@@ -2727,6 +2782,29 @@ extern "C" int __cdecl KmrpBadgeGlyphK1(const char* resref, char family, int* re
     }
     return 0;
 }
+
+// A glyph by its own name ("LT", "RT", "A"...) in the family in use, drawn `rect`'s height
+// tall and as wide as its own proportions make it, its box on `rect`'s middle; `rect`
+// becomes the glyph's box and `out` the picture (K1BadgeTexture). For a glyph that stands
+// beside a title rather than on a button (Pazaak's side deck screen, K1NativeJoystick.cpp).
+extern "C" int __cdecl KmrpGlyphPictureK1(const char* glyphName, int* rect, char* out)
+{
+    if (!glyphName || !rect || !out || rect[3] <= 0) return 0;
+    const std::string name = std::string(1, KmrpGlyphLetterK1()) + "/" + glyphName;
+    const KmrpGlyph* glyph = FindK1Glyph(name);
+    if (!glyph || glyph->width <= 0 || glyph->height <= 0) return 0;
+    const int dh = rect[3];
+    const int dw = static_cast<int>(std::lround(static_cast<double>(dh) * glyph->width / glyph->height));
+    if (dw < 1 || dw > 2048 || dh > 2048) return 0;
+    char drawn[17] = {};
+    if (!K1BadgeTexture(name, *glyph, dw, dh, drawn)) return 0;
+    rect[0] = rect[0] + rect[2] / 2 - dw / 2;
+    rect[1] = rect[1] + rect[3] / 2 - dh / 2;
+    rect[2] = dw;
+    rect[3] = dh;
+    std::memcpy(out, drawn, 17);
+    return 1;
+}
 #endif
 // `textWas` is the caption's rectangle as it was before this file moved the caption
 // to the button's middle line (ShowK1BadgeOverlay); `textMoved` says that it has.
@@ -2763,6 +2841,17 @@ void SetK1CaptionRect(void* button, const K1BadgeRect& rect)
 {
     reinterpret_cast<void(__thiscall*)(void*, const K1BadgeRect*)>(K1_TEXT_SET_EXTENT)(
         static_cast<char*>(button) + K1_BADGE_BUTTON_TEXT, &rect);
+}
+
+// The buttons whose glyph and caption are centred together on them (KmrpBadgeCentreK1).
+void* g_k1CentredBadges[8] = {};
+
+bool IsK1BadgeCentred(void* button)
+{
+    for (void* const b : g_k1CentredBadges) {
+        if (b && b == button) return true;
+    }
+    return false;
 }
 
 K1BadgeOverlay* FindK1BadgeOverlay(void* button)
@@ -3454,10 +3543,31 @@ bool ShowK1BadgeOverlay(void* control, const char resref[16], int tall = 0, bool
             // keeping it there undid the move (the play-test log of 2026-10-28).
             wanted.top = middle - wanted.height / 2;
         }
-        const int middle = text.width > 0 ? text.left + text.width / 2 : at.left + at.width / 2;
         const int gap = height / 4, air = height / 8;
         const int glyphLeft = static_cast<int>(static_cast<long long>(wanted.width) * (shape->glyph - shape->glyphWidth / 2) / 1000);
         const int glyphRight = static_cast<int>(static_cast<long long>(wanted.width) * (shape->glyph + shape->glyphWidth / 2) / 1000);
+        // A button marked so (KmrpBadgeCentreK1) has glyph and caption centred together on
+        // it, the caption moved over by half the glyph and its gap: class selection's
+        // Select and Cancel, each on a capsule of its own, where a glyph beside a centred
+        // caption left the pair off the capsule's middle (the maintainer, 2026-10-28).
+        // Moved from the caption's own place, so placing again moves it no further.
+        if (tall <= 0 && IsK1BadgeCentred(control) && text.width > 0) {
+            const int base = entry->textMoved ? entry->textWas.left : text.left;
+            const int lead = glyphRight - glyphLeft + gap;
+            const int shift = shape->glyph < 500 ? (lead + 1) / 2 : -(lead + 1) / 2;
+            K1BadgeRect moved = text;
+            moved.left = base + shift;
+            if (moved.left != text.left) {
+                if (!entry->textMoved) {
+                    entry->textWas = text;
+                    entry->textFor = at;
+                    entry->textMoved = true;
+                }
+                SetK1CaptionRect(control, moved);
+            }
+            text = moved;
+        }
+        const int middle = text.width > 0 ? text.left + text.width / 2 : at.left + at.width / 2;
         int left = shape->glyph < 500 ? middle - caption / 2 - gap - glyphRight
                                       : middle + (caption + 1) / 2 + gap - glyphLeft;
         // Inside the area the border fills; a badge of a given height stands on the
@@ -6139,6 +6249,30 @@ extern "C" void __cdecl KmrpPaintLayoutEntryPromptK1(void* button, int shown)
 extern "C" void __cdecl KmrpPaintGraphicsEntryPromptK1(void* button, int shown)
 {
     SetK1ControllerPromptFill(button, shown ? "kmrpa_optgfxadvn" : nullptr);
+}
+
+// A badge set on (or, with null, taken off) a control this patch made (K1NativeJoystick.cpp:
+// class selection's Select).
+void KmrpPromptFillK1(void* control, const char* value)
+{
+    SetK1ControllerPromptFill(control, value);
+}
+
+// Marks (or, with false, unmarks) a button whose badge and caption are centred together
+// on it (ShowK1BadgeOverlay): class selection's Select and Cancel.
+void KmrpBadgeCentreK1(void* button, bool on)
+{
+#ifdef KMRP_CONTROLLER_STANDALONE
+    for (void*& b : g_k1CentredBadges) {
+        if (b == button) b = nullptr;
+    }
+    if (!on || !button) return;
+    for (void*& b : g_k1CentredBadges) {
+        if (!b) { b = button; return; }
+    }
+#else
+    (void)button; (void)on;
+#endif
 }
 
 // The cursor's half of the same question. Never reachable in native mode until

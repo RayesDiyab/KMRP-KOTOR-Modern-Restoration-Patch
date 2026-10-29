@@ -102,6 +102,19 @@ FILES = (
     "optgraphicsadv.gui", "optmouse.gui", "optsound.gui", "optsoundadv.gui",
     "optkeymapping.gui", "optkeyentry.gui", "optresolution.gui",
     "inventory.gui", "equip.gui", "character.gui",
+    # The screens KMRP's build gives no step of its own (2026-10-28, the maintainer: "Ok
+    # lets start"): character creation, saving and loading, messages, the galaxy map,
+    # Pazaak, the workbench, and the screens with nothing to fit. startscreen.gui is in no
+    # set, so the build ships the game's own. classsel.gui waits for a rule of its own:
+    # upstream sizes its class buttons from the screen's width plus a fixed margin (about
+    # 0.117 W + 20 px wide), which no rule here makes.
+    "abchrgen.gui", "maincg.gui", "name.gui", "portcust.gui", "skchrgen.gui",
+    "custpnl.gui", "qorcpnl.gui", "quickpnl.gui", "leveluppnl.gui",
+    "saveload.gui", "savename.gui", "messages.gui", "questitem.gui", "galaxymap.gui",
+    "areatransition.gui", "barkbubble.gui", "computercamera.gui", "maininterface.gui",
+    "pazaakgame.gui", "pazaaksetup.gui", "pazaakwager.gui", "upgrade.gui", "upgradesel.gui",
+    "loadscreen.gui", "splashscreen.gui", "titlemovie.gui", "credits.gui", "fade.gui",
+    "debug.gui", "ntscpat.gui",
 )
 
 FIELDS = ("LEFT", "TOP", "WIDTH", "HEIGHT")
@@ -188,6 +201,12 @@ def alignment(struct: GFFStruct) -> int | None:
     """A structure's TEXT.ALIGNMENT, or None."""
     text = child(struct, "TEXT")
     return text.get_int32("ALIGNMENT") if text is not None and text.exists("ALIGNMENT") else None
+
+
+def fill_style(struct: GFFStruct) -> int | None:
+    """A structure's BORDER.FILLSTYLE, or None."""
+    border = child(struct, "BORDER")
+    return border.get_int32("FILLSTYLE") if border is not None and border.exists("FILLSTYLE") else None
 
 
 def default_rule(field: int, sub: str, ctype: int, e: list[int]) -> str:
@@ -279,8 +298,12 @@ def table_entries() -> list[tuple[str, list]]:
             # A text alignment the gold file changed: transfer_gold_gui_geometry carries it
             # to every size as it is (Character's LBL_LEVEL, 12 to 10).
             valign, galign = alignment(struct), alignment(gs) if gs is not None else None
+            # And a border's fill style it changed, which every size's set has from
+            # upstream (Pazaak's BTN_PLRSIDE1, 1 to 2: its card back stretched).
+            vfill, gfill = fill_style(struct), fill_style(gs) if gs is not None else None
             rows.append((key, rules[key], g, gpad if gpad is not None and gpad != vpad else None,
-                         galign if galign is not None and valign is not None and galign != valign else None))
+                         galign if galign is not None and valign is not None and galign != valign else None,
+                         gfill if gfill is not None and vfill is not None and gfill != vfill else None))
         files.append((name, rows))
     return files
 
@@ -305,8 +328,9 @@ def render() -> str:
         "#define LL_NO_GOLD (-2147483647 - 1)",
         "#define LL_NO_PADDING (-1)",
         "#define LL_NO_ALIGN (-1)",
+        "#define LL_NO_FILL (-1)",
         "",
-        "typedef struct { const char *tag, *sub; unsigned char rule[4]; int gold[4]; int gold_padding; int gold_align; } LLRow;",
+        "typedef struct { const char *tag, *sub; unsigned char rule[4]; int gold[4]; int gold_padding; int gold_align; int gold_fill; } LLRow;",
         "typedef struct { const char *name; const LLRow *rows; int count; } LLFile;",
         "typedef struct { const char *tag; double unit; int force; } LLGutter;",
         "",
@@ -373,12 +397,13 @@ def render() -> str:
     entries = table_entries()
     for index, (name, rows) in enumerate(entries):
         lines.append(f"static const LLRow LL_ROWS_{index}[] = {{  /* {name} */")
-        for (tag, sub), rules, gold, pad, align in rows:
+        for (tag, sub), rules, gold, pad, align, fill in rows:
             r = ", ".join(str(RULES.index(x)) for x in rules)
             g = ", ".join("LL_NO_GOLD" if gold is None else str(x) for x in (gold or [None] * 4))
             p = "LL_NO_PADDING" if pad is None else str(pad)
             a = "LL_NO_ALIGN" if align is None else str(align)
-            lines.append(f"    {{ {c_string(tag)}, {c_string(sub)}, {{ {r} }}, {{ {g} }}, {p}, {a} }},")
+            fs = "LL_NO_FILL" if fill is None else str(fill)
+            lines.append(f"    {{ {c_string(tag)}, {c_string(sub)}, {{ {r} }}, {{ {g} }}, {p}, {a}, {fs} }},")
         lines.append("};")
     lines.append("")
     lines.append("static const LLFile LL_FILES[] = {")
@@ -392,7 +417,7 @@ def render() -> str:
 
 # ----------------------------------------------------------------------------- the layout
 def table_by_file() -> dict:
-    return {name: {key: (rules, gold, pad, align) for key, rules, gold, pad, align in rows}
+    return {name: {key: (rules, gold, pad, align, fill) for key, rules, gold, pad, align, fill in rows}
             for name, rows in table_entries()}
 
 
@@ -413,6 +438,7 @@ def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height:
     base = base_of(source)
     own = {key: extent(s) for key, s, _ in structures(vanilla)}
     own_align = {key: alignment(s) for key, s, _ in structures(vanilla)}
+    own_fill = {key: fill_style(s) for key, s, _ in structures(vanilla)}
     for key, struct, ctype in structures(source):
         v4 = extent(struct)
         row = rows.get(key)
@@ -429,6 +455,10 @@ def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height:
         align = alignment(struct)
         if row is not None and row[3] is not None and align is not None and align == own_align.get(key):
             child(struct, "TEXT").set_int32("ALIGNMENT", row[3])
+        # And its border's fill style, the same way.
+        fill = fill_style(struct)
+        if row is not None and row[4] is not None and fill is not None and fill == own_fill.get(key):
+            child(struct, "BORDER").set_int32("FILLSTYLE", row[4])
     # The build's gutters, never reducing one but for the hand-set ones.
     for key, struct, ctype in structures(source):
         if key[1] or ctype != LISTBOX or not struct.exists("PADDING"):

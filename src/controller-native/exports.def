@@ -21,7 +21,7 @@ EXPORTS
     GuardFeatsConfirmK1
     GuardPowersConfirmK1
     GuardPortraitConfirmK1
-    GuardNameConfirmK1
+    GuardReleaseTargetK1
     GuardPanelEchoK1
     NativeJoystickInitK1
     NativeJoystickBufferK1

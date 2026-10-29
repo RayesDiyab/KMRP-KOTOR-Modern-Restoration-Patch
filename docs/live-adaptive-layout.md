@@ -15,15 +15,17 @@ KMRP ships each screen's layout made at build time for each of 66 sizes. A GUI m
 screen was drawn small in a corner of a large display, or not at all where KMRP's art
 expects its own extents. Live Adaptive Layout (the maintainer's name, 2026-10-27) lays out
 whichever file the game would load, the game's own or a mod's, for the size in use, when
-the size's set is made ready. Since 2026-10-28 it does that for 14 screens: the 11 options
-screens (`e237578`), then Inventory, Equipment and Character the same day; the rest still
-come from the sets.
+the size's set is made ready. Since 2026-10-28 it does that for 44 screens: the 11 options
+screens (`e237578`), then Inventory, Equipment and Character (`8ddb433`), then the 30 that
+KMRP's build gives no step of its own (character creation, saving and loading, Messages,
+Quest Items, the Galaxy Map, Pazaak, the workbench, the HUD's base file `maininterface`, and
+the screens with nothing to fit); the rest still come from the sets (section 7).
 
 Provenance: every number below was computed from files in this repository and the
 game's own layout files (`build-inputs/vanilla-gui`, extracted from the Steam game's
 `chitin.key`), and is re-measured by `testing/regression/Test-LiveLayout.py`, except where
 a figure is marked as measured once with scripts that are not in the repository. Seen in
-the game at 3440x1440 only, and the last three screens not yet (section 6).
+the game at 3440x1440 only (section 6).
 
 ## The build this describes
 
@@ -210,9 +212,9 @@ the player's machine. `Test-LiveLayout.py` fails when it is not what the script 
 It runs where the galaxy map's and the main menu's adapters run
 (`KmrpRuntimeAssetsDimensions`), into the same folders, and writes a file beside its target
 and moves it over, because those folders can hold hard links into the cache's sets. The
-sets themselves are not changed; their copies of these 14 files are still made and simply
+sets themselves are not changed; their copies of these 44 files are still made and simply
 no longer what the game reads. `KmrpRuntimeLayoutFile` returns the roster folder's file
-first, so the module's own readers of these layouts see the laid-out one. Of the 14 the
+first, so the module's own readers of these layouts see the laid-out one. Of the 44 the
 controller patch changes only the three with the R3 cue, the same cue under the same tag
 (`tools/build_controller_assets.py`), and leaves its copies to KMRP beside it (section 3).
 
@@ -234,8 +236,9 @@ controller patch changes only the three with the R3 cue, the same cue under the 
   "works perfectly". Every other size, and a mod's file in `Override`, is verified by
   `Test-LiveLayout.py` (against the build's sets and between Python and C), not by looking
   at the game. (When first written that day this said nothing had been seen yet.)
-  **Inventory, Equipment and Character are not yet seen in the game**, nor is the R3 cue as
-  they place it.
+  Inventory, Equipment and Character, and the R3 cue as they place it, were seen in the
+  maintainer's game at 3440x1440 the same day (8ddb433), through the day's play tests of
+  those tabs.
 - Against KMRP's 66 sets, the 14 screens: 71,544 `EXTENT` fields, **94.47% exact, 5.35% one
   pixel off, 123 further**; gold identical in every extent and `PADDING`, and every other
   field the set's at every size but colours, whose last decimals differ by less than 1e-5
@@ -274,13 +277,25 @@ controller patch changes only the three with the R3 cue, the same cue under the 
 
 ## 7. What is deliberately not changed
 
+- The 30 screens added after the first 14 also carry gold's border fill style where it
+  changed one (Pazaak's `BTN_PLRSIDE1`, 1 to 2), as its alignment is carried. With them,
+  `Test-LiveLayout.py` covers 44 screens: 235,752 `EXTENT` fields, 94.58% exact, 5.23% a
+  pixel off, 449 further, 3440x1440 identical; a value gold moved far may be off by the
+  rounding allowance times gold's move (the Galaxy Map's `LBL_Live01`, 2.7 times, 6 px at
+  15360x8640). Screens without controls are laid out and compared, with no mod's file.
+  Seen in the game: not yet.
+- `classsel.gui` waits for a rule of its own: upstream sizes its class buttons from the
+  screen's width plus a fixed margin (about 0.117 W + 20 px wide), which no rule makes.
+  `startscreen.gui` is in no set; the build ships the game's own. `dialog.gui`,
+  `pause.gui`, `partyselection.gui` and `statussummary.gui` wait for a check against the
+  module's own code that places them at run time.
 - Every other screen still comes from the size's set. Next: the screens with build steps
   the run time does not repeat yet: `abilities.gui` (the R3 cue and the sub-tab swap cue,
   and its list fitted to rows), `top.gui` (LT and RT by the tab strip), `optgameplay.gui`
   (the Controller Layout entry), `optfeedback.gui` (its row template), `confirm.gui`
   (KMRP's own popup), `map.gui`, the container, the other row-fitted lists, and the HUD
   (`apply_proportions`).
-- The sets keep their copies of the 14 files; removing them from the bank is a size change
+- The sets keep their copies of the 44 files; removing them from the bank is a size change
   for later.
 - The Mac does not call `KmrpLiveLayout` yet ([handoff item 102](macos-handoff-1.5-to-1.6.md)).
 - No byte of the executable.

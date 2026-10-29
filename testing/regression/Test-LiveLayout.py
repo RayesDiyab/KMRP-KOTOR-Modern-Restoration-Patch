@@ -54,6 +54,20 @@ RESOURCES = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "build" / "kmrp" 
 def limit(width: int) -> int:
     return max(3, width // 3072)
 COLOUR_TOLERANCE = 1e-5
+UPSTREAM_GOLD = ll.UPSTREAM / "21-by-9" / "gui.3440x1440"
+_moved: dict = {}
+
+
+def moved_ratio(name: str, k) -> float:
+    """How far gold moved a field from upstream's 3440x1440 set, as a ratio (at least 1)."""
+    if name not in _moved:
+        up = numbers(read_gff(UPSTREAM_GOLD / name).root) if (UPSTREAM_GOLD / name).is_file() else {}
+        _moved[name] = (up, numbers(read_gff(ll.GOLD / name).root))
+    up, gold = _moved[name]
+    u, g = up.get(k), gold.get(k)
+    if not u or g is None or k[1] == "PADDING":
+        return 1.0
+    return max(1.0, abs(g / u), abs(u / g) if g else 1.0)
 
 
 def flat(struct: GFFStruct, path: str = "") -> dict:
@@ -93,11 +107,20 @@ def python_layout(name: str, source: Path, width: int, height: int, rows: dict) 
     return ll.layout(name, vanilla, read_gff(source).root, width, height, rows)
 
 
-def mod_files(name: str, out: Path) -> tuple[Path, Path, str]:
-    """The game's file with its first square-or-wide button moved and a label added under a
-    new TAG; and the game's file scaled to 1920x1080."""
+def mod_files(name: str, out: Path) -> tuple[Path | None, Path, str | None]:
+    """The game's file with its last control moved and a label added under a new TAG
+    (None for a screen with no controls, which has neither to test); and the game's file
+    scaled to 1920x1080."""
+    big = read_gff(ll.VANILLA / name)
+    root = ll.child(big.root, "EXTENT")
+    for field, factor in zip(ll.FIELDS, (3, 2.25, 3, 2.25)):
+        root.set_int32(field, int(root.get_int32(field) * factor))
+    hires = out / f"hires-{name}"
+    write_gff(big, hires, ResourceType.GUI)
     gff = read_gff(ll.VANILLA / name)
     controls = gff.root.acquire("CONTROLS", None, GFFList)
+    if controls is None or len(controls) == 0:
+        return None, hires, None
     moved = controls.at(len(controls) - 1)
     e = ll.child(moved, "EXTENT")
     e.set_int32("LEFT", e.get_int32("LEFT") + 7)
@@ -111,12 +134,6 @@ def mod_files(name: str, out: Path) -> tuple[Path, Path, str]:
     added.set_struct("EXTENT", ext)
     mod = out / f"mod-{name}"
     write_gff(gff, mod, ResourceType.GUI)
-    big = read_gff(ll.VANILLA / name)
-    root = ll.child(big.root, "EXTENT")
-    for field, factor in zip(ll.FIELDS, (3, 2.25, 3, 2.25)):
-        root.set_int32(field, int(root.get_int32(field) * factor))
-    hires = out / f"hires-{name}"
-    write_gff(big, hires, ResourceType.GUI)
     return mod, hires, moved.get_string("TAG")
 
 
@@ -159,6 +176,14 @@ def main() -> int:
                 # its own edge as it loads (docs/live-adaptive-layout.md, section 1), so its
                 # other three are noted, not held (Equipment's LB_ITEMS, 2026-10-28).
                 engine_placed = k[0][1] == "SCROLLBAR" and k[1] in ("LEFT", "TOP", "HEIGHT")
+                # A value gold moved far is carried to each size by gold's ratio, and so is
+                # the rounding of the place it is carried from: the Galaxy Map's LBL_Live01,
+                # 760 in upstream's 3440x1440 set and 2039 in gold, 2.7 times, is 6 px from
+                # the set at 15360x8640 (2026-10-28). Its allowance grows by that ratio.
+                if (d > limit(w) and not engine_placed and size != "3440x1440"
+                        and d <= limit(w) * moved_ratio(name, k)):
+                    print(f"note {name} {size} {k}: {a[k]}, the set has {b[k]} (gold moved it)")
+                    continue
                 if (size == "3440x1440" and d) or (d > limit(w) and not engine_placed):
                     fail(f"{name} {size} {k}: {a[k]}, the set has {b[k]}")
                 elif d > 1:
@@ -199,7 +224,8 @@ def main() -> int:
             mod, hires, moved_tag = mod_files(name, tmp)
             cases = [(int(s.split("x")[0]), int(s.split("x")[1]), None) for s in sizes]
             cases += [(w, h, None) for w, h in extra]
-            cases += [(w, h, mod) for w, h in ((1920, 1080), (3440, 1440), (2560, 1600), (1024, 768))]
+            if mod:
+                cases += [(w, h, mod) for w, h in ((1920, 1080), (3440, 1440), (2560, 1600), (1024, 768))]
             for w, h, source in cases:
                 out = tmp / "out.gui"
                 out.unlink(missing_ok=True)
@@ -217,13 +243,14 @@ def main() -> int:
                          + ", ".join(f"{k} {a.get(k)} / {b.get(k)}" for k in bad))
                 checked += 1
             # The mod's moved control keeps the mod's place: no gold correction on it.
-            ours = numbers(python_layout(name, mod, 3440, 1440, rows[name]))
-            gold = numbers(read_gff(ll.GOLD / name).root)
-            key = (moved_tag, "")
-            if ours[(key, "LEFT")] == gold[(key, "LEFT")] or ours[(key, "TOP")] == gold[(key, "TOP")]:
-                fail(f"{name}: {moved_tag}, moved by the mod, took gold's place")
-            if ((("LBL_MOD_ADDED", ""), "LEFT")) not in ours:
-                fail(f"{name}: the mod's own control was not laid out")
+            if mod:
+                ours = numbers(python_layout(name, mod, 3440, 1440, rows[name]))
+                gold = numbers(read_gff(ll.GOLD / name).root)
+                key = (moved_tag, "")
+                if ours[(key, "LEFT")] == gold[(key, "LEFT")] or ours[(key, "TOP")] == gold[(key, "TOP")]:
+                    fail(f"{name}: {moved_tag}, moved by the mod, took gold's place")
+                if ((("LBL_MOD_ADDED", ""), "LEFT")) not in ours:
+                    fail(f"{name}: the mod's own control was not laid out")
             # A file laid out for another size: refused by both.
             out = tmp / "refused.gui"
             out.unlink(missing_ok=True)

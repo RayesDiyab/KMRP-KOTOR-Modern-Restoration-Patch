@@ -27,6 +27,7 @@
 #include "K1Rumble.h"
 #include "KmrpOptions.h"
 #include "K1PartyRosterState.h"
+#include "K1CaptionInk.h"
 #ifdef KMRP_NATIVE_RUNTIME
 #include "K1RuntimeResolution.h"
 #include "K1RuntimeLayout.h"
@@ -39,12 +40,14 @@ extern "C" void __cdecl NativeMovieFrameK1(void* moviePlayer);
 #include <windows.h>
 #include <xinput.h>
 
+#include <algorithm>
 #include <climits>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <vector>
 
 // Defined in vendor/K1XboxControlsXInput.cpp, at global scope. Declared here
 // rather than by including that header, and ABOVE the anonymous namespace
@@ -1341,6 +1344,14 @@ void UpdateGuiCuesK1();
 void InstallPazaakTableK1(void* panel);
 void UpdatePazaakTableK1();
 void ForgetPazaakTableK1(void* panel);
+#ifdef KMRP_CONTROLLER_STANDALONE
+void InstallClassSelectPadK1(void* panel);   // class selection's Select, with the pad in use
+void UpdateClassSelectPadK1();
+void ForgetClassSelectPadK1(void* panel);
+void InstallPazaakSetupPadK1(void* panel);   // Pazaak's side deck screen, with the pad in use
+void UpdatePazaakSetupPadK1();
+void ForgetPazaakSetupPadK1(void* panel);
+#endif
 void* ClientExoAppK1();
 void EnsureRumbleTableK1(void* owner);
 void UpdateStickNavigationK1(float x, float y);
@@ -2511,18 +2522,6 @@ extern "C" int __cdecl GuardPortraitConfirmK1(void* panel, int* event, int* valu
     return GuardChargenConfirmK1("portrait", panel, event, value);
 }
 
-// Name entry (CSWGuiNameChargen, dispatcher 0x006FA220) answers A through its
-// focused control only -- its jump table starts at 0x28 -- and both the name box
-// and OK register A to HandleDoneButton (0x006F9CD0). So the release of the A
-// that opened the screen, from the step list, reached the name box and confirmed
-// the name at once: the screen stayed up only while A was held (play-test,
-// 2026-09-25). Guarded for that release; a press still reaches the focused
-// control exactly as before, the guard pressing it itself.
-extern "C" int __cdecl GuardNameConfirmK1(void* panel, int* event, int* value)
-{
-    return GuardChargenConfirmK1("name", panel, event, value);
-}
-
 extern "C" void __cdecl NativeRumbleK1(int envelopeBBits, int envelopeABits,
                                        void* rumbleOwner, float* frameTime)
 {
@@ -2838,8 +2837,16 @@ extern "C" void __cdecl NativePanelReleaseGffK1(void* panel)
 #endif
     ForgetGuiCuesK1(panel);
     ForgetPazaakTableK1(panel);
+#ifdef KMRP_CONTROLLER_STANDALONE
+    ForgetClassSelectPadK1(panel);
+    ForgetPazaakSetupPadK1(panel);
+#endif
     InstallGuiCuesK1(panel);
     InstallPazaakTableK1(panel);
+#ifdef KMRP_CONTROLLER_STANDALONE
+    InstallClassSelectPadK1(panel);
+    InstallPazaakSetupPadK1(panel);
+#endif
 }
 
 // The standalone controller patch reaches NativePanelReleaseGffK1's two moments from
@@ -3226,13 +3233,8 @@ constexpr std::uintptr_t K1_NATIVE_DIRECTION_PANELS[] = {
     // missing because the retained-event inventory never listed the panel, so
     // the pad moved the focus between its buttons and the wager never changed.
     0x0067E150,   // PAZAAK_WAGER
-    // The galaxy map, added 2026-10-21 (issue 57): its
-    // dispatcher sends Left, Up and the bumpers' 0x3D/0x3F to PrevPlanet
-    // (0x00694CA0) and Right, Down and 0x3E/0x40 to NextPlanet (0x00694BF0), which
-    // select the planet AND fill the description (DisplayPlanet, 0x006933A0). The
-    // pad's own focus moves only lit the planets' buttons, so the description kept
-    // the planet it opened on.
-    0x00695980,   // GALAXYMAP
+    // The galaxy map was here from 2026-10-21 (issue 57) to 2026-10-28; KMRP now picks
+    // its planets itself (NavigateGalaxyMapK1).
     // ABILITIES_CHARGEN (0x006F8880) and SKILLS (0x006F6A10) were here until
     // 2026-09-25; KMRP now navigates them itself -- see K1_POINTS_SCREENS.
 };
@@ -3581,13 +3583,25 @@ constexpr DefaultButtonK1 K1_OK_BUTTONS[] = {
     {0x00758550, 0x0DC8},   // Advanced Sound
 };
 
-void* OkButtonOfK1(void* panel)
+// Square is Cancel on character creation's two step lists, custom and quick (the
+// maintainer, 2026-10-28: "please add square for cancel (it should not be focusable)"),
+// pressed as OK is above, wherever the focus is; its badge is X there and the D-pad never
+// lands on it (vendor/K1XboxControls.cpp, K1_CUSTOM_CHARGEN_PROMPTS). BTN_CANCEL at the
+// offsets of those badges.
+constexpr DefaultButtonK1 K1_CANCEL_BUTTONS[] = {
+    {0x007595E0, 0x1FC0},   // custom character creation
+    {0x00759668, 0x1198},   // quick character creation
+};
+
+// `panel`'s button among `entries` (by its vtable), or null.
+template<std::size_t N>
+void* ListedButtonK1(void* panel, const DefaultButtonK1 (&entries)[N])
 {
     if (!LooksLikePointerK1(panel)) {
         return nullptr;
     }
     const std::uintptr_t vtable = *reinterpret_cast<std::uintptr_t*>(panel);
-    for (const DefaultButtonK1& entry : K1_OK_BUTTONS) {
+    for (const DefaultButtonK1& entry : entries) {
         if (entry.vtable == vtable) {
             return static_cast<char*>(panel) + entry.offset;
         }
@@ -3595,14 +3609,10 @@ void* OkButtonOfK1(void* panel)
     return nullptr;
 }
 
-bool HasOkButtonK1(void* panel)
+// That button pressed, as the engine presses a clicked one, with the click's sound;
+// nothing where it is hidden or disabled.
+void PressListedButtonK1(void* panel, void* button)
 {
-    return OkButtonOfK1(panel) != nullptr;
-}
-
-void PressOkK1(void* panel)
-{
-    void* const button = OkButtonOfK1(panel);
     if (!button) {
         return;
     }
@@ -3618,6 +3628,11 @@ void PressOkK1(void* panel)
     reinterpret_cast<HandleFn>((*reinterpret_cast<void***>(button))[K1_VTABLE_HANDLE_INPUT / 4])(
         button, K1_GUI_EVENT_CONFIRM, 1);
 }
+
+bool HasOkButtonK1(void* panel) { return ListedButtonK1(panel, K1_OK_BUTTONS) != nullptr; }
+void PressOkK1(void* panel) { PressListedButtonK1(panel, ListedButtonK1(panel, K1_OK_BUTTONS)); }
+bool HasCancelButtonK1(void* panel) { return ListedButtonK1(panel, K1_CANCEL_BUTTONS) != nullptr; }
+void PressCancelK1(void* panel) { PressListedButtonK1(panel, ListedButtonK1(panel, K1_CANCEL_BUTTONS)); }
 
 // ------------------------------------------------ the echo guard (2026-09-28)
 //
@@ -3793,6 +3808,82 @@ extern "C" int __cdecl GuardPanelEchoK1(void* panel, int* event, int* value)
     return 0;
 }
 
+// A release goes where its press went, as the mouse's does (2026-10-28).
+//
+// The mouse: a button's mouse-down goes to the control under the pointer, which takes
+// the capture (CSWGuiManager::SetCapture, 0x0040A1C0); the mouse-up goes to that
+// control alone (HandleLMouseUp, 0x0040A170), and a screen opening or closing in
+// between clears the capture, so that mouse-up reaches nothing. The pad's buttons have
+// no capture: they come in through CSWGuiManager::HandleInputEvent (0x0040C8E0), which
+// hands a press and, later, its release each to whatever screen is in front at that
+// moment (the top modal panel, or with none every panel). So when a press opened a
+// screen, its release reached the new one: the release of the A that pressed Save
+// confirmed the save name popup at once (CSWGuiSaveNamePanel::HandleInputEvent,
+// 0x006CB040, acts on A without looking at the value), with the name still empty, and
+// WriteGame closed the menu without a save (the maintainer: "the moment the enter name
+// popup shows up it closes the menu and doesn't save"). Character creation's name
+// entry had the same fault and its own guard on its dispatcher, GuardNameConfirmK1,
+// from 2026-09-25 until this replaced it.
+//
+// So the screen in front when a press comes in is kept for that event, and its release
+// is made the inert 0x41 when another screen is in front by then. A press and release
+// to the same screen are untouched. The engine's own button state is below this and is
+// not touched either: the release still clears it, so the next press is a press.
+struct PressTargetK1 { int event; void* screen; };
+PressTargetK1 g_pressTargets[16] = {};
+
+void* InputScreenK1(void* manager)
+{
+    if (!IsReadableK1(manager, 0x9C)) {
+        return nullptr;
+    }
+    const int modal = *FieldAt<int>(manager, 0x98);
+    void** const modals = *FieldAt<void**>(manager, 0x94);
+    if (modal > 0) {
+        return IsReadableK1(modals, modal * sizeof(void*)) ? modals[modal - 1] : nullptr;
+    }
+    const int count = *FieldAt<int>(manager, 0x8C);
+    void** const panels = *FieldAt<void**>(manager, 0x88);
+    return count > 0 && IsReadableK1(panels, count * sizeof(void*)) ? panels[count - 1] : nullptr;
+}
+
+extern "C" int __cdecl GuardReleaseTargetK1(void* manager, int* event, int* value)
+{
+    if (!manager || !event || !value || *event == K1_GUI_EVENT_INERT) {
+        return 0;
+    }
+    PressTargetK1* known = nullptr;
+    for (PressTargetK1& t : g_pressTargets) {
+        if (t.screen && t.event == *event) {
+            known = &t;
+            break;
+        }
+    }
+    void* const screen = InputScreenK1(manager);
+    if (*value != 0) {
+        if (!known) {
+            for (PressTargetK1& t : g_pressTargets) {
+                if (!t.screen) {
+                    known = &t;
+                    break;
+                }
+            }
+        }
+        if (known) {
+            *known = {*event, screen};
+        }
+        return 0;
+    }
+    if (known) {
+        if (known->screen != screen) {
+            LogGuardK1("a release for another screen than its press -> inert", screen, *event, *value);
+            *event = K1_GUI_EVENT_INERT;
+        }
+        *known = {};
+    }
+    return 0;
+}
+
 void* NavigationPanelK1(void** outTabBar);
 
 // Screens whose A already presses the focused button, or is resolved otherwise:
@@ -3800,6 +3891,7 @@ void* NavigationPanelK1(void** outTabBar);
 // FeatsConfirmK1) and the resolution box (ResolveResolutionConfirmK1).
 constexpr std::uintptr_t K1_OWN_CONFIRM_DISPATCHERS[] = {
     0x006F8880, 0x006F6A10, 0x006F4680, 0x006F28C0, 0x006F8FF0, 0x006FA220, 0x006E0CF0,
+    0x00695980,     // the galaxy map: A is Travel whatever holds focus (NavigateGalaxyMapK1)
 };
 
 // The focused button, when it is one whose click presses something on its panel.
@@ -3898,6 +3990,11 @@ void PazaakPlayFocusedCardK1(void* panel)
 
 bool PazaakTableInFrontK1(void* panel);
 void PazaakEndTurnK1(void* panel);
+constexpr std::uintptr_t K1_PAZAAK_SETUP_DISPATCHER = 0x006816F0;
+#ifdef KMRP_CONTROLLER_STANDALONE
+bool PazaakSetupInFrontK1(void* panel);
+void PazaakSetupPlayK1(void* panel);
+#endif
 void PazaakStandK1(void* panel);
 void PazaakFlipFocusedCardK1(void* panel);
 
@@ -3913,12 +4010,20 @@ constexpr ButtonRemapK1 K1_BUTTON_REMAPS[] = {
       PazaakTableInFrontK1 },
     { K1_PAZAAK_GAME_DISPATCHER, 0x78, K1_EVENT_DESC_UP, "LB: flip the card (Pazaak)", PazaakFlipFocusedCardK1,
       PazaakTableInFrontK1 },
+#ifdef KMRP_CONTROLLER_STANDALONE
+    // The side deck screen's A is Play, as on the Xbox; its dispatcher has no A of its own
+    // (see the side deck screen below).
+    { K1_PAZAAK_SETUP_DISPATCHER, 0x74, K1_EVENT_A, "A: Play (Pazaak side deck)", PazaakSetupPlayK1,
+      PazaakSetupInFrontK1 },
+#endif
     { K1_FEATS_DISPATCHER,   0x74, K1_EVENT_X,     "A: OK (Feats)",       FeatsConfirmK1 },
     { K1_FEATS_DISPATCHER,   0x76, K1_EVENT_A,     "X: Add Feat (Feats)", FeatsAddK1 },
     { 0,                     0x77, K1_EVENT_Y,     "Y: Default (settings)", PressDefaultK1,
       HasDefaultButtonK1 },
     { 0,                     0x76, K1_EVENT_X,     "X: OK (Advanced Graphics, Advanced Sound)", PressOkK1,
       HasOkButtonK1 },
+    { 0,                     0x76, K1_EVENT_X,     "X: Cancel (character creation)", PressCancelK1,
+      HasCancelButtonK1 },
     // Last, so Pazaak's and Feats' own A come first. See the echo guard.
     { 0,                     0x74, K1_EVENT_A,     "A: the focused button", PressFocusedRaiseButtonK1,
       HasFocusedRaiseButtonK1 },
@@ -4861,16 +4966,17 @@ void PazaakFlipFocusedCardK1(void* panel)
                         "LB flips the focused Pazaak card");
 }
 
-// A label made from one of the panel's own, by its tag, and added after the others:
+// A control made from one of the panel's own, by its tag, and added after the others:
 // the file's array has no free slots (as K1ControllerLayout.cpp's bindAppend). Null
-// when the panel's layout has no such tag.
-void* AppendLabelLikeK1(void* panel, const char* like)
+// when the panel's layout has no such tag. A label, or (with its size and constructor)
+// another kind: CSWGuiButton is 0x1C4 bytes, made by 0x0041C0F0.
+void* AppendControlLikeK1(void* panel, const char* like, std::size_t size, std::uintptr_t ctor)
 {
-    void* const label = EngineFn<OperatorNewFn>(K1_OPERATOR_NEW)(K1_GUI_LABEL_SIZE);
+    void* const label = EngineFn<OperatorNewFn>(K1_OPERATOR_NEW)(size);
     if (!label) {
         return nullptr;
     }
-    EngineFn<GuiLabelCtorFn>(K1_GUI_LABEL_CTOR)(label);
+    EngineFn<GuiLabelCtorFn>(ctor)(label);
     *FieldAt<int>(label, K1_CONTROL_ID) = -1;
     void* name[2] = { nullptr, nullptr };
     EngineFn<ExoStringCtorFn>(K1_EXOSTRING_CTOR)(&name, like);
@@ -4892,6 +4998,11 @@ void* AppendLabelLikeK1(void* panel, const char* like)
         return nullptr;
     }
     return label;
+}
+
+void* AppendLabelLikeK1(void* panel, const char* like)
+{
+    return AppendControlLikeK1(panel, like, K1_GUI_LABEL_SIZE, K1_GUI_LABEL_CTOR);
 }
 
 // The table as it is built, with its layout still loaded: the pad's focus kept off
@@ -5026,6 +5137,1101 @@ void ForgetPazaakTableK1(void* panel)
     g_pazaakTable = PazaakTableK1{};
 }
 
+#ifdef KMRP_CONTROLLER_STANDALONE
+// ------------------------------------------------ class selection's Select (2026-10-28)
+//
+// Character creation's class screen has one button at its foot, Cancel, between two
+// arrows in the screen's art; A picks the focused class, which nothing on screen said. With
+// the pad in use the foot shows two buttons instead, Select (A) on the left and Cancel (B)
+// on the right, the two arrows and the gaps between all four equal (the maintainer,
+// 2026-10-28: "can we split the button here and have one for select with x ... only in
+// controller mode ... make the gaps between the art arrows and the gab between the buttons
+// equal"). With the mouse the screen is as the game has it.
+//
+// The capsule Cancel sits on and the arrows are the panel's own picture (classsel.gui's
+// lbl_cg_clsssel, stretched over the panel), so the picture is drawn anew: a copy of it
+// with every column between the two arrows made again, gap columns from the gap beside
+// the arrows and each capsule from the old capsule's two rounded ends and a column of its
+// middle, so the ends keep their shape. It is found in the picture itself, from Cancel's
+// middle outward (ClassSelectArtK1), so a mod's version of the screen is measured as it is.
+// Select is a button made like Cancel (AppendControlLikeK1), the game's own "Select"
+// (string 236, as Script Selection's), wearing an A badge (kmrpa_clssel) and kept off the
+// pad's focus; A already picks the focused class.
+bool KmrpWriteDrawnPictureK1(const char* name, const std::vector<std::uint8_t>& sheet, int width, int height);
+void KmrpPromptFillK1(void* control, const char* value);
+void KmrpBadgeCentreK1(void* button, bool on);     // glyph and caption centred together
+
+constexpr std::uintptr_t K1_CLASS_SELECT_VTABLE   = 0x00758020;
+constexpr std::size_t    K1_CLASS_SELECT_CANCEL   = 0x1394;       // BTN_BACK
+constexpr int            K1_SELECT_STRING         = 236;          // "Select"
+constexpr std::uintptr_t K1_GUI_BUTTON_CTOR       = 0x0041C0F0;
+constexpr std::size_t    K1_GUI_BUTTON_SIZE       = 0x1C4;
+constexpr std::size_t    K1_BUTTON_TEXT_PARAMS    = 0x16C;        // a button's CSWGuiTextParams (its CSWGuiText, +0x154, plus 0x18), what SetText takes
+constexpr std::size_t    K1_PANEL_BORDER          = 0x5C;         // CSWGuiBorder*, its parameters 0x14 in
+
+struct ClassBoxK1 { int left, top, width, height; };
+bool SameBoxK1(const ClassBoxK1& a, const ClassBoxK1& b)
+{
+    return a.left == b.left && a.top == b.top && a.width == b.width && a.height == b.height;
+}
+
+struct ClassSelectPadK1 {
+    void* panel = nullptr;
+    void* select = nullptr;            // ours
+    ClassBoxK1 cancelWas{};            // Cancel where the layout put it
+    char fillWas[17] = {};             // the panel's own picture
+    // The drawing, for the picture, panel and Cancel it was made for.
+    char madeFor[17] = {};
+    ClassBoxK1 panelFor{}, cancelFor{};
+    bool made = false, ok = false;
+    char drawn[17] = {};
+    ClassBoxK1 selectAt{}, cancelAt{};
+    int shown = -1;
+} g_classSelect;
+
+char* PanelFillParamsK1(void* panel)
+{
+    char* const border = *FieldAt<char*>(panel, K1_PANEL_BORDER);
+    return LooksLikePointerK1(border) ? border + 0x14 : nullptr;
+}
+
+// The panel's picture drawn with two capsules between its arrows, for Cancel at `cancel`:
+// true with the drawing's name and the two buttons' places, false where the picture is
+// not uploaded yet or its foot is not a capsule between two arrows (nothing is changed).
+bool ClassSelectArtK1(const char* fill, const ClassBoxK1& panel, const ClassBoxK1& cancel)
+{
+    g_classSelect.ok = false;
+    void* const texture = EngineFn<void*(__cdecl*)(const char*, int)>(0x00423A60)(fill, 0);   // AurTextureGetReference
+    const unsigned name = texture ? K1CaptionInk::UploadedName(texture) : 0;
+    int width = 0, height = 0;
+    unsigned char* const pixels = name ? K1CaptionInk::ReadUploaded(name, &width, &height) : nullptr;
+    if (!pixels) {
+        return false;
+    }
+    if (panel.width <= 0 || panel.height <= 0 || width < 64 || height < 64) {
+        std::free(pixels);
+        return false;
+    }
+    // Rows counted from the picture's top as drawn; OpenGL's row 0 is its foot.
+    const auto at = [&](int x, int y) { return pixels + (static_cast<std::size_t>(height - 1 - y) * width + x) * 4; };
+    const auto light = [&](int x, int y) { const unsigned char* p = at(x, y); return (std::max)(p[0], (std::max)(p[1], p[2])); };
+    const auto texX = [&](int sx) { return static_cast<int>(static_cast<long long>(sx - panel.left) * width / panel.width); };
+    const auto texY = [&](int sy) { return static_cast<int>(static_cast<long long>(sy - panel.top) * height / panel.height); };
+    const int r0 = (std::max)(0, texY(cancel.top + cancel.height / 10));
+    const int r1 = (std::min)(height - 1, texY(cancel.top + cancel.height - cancel.height / 10));
+    const int c = texX(cancel.left + cancel.width / 2);
+    bool fine = r1 > r0 && c > 0 && c < width - 1;
+    // Each column's brightest texel within Cancel's rows.
+    std::vector<int> most(static_cast<std::size_t>(width), 0);
+    for (int x = 0; fine && x < width; ++x) {
+        for (int y = r0; y <= r1; ++y) most[x] = (std::max)(most[x], static_cast<int>(light(x, y)));
+    }
+    // The capsule: from its middle out to where the light falls below six tenths of its
+    // middle's (in lbl_cg_clsssel: the middle 40 to 47, the rounded ends 84, the gap 21);
+    // then the dark gap, out to the arrow, which is half again as bright as the middle and
+    // more (230 and over). Each end is as wide as the run brighter than the middle.
+    const int inside = fine ? most[c] : 0;
+    int capL = c, capR = c, arrowL = -1, arrowR = -1;
+    if (fine && inside > 0) {
+        while (capL > 0 && most[capL - 1] * 10 >= inside * 6) --capL;
+        while (capR < width - 1 && most[capR + 1] * 10 >= inside * 6) ++capR;
+        for (int x = capL - 1; x > 0 && arrowL < 0; --x) if (most[x] * 2 >= inside * 3) arrowL = x;
+        for (int x = capR + 1; x < width - 1 && arrowR < 0; ++x) if (most[x] * 2 >= inside * 3) arrowR = x;
+    }
+    int end = 0;
+    while (fine && capL + end < c && most[capL + end] > inside + 3) ++end;
+    const int capsule = capR - capL + 1;
+    const int gapL = capL - arrowL - 1, gapR = arrowR - capR - 1;
+    fine = fine && inside > 0 && arrowL >= 0 && arrowR >= 0 && gapL > 0 && gapR > 0 &&
+           gapL < capsule / 4 && gapR < capsule / 4 && end > 0 && end < capsule / 3;
+    const int gap = (gapL + gapR) / 2;
+    const int span = arrowR - arrowL - 1;
+    const int each = (span - 3 * gap) / 2;
+    fine = fine && each > 2 * end + 4;
+    if (!fine) {
+        std::free(pixels);
+        return false;
+    }
+    const int x0 = arrowL + 1 + gap, x1 = x0 + each, x2 = x1 + gap, x3 = x2 + each;
+    // The capsule's rows: where an end's column differs from the gap's.
+    const int endColumn = capL + end / 2, gapColumn = arrowL + 1 + gapL / 2;
+    int top = -1, bottom = -1;
+    const int reach = (std::max)(2, (r1 - r0) / 2);
+    for (int y = (std::max)(0, r0 - reach); y <= (std::min)(height - 1, r1 + reach); ++y) {
+        const unsigned char *a = at(endColumn, y), *b = at(gapColumn, y);
+        if (std::abs(a[0] - b[0]) + std::abs(a[1] - b[1]) + std::abs(a[2] - b[2]) > 12) {
+            if (top < 0) top = y;
+            bottom = y;
+        }
+    }
+    if (top < 0) {
+        std::free(pixels);
+        return false;
+    }
+    // The drawing, top row first: the picture, and between the arrows in those rows (and
+    // one more each side) the gap's column, and the two capsules.
+    std::vector<std::uint8_t> sheet(static_cast<std::size_t>(width) * height * 4);
+    for (int y = 0; y < height; ++y) std::memcpy(&sheet[static_cast<std::size_t>(y) * width * 4], at(0, y), static_cast<std::size_t>(width) * 4);
+    const auto from = [&](int i) {         // a capsule's column `i` of `each`, in the old capsule
+        if (i < end) return capL + i;
+        if (i >= each - end) return capR - (each - 1 - i);
+        return c;
+    };
+    for (int y = (std::max)(0, top - 1); y <= (std::min)(height - 1, bottom + 1); ++y) {
+        for (int x = arrowL + 1; x < arrowR; ++x) {
+            const int source = x >= x0 && x < x1 ? from(x - x0) : x >= x2 && x < x3 ? from(x - x2) : gapColumn;
+            std::memcpy(&sheet[(static_cast<std::size_t>(y) * width + x) * 4], at(source, y), 4);
+        }
+    }
+    std::free(pixels);
+    std::uint32_t hash = 2166136261u;
+    for (const int v : {width, height, panel.left, panel.top, panel.width, panel.height,
+                        cancel.left, cancel.top, cancel.width, cancel.height}) {
+        hash = (hash ^ static_cast<std::uint32_t>(v)) * 16777619u;
+    }
+    for (const char* f = fill; *f; ++f) hash = (hash ^ static_cast<unsigned char>(*f)) * 16777619u;
+    char drawn[17] = {};
+    std::snprintf(drawn, sizeof drawn, "kmzcls%08x", hash);
+    if (!KmrpWriteDrawnPictureK1(drawn, sheet, width, height)) {
+        return false;
+    }
+    const auto screenX = [&](int tx) { return panel.left + static_cast<int>(static_cast<long long>(tx) * panel.width / width); };
+    std::memcpy(g_classSelect.drawn, drawn, sizeof drawn);
+    g_classSelect.selectAt = {screenX(x0), cancel.top, screenX(x1) - screenX(x0), cancel.height};
+    g_classSelect.cancelAt = {screenX(x2), cancel.top, screenX(x3) - screenX(x2), cancel.height};
+    g_classSelect.ok = true;
+    return true;
+}
+
+// As the screen is built: Select made, hidden, with its caption, and kept off the focus.
+void InstallClassSelectPadK1(void* panel)
+{
+    if (!LooksLikePointerK1(panel) || *FieldAt<std::uintptr_t>(panel, 0) != K1_CLASS_SELECT_VTABLE ||
+            !LooksLikePointerK1(*FieldAt<void**>(panel, K1_PANEL_GFF))) {
+        return;
+    }
+    g_classSelect = ClassSelectPadK1{};
+    g_classSelect.panel = panel;
+    void* const select = AppendControlLikeK1(panel, "BTN_BACK", K1_GUI_BUTTON_SIZE, K1_GUI_BUTTON_CTOR);
+    if (!select) {
+        return;
+    }
+    g_classSelect.select = select;
+    KmrpBadgeCentreK1(select, true);
+    KmrpBadgeCentreK1(FieldAt<std::uint8_t>(panel, K1_CLASS_SELECT_CANCEL), true);
+    *FieldAt<std::uint32_t>(select, K1_CONTROL_FLAGS) &= ~K1_CONTROL_FLAG_DRAWN;
+    KmrpPadFocusExcludeK1(select, true);
+    if (void* const client = ClientExoAppK1()) {
+        void* text[2] = { nullptr, nullptr };          // CExoString
+        reinterpret_cast<void*(__thiscall*)(void*, void*, int)>(K1_GET_GUI_STRING)(client, &text, K1_SELECT_STRING);
+        reinterpret_cast<void(__thiscall*)(void*, void*)>(K1_GUI_TEXT_SET_TEXT)(FieldAt<std::uint8_t>(select, K1_BUTTON_TEXT_PARAMS), &text);
+        EngineFn<ExoStringDtorFn>(K1_EXOSTRING_DTOR)(&text);
+    }
+}
+
+// Every frame the screen is up: with the pad in use the drawn picture, Cancel on the right
+// capsule and Select on the left one; otherwise all as the layout has it.
+void UpdateClassSelectPadK1()
+{
+    ClassSelectPadK1& g = g_classSelect;
+    void* const panel = g.panel;
+    if (!panel || !g.select || !IsReadableK1(panel, K1_CLASS_SELECT_CANCEL + K1_GUI_BUTTON_SIZE) ||
+            *FieldAt<std::uintptr_t>(panel, 0) != K1_CLASS_SELECT_VTABLE) {
+        return;
+    }
+    char* const params = PanelFillParamsK1(panel);
+    void* const cancel = FieldAt<std::uint8_t>(panel, K1_CLASS_SELECT_CANCEL);
+    if (!params) {
+        return;
+    }
+    using SetExtentFn = void(__thiscall*)(void*, const ClassBoxK1*);
+    const auto place = [](void* control, const ClassBoxK1& box) {
+        if (!SameBoxK1(*FieldAt<ClassBoxK1>(control, 4), box))
+            reinterpret_cast<SetExtentFn>((*FieldAt<void**>(control, 0))[1])(control, &box);
+    };
+    char* const fill = params + K1_BORDER_PARAMS_FILL;
+    const ClassBoxK1 panelBox = *FieldAt<ClassBoxK1>(panel, 4);
+    const ClassBoxK1 cancelNow = *FieldAt<ClassBoxK1>(cancel, 4);
+    // The layout's own, taken again whenever something other than this moved them (the
+    // screen laid out again for another size).
+    if (!g.fillWas[0] || (_strnicmp(fill, g.drawn, 16) != 0 && _strnicmp(fill, g.fillWas, 16) != 0))
+        std::memcpy(g.fillWas, fill, 16);
+    if (g.cancelWas.width == 0 || (!SameBoxK1(cancelNow, g.cancelAt) && !SameBoxK1(cancelNow, g.cancelWas)))
+        g.cancelWas = cancelNow;
+    bool shown = IsControllerInputActiveK1();
+    if (shown && (!g.made || _strnicmp(g.madeFor, g.fillWas, 16) != 0 ||
+                  !SameBoxK1(g.panelFor, panelBox) || !SameBoxK1(g.cancelFor, g.cancelWas))) {
+        std::memcpy(g.madeFor, g.fillWas, 16);
+        g.panelFor = panelBox;
+        g.cancelFor = g.cancelWas;
+        // Made once its picture is uploaded: until then nothing is changed.
+        g.made = ClassSelectArtK1(g.fillWas, panelBox, g.cancelWas);
+    }
+    shown = shown && g.made && g.ok;
+    std::uint32_t& flags = *FieldAt<std::uint32_t>(g.select, K1_CONTROL_FLAGS);
+    if (shown) {
+        if (_strnicmp(fill, g.drawn, 16) != 0) EngineFn<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(params, g.drawn, 1);
+        place(cancel, g.cancelAt);
+        place(g.select, g.selectAt);
+        flags |= K1_CONTROL_FLAG_DRAWN;
+    } else {
+        if (g.fillWas[0] && _strnicmp(fill, g.fillWas, 16) != 0) {
+            char was[17] = {};
+            std::memcpy(was, g.fillWas, 16);
+            EngineFn<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(params, was, 1);
+        }
+        if (g.cancelWas.width > 0) place(cancel, g.cancelWas);
+        flags &= ~K1_CONTROL_FLAG_DRAWN;
+    }
+    if (int(shown) != g.shown) {
+        KmrpPromptFillK1(g.select, shown ? "kmrpa_clssel" : nullptr);
+        g.shown = shown;
+    }
+}
+
+// The screen's end (as ForgetPazaakTableK1): Select freed while the panel holds it.
+void ForgetClassSelectPadK1(void* panel)
+{
+    if (panel != g_classSelect.panel || !IsReadableK1(panel, K1_PANEL_GFF + sizeof(void*)) ||
+            *FieldAt<std::uintptr_t>(panel, 0) != K1_BASE_PANEL_VTABLE ||
+            *FieldAt<void*>(panel, K1_PANEL_GFF) != nullptr) {
+        return;
+    }
+    KmrpBadgeCentreK1(FieldAt<std::uint8_t>(panel, K1_CLASS_SELECT_CANCEL), false);
+    if (void* const select = g_classSelect.select) {
+        KmrpBadgeCentreK1(select, false);
+        KmrpPadFocusExcludeK1(select, false);
+        void** const controls = *FieldAt<void**>(panel, K1_PANEL_CONTROL_ARRAY);
+        const int count = *FieldAt<int>(panel, K1_PANEL_CONTROL_COUNT);
+        const int id = *FieldAt<int>(select, K1_CONTROL_ID);
+        if (id >= 0 && id < count && IsReadableK1(controls + id, sizeof(void*)) && controls[id] == select) {
+            controls[id] = nullptr;
+            using DeletingDtorFn = void*(__thiscall*)(void*, unsigned);
+            reinterpret_cast<DeletingDtorFn>((*FieldAt<void**>(select, 0))[0])(select, 1);
+        }
+    }
+    g_classSelect = ClassSelectPadK1{};
+}
+
+// ------------------------------------------------ Pazaak's side deck screen (2026-10-29)
+//
+// CSWGuiPazaakStart (pazaaksetup.gui, dispatcher 0x006816F0) with the pad in use is drawn as
+// the Xbox drew it (the maintainer, 2026-10-29: "lets actually recreate the xbox screen with
+// geometry", then the layout chosen from previews the same day). The Xbox's own
+// pazaaksetup.gui and its picture lbl_pazaak01 were measured (the maintainer's copy of the
+// Xbox game; nothing of it is in the repository): a left panel under the available cards, a
+// middle column (a box with a curved arrow and "Y Add card", the Available Cards bar coming
+// out of the left panel, the Chosen Cards bar opening into the right frame, a box with a
+// second arrow, the Play bar), and a right frame with a slot under each chosen card. Here:
+//
+//  * the left panel is 25% wider than the Xbox's, its three columns spread to fill it;
+//  * the right frame is as KMRP's layout places it, its two columns spaced so the three
+//    gaps across it are equal;
+//  * the middle column is centred on the panel and 25% wider than the Xbox's; what stands
+//    in it (arrows, texts, glyphs) keeps the Xbox's size;
+//  * every outline has the same dark margin round it (7.5 Xbox units), the column's parts
+//    the same gap between them, their heights shrunk alike to keep the Xbox's column height;
+//  * the lower box is square at its foot and the Play bar square at its top, as in the art.
+//
+// The picture is drawn at the panel's size over the Pazaak table (the gameplay screen's own
+// picture, lbl_pazaak, whichever the game loads), each part a colour at an opacity fitted
+// to the Xbox art over its table (the backdrop black at 0.80, the panels 0.86 to 1.0), so the
+// table shows through as on the Xbox. The cards are the game's, solid on top. With the
+// mouse the screen is as the game has it.
+//
+// Add Card is the panel's own m_btnSwitch (BTN_YTEXT, +0x6F34), which the PC layout hides; Y
+// moves the focused card (0x2A, HandleMoveCard 0x006807E0) and the game sets its caption to
+// Add Card or Remove Card as LT and RT (0x35, 0x36) move between the lists. Play is
+// m_btnAccept (+0x7108); the dispatcher has no A, so A presses it (K1_BUTTON_REMAPS). Both are
+// hints, never focused (K1_PAZAAK_SETUP_PROMPTS, vendor/K1XboxControls.cpp).
+constexpr std::uintptr_t K1_PAZAAK_SETUP_VTABLE = 0x007532E8;
+constexpr std::size_t    K1_PAZAAK_SETUP_TITLE  = 0x0064;
+constexpr std::size_t    K1_PAZAAK_SETUP_AVAIL  = 0x01A4;     // 18 CSWGuiPazaakCard, 0x31C apart
+constexpr std::size_t    K1_PAZAAK_SETUP_NUMS   = 0x399C;     // 18 count labels, 0x140 apart
+constexpr std::size_t    K1_PAZAAK_SETUP_CHOSEN = 0x501C;     // 10 cards
+constexpr std::size_t    K1_PAZAAK_SETUP_SWITCH = 0x6F34;
+constexpr std::size_t    K1_PAZAAK_SETUP_ACCEPT = 0x7108;
+constexpr std::size_t    K1_PAZAAK_SETUP_LTEXT  = 0x72DC;
+constexpr std::size_t    K1_PAZAAK_SETUP_RTEXT  = 0x741C;
+constexpr std::size_t    K1_PAZAAK_CARD_STRIDE  = 0x31C;
+constexpr std::size_t    K1_PAZAAK_CARD_FACE    = 0x1C4;      // the card's face label
+constexpr std::size_t    K1_LABEL_STRING        = 0xE4;       // a label's CSWGuiString (its text box, +0xD0, +0x14)
+
+extern "C" int __cdecl KmrpGlyphPictureK1(const char* glyph, int* rect, char* out);
+void KmrpBadgeCentreK1(void* button, bool on);
+
+// A control this screen moves, where the layout put it and where it is put here.
+struct SetupPlaceK1 { void* control; ClassBoxK1 was, at; };
+
+struct PazaakSetupPadK1 {
+    void* panel;
+    void* lt;                       // the two trigger glyphs, labels made here
+    void* rt;
+    std::vector<SetupPlaceK1> places;
+    std::uint32_t switchFlagsWas;
+    char fillWas[17];               // the panel's own picture
+    char drawn[17];                 // ours, and what it was drawn for
+    std::uint32_t drawnFor;
+    ClassBoxK1 ltAt, rtAt;
+    char ltFor, rtFor;
+    int shown;
+};
+PazaakSetupPadK1 g_pazaakSetup = {};
+
+void PazaakSetupPlayK1(void* panel)
+{
+    PressListedButtonK1(panel, FieldAt<std::uint8_t>(panel, K1_PAZAAK_SETUP_ACCEPT));
+}
+
+bool PazaakSetupInFrontK1(void* panel)
+{
+    return panel != nullptr && *FieldAt<std::uintptr_t>(panel, 0) == K1_PAZAAK_SETUP_VTABLE;
+}
+
+// ---- drawing: a sheet of RGBA, top row first, and the shapes on it
+
+struct SetupSheetK1 {
+    int width = 0, height = 0;
+    std::vector<std::uint8_t> rgba;
+    std::vector<std::uint8_t> table;    // the Pazaak table under it, the same size
+};
+
+struct SetupPaintK1 { float r, g, b, a; };      // a colour and its opacity over the table
+
+// Coverage (0..1) of a pixel centred at (px, py) by a rectangle whose four corners are
+// rounded by `radius` where `round` has the bit (1 top left, 2 top right, 4 bottom right,
+// 8 bottom left): the signed distance to its edge, over one pixel.
+float RoundedCoverK1(float px, float py, float x0, float y0, float x1, float y1, float radius, unsigned round)
+{
+    const float cx = px < (x0 + x1) / 2 ? x0 : x1, cy = py < (y0 + y1) / 2 ? y0 : y1;
+    const unsigned corner = (cy == y0 ? (cx == x0 ? 1u : 2u) : (cx == x1 ? 4u : 8u));
+    float d;
+    const float r = (round & corner) ? (std::min)(radius, (std::min)(x1 - x0, y1 - y0) / 2) : 0.0f;
+    const float ix = (std::max)(x0 + r, (std::min)(px, x1 - r));
+    const float iy = (std::max)(y0 + r, (std::min)(py, y1 - r));
+    if (r > 0 && (px < x0 + r || px > x1 - r) && (py < y0 + r || py > y1 - r)) {
+        d = std::sqrt((px - ix) * (px - ix) + (py - iy) * (py - iy)) - r;
+    } else {
+        d = (std::max)((std::max)(x0 - px, px - x1), (std::max)(y0 - py, py - y1));
+    }
+    return (std::max)(0.0f, (std::min)(1.0f, 0.5f - d));
+}
+
+// The pixel at (x, y) taken toward `paint` over the table by `cover`.
+void SetupBlendK1(SetupSheetK1& s, int x, int y, const SetupPaintK1& paint, float cover)
+{
+    if (cover <= 0.0f) return;
+    std::uint8_t* const p = &s.rgba[(static_cast<std::size_t>(y) * s.width + x) * 4];
+    const std::uint8_t* const t = &s.table[(static_cast<std::size_t>(y) * s.width + x) * 4];
+    const float want[3] = {t[0] + (paint.r - t[0]) * paint.a, t[1] + (paint.g - t[1]) * paint.a, t[2] + (paint.b - t[2]) * paint.a};
+    for (int c = 0; c < 3; ++c) {
+        p[c] = static_cast<std::uint8_t>(std::lround(p[c] + (want[c] - p[c]) * cover));
+    }
+}
+
+void SetupRoundedK1(SetupSheetK1& s, float x0, float y0, float x1, float y1, float radius, unsigned round,
+                    const SetupPaintK1& paint)
+{
+    const int l = (std::max)(0, static_cast<int>(std::floor(x0)) - 1), r = (std::min)(s.width - 1, static_cast<int>(std::ceil(x1)) + 1);
+    const int t = (std::max)(0, static_cast<int>(std::floor(y0)) - 1), b = (std::min)(s.height - 1, static_cast<int>(std::ceil(y1)) + 1);
+    for (int y = t; y <= b; ++y) {
+        for (int x = l; x <= r; ++x) {
+            SetupBlendK1(s, x, y, paint, RoundedCoverK1(x + 0.5f, y + 0.5f, x0, y0, x1, y1, radius, round));
+        }
+    }
+}
+
+// An outline `w` wide just inside the rounded rectangle.
+void SetupOutlineK1(SetupSheetK1& s, float x0, float y0, float x1, float y1, float radius, unsigned round, float w,
+                    const SetupPaintK1& paint)
+{
+    const int l = (std::max)(0, static_cast<int>(std::floor(x0)) - 1), r = (std::min)(s.width - 1, static_cast<int>(std::ceil(x1)) + 1);
+    const int t = (std::max)(0, static_cast<int>(std::floor(y0)) - 1), b = (std::min)(s.height - 1, static_cast<int>(std::ceil(y1)) + 1);
+    for (int y = t; y <= b; ++y) {
+        for (int x = l; x <= r; ++x) {
+            const float outer = RoundedCoverK1(x + 0.5f, y + 0.5f, x0, y0, x1, y1, radius, round);
+            if (outer <= 0.0f) continue;
+            const float inner = RoundedCoverK1(x + 0.5f, y + 0.5f, x0 + w, y0 + w, x1 - w, y1 - w, (std::max)(0.0f, radius - w), round);
+            SetupBlendK1(s, x, y, paint, outer - inner);
+        }
+    }
+}
+
+// A closed polygon, by 4 x 4 samples a pixel (even-odd).
+void SetupPolygonK1(SetupSheetK1& s, const std::vector<std::pair<float, float>>& pts, const SetupPaintK1& paint)
+{
+    if (pts.size() < 3) return;
+    float minX = pts[0].first, maxX = minX, minY = pts[0].second, maxY = minY;
+    for (const auto& p : pts) {
+        minX = (std::min)(minX, p.first); maxX = (std::max)(maxX, p.first);
+        minY = (std::min)(minY, p.second); maxY = (std::max)(maxY, p.second);
+    }
+    const int l = (std::max)(0, static_cast<int>(minX)), r = (std::min)(s.width - 1, static_cast<int>(maxX) + 1);
+    const int t = (std::max)(0, static_cast<int>(minY)), b = (std::min)(s.height - 1, static_cast<int>(maxY) + 1);
+    std::vector<float> crossings;
+    std::vector<float> cover(static_cast<std::size_t>(r - l + 1));
+    for (int y = t; y <= b; ++y) {
+        std::fill(cover.begin(), cover.end(), 0.0f);
+        for (int sy = 0; sy < 4; ++sy) {
+            const float yy = y + (sy + 0.5f) / 4.0f;
+            crossings.clear();
+            for (std::size_t i = 0; i < pts.size(); ++i) {
+                const auto& a = pts[i];
+                const auto& c = pts[(i + 1) % pts.size()];
+                if ((a.second <= yy) != (c.second <= yy)) {
+                    crossings.push_back(a.first + (yy - a.second) * (c.first - a.first) / (c.second - a.second));
+                }
+            }
+            std::sort(crossings.begin(), crossings.end());
+            for (std::size_t i = 0; i + 1 < crossings.size(); i += 2) {
+                for (int x = l; x <= r; ++x) {
+                    for (int sx = 0; sx < 4; ++sx) {
+                        const float xx = x + (sx + 0.5f) / 4.0f;
+                        if (xx >= crossings[i] && xx < crossings[i + 1]) cover[x - l] += 1.0f / 16.0f;
+                    }
+                }
+            }
+        }
+        for (int x = l; x <= r; ++x) SetupBlendK1(s, x, y, paint, cover[x - l]);
+    }
+}
+
+// ---- the layout
+
+// The Xbox column's parts, top to bottom, in its 640x480 units (upper box, Available bar,
+// Chosen bar, lower box, Play bar), and an Xbox y carried into the column as spaced here.
+constexpr float K1_SETUP_PARTS[5][2] = {{38.4f, 198.75f}, {198.8f, 250.3f}, {251.25f, 290.6f}, {296.25f, 403.1f}, {413.4f, 440.6f}};
+constexpr float K1_SETUP_GAP = 7.5f;            // the dark margin and the gap, Xbox units
+
+float SetupColumnYK1(float u)
+{
+    float total = 0;
+    for (const auto& p : K1_SETUP_PARTS) total += p[1] - p[0];
+    const float k = (K1_SETUP_PARTS[4][1] - K1_SETUP_PARTS[0][0] - K1_SETUP_GAP * 4) / total;
+    float at = K1_SETUP_PARTS[0][0];
+    float prevU = K1_SETUP_PARTS[0][0], prevV = at;
+    if (u <= prevU) return u;
+    for (const auto& p : K1_SETUP_PARTS) {
+        // the gap before this part (none before the first)
+        if (u <= p[0]) return prevV + (at - prevV) * (u - prevU) / ((p[0] - prevU) > 0 ? (p[0] - prevU) : 1.0f);
+        const float end = at + (p[1] - p[0]) * k;
+        if (u <= p[1]) return at + (end - at) * (u - p[0]) / (p[1] - p[0]);
+        prevU = p[1];
+        prevV = end;
+        at = end + K1_SETUP_GAP;
+    }
+    return prevV + (u - prevU);
+}
+
+struct SetupLayoutK1 {
+    float s;                                    // Xbox units to pixels
+    float panelTop;
+    ClassBoxK1 panel;
+    float leftL, leftT, leftR, leftB;           // the left panel
+    float frameL, frameT, frameR, frameB;       // the right frame's outline
+    float colL, colR, boxL, boxR, mid;          // the middle column: plates' and boxes' edges, middle
+    int cardW, cardH;
+    float availPitch;
+    int availLeft, availCols;
+    std::vector<int> chosenCols;                // the chosen columns' new left edges
+    float X(float u) const { return mid + (u - 349.375f) * s; }
+    float Y(float u) const { return panelTop + SetupColumnYK1(u) * s; }
+};
+
+// ---- the controls
+
+void SetupSetBoxK1(void* control, const ClassBoxK1& box)
+{
+    using SetExtentFn = void(__thiscall*)(void*, const ClassBoxK1*);
+    if (!SameBoxK1(*FieldAt<ClassBoxK1>(control, 4), box))
+        reinterpret_cast<SetExtentFn>((*FieldAt<void**>(control, 0))[1])(control, &box);
+}
+
+// This screen's entry for a control, its layout place taken again whenever something other
+// than this has moved it (the screen laid out again for another size).
+SetupPlaceK1& SetupEntryK1(void* control)
+{
+    for (SetupPlaceK1& p : g_pazaakSetup.places) {
+        if (p.control == control) {
+            const ClassBoxK1 now = *FieldAt<ClassBoxK1>(control, 4);
+            if (!SameBoxK1(now, p.at) && !SameBoxK1(now, p.was)) {
+                p.was = now;
+                p.at = ClassBoxK1{};
+            }
+            return p;
+        }
+    }
+    const ClassBoxK1 now = *FieldAt<ClassBoxK1>(control, 4);
+    g_pazaakSetup.places.push_back({control, now, ClassBoxK1{}});
+    return g_pazaakSetup.places.back();
+}
+
+void SetupMoveK1(void* control, const ClassBoxK1& box)
+{
+    SetupPlaceK1& p = SetupEntryK1(control);
+    p.at = box;
+    SetupSetBoxK1(control, box);
+}
+
+void* SetupCardK1(void* panel, std::size_t first, int i)
+{
+    return FieldAt<std::uint8_t>(panel, first + static_cast<std::size_t>(i) * K1_PAZAAK_CARD_STRIDE);
+}
+
+int SetupTextWidthK1(void* label, std::size_t stringOffset)
+{
+    return K1CaptionInk::CaptionWidth(*FieldAt<void*>(label, stringOffset));
+}
+
+// The columns among cards' left edges: edges within half a card of each other are one
+// column, at the leftmost of them. The layout's own differ by a pixel or two within a
+// column (pazaaksetup.gui: BTN_AVAIL00 at 52, BTN_AVAIL01 at 53), and taken one by one
+// they made six columns of three and scattered the cards (the maintainer's first look,
+// 2026-10-29: "its a bit broken").
+std::vector<int> SetupColumnsK1(std::vector<int> lefts, int cardW)
+{
+    std::sort(lefts.begin(), lefts.end());
+    std::vector<int> cols;
+    for (const int left : lefts) {
+        if (cols.empty() || left - cols.back() > cardW / 2) cols.push_back(left);
+    }
+    return cols;
+}
+
+int SetupColumnOfK1(const std::vector<int>& cols, int left)
+{
+    int best = 0;
+    for (int i = 1; i < static_cast<int>(cols.size()); ++i) {
+        if (std::abs(cols[i] - left) < std::abs(cols[best] - left)) best = i;
+    }
+    return best;
+}
+
+// Where everything goes, from the layout's own places.
+bool SetupLayoutForK1(void* panel, SetupLayoutK1& L)
+{
+    L.panel = *FieldAt<ClassBoxK1>(panel, 4);
+    if (L.panel.width <= 0 || L.panel.height <= 0) return false;
+    L.s = L.panel.height / 480.0f;
+    L.panelTop = static_cast<float>(L.panel.top);
+    // The available cards as laid out: their columns.
+    std::vector<int> cols;
+    int top = INT_MAX, bottom = INT_MIN;
+    for (int i = 0; i < 18; ++i) {
+        const ClassBoxK1 was = SetupEntryK1(SetupCardK1(panel, K1_PAZAAK_SETUP_AVAIL, i)).was;
+        cols.push_back(was.left);
+        top = (std::min)(top, was.top);
+        bottom = (std::max)(bottom, was.top + was.height);
+        L.cardW = was.width;
+        L.cardH = was.height;
+    }
+    if (cols.empty() || L.cardW <= 0) return false;
+    cols = SetupColumnsK1(cols, L.cardW);
+    L.availLeft = cols.front();
+    L.availCols = static_cast<int>(cols.size());
+    const float s = L.s;
+    // The Xbox's left panel is 196 units wide (cards from 1 unit inside it), here 245.
+    L.availPitch = L.availCols > 1 ? (245.0f * s + 2.0f * s - L.cardW) / (L.availCols - 1) : 0.0f;
+    L.leftL = L.availLeft + 1.0f * s;
+    L.leftT = top - 2.0f * s;
+    L.leftR = L.availLeft + L.availPitch * (L.availCols - 1) + L.cardW - 1.0f * s;
+    L.leftB = bottom + 2.0f * s;
+    // The chosen cards as laid out: the frame round them, the Xbox's margins.
+    int cl = INT_MAX, cr = INT_MIN, ct = INT_MAX, cb = INT_MIN;
+    std::vector<int> ccols;
+    for (int i = 0; i < 10; ++i) {
+        const ClassBoxK1 was = SetupEntryK1(SetupCardK1(panel, K1_PAZAAK_SETUP_CHOSEN, i)).was;
+        cl = (std::min)(cl, was.left); cr = (std::max)(cr, was.left + was.width);
+        ct = (std::min)(ct, was.top); cb = (std::max)(cb, was.top + was.height);
+        ccols.push_back(was.left);
+    }
+    ccols = SetupColumnsK1(ccols, L.cardW);
+    L.frameL = cl - 3.5f * s;
+    L.frameR = cr + 5.0f * s;
+    L.frameT = ct + 1.0f * s - 4.0f * s;
+    L.frameB = cb + 4.0f * s;
+    // The slots (a card's body, 6.5 units in at each side) with equal gaps across the frame.
+    const float slot = L.cardW - 13.0f * s;
+    const int n = static_cast<int>(ccols.size());
+    const float gap = n > 0 ? (L.frameR - L.frameL - n * slot) / (n + 1) : 0.0f;
+    L.chosenCols.clear();
+    for (int i = 0; i < n; ++i) {
+        L.chosenCols.push_back(static_cast<int>(std::lround(L.frameL + gap * (i + 1) + slot * i - 6.5f * s)));
+    }
+    // The middle column, centred on the panel, 25% wider than the Xbox's (x 250..453.8).
+    const float middle = L.panel.left + L.panel.width / 2.0f;
+    const auto wide = [&](float u) { return middle + (u - 348.5f) * s * 1.25f; };
+    L.boxL = wide(257.5f);
+    L.boxR = wide(441.25f);
+    L.colL = L.boxL - K1_SETUP_GAP * s;
+    L.colR = L.boxR + K1_SETUP_GAP * s;
+    L.mid = (L.boxL + L.boxR) / 2.0f;
+    return true;
+}
+
+// The picture for the layout: the Pazaak table under it, read from the texture the game
+// loads (lbl_pazaak, stretched over the panel as the gameplay screen stretches it), and the
+// parts drawn over it. Its name in `out`; false until the table's picture is uploaded.
+bool SetupPictureK1(const SetupLayoutK1& L, int ltLeft, int rtRight, char (&out)[17])
+{
+    void* const texture = EngineFn<void*(__cdecl*)(const char*, int)>(0x00423A60)("lbl_pazaak", 0);   // AurTextureGetReference
+    const unsigned name = texture ? K1CaptionInk::UploadedName(texture) : 0;
+    int tw = 0, th = 0;
+    unsigned char* const pixels = name ? K1CaptionInk::ReadUploaded(name, &tw, &th) : nullptr;
+    if (!pixels) return false;
+    SetupSheetK1 s;
+    s.width = L.panel.width;
+    s.height = L.panel.height;
+    if (s.width > 4096 || s.height > 4096 || tw < 2 || th < 2) {
+        std::free(pixels);
+        return false;
+    }
+    s.table.resize(static_cast<std::size_t>(s.width) * s.height * 4);
+    // The table stretched over the panel, bilinear; OpenGL's row 0 is the picture's foot.
+    for (int y = 0; y < s.height; ++y) {
+        const float fy = (y + 0.5f) * th / s.height - 0.5f;
+        const int y0 = (std::max)(0, (std::min)(th - 1, static_cast<int>(std::floor(fy))));
+        const int y1 = (std::min)(th - 1, y0 + 1);
+        const float wy = (std::max)(0.0f, (std::min)(1.0f, fy - y0));
+        for (int x = 0; x < s.width; ++x) {
+            const float fx = (x + 0.5f) * tw / s.width - 0.5f;
+            const int x0 = (std::max)(0, (std::min)(tw - 1, static_cast<int>(std::floor(fx))));
+            const int x1 = (std::min)(tw - 1, x0 + 1);
+            const float wx = (std::max)(0.0f, (std::min)(1.0f, fx - x0));
+            const auto px = [&](int xx, int yy) { return pixels + (static_cast<std::size_t>(th - 1 - yy) * tw + xx) * 4; };
+            std::uint8_t* const o = &s.table[(static_cast<std::size_t>(y) * s.width + x) * 4];
+            for (int c = 0; c < 3; ++c) {
+                const float top = px(x0, y0)[c] + (px(x1, y0)[c] - px(x0, y0)[c]) * wx;
+                const float bottom = px(x0, y1)[c] + (px(x1, y1)[c] - px(x0, y1)[c]) * wx;
+                o[c] = static_cast<std::uint8_t>(std::lround(top + (bottom - top) * wy));
+            }
+            o[3] = 255;
+        }
+    }
+    std::free(pixels);
+    // Each part's colour and its opacity over the table, fitted to the Xbox art over its own
+    // table (lbl_pazaak01 against lbl_pazaak, per channel; the fit within 1 to 4 of 255).
+    const SetupPaintK1 backdrop{0, 0, 0, 0.80f};
+    const SetupPaintK1 panelBlue{36, 43, 64, 0.91f};
+    const SetupPaintK1 plate{12, 11, 11, 0.92f};
+    const SetupPaintK1 frameInside{6, 4, 4, 0.86f};
+    const SetupPaintK1 upperInside{18, 19, 23, 0.95f};
+    const SetupPaintK1 lowerInside{37, 44, 65, 1.0f};
+    const SetupPaintK1 playInside{6, 7, 8, 1.0f};
+    const SetupPaintK1 slotBlue{40, 46, 65, 0.95f};
+    const SetupPaintK1 line{44, 52, 76, 1.0f};
+    const SetupPaintK1 arrowLight{49, 54, 74, 1.0f};
+    const SetupPaintK1 arrowDark{12, 13, 17, 1.0f};
+    const SetupPaintK1 cyan{0, 175, 255, 1.0f};
+    s.rgba = s.table;
+    for (int y = 0; y < s.height; ++y)
+        for (int x = 0; x < s.width; ++x) SetupBlendK1(s, x, y, backdrop, 1.0f);
+    const float u = L.s, M = K1_SETUP_GAP * u, R = 8.75f * u, W = 1.25f * u;
+    const float ox = static_cast<float>(-L.panel.left), oy = static_cast<float>(-L.panel.top);
+    const auto rr = [&](float x0, float y0, float x1, float y1, float radius, unsigned round, const SetupPaintK1& p) {
+        SetupRoundedK1(s, x0 + ox, y0 + oy, x1 + ox, y1 + oy, radius, round, p);
+    };
+    const auto ol = [&](float x0, float y0, float x1, float y1, unsigned round) {
+        SetupOutlineK1(s, x0 + ox, y0 + oy, x1 + ox, y1 + oy, R, round, W, line);
+    };
+    const float upT = L.Y(38.4f), upB = L.Y(198.75f), avT = L.Y(198.8f), avB = L.Y(250.3f);
+    const float chT = L.Y(251.25f), chB = L.Y(290.6f), loT = L.Y(296.25f), loB = L.Y(403.1f);
+    const float plT = L.Y(413.4f), plB = L.Y(440.6f);
+    // The dark plates: the column above and below the Available bar, the frame's, and the
+    // Chosen bar's joining the column to it.
+    rr(L.colL, upT - M, L.colR, upB + M, R + M, 15, plate);
+    rr(L.colL, chT - M, L.colR, plB + M, R + M, 15, plate);
+    rr(L.frameL - M, L.frameT - M, L.frameR + M, L.frameB + M, R + M, 15, plate);
+    rr(L.boxL, chT - M, L.frameL + M, chB + M, 0, 0, plate);
+    // The left panel, and the Available bar coming out of it to the column's right edge.
+    rr(L.leftL, L.leftT, L.leftR, L.leftB, 7.0f * u, 15, panelBlue);
+    rr(L.leftR - 8.0f * u, avT, L.boxR + 5.0f * u, avB, 8.0f * u, 2 | 4, panelBlue);
+    // The frame and its slots.
+    rr(L.frameL, L.frameT, L.frameR, L.frameB, R, 15, frameInside);
+    ol(L.frameL, L.frameT, L.frameR, L.frameB, 15);
+    // The boxes, the bar opening into the frame (its edge cut where they meet).
+    rr(L.boxL, upT, L.boxR, upB, R, 15, upperInside);
+    ol(L.boxL, upT, L.boxR, upB, 15);
+    rr(L.boxL, chT, L.frameL + 8.0f * u, chB, R, 15, plate);
+    ol(L.boxL, chT, L.frameL + 8.0f * u, chB, 1 | 8);
+    rr(L.frameL - 2.0f * u, chT + W, L.frameL + 9.0f * u, chB - W, 0, 0, plate);
+    rr(L.boxL, loT, L.boxR, loB, R, 1 | 2, lowerInside);
+    ol(L.boxL, loT, L.boxR, loB, 1 | 2);
+    rr(L.boxL, plT, L.boxR, plB, R, 4 | 8, playInside);
+    ol(L.boxL, plT, L.boxR, plB, 4 | 8);
+    // The two arrows, in texels of the Xbox's 512 picture (x 1.25, y 0.9375 to its units).
+    const auto at = [&](float tx, float ty) { return std::make_pair(L.X(tx * 1.25f) + ox, L.Y(ty * 0.9375f) + oy); };
+    const auto arc = [&](std::vector<std::pair<float, float>>& v, float cx, float cy, float r, float a0, float a1) {
+        for (int i = 0; i <= 12; ++i) {
+            const float a = (a0 + (a1 - a0) * i / 12.0f) * 3.14159265f / 180.0f;
+            v.push_back(at(cx + r * std::cos(a), cy + r * std::sin(a)));
+        }
+    };
+    std::vector<std::pair<float, float>> up{at(246, 80), at(289, 80)};
+    arc(up, 289, 101, 21, -90, 0);
+    for (const auto& p : {std::make_pair(310.0f, 140.0f), std::make_pair(321.0f, 140.0f), std::make_pair(297.0f, 173.0f),
+                          std::make_pair(272.0f, 140.0f), std::make_pair(282.0f, 140.0f), std::make_pair(282.0f, 116.0f),
+                          std::make_pair(246.0f, 116.0f)}) {
+        up.push_back(at(p.first, p.second));
+    }
+    SetupPolygonK1(s, up, arrowLight);
+    std::vector<std::pair<float, float>> down;
+    for (const auto& p : {std::make_pair(246.0f, 328.0f), std::make_pair(272.0f, 328.0f), std::make_pair(272.0f, 376.0f),
+                          std::make_pair(290.0f, 376.0f), std::make_pair(290.0f, 362.0f), std::make_pair(314.0f, 393.0f),
+                          std::make_pair(290.0f, 424.0f), std::make_pair(290.0f, 410.0f), std::make_pair(272.0f, 410.0f)}) {
+        down.push_back(at(p.first, p.second));
+    }
+    arc(down, 272, 384, 26, 90, 180);
+    SetupPolygonK1(s, down, arrowDark);
+    // The cyan arrows beside the two titles, as lbl_arrow_l and lbl_arrow_r draw them
+    // (their tips toward the trigger glyph), from the titles' ends.
+    const auto cyanArrow = [&](float tipX, float cy, bool left) {
+        const float k = left ? 1.0f : -1.0f, q = 0.9f * u;
+        const float pts[7][2] = {{0, 0}, {9, -9.5f}, {9, -3.5f}, {13, -3.5f}, {13, 3.5f}, {9, 3.5f}, {9, 9.5f}};
+        std::vector<std::pair<float, float>> v;
+        for (const auto& p : pts) v.push_back({tipX + k * p[0] * q + ox, cy + p[1] * q + oy});
+        SetupPolygonK1(s, v, cyan);
+    };
+    const float avMid = (avT + avB) / 2, chMid = (chT + chB) / 2;
+    if (ltLeft > 0) cyanArrow(ltLeft - 4.0f * u - 13.0f * 0.9f * u, avMid, true);
+    if (rtRight > 0) cyanArrow(rtRight + 4.0f * u + 13.0f * 0.9f * u, chMid, false);
+    // The slots, under the chosen cards where they are put.
+    for (int i = 0; i < 10; ++i) {
+        const SetupPlaceK1* p = nullptr;
+        for (const SetupPlaceK1& e : g_pazaakSetup.places) {
+            if (e.control == SetupCardK1(g_pazaakSetup.panel, K1_PAZAAK_SETUP_CHOSEN, i)) p = &e;
+        }
+        if (!p || p->at.width <= 0) continue;
+        const ClassBoxK1& c = p->at;
+        rr(c.left + 6.5f * u, c.top + 1.0f * u, c.left + c.width - 6.5f * u, static_cast<float>(c.top + c.height), 4.0f * u, 15, slotBlue);
+    }
+    std::uint32_t hash = 2166136261u;
+    const auto mix = [&](std::uint32_t v) { hash = (hash ^ v) * 16777619u; };
+    mix(static_cast<std::uint32_t>(s.width)); mix(static_cast<std::uint32_t>(s.height));
+    mix(static_cast<std::uint32_t>(tw)); mix(static_cast<std::uint32_t>(th));
+    mix(static_cast<std::uint32_t>(ltLeft)); mix(static_cast<std::uint32_t>(rtRight));
+    for (int v : {static_cast<int>(L.leftR), static_cast<int>(L.frameL), static_cast<int>(L.boxL)}) mix(static_cast<std::uint32_t>(v));
+    for (std::size_t i = 0; i < s.table.size(); i += 4099) mix(s.table[i]);
+    std::snprintf(out, sizeof out, "kmzpzs%08x", hash);
+    return KmrpWriteDrawnPictureK1(out, s.rgba, s.width, s.height);
+}
+
+// As the screen is built: the two trigger glyphs made, hidden and without text.
+void InstallPazaakSetupPadK1(void* panel)
+{
+    if (!LooksLikePointerK1(panel) || *FieldAt<std::uintptr_t>(panel, 0) != K1_PAZAAK_SETUP_VTABLE ||
+            !LooksLikePointerK1(*FieldAt<void**>(panel, K1_PANEL_GFF))) {
+        return;
+    }
+    g_pazaakSetup = PazaakSetupPadK1{};
+    g_pazaakSetup.panel = panel;
+    g_pazaakSetup.shown = -1;
+    g_pazaakSetup.switchFlagsWas = *FieldAt<std::uint32_t>(panel, K1_PAZAAK_SETUP_SWITCH + K1_CONTROL_FLAGS);
+    // The switch bound from the layout, as the game binds Play (InitControl, 0x0040B930, with
+    // BTN_ATEXT and 1, at 0x00681E64). The PC game binds BTN_YTEXT only on the table's screen
+    // (to its own control, at 0x006815DB), so on this screen the switch was never loaded from
+    // pazaaksetup.gui nor added to the panel: its text settings were left unset (alignment
+    // 0xFFFFFF89 and a field not a number, against Play's 0x12 and 1.0, the play-test dump of
+    // 2026-10-29) and nothing drew its caption, only the Y on a label of this patch's (the
+    // maintainer: "text still isnt working for the top button"). Bound here while the layout
+    // is still loaded, and added; it stays hidden until the pad's screen shows it.
+    {
+        void* name[2] = { nullptr, nullptr };          // CExoString
+        EngineFn<ExoStringCtorFn>(K1_EXOSTRING_CTOR)(&name, "BTN_YTEXT");
+        void* const add = FieldAt<std::uint8_t>(panel, K1_PAZAAK_SETUP_SWITCH);
+        EngineFn<BindControlFn>(K1_GUI_PANEL_BIND_CONTROL)(panel, add, &name, 1);
+        EngineFn<ExoStringDtorFn>(K1_EXOSTRING_DTOR)(&name);
+        std::uint32_t& flags = *FieldAt<std::uint32_t>(add, K1_CONTROL_FLAGS);
+        flags = (flags & ~K1_CONTROL_FLAG_DRAWN) | (g_pazaakSetup.switchFlagsWas & K1_CONTROL_FLAG_DRAWN);
+    }
+    g_pazaakSetup.lt = AppendLabelLikeK1(panel, "LBL_LTEXT");
+    g_pazaakSetup.rt = AppendLabelLikeK1(panel, "LBL_RTEXT");
+    for (void* const label : {g_pazaakSetup.lt, g_pazaakSetup.rt}) {
+        if (!label) {
+            continue;
+        }
+        *FieldAt<std::uint32_t>(label, K1_CONTROL_FLAGS) &= ~K1_CONTROL_FLAG_DRAWN;
+        void* none[2] = { nullptr, nullptr };          // CExoString
+        EngineFn<ExoStringCtorFn>(K1_EXOSTRING_CTOR)(&none, "");
+        reinterpret_cast<void(__thiscall*)(void*, void*)>(K1_GUI_TEXT_SET_TEXT)(FieldAt<std::uint8_t>(label, K1_LABEL_TEXT), &none);
+        EngineFn<ExoStringDtorFn>(K1_EXOSTRING_DTOR)(&none);
+        std::uint32_t& style = *FieldAt<std::uint32_t>(label, K1_LABEL_BORDER_PARAMS + 0x1C);
+        style = (style & ~3u) | 2u;                    // stretched over its label (FILLSTYLE 2)
+    }
+    KmrpBadgeCentreK1(FieldAt<std::uint8_t>(panel, K1_PAZAAK_SETUP_SWITCH), true);
+    KmrpBadgeCentreK1(FieldAt<std::uint8_t>(panel, K1_PAZAAK_SETUP_ACCEPT), true);
+    // Add Card's caption. The game sets it only as LT or RT move between the lists (0x006817D6:
+    // CSWGuiTextParams::SetStrRef, 0x00415E50, ret 4, on the switch's text, +0x70A0, with
+    // 0x96C9 "Add card" or 0x96CA "Remove card"), so on the PC it was empty until then (the
+    // maintainer saw the Y alone). The available list has the focus first.
+    reinterpret_cast<void(__thiscall*)(void*, unsigned long)>(0x00415E50)(
+        FieldAt<std::uint8_t>(panel, K1_PAZAAK_SETUP_SWITCH + K1_BUTTON_TEXT_PARAMS), 0x96C9);
+    // Laid out now, before the screen is first drawn: from the frame's update alone the
+    // game's own layout showed for a frame or two (the maintainer: "it shows the layout
+    // after the art like a frame or two after").
+    UpdatePazaakSetupPadK1();
+}
+
+// A trigger glyph `height` tall with its far edge at `edge` (its right edge for LT, which
+// stands left of its arrow, its left edge for RT), on the line `middle`.
+void SetupTriggerGlyphK1(void* label, const char* glyph, float edge, bool rightEdge, float middle, float height,
+                         ClassBoxK1& at, char& drawnFor)
+{
+    if (!label) return;
+    int rect[4] = {0, static_cast<int>(std::lround(middle - height / 2)), static_cast<int>(std::lround(height)),
+                   static_cast<int>(std::lround(height))};
+    rect[0] = static_cast<int>(std::lround(edge - height / 2));         // centred there, then moved by its width
+    const char family = KmrpGlyphLetterK1();
+    char out[17] = {};
+    const ClassBoxK1 asked{rect[0], rect[1], rect[2], rect[3]};
+    if (!SameBoxK1(at, asked) || drawnFor != family) {
+        if (!KmrpGlyphPictureK1(glyph, rect, out)) return;
+        // Its far edge at `edge`: the picture is as wide as the glyph's proportions make it.
+        rect[0] = rightEdge ? static_cast<int>(std::lround(edge)) - rect[2] : static_cast<int>(std::lround(edge));
+        const ClassBoxK1 box{rect[0], rect[1], rect[2], rect[3]};
+        using SetExtentFn = void(__thiscall*)(void*, const ClassBoxK1*);
+        reinterpret_cast<SetExtentFn>((*FieldAt<void**>(label, 0))[1])(label, &box);
+        EngineFn<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(FieldAt<std::uint8_t>(label, K1_LABEL_BORDER_PARAMS), out, 1);
+        at = asked;
+        drawnFor = family;
+    }
+    *FieldAt<std::uint32_t>(label, K1_CONTROL_FLAGS) |= K1_CONTROL_FLAG_DRAWN;
+}
+
+// The Pazaak table's picture (lbl_pazaak, the gameplay screen's), referenced once the player
+// is in the world and kept, so it is loaded long before a game of Pazaak and the side deck
+// screen's picture is made as the screen opens. Until then the first game of a session showed
+// the table alone a moment before the layout came in behind the wager box (the maintainer:
+// "only the first time ... how does the game preload the original mouse and keyboard version?
+// just preload the xbox one with it there"); the game's own screen is one small picture,
+// ready at once.
+void PreloadPazaakTableK1()
+{
+    static bool done = false;
+    if (done || InputClassK1() != K1_CLASS_PC) return;
+    done = true;
+    EngineFn<void*(__cdecl*)(const char*, int)>(0x00423A60)("lbl_pazaak", 0);   // AurTextureGetReference, kept
+}
+
+// Every frame the screen is up.
+void UpdatePazaakSetupPadK1()
+{
+    PreloadPazaakTableK1();
+    PazaakSetupPadK1& g = g_pazaakSetup;
+    void* const panel = g.panel;
+    if (!panel || !IsReadableK1(panel, K1_PAZAAK_SETUP_RTEXT + K1_GUI_LABEL_SIZE) ||
+            *FieldAt<std::uintptr_t>(panel, 0) != K1_PAZAAK_SETUP_VTABLE) {
+        return;
+    }
+    char* const params = PanelFillParamsK1(panel);
+    if (!params) return;
+    char* const fill = params + K1_BORDER_PARAMS_FILL;
+    if (!g.fillWas[0] || (_strnicmp(fill, g.drawn, 16) != 0 && _strnicmp(fill, g.fillWas, 16) != 0)) {
+        std::memcpy(g.fillWas, fill, 16);
+    }
+    void* const add = FieldAt<std::uint8_t>(panel, K1_PAZAAK_SETUP_SWITCH);
+    void* const play = FieldAt<std::uint8_t>(panel, K1_PAZAAK_SETUP_ACCEPT);
+    void* const title = FieldAt<std::uint8_t>(panel, K1_PAZAAK_SETUP_TITLE);
+    void* const ltext = FieldAt<std::uint8_t>(panel, K1_PAZAAK_SETUP_LTEXT);
+    void* const rtext = FieldAt<std::uint8_t>(panel, K1_PAZAAK_SETUP_RTEXT);
+    std::uint32_t& addFlags = *FieldAt<std::uint32_t>(add, K1_CONTROL_FLAGS);
+    const bool shown = IsControllerInputActiveK1();
+    SetupLayoutK1 L{};
+    if (!shown || !SetupLayoutForK1(panel, L)) {
+        if (g.shown == 1) {
+            for (SetupPlaceK1& p : g.places) {
+                if (p.at.width > 0) SetupSetBoxK1(p.control, p.was);
+                p.at = ClassBoxK1{};
+            }
+            addFlags = (addFlags & ~K1_CONTROL_FLAG_DRAWN) | (g.switchFlagsWas & K1_CONTROL_FLAG_DRAWN);
+            if (g.fillWas[0] && _strnicmp(fill, g.fillWas, 16) != 0) {
+                char was[17] = {};
+                std::memcpy(was, g.fillWas, 16);
+                EngineFn<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(params, was, 1);
+            }
+        }
+        for (void* const label : {g.lt, g.rt}) {
+            if (label) *FieldAt<std::uint32_t>(label, K1_CONTROL_FLAGS) &= ~K1_CONTROL_FLAG_DRAWN;
+        }
+        g.shown = 0;
+        return;
+    }
+    const float u = L.s;
+    // The cards: the available ones' columns spread over the wider left panel, the chosen
+    // ones' spaced evenly in the frame; rows as the layout has them. A card's face label and
+    // (for an available card) its count go with it.
+    std::vector<int> availCols;
+    for (int i = 0; i < 18; ++i) {
+        const int left = SetupEntryK1(SetupCardK1(panel, K1_PAZAAK_SETUP_AVAIL, i)).was.left;
+        availCols.push_back(left);
+    }
+    availCols = SetupColumnsK1(availCols, L.cardW);
+    std::vector<int> chosenCols;
+    for (int i = 0; i < 10; ++i) {
+        const int left = SetupEntryK1(SetupCardK1(panel, K1_PAZAAK_SETUP_CHOSEN, i)).was.left;
+        chosenCols.push_back(left);
+    }
+    chosenCols = SetupColumnsK1(chosenCols, L.cardW);
+    const auto moveCard = [&](void* card, int newLeft) {
+        const ClassBoxK1 was = SetupEntryK1(card).was;
+        const int dx = newLeft - was.left;
+        SetupMoveK1(card, {newLeft, was.top, was.width, was.height});
+        void* const face = FieldAt<std::uint8_t>(card, K1_PAZAAK_CARD_FACE);
+        const ClassBoxK1 fw = SetupEntryK1(face).was;
+        SetupMoveK1(face, {fw.left + dx, fw.top, fw.width, fw.height});
+        return dx;
+    };
+    std::vector<std::pair<ClassBoxK1, int>> availMoved;     // each available card's place and move
+    for (int i = 0; i < 18; ++i) {
+        void* const card = SetupCardK1(panel, K1_PAZAAK_SETUP_AVAIL, i);
+        const ClassBoxK1 was = SetupEntryK1(card).was;
+        const int col = SetupColumnOfK1(availCols, was.left);
+        availMoved.push_back({was, moveCard(card, static_cast<int>(std::lround(L.availLeft + L.availPitch * col)))});
+    }
+    for (int i = 0; i < 10; ++i) {
+        void* const card = SetupCardK1(panel, K1_PAZAAK_SETUP_CHOSEN, i);
+        const ClassBoxK1 was = SetupEntryK1(card).was;
+        const int col = SetupColumnOfK1(chosenCols, was.left);
+        if (col < static_cast<int>(L.chosenCols.size())) moveCard(card, L.chosenCols[col]);
+    }
+    // Each count goes with the card it stands on (the nearest, by their middles).
+    for (int i = 0; i < 18; ++i) {
+        void* const num = FieldAt<std::uint8_t>(panel, K1_PAZAAK_SETUP_NUMS + static_cast<std::size_t>(i) * K1_GUI_LABEL_SIZE);
+        const ClassBoxK1 nw = SetupEntryK1(num).was;
+        long long best = LLONG_MAX;
+        int dx = 0;
+        for (const auto& m : availMoved) {
+            const long long ddx = (nw.left + nw.width / 2) - (m.first.left + m.first.width / 2);
+            const long long ddy = (nw.top + nw.height / 2) - (m.first.top + m.first.height / 2);
+            if (ddx * ddx + ddy * ddy < best) { best = ddx * ddx + ddy * ddy; dx = m.second; }
+        }
+        SetupMoveK1(num, {nw.left + dx, nw.top, nw.width, nw.height});
+    }
+    // What stands in the middle column, at the Xbox's places (its 640x480 units) in the
+    // column as spaced here: the title, Add Card and Play (glyph and caption centred together,
+    // KmrpBadgeCentreK1), and the two list titles centred in their bars.
+    const auto box = [&](float x0, float y0, float x1, float y1) {
+        return ClassBoxK1{static_cast<int>(std::lround(L.X(x0))), static_cast<int>(std::lround(L.Y(y0))),
+                          static_cast<int>(std::lround(L.X(x1) - L.X(x0))), static_cast<int>(std::lround(L.Y(y1) - L.Y(y0)))};
+    };
+    {
+        const ClassBoxK1 tw = SetupEntryK1(title).was;
+        const ClassBoxK1 t = box(259, 34, 443, 67);
+        SetupMoveK1(title, {t.left + t.width / 2 - (std::max)(t.width, tw.width) / 2, t.top, (std::max)(t.width, tw.width), t.height});
+    }
+    // Add Card and Play centred on the column (the Xbox's glyph-and-text boxes, 143 and 136
+    // units wide, stood right of its middle; the pair is centred in the button here).
+    const auto centred = [&](float width, float y0, float y1) {
+        return ClassBoxK1{static_cast<int>(std::lround(L.mid - width * u / 2)), static_cast<int>(std::lround(L.Y(y0))),
+                          static_cast<int>(std::lround(width * u)), static_cast<int>(std::lround(L.Y(y1) - L.Y(y0)))};
+    };
+    SetupMoveK1(add, centred(143, 161, 193));
+    // Add Card's caption in the list titles' blue (the maintainer, 2026-10-29: "same as
+    // availiable and chosen cards color blue"), not the button's own dim blue. The game sets the
+    // button's colour as the focus moves (CSWGuiActivatedButton::SetEnabled, 0x0067CC90), so it
+    // is set again every frame: the colour of "Available Cards" (its CSWGuiTextParams, +0xE8,
+    // three floats at +0x1C) through CSWGuiTextParams::SetColor (0x00414E10, as the button's
+    // own Draw sets it).
+    {
+        const float* const blue = reinterpret_cast<const float*>(FieldAt<char>(ltext, K1_LABEL_TEXT + 0x1C));
+        const float* const mine = reinterpret_cast<const float*>(FieldAt<char>(add, K1_BUTTON_TEXT_PARAMS + 0x1C));
+        if (std::memcmp(blue, mine, 12) != 0) {
+            float colour[3] = {blue[0], blue[1], blue[2]};
+            reinterpret_cast<void(__thiscall*)(void*, const float*)>(0x00414E10)(FieldAt<char>(add, K1_BUTTON_TEXT_PARAMS), colour);
+        }
+    }
+    SetupMoveK1(play, centred(136, 408, 441));
+    addFlags |= K1_CONTROL_FLAG_DRAWN;
+    const float avMid = (L.Y(198.8f) + L.Y(250.3f)) / 2, chMid = (L.Y(251.25f) + L.Y(290.6f)) / 2;
+    const float rowH = 32.0f * u;
+    int ltLeft = 0, rtRight = 0;
+    {
+        // "Available Cards" is left-aligned in its label (ALIGNMENT 17), "Chosen Cards"
+        // right-aligned (20): each label is placed so its text is centred on the column.
+        const int lw = SetupTextWidthK1(ltext, K1_LABEL_STRING);
+        const int rw = SetupTextWidthK1(rtext, K1_LABEL_STRING);
+        const ClassBoxK1 lwas = SetupEntryK1(ltext).was, rwas = SetupEntryK1(rtext).was;
+        if (lw > 0) {
+            ltLeft = static_cast<int>(std::lround(L.mid - lw / 2.0f));
+            SetupMoveK1(ltext, {ltLeft, static_cast<int>(std::lround(avMid - rowH / 2)), (std::max)(lw + 2, lwas.width / 4), static_cast<int>(std::lround(rowH))});
+        }
+        if (rw > 0) {
+            rtRight = static_cast<int>(std::lround(L.mid + rw / 2.0f));
+            const int width = (std::max)(rw + 2, rwas.width / 4);
+            SetupMoveK1(rtext, {rtRight - width, static_cast<int>(std::lround(chMid - rowH / 2)), width, static_cast<int>(std::lround(rowH))});
+        }
+    }
+    // The trigger glyphs beyond the cyan arrows: LT left of "Available Cards", RT right of
+    // "Chosen Cards" (the arrow 13 x 0.9 units long, 4 units from the text, 3 more to the glyph).
+    const float glyphH = 18.0f * u;
+    const float arrowLen = 13.0f * 0.9f * u;
+    if (ltLeft > 0) SetupTriggerGlyphK1(g.lt, "LT", ltLeft - 4.0f * u - arrowLen - 3.0f * u, true, avMid, glyphH, g.ltAt, g.ltFor);
+    if (rtRight > 0) SetupTriggerGlyphK1(g.rt, "RT", rtRight + 4.0f * u + arrowLen + 3.0f * u, false, chMid, glyphH, g.rtAt, g.rtFor);
+    // The picture, drawn again only when what it shows has changed.
+    std::uint32_t key = 2166136261u;
+    for (int v : {L.panel.left, L.panel.top, L.panel.width, L.panel.height, ltLeft, rtRight,
+                  static_cast<int>(L.leftR), static_cast<int>(L.frameL), static_cast<int>(L.boxL)}) {
+        key = (key ^ static_cast<std::uint32_t>(v)) * 16777619u;
+    }
+    if (!g.drawn[0] || g.drawnFor != key) {
+        char out[17] = {};
+        if (SetupPictureK1(L, ltLeft, rtRight, out)) {
+            std::memcpy(g.drawn, out, sizeof out);
+            g.drawnFor = key;
+        }
+    }
+    // Nothing is shown until the picture is: the cards moved before the picture was there
+    // and the screen changed in two steps, the table's picture (lbl_pazaak, the gameplay
+    // screen's) not uploaded yet the first time (the maintainer: "it shows the layout after
+    // the art like a frame or two after"; the log showed nothing else moving the controls).
+    // So the controls go back in this same frame, before it is drawn, and all of it changes
+    // together once the picture is made.
+    if (!g.drawn[0]) {
+        for (SetupPlaceK1& p : g.places) {
+            if (p.at.width > 0) SetupSetBoxK1(p.control, p.was);
+            p.at = ClassBoxK1{};
+        }
+        addFlags = (addFlags & ~K1_CONTROL_FLAG_DRAWN) | (g.switchFlagsWas & K1_CONTROL_FLAG_DRAWN);
+        for (void* const label : {g.lt, g.rt}) {
+            if (label) *FieldAt<std::uint32_t>(label, K1_CONTROL_FLAGS) &= ~K1_CONTROL_FLAG_DRAWN;
+        }
+        g.shown = 0;
+        return;
+    }
+    if (g.drawn[0] && _strnicmp(fill, g.drawn, 16) != 0) {
+        EngineFn<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(params, g.drawn, 1);
+    }
+    g.shown = 1;
+}
+
+// The screen's end (as ForgetPazaakTableK1): the two labels freed while the panel holds them.
+void ForgetPazaakSetupPadK1(void* panel)
+{
+    if (panel != g_pazaakSetup.panel || !IsReadableK1(panel, K1_PANEL_GFF + sizeof(void*)) ||
+            *FieldAt<std::uintptr_t>(panel, 0) != K1_BASE_PANEL_VTABLE ||
+            *FieldAt<void*>(panel, K1_PANEL_GFF) != nullptr) {
+        return;
+    }
+    KmrpBadgeCentreK1(FieldAt<std::uint8_t>(panel, K1_PAZAAK_SETUP_SWITCH), false);
+    KmrpBadgeCentreK1(FieldAt<std::uint8_t>(panel, K1_PAZAAK_SETUP_ACCEPT), false);
+    using DeletingDtorFn = void*(__thiscall*)(void*, unsigned);
+    void** const controls = *FieldAt<void**>(panel, K1_PANEL_CONTROL_ARRAY);
+    const int count = *FieldAt<int>(panel, K1_PANEL_CONTROL_COUNT);
+    for (void* const label : {g_pazaakSetup.lt, g_pazaakSetup.rt}) {
+        if (!label) {
+            continue;
+        }
+        const int id = *FieldAt<int>(label, K1_CONTROL_ID);
+        // As ForgetGuiCuesK1: a leak is safer than a double free.
+        if (id >= 0 && id < count && IsReadableK1(controls + id, sizeof(void*)) && controls[id] == label) {
+            controls[id] = nullptr;
+            reinterpret_cast<DeletingDtorFn>((*FieldAt<void**>(label, 0))[0])(label, 1);
+        }
+    }
+    g_pazaakSetup = PazaakSetupPadK1{};
+}
+#endif
+
 int RemappedButtonEventK1(int slot)
 {
     // Gameplay keeps every button as it is. Pazaak's table is asked about in the
@@ -5039,7 +6245,8 @@ int RemappedButtonEventK1(int slot)
         if (K1_BUTTON_REMAPS[i].slot != slot) {
             continue;
         }
-        if (inputClass != K1_CLASS_PCGUI && K1_BUTTON_REMAPS[i].panel != K1_PAZAAK_GAME_DISPATCHER) {
+        if (inputClass != K1_CLASS_PCGUI && K1_BUTTON_REMAPS[i].panel != K1_PAZAAK_GAME_DISPATCHER &&
+                K1_BUTTON_REMAPS[i].panel != K1_PAZAAK_SETUP_DISPATCHER) {
             continue;
         }
         if (K1_BUTTON_REMAPS[i].action != nullptr) {
@@ -5518,6 +6725,9 @@ bool KmrpOwnsDirectionsK1(bool vertical)
     if (PointsScreenForK1(DispatcherOfK1(panel)) != nullptr) {
         return true;                // see K1_POINTS_SCREENS
     }
+    if (DispatcherOfK1(panel) == 0x00695980) {
+        return true;                // the galaxy map: NavigateGalaxyMapK1
+    }
     void* const active = *FieldAt<void**>(panel, K1_PANEL_ACTIVE);
     return !PanelNavigatesItselfK1(panel, active, true,
                                    vertical ? NavAxisK1::Vertical : NavAxisK1::Horizontal);
@@ -5644,17 +6854,16 @@ bool NavigatePointsScreenK1(void* panel, void* active, const PointsScreenK1& s,
         g_pointsRow.row = row;
     }
 
+    // The bottom row (Recommended, OK, Cancel) is never focused: its pad buttons press it
+    // wherever the focus is, A falling through a row to OK (GuardChargenConfirmK1), Y and
+    // B by their badges (the maintainer, 2026-10-28: "here the bottom row is focusable by
+    // the controller, make it not focusable as well, just the buttons work when pressing
+    // them"). Until then Down from the last row went to OK and Left and Right along the
+    // row. Focus left there by the mouse goes back to the rows at the next move.
     if (strip >= 0) {
-        if (dx != 0) {
-            const int next = strip + (dx < 0 ? -1 : 1);
-            if (next >= 0 && next < 3) {
-                SetFocusK1(panel, control(s.strip[next]));
-            }
-        } else if (dy < 0) {
-            const int back = g_pointsRow.row >= 0 ? g_pointsRow.row : s.rowCount - 1;
-            SetFocusK1(panel, control(s.rows[back]));
-            g_pointsRow.row = back;
-        }
+        const int back = g_pointsRow.row >= 0 ? g_pointsRow.row : s.rowCount - 1;
+        SetFocusK1(panel, control(s.rows[back]));
+        g_pointsRow.row = back;
         return true;
     }
     if (row < 0) {                  // nothing of ours in focus: land on a row first
@@ -5664,13 +6873,11 @@ bool NavigatePointsScreenK1(void* panel, void* active, const PointsScreenK1& s,
         return true;
     }
     if (dy != 0) {
-        const int next = row + (dy < 0 ? -1 : 1);
-        if (next >= s.rowCount) {
-            SetFocusK1(panel, control(s.strip[1]));     // OK, directly below
-        } else if (next >= 0) {
-            SetFocusK1(panel, control(s.rows[next]));
-            g_pointsRow.row = next;
-        }
+        // Round the list: Down from the last row is the first, Up from the first the last
+        // (the maintainer, 2026-10-28).
+        const int next = (row + (dy < 0 ? s.rowCount - 1 : 1)) % s.rowCount;
+        SetFocusK1(panel, control(s.rows[next]));
+        g_pointsRow.row = next;
         return true;
     }
     // Left / Right on a row. Its value button takes focus first if a - or +
@@ -5685,6 +6892,108 @@ bool NavigatePointsScreenK1(void* panel, void* active, const PointsScreenK1& s,
     }
     using ValueFn = void(__thiscall*)(void*);
     reinterpret_cast<ValueFn>(dx < 0 ? s.lower : s.raise)(panel);
+    return true;
+}
+
+// The galaxy map (CSWGuiInGameGalaxyMap, dispatcher 0x00695980). Its own dispatcher took
+// Left and Up for the previous planet and Right and Down for the next (SelectPreviousPlanet
+// 0x00694CA0, SelectNextPlanet 0x00694BF0), in planets.2da's order, which jumps about the
+// map, and the panel's base handler moved the focus over the planets and onto Travel and
+// Cancel as well, so two planets were lit at once (the maintainer, 2026-10-28: "the cycling
+// through the planets with controller is wrong", "two planets get highlighted"). KMRP owns
+// the directions here instead: Left and Right go to the next planet across the screen,
+// Up and Down to the next one up or down, round at the ends, among the planets the game
+// lets the player pick, and the focus stays on the selected planet. The selection is made
+// as the game's own two do: the old planet's button unselected (vtable +0x40), the party
+// table's selected planet set (0x00563B60, its +0xE0), the new button selected and the
+// planet shown (DisplayPlanet 0x006933A0, ret 8). Travel and Cancel are A and B whatever
+// holds focus, and are never focused (K1_GALAXY_MAP_PROMPTS, vendor/K1XboxControls.cpp).
+constexpr std::uintptr_t K1_GALAXY_MAP_DISPATCHER  = 0x00695980;
+constexpr std::size_t    K1_GALAXY_PLANETS         = 0x64;          // 16 buttons, by planet
+constexpr std::size_t    K1_GALAXY_PLANET_STRIDE   = 0x1C4;
+constexpr int            K1_GALAXY_PLANET_COUNT    = 16;
+constexpr std::uintptr_t K1_GALAXY_DISPLAY_PLANET  = 0x006933A0;
+constexpr std::uintptr_t K1_GET_PARTY_TABLE        = 0x004AEE70;    // CServerExoApp, ret 0
+constexpr std::uintptr_t K1_PLANET_SELECTABLE      = 0x00563B00;    // ret 4
+constexpr std::uintptr_t K1_PLANET_AVAILABLE       = 0x00563B40;    // ret 4
+constexpr std::uintptr_t K1_SET_SELECTED_PLANET    = 0x00563B60;    // ret 4
+constexpr std::size_t    K1_PARTY_SELECTED_PLANET  = 0xE0;
+constexpr std::size_t    K1_VTABLE_SET_SELECTED    = 0x40;
+
+void* PartyTableK1()
+{
+    void** const appManager = *reinterpret_cast<void***>(K1_CLIENT_EXO_APP_ROOT);
+    if (!LooksLikePointerK1(appManager) || !LooksLikePointerK1(appManager[2])) {
+        return nullptr;
+    }
+    return reinterpret_cast<void*(__thiscall*)(void*)>(K1_GET_PARTY_TABLE)(appManager[2]);
+}
+
+bool NavigateGalaxyMapK1(void* panel, int dx, int dy)
+{
+    void* const table = PartyTableK1();
+    if (!table) {
+        return false;
+    }
+    using PlanetFn = int(__thiscall*)(void*, int);
+    const auto button = [panel](int planet) {
+        return static_cast<void*>(static_cast<char*>(panel) + K1_GALAXY_PLANETS + planet * K1_GALAXY_PLANET_STRIDE);
+    };
+    // Twice a button's middle, along the axis or across it.
+    const auto centre = [&](int planet, bool across) {
+        void* const b = button(planet);
+        return across ? *FieldAt<int>(b, K1_CTL_X) * 2 + *FieldAt<int>(b, K1_CTL_W)
+                      : *FieldAt<int>(b, K1_CTL_Y) * 2 + *FieldAt<int>(b, K1_CTL_H);
+    };
+    const int current = *FieldAt<int>(table, K1_PARTY_SELECTED_PLANET);
+    if (current < 0 || current >= K1_GALAXY_PLANET_COUNT) {
+        return true;
+    }
+    // Along the axis pressed, the planets in order of their middles (the other axis
+    // breaking ties), and the next one in the direction pressed, round at the ends.
+    const bool across = dx != 0;
+    const int step = across ? (dx < 0 ? -1 : 1) : (dy < 0 ? -1 : 1);
+    const auto before = [&](int a, int b) {
+        const int ka = centre(a, across), kb = centre(b, across);
+        if (ka != kb) return ka < kb;
+        const int la = centre(a, !across), lb = centre(b, !across);
+        return la != lb ? la < lb : a < b;
+    };
+    int next = -1;
+    bool nextAhead = false;
+    for (int i = 0; i < K1_GALAXY_PLANET_COUNT; ++i) {
+        if (i == current || !reinterpret_cast<PlanetFn>(K1_PLANET_AVAILABLE)(table, i) ||
+                !reinterpret_cast<PlanetFn>(K1_PLANET_SELECTABLE)(table, i)) {
+            continue;
+        }
+        const bool ahead = step > 0 ? before(current, i) : before(i, current);
+        // The nearest ahead; with none ahead, the farthest behind (round the end).
+        const bool better = next < 0 || (ahead && !nextAhead) ||
+            (ahead == nextAhead && (step > 0 ? before(i, next) : before(next, i)));
+        if (better) {
+            next = i;
+            nextAhead = ahead;
+        }
+    }
+    if (next < 0) {
+        SetFocusK1(panel, button(current));
+        return true;
+    }
+    if (void* const manager = *FieldAt<void*>(panel, 0x18)) {
+        using PlayGuiSoundFn = void(__thiscall*)(void*, int);
+        EngineFn<PlayGuiSoundFn>(0x0040A140)(manager, 1);  // as the game's own two
+    }
+    using SetSelectedFn = void(__thiscall*)(void*, int);
+    const auto select = [&](int planet, int on) {
+        void* const b = button(planet);
+        reinterpret_cast<SetSelectedFn>((*reinterpret_cast<void***>(b))[K1_VTABLE_SET_SELECTED / 4])(b, on);
+    };
+    select(current, 0);
+    reinterpret_cast<void(__thiscall*)(void*, int)>(K1_SET_SELECTED_PLANET)(table, next);
+    const int now = *FieldAt<int>(table, K1_PARTY_SELECTED_PLANET);
+    select(now, 1);
+    reinterpret_cast<void(__thiscall*)(void*, int, int)>(K1_GALAXY_DISPLAY_PLANET)(panel, now, 1);
+    SetFocusK1(panel, button(now));
     return true;
 }
 
@@ -5704,6 +7013,9 @@ bool NavigateFocusK1(int dx, int dy)
 
     if (const PointsScreenK1* points = PointsScreenForK1(DispatcherOfK1(panel))) {
         return NavigatePointsScreenK1(panel, active, *points, dx, dy);
+    }
+    if (tabBar == nullptr && DispatcherOfK1(panel) == K1_GALAXY_MAP_DISPATCHER) {
+        return NavigateGalaxyMapK1(panel, dx, dy);
     }
 
     // No focus moves at all on these (K1_NO_PAD_FOCUS_PANELS): every action there
@@ -6251,6 +7563,10 @@ extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
 
     UpdateGuiCuesK1();
     UpdatePazaakTableK1();
+#ifdef KMRP_CONTROLLER_STANDALONE
+    UpdateClassSelectPadK1();
+    UpdatePazaakSetupPadK1();
+#endif
 
     // Our own frame delta, measured across this hook. Counting only; the engine
     // is not touched.
@@ -6283,7 +7599,8 @@ extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
                     continue;
                 }
                 // As RemappedButtonEventK1: outside the menus, Pazaak's alone.
-                if (inputClass != K1_CLASS_PCGUI && K1_BUTTON_REMAPS[i].panel != K1_PAZAAK_GAME_DISPATCHER) {
+                if (inputClass != K1_CLASS_PCGUI && K1_BUTTON_REMAPS[i].panel != K1_PAZAAK_GAME_DISPATCHER &&
+                K1_BUTTON_REMAPS[i].panel != K1_PAZAAK_SETUP_DISPATCHER) {
                     continue;
                 }
                 void* panel = nullptr;

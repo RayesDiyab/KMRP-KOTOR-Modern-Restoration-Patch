@@ -117,6 +117,107 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Pazaak's side deck screen with the pad, drawn as the Xbox drew it** (2026-10-29, the
+  maintainer: "lets actually recreate the xbox screen with geometry", the layout then chosen
+  from previews the same day). The Xbox game's own pazaaksetup.gui and its picture
+  lbl_pazaak01 were measured (the maintainer's copy; nothing of it is in the repository):
+  a left panel under the available cards, a middle column (a box with a curved arrow and
+  "Y Add card", the Available Cards bar coming out of the left panel, the Chosen Cards bar
+  opening into the right frame, a box with a second arrow, the Play bar) and a right frame
+  with a slot under each chosen card. With the pad in use the screen is now that, drawn at
+  the panel's size around the cards where KMRP's layout puts them: the left panel 25% wider
+  than the Xbox's with its three columns spread to fill it, the right frame's two columns
+  spaced so the three gaps across it are equal, the middle column centred and 25% wider
+  with what stands in it at the Xbox's size, the same dark margin round every outline and
+  the same gap between the column's parts, the lower box square at its foot and the Play
+  bar square at its top as in the art. The picture is drawn over the Pazaak table (the
+  gameplay screen's lbl_pazaak, whichever the game loads), each part a colour at an opacity
+  fitted to the Xbox art over its own table (the backdrop black at 0.80, the panels 0.86 to
+  1.0), so the table shows through as on the Xbox; the cards stay solid. Add Card (the
+  screen's own hidden switch button, Y) and Play (A) are hints in their boxes, glyph and
+  caption centred together; LT and RT stand beside the list titles with the Xbox's cyan
+  arrows. Y moves the focused card and LT and RT switch lists as the game already did; A
+  presses Play (the screen has no A of its own; a remap, now allowed on this screen in the
+  mini-game input class). With the mouse the screen is as the game has it.
+  `UpdatePazaakSetupPadK1`, `SetupLayoutForK1` and `SetupPictureK1` in
+  `K1NativeJoystick.cpp`; `K1_PAZAAK_SETUP_PROMPTS` and `KmrpGlyphPictureK1` in
+  `vendor/K1XboxControls.cpp`. Seen in the game, after these fixes from the maintainer's
+  play tests the same night: the cards' columns found within half a card (the layout's
+  own differ by a pixel, BTN_AVAIL00 at 52 and BTN_AVAIL01 at 53, and taken one by one they
+  scattered the cards); Add Card bound from the layout as the game binds Play
+  (`InitControl` 0x0040B930 with BTN_YTEXT, as 0x00681E64 binds BTN_ATEXT; the PC game binds
+  BTN_YTEXT only on the table's screen, so the switch was never loaded nor drawn, its text
+  settings unset, as a dump of the two buttons showed), its caption set with `SetStrRef`
+  0x00415E50 and given the list titles' blue (`SetColor` 0x00414E10, every frame, the game
+  setting its own on each focus change); Add Card and Play centred on the column; the table
+  picture referenced once in the world so the screen's picture is made as it opens (the first
+  game of a session showed the table alone before the layout came in behind the wager box);
+  and nothing changed until that picture is made, so the screen changes in one step.
+- **Saving with the pad: the name popup stays up** (2026-10-28, the maintainer: "whenever
+  saving a new save, or overwriting a new one the moment the enter name popup shows up it
+  closes the menu and doesn't save"). The pad's A reaches the game as a press and a
+  release, and `CSWGuiManager::HandleInputEvent` (0x0040C8E0) hands each to whatever
+  screen is in front at that moment. The press on Save opened the name popup, and the
+  release then reached the popup, whose handler (0x006CB040) takes A without looking at
+  the value: it confirmed the empty name at once, and `WriteGame` closed the menu. The
+  mouse never does this: its button-up goes only to the control that took the capture at
+  the button-down (`SetCapture` 0x0040A1C0, `HandleLMouseUp` 0x0040A170), and a screen
+  opening in between clears the capture. The pad now has the same rule, at the manager
+  (`GuardReleaseTargetK1`, `K1NativeJoystick.cpp`, the maintainer's choice of "the
+  cleanest way"): the screen in front at a press is kept, and its release is made the
+  inert 0x41 when another screen is in front by then. It replaced character creation's
+  name-entry guard on 0x006FA220 (`GuardNameConfirmK1`, 2026-09-25), which covered the
+  same fault on that one screen, so the controller patch still has 38 hooks. Seen working
+  in the game. The popup then showed no glyphs ("the popup has no glyphs now"): it was a
+  screen the prompt code did not know, and as the top modal it blanked the save screen's
+  badges behind it too. It now shows A on OK and B on Cancel, never focused, since its
+  handler answers both whatever holds focus (`K1_SAVE_NAME_PROMPTS`, `kmrpa_svnmok`,
+  `kmrpb_svnmcncl`; OK and Cancel bound at +0x68 and +0x22C, vtable 0x007576D0).
+- **The galaxy map with the pad** (2026-10-28, the maintainer: "the cycling through the
+  planets with controller is wrong, and also the button glyphs need to be added and the
+  buttons need to be non focusable", and "two planets get highlighted"). The map's own
+  dispatcher (0x00695980) took Left and Up for the previous planet and Right and Down for
+  the next in planets.2da's order, which jumps about the map, while the panel's base
+  handler moved the focus over the planets and onto Travel and Cancel, so a second planet
+  was lit beside the selected one. KMRP now owns the directions there
+  (`NavigateGalaxyMapK1` in `K1NativeJoystick.cpp`): Left and Right go to the next planet
+  across the screen, Up and Down to the next one up or down, round at the ends, among the
+  planets the game lets the player pick, selected as the game's own two routines do it
+  (the old button unselected, `SetSelectedPlanet` 0x00563B60, the new button selected,
+  `DisplayPlanet` 0x006933A0), and the focus stays on that planet. Travel shows A and
+  Cancel B (`kmrpa_galtravel`, `kmrpb_galback`, bound at +0x1F24 and +0x20E8 by the panel's
+  constructor), never focused: the dispatcher answers A and B whatever holds focus. The map
+  left `K1_NATIVE_DIRECTION_PANELS` and joined `K1_OWN_CONFIRM_DISPATCHERS`. The planets
+  were seen right in the game; the glyphs were not there at first ("no glyphs are there, on
+  the buttons"), because the prompt painter only looks at the screens `IsK1MenuPanel`
+  knows, and the map was not one of them.
+- **Character creation with the pad** (2026-10-28, the maintainer's play test of a new game):
+  * Square is Cancel on the custom and quick step lists, pressed wherever the focus is and
+    never focused ("please add square for cancel (it should not be focusable)"): its badge
+    `kmrpx_custcncl` / `kmrpx_quikcncl`, shown always, where it was an A shown only while
+    the D-pad was on it; `K1_CANCEL_BUTTONS` and `PressCancelK1` in `K1NativeJoystick.cpp`,
+    sharing one lookup (`ListedButtonK1`) with Advanced Graphics' X for OK.
+  * Attributes and Skills keep the D-pad on their rows: Down from the last row no longer
+    reaches OK, nor Left and Right the bottom row ("make it not focusable as well, just the
+    buttons work when pressing them"); A on a row is OK, Y Recommended and B Cancel, as
+    before. Up and Down go round the list, the last row to the first and back ("make the
+    list bottom go to top when pressing down and reverse") (`NavigatePointsScreenK1`).
+  * Class selection shows Select (A) beside Cancel (B) with the pad in use ("can we split
+    the button here and have one for select with x ... only in controller mode ... make
+    the gaps between the art arrows and the gab between the buttons equal"). The capsule
+    and the arrows are the screen's own picture (`lbl_cg_clsssel`), so the controller patch
+    measures them in it from Cancel's middle and draws a copy with two capsules, each its
+    old rounded ends and a column of its middle, every gap equal (26 or 27 texture columns
+    at 3440x1440, as the arrows' were); Select is a button made like Cancel with the game's
+    "Select" (string 236) and an A badge (`kmrpa_clssel`), kept off the focus.
+    `ClassSelectArtK1`, `UpdateClassSelectPadK1` in `K1NativeJoystick.cpp`. With the mouse
+    the screen is as the game has it. On each capsule the glyph and its word are centred
+    together, the word moved over by half the glyph and its gap (`KmrpBadgeCentreK1`): with
+    the word centred and the glyph beside it, the pair stood left of the capsule's middle
+    (the maintainer saw it, "horizontally"). The first build crashed as the screen opened:
+    Select's word went to the button's text box (+0x154) instead of its text parameters
+    (+0x16C), which the game's SetText (0x00415E00) takes, and the game wrote it into its
+    own read-only data (the crash dump of 2026-10-28).
 - **No lag opening HUD Size and HUD Text; their Y, X and B as large as the settings
   screens'** (2026-10-28, the maintainer: "there is lag when entering hud text or hud size
   and the glyphs there are too small"). From the controller patch's log of that game:
@@ -317,6 +418,18 @@ proxy, and it applies the executable changes above as well.
     size), and a field's rule is chosen up to a constant factor, so `LBL_LEVEL`, half as
     wide as stretching makes it, is no longer 296 px at every size. The options screens'
     table is unchanged by that.
+  * Then 30 more screens, the ones KMRP's build gives no step of its own (the maintainer,
+    2026-10-28: "Ok lets start"): character creation (`abchrgen`, `maincg`, `name`,
+    `portcust`, `skchrgen`, `custpnl`, `qorcpnl`, `quickpnl`, `leveluppnl`), `saveload`,
+    `savename`, `messages`, `questitem`, `galaxymap`, `areatransition`, `barkbubble`,
+    `computercamera`, `maininterface`, Pazaak's three, the workbench's `upgrade` and
+    `upgradesel`, and `loadscreen`, `splashscreen`, `titlemovie`, `credits`, `fade`,
+    `debug`, `ntscpat`. Gold's border fill style is carried where it changed one, as its
+    alignment is (Pazaak's `BTN_PLRSIDE1`). `classsel` waits for a rule of its own (its
+    class buttons are upstream's width-plus-margin); `dialog`, `pause`, `partyselection`
+    and `statussummary` for a check against the module's own run-time placing. 44
+    screens, 235,752 fields, 94.58% exact, 3440x1440 identical; C equal to Python in
+    11,876 layouts. `kmrp.dll` `6D8B0DF4...`; not yet seen in the game.
   * `Test-LiveLayout.py`: 14 screens, 71,544 fields, 94.47% exact, 5.35% a pixel off, 123
     further: 49 scroll-bar values the engine replaces, 57 on screens from 3008 px wide (the
     portraits' second button and the cue, 2 to 5 px), Key Mapping's 8, 9 single fields at

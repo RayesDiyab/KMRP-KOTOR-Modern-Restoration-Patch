@@ -438,14 +438,18 @@ type = "pointer"
 source = "esp+8"
 type = "pointer"
 
-# Name entry, CSWGuiNameChargen::HandleInputEvent 0x006FA220 (push ebx / mov
-# ebx,[esp+8]): the release of the A that opened it confirmed the name through
-# the focused name box. Same guard; see GuardNameConfirmK1.
+# A release goes where its press went, as the mouse's does: CSWGuiManager::
+# HandleInputEvent 0x0040C8E0, where every pad and key event reaches the screens.
+# GuardReleaseTargetK1 keeps the screen in front at a press and makes its release
+# the inert 0x41 when another screen is in front by then (the save name popup the
+# A on Save opened; character creation's name entry, whose own guard on 0x006FA220
+# this replaced on 2026-10-28). Stolen: push -1 / mov eax,fs:[0] -- position-
+# independent; EAX is set by the second, and the arguments are read at the entry.
 [[hooks]]
-address = 0x006FA220
+address = 0x0040C8E0
 type = "detour"
-function = "GuardNameConfirmK1"
-original_bytes = [0x53, 0x8B, 0x5C, 0x24, 0x08]
+function = "GuardReleaseTargetK1"
+original_bytes = [0x6A, 0xFF, 0x64, 0xA1, 0x00, 0x00, 0x00, 0x00]
 skip_original_bytes = false
 exclude_from_restore = []
 

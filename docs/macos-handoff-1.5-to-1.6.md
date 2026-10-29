@@ -1132,6 +1132,60 @@ on every screen, at every size (`tools/menu_bottom_row.py`, run by
 beyond taking the new layout sets and Live Adaptive Layout table; both are shared data.
 **How to check:** go through the tabs with L2 and R2: Close and its neighbour do not move.
 
+## 106. Character creation with the pad (Windows 2026-10-28, uncommitted)
+
+Square is Cancel on the custom and quick step lists (`PressCancelK1`, badges
+`kmrpx_custcncl` and `kmrpx_quikcncl`, never focused); Attributes and Skills keep the D-pad
+on their rows, Up and Down going round the list (`NavigatePointsScreenK1`); class
+selection shows Select (A) beside Cancel with the pad in use, on a copy of the screen's
+picture drawn with two capsules (`ClassSelectArtK1`, `UpdateClassSelectPadK1`), glyph and
+word centred together on each (`KmrpBadgeCentreK1`). A button's text is set through its
+CSWGuiTextParams at +0x16C, not its CSWGuiText at +0x154 (that crashed). **To do on the Mac:** the badge renames in
+`macos/patches/kmrp-controller/prompts.cpp` (0x2838 and 0x1650 to the `kmrpx_` names, shown
+always), the X remap rows, the points screens' navigation, and the class screen's Select.
+**How to check:** a new game with the pad: Square cancels on both step lists, the D-pad
+never reaches the bottom rows, and class selection shows Select and Cancel on two capsules.
+
+## 107. The galaxy map with the pad (Windows 2026-10-28, uncommitted)
+
+The D-pad picks planets by where they are on the map (Left and Right across, Up and Down
+up or down, round at the ends) and the focus stays on the selected planet, so one planet is
+lit; Travel and Cancel show A and B and are never focused (`NavigateGalaxyMapK1`,
+`K1_GALAXY_MAP_PROMPTS`). The engine's own direction handling on that panel (dispatcher
+0x00695980) is suppressed, as on the points screens. **To do on the Mac:** the same
+navigation, the two hint badges at +0x1F24 and +0x20E8, and A treated as the panel's own
+there. **How to check:** open the galaxy map on the Ebon Hawk with the pad: each press
+moves one planet in the pressed direction, only it is lit, and A travels, B closes.
+
+## 108. A pad button's release goes where its press went (Windows 2026-10-28, uncommitted)
+
+A detour at `CSWGuiManager::HandleInputEvent` (0x0040C8E0) keeps, for each event, the
+screen in front at its press (the top modal panel, or with none the last panel), and
+rewrites its release to the inert 0x41 when another screen is in front by then
+(`GuardReleaseTargetK1`), as the mouse's capture does. It fixes the save name popup,
+which the release of the A on Save confirmed at once, and replaces the name-entry guard
+on 0x006FA220 (`GuardNameConfirmK1`), which is gone. **To do on the Mac:** the same rule
+at the same function, and the old name-entry guard removed if the Mac patch has it.
+**How to check:** save to a new slot and over an old one with the pad: the name popup
+stays up, A saves under the name typed, B cancels; character creation's name screen still
+stays up after A on its step.
+
+## 109. Pazaak's side deck screen with the pad, drawn as the Xbox drew it (Windows 2026-10-29, uncommitted)
+
+With the pad in use the side deck screen is the Xbox's, redrawn at run time
+(`UpdatePazaakSetupPadK1`, `SetupLayoutForK1`, `SetupPictureK1`): the panel's picture is
+replaced by one drawn at its size over `lbl_pazaak` (each part a fitted colour and opacity:
+backdrop black 0.80, left panel (36,43,64) 0.91, plates (12,11,11) 0.92, frame inside
+(6,4,4) 0.86, upper box (18,19,23) 0.95, lower box (37,44,65) 1.0, Play bar (6,7,8) 1.0,
+slots (40,46,65) 0.95, outlines (44,52,76)); the available cards' columns respaced for a
+left panel 245 Xbox units wide, the chosen cards' two columns spaced evenly in the frame,
+each card's face label (+0x1C4) and count label (`m_aAvailNum`, +0x399C) moved with it; the
+title, Add Card (the hidden switch, +0x6F34), the list titles (+0x72DC, +0x741C) and Play
+(+0x7108) placed in the middle column; LT and RT glyphs beside the titles. **To do on the
+Mac:** the same, and the A remap and badges. **How to check:** start Pazaak with the pad:
+the Xbox screen over the table, the cards solid and in their places, Y adds and removes, LT
+and RT switch lists, A plays; with the mouse, the game's screen as before.
+
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
 | Change | Commit | Why not the Mac |

@@ -351,6 +351,21 @@ PROMPT_TARGETS = (
     # The class portraits carry art and take no badge. The +/- arrows carry art
     # too, and keep it.
     PromptTarget("classsel.gui", "BTN_BACK", 6, "B", "kmrpb_clsback"),
+    # And A on the Select button the controller patch adds beside it with the pad in use
+    # (K1ClassSelectPad, vendor/K1XboxControls.cpp): the same button's shape, its glyph A.
+    PromptTarget("classsel.gui", "BTN_BACK", 6, "A", "kmrpa_clssel"),
+    # The galaxy map's Travel and Cancel, which its dispatcher answers as A and B
+    # whatever holds focus (K1_GALAXY_MAP_PROMPTS in the module), added 2026-10-28.
+    PromptTarget("galaxymap.gui", "BTN_ACCEPT", 14, "A", "kmrpa_galtravel"),
+    PromptTarget("galaxymap.gui", "BTN_BACK", 15, "B", "kmrpb_galback"),
+    # The save name popup's OK and Cancel, its A and B whatever holds focus
+    # (K1_SAVE_NAME_PROMPTS in the module), added 2026-10-28.
+    PromptTarget("savename.gui", "BTN_OK", 0, "A", "kmrpa_svnmok"),
+    PromptTarget("savename.gui", "BTN_CANCEL", 1, "B", "kmrpb_svnmcncl"),
+    # Pazaak's side deck screen: Add Card (Y), which the PC layout hides and the module
+    # shows with the pad in use, and Play (A) (K1_PAZAAK_SETUP_PROMPTS), added 2026-10-28.
+    PromptTarget("pazaaksetup.gui", "BTN_YTEXT", 77, "Y", "kmrpy_pzswitch"),
+    PromptTarget("pazaaksetup.gui", "BTN_ATEXT", 78, "A", "kmrpa_pzplay"),
     PromptTarget("qorcpnl.gui", "QUICK_CHAR_BTN", 4, "A", "kmrpa_qcquick"),
     PromptTarget("qorcpnl.gui", "CUST_CHAR_BTN", 5, "A", "kmrpa_qccust"),
     PromptTarget("qorcpnl.gui", "BTN_BACK", 1, "B", "kmrpb_qcback"),
@@ -361,12 +376,12 @@ PROMPT_TARGETS = (
     PromptTarget("custpnl.gui", "BTN_STEPNAME5", 15, "A", "kmrpa_cust5"),
     PromptTarget("custpnl.gui", "BTN_STEPNAME6", 17, "A", "kmrpa_cust6"),
     PromptTarget("custpnl.gui", "BTN_BACK", 19, "B", "kmrpb_custback"),
-    PromptTarget("custpnl.gui", "BTN_CANCEL", 20, "A", "kmrpa_custcncl"),
+    PromptTarget("custpnl.gui", "BTN_CANCEL", 20, "X", "kmrpx_custcncl"),
     PromptTarget("quickpnl.gui", "BTN_STEPNAME1", 6, "A", "kmrpa_quik1"),
     PromptTarget("quickpnl.gui", "BTN_STEPNAME2", 8, "A", "kmrpa_quik2"),
     PromptTarget("quickpnl.gui", "BTN_STEPNAME3", 10, "A", "kmrpa_quik3"),
     PromptTarget("quickpnl.gui", "BTN_BACK", 1, "B", "kmrpb_quikback"),
-    PromptTarget("quickpnl.gui", "BTN_CANCEL", 2, "A", "kmrpa_quikcncl"),
+    PromptTarget("quickpnl.gui", "BTN_CANCEL", 2, "X", "kmrpx_quikcncl"),
     PromptTarget("portcust.gui", "BTN_ACCEPT", 11, "A", "kmrpa_portok"),
     PromptTarget("portcust.gui", "BTN_BACK", 12, "B", "kmrpb_portback"),
     PromptTarget("abchrgen.gui", "BTN_ACCEPT", 35, "A", "kmrpa_abcgok"),
