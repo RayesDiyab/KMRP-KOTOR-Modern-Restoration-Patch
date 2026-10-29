@@ -53,9 +53,9 @@ DESCRIPTION_LISTBOXES, LIST_LISTBOXES, HAND_TUNED_GUTTERS), at the build's font 
 a PADDING the gold file sets by hand, which the build ships at 3440x1440 only, so this does;
 a text alignment the gold file changes, at every size; and, for the screens that have them,
 the build's lists made as tall as whole rows (scale_listbox_padding.py ROW_LISTS) and the
-R3 cue by the party portraits (add_party_switch_cue). For those two the Python here runs
-the build's own functions on a file; the C repeats them, adding the cue's control by
-appending to the GFF's sections.
+R3 cue by the party portraits (add_party_switch_cue), the Abilities sub-tab swap cue,
+and the menu strip's LT/RT cues. The Python here runs the build's own functions on a
+file; the C repeats them, adding controls by appending to the GFF's sections.
 
 The table holds rule numbers and the gold file's values, which are in this repository;
 nothing of the game's. The game's own files are read at run time from chitin.key, and here
@@ -81,9 +81,14 @@ from prepare_universal_resources import (DESCRIPTION_LISTBOXES, FONT_HEIGHT_DIVI
                                          FONT_SCALE_OFFSET, HAND_TUNED_GUTTERS, LIST_LISTBOXES,
                                          R3_CUE_BLOCKING_TYPES, R3_CUE_FILL, R3_CUE_GAP_MARGIN,
                                          R3_CUE_SCALE, R3_CUE_SCREENS, R3_CUE_TAG,
-                                         add_party_switch_cue)
-from scale_listbox_padding import (GUTTER_AT_UNIT_SCALE, LIST_GUTTER_AT_UNIT_SCALE,  # noqa: E402
-                                   LOOSE_GAP, ROW_GAP_DIVISOR, ROW_LISTS, fit_list_to_rows)
+                                         SUBTAB_TAGS, SWAP_CUE_ASPECT, SWAP_CUE_BESIDE,
+                                         SWAP_CUE_FILL, SWAP_CUE_SCREEN, SWAP_CUE_TAG,
+                                         TAB_CUES, TAB_CUE_SCREEN, TAB_TAGS,
+                                         add_party_switch_cue, add_subtab_swap_cue, add_tab_strip_cues)
+from scale_listbox_padding import (FEEDBACK_LIST, GUTTER_AT_UNIT_SCALE, LIST_GUTTER_AT_UNIT_SCALE,  # noqa: E402
+                                   LOOSE_GAP, ROW_GAP_DIVISOR, ROW_LISTS, fit_list_to_rows, scale_row_template)
+from build_controller_layout import (ENTRY_CAPTION, ENTRY_FALLBACK_STEP, ENTRY_LIFT_DIVISOR,  # noqa: E402
+                                     ENTRY_PREVIOUS, ENTRY_SCREEN, ENTRY_TAG, ENTRY_TEMPLATE, add_entry)
 
 VANILLA = ROOT / "build-inputs" / "vanilla-gui"
 UPSTREAM = ROOT / "third_party" / "Included" / "kotor-high-resolution-menus-1.5"
@@ -92,9 +97,7 @@ TABLE = ROOT / "macos" / "tools" / "kmrp-livelayout-table.h"
 GOLD_SIZE = (3440, 1440)
 
 # The screens laid out at run time. The options screens first (2026-10-28): rules and
-# gold alone make them, with nothing of KMRP's own added. optgameplay.gui (the Controller
-# Layout entry) and optfeedback.gui (its row template) are made by build steps of their
-# own and stay with the sets for now. Then (the same day) Inventory, Equipment and
+# gold alone make them, with nothing of KMRP's own added. Then (the same day) Inventory, Equipment and
 # Character, which GUI mods change most: those take two of the build's steps as well,
 # Equipment's list made as tall as whole rows (ROW_LISTS) and the R3 cue by the party
 # portraits that the controller patch prompts with (add_party_switch_cue).
@@ -115,6 +118,10 @@ FILES = (
     "loadscreen.gui", "splashscreen.gui", "titlemovie.gui", "credits.gui", "fade.gui",
     "debug.gui", "ntscpat.gui",
     "classsel.gui",
+    # Custom build steps repeated live: Abilities row fitting/party/swap cues and
+    # the tab strip's LT/RT cues (2026-10-29).
+    "abilities.gui", "top.gui",
+    "optgameplay.gui", "optfeedback.gui",
 )
 
 FIELDS = ("LEFT", "TOP", "WIDTH", "HEIGHT")
@@ -422,6 +429,24 @@ def render() -> str:
     lines.append("    0,")
     lines.append("};")
     lines.append("")
+    lines.append(f"#define LL_SWAP_SCREEN {c_string(SWAP_CUE_SCREEN)}")
+    lines.append(f"#define LL_SWAP_TAG {c_string(SWAP_CUE_TAG)}")
+    lines.append(f"#define LL_SWAP_FILL {c_string(SWAP_CUE_FILL)}")
+    lines.append(f"#define LL_SWAP_BESIDE {c_string(SWAP_CUE_BESIDE)}")
+    lines.append(f"#define LL_SWAP_ASPECT {SWAP_CUE_ASPECT}")
+    lines.append("static const char *const LL_SUBTABS[] = { " + ", ".join(map(c_string, SUBTAB_TAGS)) + " };")
+    lines.append(f"#define LL_TAB_SCREEN {c_string(TAB_CUE_SCREEN)}")
+    lines.append("static const char *const LL_TABS[] = { " + ", ".join(map(c_string, TAB_TAGS)) + " };")
+    lines.append("static const char *const LL_TAB_TAGS[] = { " + ", ".join(c_string(t) for t, _, _ in TAB_CUES) + " };")
+    lines.append("static const char *const LL_TAB_FILLS[] = { " + ", ".join(c_string(f) for _, f, _ in TAB_CUES) + " };")
+    for key, text in (("ENTRY_SCREEN", ENTRY_SCREEN), ("ENTRY_TAG", ENTRY_TAG),
+                      ("ENTRY_TEMPLATE", ENTRY_TEMPLATE), ("ENTRY_PREVIOUS", ENTRY_PREVIOUS),
+                      ("ENTRY_CAPTION", ENTRY_CAPTION), ("FEEDBACK_SCREEN", FEEDBACK_LIST[0]),
+                      ("FEEDBACK_TAG", FEEDBACK_LIST[1])):
+        lines.append(f"#define LL_{key} {c_string(text)}")
+    lines.append(f"#define LL_ENTRY_FALLBACK_STEP {ENTRY_FALLBACK_STEP!r}")
+    lines.append(f"#define LL_ENTRY_LIFT_DIVISOR {ENTRY_LIFT_DIVISOR}")
+    lines.append("")
     entries = table_entries()
     for index, (name, rows) in enumerate(entries):
         lines.append(f"static const LLRow LL_ROWS_{index}[] = {{  /* {name} */")
@@ -511,7 +536,10 @@ def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height:
                     struct.set_int32("PADDING", g)
     lists = [(t, k, b) for (s, t), (k, b) in sorted(ROW_LISTS.items()) if s == name]
     cue = name in R3_CUE_SCREENS and cue_template(source) is not None
-    if not lists and not cue:
+    extra_cues = name in (SWAP_CUE_SCREEN, TAB_CUE_SCREEN)
+    feedback = name == FEEDBACK_LIST[0]
+    entry = name == ENTRY_SCREEN
+    if not lists and not cue and not extra_cues and not feedback and not entry:
         return source
     # The build's own steps, on a file: the lists made as tall as whole rows, then the R3
     # cue. A list or a cue the file cannot have (a mod's without the control, a row that
@@ -521,6 +549,11 @@ def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height:
         gff = GFF(GFFContent.GUI)
         gff.root = source
         write_gff(gff, path, ResourceType.GUI)
+        if feedback and feedback_template(source) is not None:
+            try:
+                scale_row_template(path, path, height, FEEDBACK_LIST[1])
+            except (ValueError, AttributeError):
+                pass
         for tag, kind, bases in lists:
             try:
                 fit_list_to_rows(path, path, height, tag, bases, popup=kind == "popup")
@@ -531,7 +564,52 @@ def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height:
                 add_party_switch_cue(path, path)
             except (ValueError, AttributeError):
                 pass
+        if extra_cues and extra_cue_template(read_gff(path).root, name) is not None:
+            try:
+                (add_subtab_swap_cue if name == SWAP_CUE_SCREEN else add_tab_strip_cues)(path, path)
+            except (ValueError, AttributeError):
+                pass
+        if entry and entry_template(read_gff(path).root) is not None:
+            try:
+                add_entry(path, path)
+            except (ValueError, AttributeError):
+                pass
         return read_gff(path).root
+
+
+def entry_template(root: GFFStruct) -> GFFStruct | None:
+    """A button the writer can clone, adding an inline caption when needed."""
+    by_tag = {c.get_string("TAG"): c for c in root.acquire("CONTROLS", GFFList(), GFFList)}
+    template = by_tag.get(ENTRY_TEMPLATE)
+    if template is None:
+        return None
+    border, text = child(template, "BORDER"), child(template, "TEXT")
+    return template if (template.exists("ID") and template.exists("TAG") and extent(template) is not None
+                        and border is not None and border.exists("FILL") and text is not None
+                        and text.exists("STRREF")) else None
+
+
+def feedback_template(root: GFFStruct) -> GFFStruct | None:
+    target = next((c for c in root.acquire("CONTROLS", GFFList(), GFFList)
+                   if c.get_string("TAG").upper() == FEEDBACK_LIST[1].upper()), None)
+    proto = child(target, "PROTOITEM") if target is not None else None
+    return proto if proto is not None and extent(proto) is not None else None
+
+
+def extra_cue_template(root: GFFStruct, name: str) -> GFFStruct | None:
+    """Use the build's template choice, but require the fields the C writer replaces."""
+    controls = root.acquire("CONTROLS", GFFList(), GFFList)
+    by_tag = {c.get_string("TAG"): c for c in controls}
+    if name == SWAP_CUE_SCREEN:
+        template = by_tag.get(SUBTAB_TAGS[0])
+    else:
+        template = next((c for c in controls if c.acquire("CONTROLTYPE", -1) == 4),
+                        by_tag.get(TAB_TAGS[0]))
+    if template is None:
+        return None
+    border = child(template, "BORDER")
+    return template if (template.exists("ID") and template.exists("TAG") and extent(template) is not None
+                        and border is not None and border.exists("FILL")) else None
 
 
 def cue_template(root: GFFStruct) -> GFFStruct | None:

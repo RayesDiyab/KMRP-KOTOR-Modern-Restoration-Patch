@@ -20,7 +20,9 @@ screens (`e237578`), then Inventory, Equipment and Character (`8ddb433`), then t
 KMRP's build gives no step of its own (character creation, saving and loading, Messages,
 Quest Items, the Galaxy Map, Pazaak, the workbench, the HUD's base file `maininterface`, and
 the screens with nothing to fit); the rest still come from the sets (section 7).
-Class selection (`classsel.gui`) joins them on 2026-10-29, making **45 screens**.
+Class selection (`classsel.gui`) joins them on 2026-10-29, followed by Abilities
+(`abilities.gui`) and the menu tab strip (`top.gui`), then Gameplay and Feedback
+Options (`optgameplay.gui`, `optfeedback.gui`), making **49 screens**.
 Both mouse/keyboard and controller modes use the same live geometry; the existing
 controller Select/Cancel treatment reads the resulting rectangles.
 
@@ -34,8 +36,10 @@ the game at 3440x1440 only (section 6).
 
 | | |
 | --- | --- |
-| Source | master `33a3b4d` plus the class-selection migration and optional controller preload bridge of 2026-10-29 (uncommitted when written) |
-| Module | `build\native-runtime\kmrp-native.dll`, 837,632 bytes, SHA-256 `DE6FD58D9F8C9C3B5AA6F56C03EC4EE5BCFD52CE7C5840F4066D5300DDEA7541` |
+| Source | master `6b4b17f` plus the Abilities/tab-strip and Gameplay/Feedback migrations of 2026-10-29 (uncommitted when written) |
+| Module (49 screens) | `build\native-runtime\kmrp-native.dll`, 846,336 bytes, SHA-256 `F842D1C5F1A3DC943CB7514D7C38710BADEA5E139FDB9FE2090063E03E08939D`; built and packaged, not installed |
+| Previous module (47 screens) | 842,240 bytes, SHA-256 `C388D0DA3ED09D656EAA70996BB6AD51312CA968980A78E834D301A834380793` |
+| Previous module (45 screens) | `build\native-runtime\kmrp-native.dll`, 837,632 bytes, SHA-256 `DE6FD58D9F8C9C3B5AA6F56C03EC4EE5BCFD52CE7C5840F4066D5300DDEA7541` |
 | Previous module | the 14-screen build was 759,296 bytes, SHA-256 `ACA3146F97263EEDAE09BF84C0CDDF0EE75446BBD762D7BA376176A6CDC07132`; the options-only build was 744,448 bytes, `BD9742A55E7788CD82E8D7E964EC5DBE692D5C96AAD5B5DEDE293DC2BAB12DB4` |
 | Table | `macos/tools/kmrp-livelayout-table.h`, made by `python tools/build_live_layout.py` |
 | Executable | not changed: this writes layout files, no byte of `swkotor.exe` |
@@ -196,6 +200,8 @@ before `Override` (the roster folder, or this run's folder of links when the pla
 | `optionsmain.gui`, `optionsingame.gui`, `optautopause.gui`, `optgraphics.gui`, `optgraphicsadv.gui`, `optmouse.gui`, `optsound.gui`, `optsoundadv.gui`, `optkeymapping.gui`, `optkeyentry.gui`, `optresolution.gui` | the game's own, from `chitin.key` | the player's, if it is laid out for the game's size; else nothing is written and the player's file is left to the game, as before |
 | `inventory.gui`, `equip.gui`, `character.gui` | the same, and the R3 cue added | the same, and the R3 cue added where the player's portraits leave room for it |
 | `classsel.gui` | the game's own, with the frame rules and gold's alignment/border corrections | the player's file at the game's base size; replacement border art is preserved |
+| `abilities.gui`, `top.gui` | the game's own, with row fitting and the added cues below | the player's file, with cues added where their controls support them; existing cues preserved |
+| `optgameplay.gui`, `optfeedback.gui` | the game's own, with the Controller Layout entry or scaled checkbox row template | the player's file, retaining button styling and custom row height; existing entry preserved |
 
 "Laid out for the game's size": its base (section 2) is the game's file's and its root lies
 inside it. A mod's file laid out for 1920x1080 is refused (`Test-LiveLayout.py` part 4).
@@ -214,7 +220,7 @@ inside it. A mod's file laid out for 1920x1080 is refused (`Test-LiveLayout.py` 
 
 **Why the cue.** With KMRP installed the controller patch takes its own copies of the
 game's layouts out of its folder (`LeaveLayoutsToKmrp`, `K1ControllerStandalone.cpp`), and
-KMRP's layouts must carry the controls it adds: on these three screens, the cue its R3
+KMRP's layouts must carry the controls it adds: on these four party screens, the cue its R3
 prompt is drawn on. A screen laid out at run time without it would lose that prompt.
 
 **Adding a control** is the one change not made in place. The C copies the file's six GFF
@@ -226,6 +232,96 @@ file stays right, because only the sections' ends grow; the old list is left unu
 cue's fields keep the types pykotor gives them (`TAG` and `TEXT` strings, `FILL`, `CORNER`
 and `EDGE` resrefs, `ID`, the extent and `DIMENSION` INTs, `STRREF` a DWORD), so the test
 compares every field of the C's file with the Python's.
+
+**Abilities and the menu strip (2026-10-29).** The same append writer now accepts
+each cue's tag, fill and rectangle. Abilities fits `LB_ABILITY` to 50-unit rows
+using the existing screen-list rule, adds the party cue, then adds `LBL_KMRPSWAP`.
+The swap cue clones `BTN_SKILLS`; its height is the maximum of Skills/Powers/Feats,
+its width twice that height, its left is `Close.left - height//3 - width`, and
+its top is `Close.top + (Close.height-height)//2`. Missing controls, an unsuitable
+template, no room left of Close or overlap with a clickable control/another cue
+omit this added cue. Mod controls and existing cues remain in the layout.
+
+`top.gui` adds `LBL_KMRPLT` and `LBL_KMRPRT`. Sort the eight tab rectangles by
+`(left, top, width, height)`, take the first tab's height `s` and gap `s//3`.
+The left cue's left is `first.left - gap - 2*(s//2)`; the right cue's left is
+`last.left + last.width + gap`. Both have the first tab's top and size `s`.
+This retains the build's odd-size rounding. Clone the first plain label, or
+`BTN_EQU` when there is none; each new ID follows the highest existing ID.
+If either cue already exists or any tab is absent, leave the pair as supplied.
+The live source and Python reference use the build's same template requirements.
+
+Read back from the C helper's output on 2026-10-29; coordinates are panel-relative
+`left, top, width, height`. The regression compares all fields with the Python
+build functions, including cloned text, border data and IDs.
+
+| Size | `LB_ABILITY` | Swap cue | LT cue | RT cue |
+| --- | --- | --- | --- | --- |
+| 800x600 | 67,284,336,215 | 438,519,46,23 | 30,54,50,50 | 720,54,50,50 |
+| 1920x1080 | 162,511,807,387 | 1084,934,82,41 | 131,97,90,90 | 1700,97,90,90 |
+| 3440x1440 | 290,681,1445,516 | 1986,1245,108,54 | 316,129,120,120 | 3005,129,120,120 |
+| 3840x2160 | 324,1022,1613,774 | 2169,1867,162,81 | 261,194,180,180 | 3400,194,180,180 |
+
+Both mouse/keyboard and controller modes read this geometry. The controller's
+existing bindings control cue visibility, family art and input; these additions
+do not move input handling into KMRP. Standalone controller sizing is unchanged.
+The two migrated screens have not yet been play-tested.
+
+The 45 preceding screen-rule tables are byte-for-byte unchanged (compared with
+`6b4b17f`); only the two tables, cue constants, row-list entry and Abilities'
+party-screen entry are added. Both Windows module builds, core/controller
+package regressions and the controller worker/preload check pass. No full
+installer rebuild or live-game install was performed for this migration.
+
+**Gameplay and Feedback Options (2026-10-29).** Gameplay repeats
+`build_controller_layout.py` `add_entry`. Clone `BTN_KEYMAP` as `BTN_KMRPLAY`,
+with the next ID and caption `Controller Layout`, retaining its border, hilight,
+font and text alignment. Let `step = Keymapping.top - Mouse.top`, or
+`round(Keymapping.height * 1.175)` if Mouse is absent; rounding is half to even.
+Lift Mouse, Keymapping and the new entry by `step//2`; the entry's initial top is
+`Keymapping.top + step`. Existing `BTN_KMRPLAY` skips both insertion and lifting.
+If Keymapping or its required template fields are missing, omit the added entry.
+The append writer publishes the changed buffer only after the clone and original
+button extents are available, so failure cannot leave a partially lifted stack.
+The native Keymapping button has `TEXT.STRREF=48142` without a `TEXT.TEXT`
+string. The clone adds the missing string field (reusing the existing `TEXT`
+label), sets STRREF to `0xFFFFFFFF`, and leaves the original localized caption
+unchanged. An initial requirement for an existing string field omitted the entry
+in all 66 sets; the structure comparison caught it before any installation.
+
+Feedback repeats `scale_listbox_padding.py` `scale_row_template`: after the
+ordinary live geometry/gutters, change only `LB_OPTIONS.PROTOITEM.EXTENT.HEIGHT`
+to `round(float32(template * max(1, float32(H/720))))`. Keep the prototype's
+left, top and width. A mod's different height is the input to this rule; it is
+not replaced with vanilla's 43. Missing list/prototype geometry skips this step.
+This preserves the correction of the older broken prototype-fitting approach
+recorded in section 7 and the agent memory; it does not fit prototypes to their
+parents or introduce double text scaling.
+
+The `ENTRY_*` values now have named definitions in the existing Python build
+function and are emitted into the C header, alongside the Feedback list name.
+No input binding is added to KMRP: the controller's existing Gameplay handler
+binds the new tag, corrects its live placement and opens its independent screen.
+Both input modes use the same file geometry. Native visual verification of
+these two migrations is pending.
+
+Read back from compiled C output on 2026-10-29. Gameplay coordinates are the top
+of Mouse, Keymapping and Controller Layout; the new entry keeps Keymapping's
+left/width/height. Feedback's prototype left/top/width remain `76,90,240`.
+
+| Size | Mouse TOP | Keymapping TOP | Controller Layout TOP | New entry LEFT,WIDTH,HEIGHT | Feedback prototype HEIGHT |
+| --- | --- | --- | --- | --- | --- |
+| 800x600 | 397 | 431 | 465 | 75,300,29 | 43 |
+| 1920x1080 | 715 | 776 | 837 | 180,720,52 | 64 |
+| 3440x1440 | 953 | 1034 | 1115 | 323,1290,69 | 86 |
+| 3840x2160 | 1430 | 1551 | 1672 | 360,1440,104 | 129 |
+
+The focused regression passes 7,392 extent fields against all 66 sets (95.22%
+exact, 3.98% one pixel off, 59 further within the unchanged allowances), exact
+at 3440x1440. C/Python agree on 540 layouts and refuse two hires files. Another
+36 option-mod layouts cover custom borders/fonts/high IDs, missing Mouse,
+reversed column pitch, existing entries, missing required fields and a custom
+57-pixel Feedback row, which becomes 86 at 1080p without changing its width.
 
 **The table** (`kmrp-livelayout-table.h`): per file, per structure of the game's file, its
 four rule numbers, gold's four values, a hand-set `PADDING` and a changed alignment; the
@@ -246,7 +342,7 @@ the player's machine. `Test-LiveLayout.py` fails when it is not what the script 
 It runs where the galaxy map's and the main menu's adapters run
 (`KmrpRuntimeAssetsDimensions`), into the same folders, and writes a file beside its target
 and moves it over, because those folders can hold hard links into the cache's sets. The
-sets themselves are not changed; their copies of these 45 files are still made and simply
+sets themselves are not changed; their copies of these 49 files are still made and simply
 no longer what the game reads. `KmrpRuntimeLayoutFile` returns the roster folder's file
 first, so the module's own readers of these layouts see the laid-out one. Among the first 44, the
 controller patch changes only the three with the R3 cue, the same cue under the same tag
@@ -265,11 +361,19 @@ controller patch changes only the three with the R3 cue, the same cue under the 
 
 ## 6. Limits
 
-- Current full regression (2026-10-29): **45 screens, 240,504 extent fields**
-  against all 66 sets, 94.55% exact, 5.26% one pixel off, 459 further within the
+- Current set comparison (2026-10-29): **49 screens, 259,248 extent fields**
+  against all 66 sets, 94.44% exact, 5.33% one pixel off, 608 further within the
   existing allowances. At 3440x1440 every extent is identical. C and Python agree
-  on **12,146 layouts**, including modified class-button dimensions and border
-  art; both refuse 45 files already laid out for a different resolution.
+  on **13,226 layouts** and refuse 49 files laid out for a different resolution.
+  The cue-mod check passes another 36 layouts, including moved tabs, missing controls,
+  blocked swap placement, retained mod cues, a template without an ID and a
+  tab-strip file without any plain label. Another 36 option-mod layouts pass.
+  The preceding 47-screen run covered 12,686 C/Python layouts and 47 refused hires
+  files; Gameplay/Feedback's focused check covers 540 layouts and two refusals.
+  Both Windows module builds, package regressions and the controller preload
+  regression pass. No installer rebuild or live installation was performed.
+  The maintainer accepted the batch on 2026-10-29: "works commit and push".
+  The installed build and resolution for that report were not recorded.
 
 - Class selection (added 2026-10-29): against the 66 sets, 4,752 extent fields,
   4,434 exact, 308 one pixel off, 10 two or three pixels off; 3440x1440 identical.
@@ -336,13 +440,14 @@ controller patch changes only the three with the R3 cue, the same cue under the 
   `startscreen.gui` is in no set; the build ships the game's own. `dialog.gui`,
   `pause.gui`, `partyselection.gui` and `statussummary.gui` wait for a check against the
   module's own code that places them at run time.
-- Every other screen still comes from the size's set. Next: the screens with build steps
-  the run time does not repeat yet: `abilities.gui` (the R3 cue and the sub-tab swap cue,
-  and its list fitted to rows), `top.gui` (LT and RT by the tab strip), `optgameplay.gui`
-  (the Controller Layout entry), `optfeedback.gui` (its row template), `confirm.gui`
+- **Correction, 2026-10-29:** Abilities and the menu strip no longer wait for their
+  build steps. The live writer now repeats row fitting and all four added cues
+  described in section 3. Every other screen still comes from the size's set.
+  Gameplay and Feedback now repeat their build steps too, as recorded above.
+  Next: `confirm.gui`
   (KMRP's own popup), `map.gui`, the container, the other row-fitted lists, and the HUD
   (`apply_proportions`).
-- The sets keep their copies of the 45 files; removing them from the bank is a size change
+- The sets keep their copies of the 49 files; removing them from the bank is a size change
   for later.
 - The Mac does not call `KmrpLiveLayout` yet ([handoff item 102](macos-handoff-1.5-to-1.6.md)).
 - No byte of the executable.
@@ -352,6 +457,8 @@ controller patch changes only the three with the R3 cue, the same cue under the 
 ```
 python tools\build_live_layout.py --check
 python testing\regression\Test-LiveLayout.py
+# Focus one migration; the table and both cue/options mod suites still run:
+python testing\regression\Test-LiveLayout.py --screens optgameplay.gui optfeedback.gui
 ```
 
 The test needs `build\kmrp\resources` (a build's 66 sets), `build-inputs\vanilla-gui` and

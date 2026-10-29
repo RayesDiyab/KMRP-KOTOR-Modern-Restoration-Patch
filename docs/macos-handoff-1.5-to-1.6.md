@@ -1320,6 +1320,63 @@ confirmed the Windows result in Steam at 3440x1440: "it looks correct now".
 Logs show each main-menu/class preview primed `0->1` with hidden output before
 its visible class draw `1->2`. Other sizes and the Mac port remain unverified.
 
+## 114. Abilities and the menu strip join Live Adaptive Layout (2026-10-29)
+
+`abilities.gui` and `top.gui` bring the shared rule table to 47 screens. The
+Python reference calls the build's existing row fitting and cue functions;
+`kmrp-guiadapt.c` repeats them with the shared GFF append writer. Abilities fits
+`LB_ABILITY` to 50-unit rows, adds the party cue and then the swap cue left of
+Close. The tab strip derives both LT/RT cues from its sorted tab rectangles.
+Tags, fills, sub-tab names and aspect come from the build definitions through
+the generated header. Carry the header and C together when integrating item 102.
+
+The writer now accepts each cue's tag, fill and rectangle. It preserves the
+original controls/field data, chooses IDs above the highest in use and reopens
+the written GFF before appending another cue. Existing cues are not duplicated;
+missing controls and blocked swap placements omit the added cue. This changes
+geometry for both input modes; existing controller binding/visibility and
+standalone controller sizing remain unchanged. No executable sites are changed.
+
+The [layout reference](live-adaptive-layout.md) records formulas and measured
+rectangles. All 47 screens compare with 66 sets (251,856 extent fields,
+94.41% exact, 5.37% one pixel off, 549 further within existing allowances;
+3440x1440 identical). All 12,686 C/Python layouts, 47 refused hires files and
+36 cue-mod layouts pass, as do both module builds and package checks. Native visual
+verification and Mac runtime integration remain pending.
+
+## 115. Gameplay and Feedback Options join Live Adaptive Layout (2026-10-29)
+
+The shared table now has 49 screens, adding `optgameplay.gui` and
+`optfeedback.gui`. Gameplay repeats `build_controller_layout.py` `add_entry`:
+clone Keymapping as `BTN_KMRPLAY`, derive the step from Mouse, lift all three
+buttons by half the step. Without Mouse use half-even `round(height*1.175)`;
+with an existing entry skip insertion and lifting. Retain custom border, fill,
+hilight, font and alignment. The native template has only a localized STRREF:
+the C writer must append its new `TEXT` string field and clear STRREF in the
+clone, leaving the original caption intact. The new `ENTRY_*` constants are
+shared with the existing builder through the generated header.
+
+Feedback changes only its `LB_OPTIONS` prototype height after ordinary layout,
+using the existing single-precision `row_height` rule. Vanilla's 43 becomes 64
+at 1080p and 86 at 1440p. Keep prototype left/top/width, including a mod's own
+values; use the mod's height as input rather than hardcoding 43. Missing fields
+skip only the unsupported step. This preserves the prior prototype-fitting
+correction. Both input modes use these layouts; existing controller bindings
+and standalone sizing remain unchanged. No executable sites change.
+
+The focused regression passes all 66 sets (7,392 extent fields, 95.22% exact,
+3.98% one pixel off, 59 further within existing allowances; 3440x1440 identical),
+540 C/Python layouts, two refused hires files, 36 existing cue-mod layouts and
+36 option-mod layouts. See the [layout reference](live-adaptive-layout.md) for
+formulas and measured coordinates. In-game visual checks and Mac integration
+remain pending.
+
+The full 49-screen regression also passes: 259,248 extent fields against 66 sets,
+94.44% exact, 5.33% one pixel off, 608 further within the unchanged allowances;
+3440x1440 identical. All 13,226 C/Python layouts, 49 refused hires files and
+both 36-case mod suites pass. Both Windows module builds, package regressions
+and the controller preload regression pass; no live install was performed.
+
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
 | Change | Commit | Why not the Mac |

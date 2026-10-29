@@ -27,6 +27,8 @@ run. This:
 from __future__ import annotations
 
 import io
+import copy
+import argparse
 import logging
 import random
 import subprocess
@@ -46,7 +48,7 @@ from pykotor.resource.formats.gff import GFFList, GFFStruct, read_gff, write_gff
 from pykotor.resource.type import ResourceType  # noqa: E402
 from pykotor.common.misc import ResRef  # noqa: E402
 
-RESOURCES = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "build" / "kmrp" / "resources"
+RESOURCES = ROOT / "build" / "kmrp" / "resources"
 # The rounding pixel was accepted (2026-10-28); a few fields carry upstream's own rounding
 # through gold's ratio to 2 or 3 px at very large or blended sizes (9 of 35,640 on
 # 2026-10-28), and are printed. On the widest screens that rounding is up to a 3072th of
@@ -149,7 +151,172 @@ def mod_files(name: str, out: Path) -> tuple[Path | None, Path, str | None]:
     return mod, hires, moved.get_string("TAG")
 
 
+def check_cue_mods(helper: Path, tmp: Path, rows: dict, fail) -> int:
+    """Exercise cue placement from mod geometry, refusal, duplicate tags and template fallback."""
+    checked = 0
+    for name, variants in (("abilities.gui", ("moved", "missing", "blocked", "existing", "template")),
+                           ("top.gui", ("moved", "missing", "existing", "template"))):
+        for variant in variants:
+            gff = read_gff(ll.VANILLA / name)
+            controls = gff.root.acquire("CONTROLS", None, GFFList)
+            by_tag = {c.get_string("TAG"): c for c in controls}
+            if variant == "moved":
+                tags = ll.SUBTAB_TAGS if name == "abilities.gui" else ll.TAB_TAGS
+                for index, tag in enumerate(tags):
+                    box = ll.child(by_tag[tag], "EXTENT")
+                    box.set_int32("LEFT", box.get_int32("LEFT") + 3 * (index + 1))
+                    box.set_int32("HEIGHT", box.get_int32("HEIGHT") + 1)
+                # New IDs must follow the highest, even if the template has a lower ID.
+                controls.at(0).set_int32("ID", 900)
+            elif variant == "missing":
+                by_tag[ll.SUBTAB_TAGS[1] if name == "abilities.gui" else ll.TAB_TAGS[1]].set_string("TAG", "MOD_RENAMED")
+            elif variant == "blocked":
+                ll.child(by_tag[ll.SWAP_CUE_BESIDE], "EXTENT").set_int32("LEFT", 1)
+            elif variant == "existing":
+                cue = copy.deepcopy(by_tag[ll.SUBTAB_TAGS[0] if name == "abilities.gui" else ll.TAB_TAGS[0]])
+                cue.set_string("TAG", ll.SWAP_CUE_TAG if name == "abilities.gui" else ll.TAB_CUES[0][0])
+                cue.set_int32("ID", 901)
+                ll.child(cue, "BORDER").set_resref("FILL", ResRef("mod_cue"))
+                controls.append(cue)
+            elif variant == "template":
+                template = ll.extra_cue_template(gff.root, name)
+                # A mod with no label still uses the first tab button on top.gui.
+                if name == "top.gui":
+                    for c in controls:
+                        if c.acquire("CONTROLTYPE", -1) == 4:
+                            c.set_int32("CONTROLTYPE", 5)
+                else:
+                    template._fields.pop("ID")
+            source = tmp / f"{variant}-{name}"
+            write_gff(gff, source, ResourceType.GUI)
+            original = source.read_bytes()
+            for w, h in ((800, 600), (1920, 1080), (3440, 1440), (2560, 1600)):
+                out = tmp / "cue-mod.gui"
+                out.unlink(missing_ok=True)
+                code = subprocess.run([str(helper), "live", native_helpers.arg(ll.VANILLA / name), name,
+                                       str(w), str(h), native_helpers.arg(out), native_helpers.arg(source)],
+                                      stdout=subprocess.DEVNULL).returncode
+                expected = python_layout(name, source, w, h, rows[name])
+                if code or not out.exists() or flat(read_gff(out).root) != flat(expected):
+                    fail(f"{name} {variant} {w}x{h}: cue mod differs between C and Python (code {code})")
+                    continue
+                actual = read_gff(out).root.acquire("CONTROLS", None, GFFList)
+                tags = [c.get_string("TAG") for c in actual]
+                cue_tag = ll.SWAP_CUE_TAG if name == "abilities.gui" else ll.TAB_CUES[0][0]
+                if variant in ("missing", "blocked") or (variant == "template" and name == "abilities.gui"):
+                    if cue_tag in tags:
+                        fail(f"{name} {variant}: unsupported cue was added")
+                elif variant == "existing":
+                    cue = next(c for c in actual if c.get_string("TAG") == cue_tag)
+                    if tags.count(cue_tag) != 1 or str(ll.child(cue, "BORDER").get_resref("FILL")) != "mod_cue":
+                        fail(f"{name}: existing mod cue was replaced or duplicated")
+                    if name == "top.gui" and ll.TAB_CUES[1][0] in tags:
+                        fail("top.gui: an existing partial cue pair was changed")
+                elif name == "top.gui" and any(t not in tags for t, _, _ in ll.TAB_CUES):
+                    fail(f"top.gui {variant}: tab cues were not added")
+                if variant == "moved":
+                    new_ids = [c.get_int32("ID") for c in actual if c.get_string("TAG").startswith("LBL_KMRP")]
+                    if not new_ids or min(new_ids) <= 900 or len(new_ids) != len(set(new_ids)):
+                        fail(f"{name}: cue IDs do not follow the mod's highest ID")
+                checked += 1
+            if source.read_bytes() != original:
+                fail(f"{name} {variant}: source mod was modified on disk")
+    return checked
+
+
+def check_options_mods(helper: Path, tmp: Path, rows: dict, fail) -> int:
+    """Check entry cloning/lifting and checkbox rows against independently run build steps."""
+    checked = 0
+    for name, variants in ((ll.ENTRY_SCREEN, ("style", "missing-key", "missing-mouse", "existing", "reverse-step", "missing-text")),
+                           (ll.FEEDBACK_LIST[0], ("row57", "missing-proto", "missing-list"))):
+        for variant in variants:
+            gff = read_gff(ll.VANILLA / name)
+            controls = gff.root.acquire("CONTROLS", None, GFFList)
+            by_tag = {c.get_string("TAG"): c for c in controls}
+            if name == ll.ENTRY_SCREEN:
+                key, mouse = by_tag[ll.ENTRY_TEMPLATE], by_tag[ll.ENTRY_PREVIOUS]
+                if variant == "style":
+                    key.set_int32("ID", 903)
+                    ll.child(key, "BORDER").set_resref("FILL", ResRef("mod_fill"))
+                    ll.child(key, "BORDER").set_resref("CORNER", ResRef("mod_corner"))
+                    ll.child(key, "TEXT").set_resref("FONT", ResRef("mod_font"))
+                    ll.child(key, "TEXT").set_int32("ALIGNMENT", 18)
+                    ll.child(key, "EXTENT").set_int32("TOP", 361)
+                elif variant == "missing-key":
+                    key.set_string("TAG", "MOD_KEYMAP")
+                elif variant == "missing-mouse":
+                    mouse.set_string("TAG", "MOD_MOUSE")
+                elif variant == "reverse-step":
+                    ll.child(mouse, "EXTENT").set_int32("TOP", 373)
+                elif variant == "missing-text":
+                    ll.child(key, "TEXT")._fields.pop("STRREF")
+                elif variant == "existing":
+                    entry = copy.deepcopy(key)
+                    entry.set_string("TAG", ll.ENTRY_TAG)
+                    entry.set_int32("ID", 904)
+                    ll.child(entry, "TEXT").set_string("TEXT", "Mod layout")
+                    controls.append(entry)
+            else:
+                target = by_tag[ll.FEEDBACK_LIST[1]]
+                if variant == "row57":
+                    proto = ll.child(target, "PROTOITEM")
+                    e = ll.child(proto, "EXTENT")
+                    e.set_int32("HEIGHT", 57)
+                    e.set_int32("WIDTH", 251)
+                elif variant == "missing-proto":
+                    target._fields.pop("PROTOITEM")
+                elif variant == "missing-list":
+                    target.set_string("TAG", "MOD_OPTIONS")
+            source = tmp / f"options-{variant}-{name}"
+            write_gff(gff, source, ResourceType.GUI)
+            original = source.read_bytes()
+            for w, h in ((800, 600), (1920, 1080), (3440, 1440), (3840, 2160)):
+                out = tmp / "options-mod.gui"
+                out.unlink(missing_ok=True)
+                code = subprocess.run([str(helper), "live", native_helpers.arg(ll.VANILLA / name), name,
+                                       str(w), str(h), native_helpers.arg(out), native_helpers.arg(source)],
+                                      stdout=subprocess.DEVNULL).returncode
+                expected = python_layout(name, source, w, h, rows[name])
+                if code or not out.exists() or flat(read_gff(out).root) != flat(expected):
+                    fail(f"{name} {variant} {w}x{h}: option mod differs between C and Python (code {code})")
+                    continue
+                actual = read_gff(out).root.acquire("CONTROLS", None, GFFList)
+                entries = [c for c in actual if c.get_string("TAG") == ll.ENTRY_TAG]
+                if name == ll.ENTRY_SCREEN:
+                    if variant in ("missing-key", "missing-text"):
+                        if entries:
+                            fail(f"{variant}: unsupported entry was added")
+                    elif len(entries) != 1:
+                        fail(f"{variant}: Controller Layout entry missing or duplicated")
+                    elif variant == "style":
+                        entry = entries[0]
+                        if (entry.get_int32("ID") != 904 or
+                            str(ll.child(entry, "BORDER").get_resref("CORNER")) != "mod_corner" or
+                            str(ll.child(entry, "BORDER").get_resref("FILL")) != "mod_fill" or
+                            str(ll.child(entry, "TEXT").get_resref("FONT")) != "mod_font"):
+                            fail("entry clone lost the mod's border, fill, font or next ID")
+                    elif variant == "existing" and ll.child(entries[0], "TEXT").get_string("TEXT") != "Mod layout":
+                        fail("existing mod entry was overwritten")
+                elif variant == "row57":
+                    row = next(c for c in actual if c.get_string("TAG") == ll.FEEDBACK_LIST[1])
+                    box = ll.extent(ll.child(row, "PROTOITEM"))
+                    if box[2] != 251 or box[3] != {600: 57, 1080: 86, 1440: 114, 2160: 171}[h]:
+                        fail("Feedback lost mod row dimensions or single-precision half-even scaling")
+                checked += 1
+            if source.read_bytes() != original:
+                fail(f"{name} {variant}: source mod was modified on disk")
+    return checked
+
+
 def main() -> int:
+    global RESOURCES
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("resources", type=Path, nargs="?", default=RESOURCES)
+    parser.add_argument("--screens", nargs="+", choices=ll.FILES, default=ll.FILES,
+                        help="check selected screens; table and cue/options mod checks still run")
+    args = parser.parse_args()
+    RESOURCES = args.resources
+    files = args.screens
     logging.disable(logging.DEBUG)
     failed = False
 
@@ -168,7 +335,7 @@ def main() -> int:
     if len(sizes) < 66:
         fail(f"{RESOURCES} has {len(sizes)} sets, expected 66")
     diffs = Counter()
-    for name in ll.FILES:
+    for name in files:
         for size in sizes:
             w, h = (int(x) for x in size.split("x"))
             ours = python_layout(name, ll.VANILLA / name, w, h, rows[name])
@@ -214,7 +381,7 @@ def main() -> int:
                     continue
                 fail(f"{name} {size} {k}: {x!r}, the set has {y!r}")
     total = sum(diffs.values())
-    print(f"against KMRP's {len(sizes)} sets, {len(ll.FILES)} screens: {total} EXTENT fields, "
+    print(f"against KMRP's {len(sizes)} sets, {len(files)} screens: {total} EXTENT fields, "
           f"{100 * diffs['exact'] / total:.2f}% exact, {100 * diffs['1 px'] / total:.2f}% 1 px off, "
           f"{diffs['more']} further; 3440x1440 identical, every other field the set's at every "
           f"size, but for colour precision")
@@ -232,7 +399,7 @@ def main() -> int:
         extra = [(rng.randint(640, 15360), 0) for _ in range(200)]
         extra = [(w, rng.randint(max(480, w // 4), min(8640, w * 3 // 4 + 1))) for w, _ in extra]
         checked = 0
-        for name in ll.FILES:
+        for name in files:
             mod, hires, moved_tag = mod_files(name, tmp)
             cases = [(int(s.split("x")[0]), int(s.split("x")[1]), None) for s in sizes]
             cases += [(w, h, None) for w, h in extra]
@@ -280,7 +447,9 @@ def main() -> int:
                                   stdout=subprocess.DEVNULL).returncode
             if code != 0 or out.exists() or python_layout(name, hires, 1920, 1080, rows[name]) is not None:
                 fail(f"{name}: a file laid out for 1920x1080 was not refused")
-        print(f"C against Python: {checked} layouts, {len(ll.FILES)} refused mods' files")
+        print(f"C against Python: {checked} layouts, {len(files)} refused mods' files")
+        print(f"Cue mods: {check_cue_mods(helper, tmp, rows, fail)} layouts")
+        print(f"Options mods: {check_options_mods(helper, tmp, rows, fail)} layouts")
 
     print("FAILED" if failed else "PASSED")
     return 1 if failed else 0

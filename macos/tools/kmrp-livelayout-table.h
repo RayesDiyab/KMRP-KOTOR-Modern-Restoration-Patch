@@ -52,9 +52,10 @@ typedef struct { const char *file, *tag; int popup; int bases[4]; int count; } L
 #define LL_ROW_GAP_DIVISOR 11
 #define LL_LOOSE_GAP 0.125
 static const LLRowList LL_ROW_LISTS[] = {
+    { "abilities.gui", "LB_ABILITY", 0, { 50, 0, 0, 0 }, 1 },
     { "equip.gui", "LB_ITEMS", 0, { 56, 0, 0, 0 }, 1 },
 };
-#define LL_ROW_LIST_COUNT 1
+#define LL_ROW_LIST_COUNT 2
 
 /* The R3 cue by the party portraits (add_party_switch_cue): its side is R3_PERCENT of
  * the portraits' height, centred in their gap when the gap holds it with R3_MARGIN of
@@ -65,11 +66,32 @@ static const LLRowList LL_ROW_LISTS[] = {
 #define LL_R3_MARGIN 0.1
 #define LL_R3_BLOCKING 0xFC0u   /* CONTROLTYPEs a cue may not cover */
 static const char *const LL_R3_SCREENS[] = {
+    "abilities.gui",
     "character.gui",
     "equip.gui",
     "inventory.gui",
     0,
 };
+
+#define LL_SWAP_SCREEN "abilities.gui"
+#define LL_SWAP_TAG "LBL_KMRPSWAP"
+#define LL_SWAP_FILL "kmrpswap_abi"
+#define LL_SWAP_BESIDE "BTN_EXIT"
+#define LL_SWAP_ASPECT 2
+static const char *const LL_SUBTABS[] = { "BTN_SKILLS", "BTN_POWERS", "BTN_FEATS" };
+#define LL_TAB_SCREEN "top.gui"
+static const char *const LL_TABS[] = { "BTN_EQU", "BTN_INV", "BTN_CHAR", "BTN_ABI", "BTN_MSG", "BTN_JOU", "BTN_MAP", "BTN_OPT" };
+static const char *const LL_TAB_TAGS[] = { "LBL_KMRPLT", "LBL_KMRPRT" };
+static const char *const LL_TAB_FILLS[] = { "kmrplt_menu", "kmrprt_menu" };
+#define LL_ENTRY_SCREEN "optgameplay.gui"
+#define LL_ENTRY_TAG "BTN_KMRPLAY"
+#define LL_ENTRY_TEMPLATE "BTN_KEYMAP"
+#define LL_ENTRY_PREVIOUS "BTN_MOUSE"
+#define LL_ENTRY_CAPTION "Controller Layout"
+#define LL_FEEDBACK_SCREEN "optfeedback.gui"
+#define LL_FEEDBACK_TAG "LB_OPTIONS"
+#define LL_ENTRY_FALLBACK_STEP 1.175
+#define LL_ENTRY_LIFT_DIVISOR 2
 
 static const LLRow LL_ROWS_0[] = {  /* optionsmain.gui */
     { "", "", { 1, 0, 1, 0 }, { 0, 0, 3440, 1440 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
@@ -1069,6 +1091,80 @@ static const LLRow LL_ROWS_44[] = {  /* classsel.gui */
     { "BTN_SEL6", "", { 1, 2, 1, 0 }, { 2688, 128, 403, 869 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 15 },
     { "BTN_SEL5", "", { 1, 2, 1, 0 }, { 2220, 128, 403, 869 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 15 },
 };
+static const LLRow LL_ROWS_45[] = {  /* abilities.gui */
+    { "", "", { 1, 0, 1, 0 }, { 0, 0, 3440, 1440 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_INFOBG", "", { 1, 0, 1, 0 }, { 855, 342, 898, 324 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_DESC", "", { 1, 0, 1, 0 }, { 1775, 500, 1386, 695 }, 72, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_DESC", "PROTOITEM", { 2, 2, 2, 2 }, { 331, 165, 235, 42 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_DESC", "SCROLLBAR", { 1, 0, 1, 0 }, { 3075, 500, 86, 695 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_PORTRAIT", "", { 3, 0, 0, 0 }, { 419, 348, 309, 309 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_ABILITY", "", { 1, 0, 1, 0 }, { 290, 681, 1445, 516 }, 25, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_ABILITY", "PROTOITEM", { 2, 2, 2, 2 }, { 75, 226, 245, 40 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_ABILITY", "SCROLLBAR", { 1, 0, 1, 0 }, { 290, 681, 74, 515 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_NAME", "", { 1, 0, 1, 0 }, { 1758, 348, 1360, 126 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_SKILLRANK", "", { 1, 0, 1, 0 }, { 860, 348, 656, 96 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_RANKVAL", "", { 1, 0, 1, 0 }, { 1550, 351, 175, 93 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_BONUS", "", { 1, 0, 1, 0 }, { 860, 453, 656, 96 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_BONUSVAL", "", { 1, 0, 1, 0 }, { 1550, 457, 175, 93 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_TOTAL", "", { 1, 0, 1, 0 }, { 860, 558, 656, 96 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_TOTALVAL", "", { 1, 0, 1, 0 }, { 1550, 565, 175, 93 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_POWERS", "", { 1, 0, 1, 0 }, { 1360, 264, 720, 54 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_SKILLS", "", { 1, 0, 1, 0 }, { 607, 264, 742, 54 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_FEATS", "", { 1, 0, 1, 0 }, { 2091, 264, 742, 54 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_EXIT", "", { 1, 0, 1, 0 }, { 2112, 1230, 785, 84 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_CHANGE1", "", { 3, 0, 0, 0 }, { 609, 1230, 84, 84 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_CHANGE2", "", { 3, 0, 0, 0 }, { 787, 1230, 84, 84 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+};
+static const LLRow LL_ROWS_46[] = {  /* top.gui */
+    { "", "", { 1, 0, 1, 0 }, { 0, 0, 3440, 258 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBLH_ABI", "", { 3, 0, 0, 0 }, { 1457, 96, 192, 192 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBLH_CHA", "", { 3, 0, 0, 0 }, { 1124, 96, 192, 192 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBLH_EQU", "", { 3, 0, 0, 0 }, { 458, 96, 192, 192 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBLH_INV", "", { 3, 0, 0, 0 }, { 791, 96, 192, 192 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBLH_JOU", "", { 3, 0, 0, 0 }, { 2124, 96, 192, 192 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBLH_MAP", "", { 3, 0, 0, 0 }, { 2457, 96, 192, 192 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBLH_OPT", "", { 3, 0, 0, 0 }, { 2790, 96, 192, 192 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBLH_MSG", "", { 3, 0, 0, 0 }, { 1791, 96, 192, 192 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_EQU", "", { 3, 0, 0, 0 }, { 476, 129, 156, 120 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_INV", "", { 3, 0, 0, 0 }, { 804, 129, 156, 120 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_CHAR", "", { 3, 0, 0, 0 }, { 1142, 129, 156, 120 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_ABI", "", { 3, 0, 0, 0 }, { 1476, 129, 156, 120 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_MSG", "", { 3, 0, 0, 0 }, { 1809, 129, 156, 120 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_JOU", "", { 3, 0, 0, 0 }, { 2142, 129, 156, 120 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_MAP", "", { 3, 0, 0, 0 }, { 2475, 129, 156, 120 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_OPT", "", { 3, 0, 0, 0 }, { 2809, 129, 156, 120 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+};
+static const LLRow LL_ROWS_47[] = {  /* optgameplay.gui */
+    { "", "", { 1, 0, 1, 0 }, { 0, 0, 3440, 1440 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "CB_INVERTCAM", "", { 1, 0, 1, 0 }, { 323, 489, 1290, 120 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "CB_LEVELUP", "", { 1, 0, 1, 0 }, { 323, 372, 1290, 120 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_DIFFICULTY", "", { 1, 0, 1, 0 }, { 323, 255, 1290, 120 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_DIFFLEFT", "", { 1, 0, 1, 0 }, { 323, 279, 129, 75 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_DIFFRIGHT", "", { 1, 0, 1, 0 }, { 1484, 279, 129, 75 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_TITLE", "", { 1, 0, 1, 0 }, { 753, 120, 1957, 63 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_DESC", "", { 1, 0, 1, 0 }, { 1780, 280, 1381, 850 }, 72, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_DESC", "PROTOITEM", { 2, 2, 2, 2 }, { 330, 90, 240, 27 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_DESC", "SCROLLBAR", { 1, 0, 1, 0 }, { 3075, 280, 86, 850 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "CB_AUTOSAVE", "", { 1, 0, 1, 0 }, { 323, 606, 1290, 120 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "CB_REVERSE", "", { 1, 0, 1, 0 }, { 323, 723, 1290, 120 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "CB_DISABLEMOVE", "", { 1, 0, 1, 0 }, { 323, 840, 1290, 120 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_BACK", "", { 1, 0, 1, 0 }, { 2112, 1230, 785, 84 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_DEFAULT", "", { 1, 0, 1, 0 }, { 607, 1230, 785, 84 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_KEYMAP", "", { 1, 0, 1, 0 }, { 323, 1074, 1290, 69 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_MOUSE", "", { 1, 0, 1, 0 }, { 323, 993, 1290, 69 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+};
+static const LLRow LL_ROWS_48[] = {  /* optfeedback.gui */
+    { "", "", { 1, 0, 1, 0 }, { 0, 0, 3440, 1440 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_TITLE", "", { 1, 0, 1, 0 }, { 753, 120, 1957, 63 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_DESC", "", { 1, 0, 1, 0 }, { 1780, 280, 1383, 850 }, 72, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_DESC", "PROTOITEM", { 2, 2, 2, 2 }, { 330, 90, 240, 25 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_DESC", "SCROLLBAR", { 1, 0, 1, 0 }, { 3077, 280, 86, 850 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_BACK", "", { 1, 0, 1, 0 }, { 2112, 1230, 785, 84 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_DEFAULT", "", { 1, 0, 1, 0 }, { 607, 1230, 785, 84 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_OPTIONS", "", { 1, 0, 1, 0 }, { 323, 270, 1376, 870 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_OPTIONS", "PROTOITEM", { 2, 2, 2, 2 }, { 76, 90, 240, 43 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_OPTIONS", "SCROLLBAR", { 1, 0, 1, 0 }, { 323, 270, 86, 870 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+};
 
 static const LLFile LL_FILES[] = {
     { "optionsmain.gui", LL_ROWS_0, 11 },
@@ -1116,6 +1212,10 @@ static const LLFile LL_FILES[] = {
     { "debug.gui", LL_ROWS_42, 5 },
     { "ntscpat.gui", LL_ROWS_43, 1 },
     { "classsel.gui", LL_ROWS_44, 18 },
+    { "abilities.gui", LL_ROWS_45, 22 },
+    { "top.gui", LL_ROWS_46, 17 },
+    { "optgameplay.gui", LL_ROWS_47, 17 },
+    { "optfeedback.gui", LL_ROWS_48, 10 },
 };
 
 #endif

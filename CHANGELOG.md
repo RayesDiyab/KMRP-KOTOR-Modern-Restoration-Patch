@@ -117,6 +117,24 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Gameplay and Feedback Options use Live Adaptive Layout** (2026-10-29),
+  bringing coverage to 49 screens. Gameplay clones its Controller Layout entry
+  from the live Keymapping button and retains custom styling and column spacing.
+  Feedback scales its checkbox row template with the shared row scale, retaining
+  a mod's template dimensions. Existing entries are preserved and unsupported
+  template/list geometry skips only the added step. All 49 screens pass against
+  66 resolution sets, 13,226 C/Python layouts, 49 refused hires files and 72 mod
+  cases; both module builds and package checks pass. In-game verification is pending.
+
+- **Abilities and the menu tab strip use Live Adaptive Layout** (2026-10-29),
+  bringing the total to 47 screens. Abilities carries its list row fitting,
+  party-switch cue and sub-tab swap cue into the live layout; the tab strip
+  places LT/RT cues from the resulting tab rectangles. Mouse/keyboard and
+  controller modes share the geometry. Existing mod cues are preserved, and
+  missing or blocked cue placements are omitted. All 66 resolution sets,
+  12,686 C/Python layouts, 47 refused hires files, 36 cue-mod cases and both
+  module/package checks pass. In-game verification is pending.
+
 - **3D preview rendering has first preload priority** (2026-10-29). The six
   class-selection previews and the main-menu preview get one initial native
   render with color output disabled before their first visible draw. The hidden

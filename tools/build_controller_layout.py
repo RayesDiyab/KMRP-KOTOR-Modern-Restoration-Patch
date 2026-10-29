@@ -813,6 +813,15 @@ def add_confirm_badge(source: Path, output: Path, label_source: Path,
     write_gff(g, output)
 
 
+ENTRY_SCREEN = "optgameplay.gui"
+ENTRY_TAG = "BTN_KMRPLAY"
+ENTRY_TEMPLATE = "BTN_KEYMAP"
+ENTRY_PREVIOUS = "BTN_MOUSE"
+ENTRY_CAPTION = "Controller Layout"
+ENTRY_FALLBACK_STEP = 1.175
+ENTRY_LIFT_DIVISOR = 2
+
+
 def add_entry(source: Path, output: Path):
     """Add Controller Layout to the Gameplay screen, under Keymapping.
 
@@ -826,23 +835,23 @@ def add_entry(source: Path, output: Path):
     the column at every one of the 48 resolutions.
     """
     g = read_gff(source); cs = g.root.get_list('CONTROLS')
-    if any(c.get_string('TAG') == 'BTN_KMRPLAY' for c in cs): return
+    if any(c.get_string('TAG') == ENTRY_TAG for c in cs): return
     by = {c.get_string('TAG'): c for c in cs}
-    if 'BTN_KEYMAP' not in by:
+    if ENTRY_TEMPLATE not in by:
         raise ValueError(f"{source.name} has no BTN_KEYMAP to sit under")
-    c = copy.deepcopy(by['BTN_KEYMAP'])
-    c.set_string('TAG', 'BTN_KMRPLAY')
+    c = copy.deepcopy(by[ENTRY_TEMPLATE])
+    c.set_string('TAG', ENTRY_TAG)
     c.set_int32('ID', max(x.get_int32('ID') for x in cs) + 1)
-    text(c, 'Controller Layout')
+    text(c, ENTRY_CAPTION)
 
-    keymap = by['BTN_KEYMAP'].get_struct('EXTENT')
+    keymap = by[ENTRY_TEMPLATE].get_struct('EXTENT')
     top = keymap.get_int32('TOP')
     height = keymap.get_int32('HEIGHT')
-    if 'BTN_MOUSE' in by:
+    if ENTRY_PREVIOUS in by:
         # The column's own spacing, whatever this resolution scaled it to.
-        step = top - by['BTN_MOUSE'].get_struct('EXTENT').get_int32('TOP')
+        step = top - by[ENTRY_PREVIOUS].get_struct('EXTENT').get_int32('TOP')
     else:
-        step = round(height * 1.175)
+        step = round(height * ENTRY_FALLBACK_STEP)
     with edit(c, 'EXTENT') as e:
         e.set_int32('TOP', top + step)
 
@@ -851,8 +860,8 @@ def add_entry(source: Path, output: Path):
     # bottom bar (6px above Default at 3440x1440); lifted, the gap under the
     # last checkbox roughly matches the step between the buttons, and the stack
     # clears the bottom bar.
-    lift = step // 2
-    for control in [by[t] for t in ('BTN_MOUSE', 'BTN_KEYMAP') if t in by] + [c]:
+    lift = step // ENTRY_LIFT_DIVISOR
+    for control in [by[t] for t in (ENTRY_PREVIOUS, ENTRY_TEMPLATE) if t in by] + [c]:
         with edit(control, 'EXTENT') as e:
             e.set_int32('TOP', e.get_int32('TOP') - lift)
 
