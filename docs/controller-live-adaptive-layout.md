@@ -331,6 +331,151 @@ They are drawn before the screen is opened:
 
 ## 10. Verifying by hand
 
+### Pazaak gameplay action strip (2026-10-29)
+
+`K1NativeJoystick.cpp` `UpdatePazaakActionStripK1` uses the live panel and the
+`BTN_XTEXT` and `BTN_YTEXT` extents. Two `CSWGuiActivatedButton` instances cloned from
+`BTN_XTEXT` carry strings 32330 (Play Hand Card) and 32331 (Flip Hand Card), with
+X and LB badges. Existing controller handlers perform the actions; the added
+buttons are excluded from controller focus. The row is Play, Flip, End Turn, Stand.
+
+For End Turn left `E`, its gap `G` to Stand, and source button left `L`,
+width `B`, the mirrored left is `2*E - G - L - B`. This continues the
+existing pitch to the left, avoiding overlap at the panel midpoint. Read from the gold 3440x1440 layout with
+`tools/dump_gui_extents.py`: End Turn is `(1704,1233,645,84)`, Stand is
+`(2354,1233,645,84)`; the new Play and Flip boxes are `(404,1233,645,84)` and
+`(1054,1233,645,84)`.
+
+The loaded panel texture is read back through `K1CaptionInk`. In rows from the
+player hand's bottom (or End Turn's top, whichever is earlier) through End Turn's
+bottom, with a one-layout-pixel rim, each left-half texel copies the right-half
+texel reflected across that same gap midpoint. Other texels are copied unchanged. The result is written to
+the controller module's private texture folder. Switching to mouse input restores
+the original fill and the PC flip legends. The game's source texture and GUI file
+are not overwritten. No executable bytes or hooks change.
+
+Correction to the previous Pazaak presentation: Play was placed below the flip
+legend, which provided no matching left button strip. Both actions now occupy
+mirrored button boxes on the same row as End Turn and Stand. At the first build,
+in-game appearance, mouse switching and play were **untested**; final verification
+is recorded below. To verify: open a table with the
+controller, check all four captions and badges, play and flip a hand card, end the
+turn and stand, then move the mouse and check the PC layout returns.
+
+Follow-up correction (2026-10-29): the maintainer's first play-test showed the
+four-part row, but Flip did not work, its caption stayed enabled, the small flip
+control remained visible, and the new pair did not flash. The new pair had been
+made as ordinary `CSWGuiButton` objects. They now use `CSWGuiActivatedButton`, as
+End Turn and Stand do: 0x1D4 bytes, vtable VA 0x00753120, timer +0x1C4 initially
+-1, flash colour +0x1C8. The matching source is
+`matching/src/m/sw_gui_pazaak_card.cpp` in `swkotor1-reconstruction`.
+
+Addresses below are VA in the unencrypted GOG executable
+`build/controller-standalone/game-gog/swkotor.exe`, SHA-256
+`9C10E0450A6EECA417E036E3CDE7474FED1F0A92AAB018446D156944DEA91435`.
+The calling conventions and timer offsets were checked by disassembling its bytes
+with Capstone; REA did not recognize these function entries in its analysis.
+
+| Native routine/data | VA | Use |
+| --- | --- | --- |
+| Hand card right-click | 0x0067DD80 | `thiscall(panel, card)`, `ret 4`; saves active control, sets it to the card, calls 0x0067DCF0 and restores it |
+| Activated button SetColor | 0x0067CA50 | `thiscall(button, colour)`, `ret 4`; stores 0.8 in timer +0x1C4 and copies 12 colour bytes to +0x1C8 |
+| Activated button Draw | 0x0067CB70 | advances the timer and pulses the caption, then calls the ordinary button Draw |
+| Activated button SetEnabled | 0x0067CC90 | native enabled/disabled caption colour, preserving an active flash |
+| Pazaak flash colour | 0x007A23CC | same colour used by End Turn and Stand |
+
+From `matching/src/m/sw_gui_pazaak_game.cpp`, the focused hand card is flippable
+when its value (+0x304) is 12 through 17. The new Flip caption follows this
+condition and the existing focused-card/mode guards. Its action calls the native
+right-click routine directly, independently of the small flip button's visibility,
+and flashes only if the card's flag at +0x308 changes. Play requires state 3, mode
+0 and a nonempty focused hand card, then calls the existing click handler and flashes.
+These are static source findings; the cause of the first build's failed flip was
+not observed in a debugger.
+
+Each of the four mouse flip controls keeps its native state and gets a private
+40-slot copy of the ordinary button vtable, changing only Draw (slot +0x38).
+Controller input skips that draw; mouse input calls its original Draw. This also
+covers `RefreshDisplay` making a flip control visible inside the panel's Draw,
+after the module's frame update. Original vtables are restored at teardown if the
+private table is still installed. No global hook or executable byte changes.
+
+`python testing/regression/Test-PazaakActions.py` compiles the production handlers
+against native-layout mocks: 4,092 combinations of four hand positions, card values,
+hand modes and game states; invisible/blocked cards and missing focus; flipping
+while all small flip controls are hidden; accepted-action flashes; controller draw
+suppression and mouse draw delegation. It substitutes only engine entry points.
+The mock alone does not prove the live game invokes LB or that the animation looks
+correct. This follow-up was awaiting play-test; the later results are recorded below.
+
+Second play-test correction (2026-10-29): the maintainer confirmed the button
+effect works, but Flip never appeared gray and playing a flipped card overwrote
+the Play area. Level 2 log snapshots record the added Flip (control 75 at
+1054,1233,645,84) changing between low flags `0x0E` and `0x06`, so selectable bit
+`0x08` does clear. For example, ticks 88815406 and 88822390 show enabled then
+disabled. The logs contain no caption RGB or screenshot, so they do not establish
+the rendered color. The GOG bytes above give both native disabled color constants
+(VA 0x0078D3B4 and 0x007A2408) as `(0,0.33,0.49)`, still cyan, while enabled
+Pazaak text is `(0,0.66,0.98)` at VA 0x007A23B4.
+
+`SetPazaakActionEnabledK1` now sets disabled captions explicitly to `(0.5,0.5,0.5)`
+through `CSWGuiTextParams::SetColor` (VA 0x00414E10), and `KmrpPromptDimK1` sets
+the separate badge label's border COLOR to `(0.4,0.4,0.4)` (white when enabled).
+An invalid Flip cancels a previous card's flash timer. Play keeps the accepted
+press flash even though consuming the card immediately disables it.
+
+The native `RefreshDisplay` sets both PC legend draw flags from `bAnyFlip`. It
+can run after the module's frame update, including while playing/flipping cards.
+The four small flip buttons and **both** PC legends now share the mouse-only draw
+policy (six controls; separate 40-slot button and label vtable copies). Their
+native visibility flags are left intact, so mouse input draws exactly the state
+the engine keeps. This removes the code path that could redraw the old Flip
+legend over the new Play box; the reported overwrite was not captured in a
+debugger. The regression additionally checks gray captions, badge dim/restore,
+flash cancellation/preservation and refresh-visible legends. This intermediate build
+was awaiting live recheck; the later results are recorded below.
+
+Hand-slot focus correction (2026-10-29): the next play-test showed no highlighted
+card at entry, followed by correct enabled actions after moving to the first card.
+Level 2 logs show panel 0x07FEFC38 opening at tick 91776421 with active control
+0x07FF6884, its End Turn at panel +0x6C4C; tick 91781750 records the first right
+move to 0x07FF2A18, its first hand slot at +0x2DE0. These are heap addresses from
+that run, not fixed game addresses.
+
+`EnsurePazaakHandFocusK1` now restores a controller cursor to a hand slot whenever
+the native active control is outside the four slots. Its initial index is zero;
+an already selected slot, even empty, is preserved. `NavigatePazaakHandK1` handles
+left/right as `(index + step + 4) % 4`, including empty slots, and consumes vertical
+movement. It runs before the generic spatial navigator. An accepted Play remembers
+and restores its slot after the native handler. Mouse input, another panel on top
+(including tutorial/quit dialogs), and nonzero native hand mode prevent the focus
+repair. Returning to controller input or from a modal restores the remembered slot.
+
+The matching `sw_gui_pazaak_game.cpp` shows why slot navigation is separate:
+`ReconnectSidedeckButtons` (VA 0x0067DA30) links occupied cards, and
+`SetHandEnabled` (VA 0x0067DBB0) selects End Turn on leaving native hand mode.
+Focus uses `CSWGuiPanel::SetActiveControl` (VA 0x0040A630), which sends the old
+and new controls their native focus events without a selectability test. Empty
+slot focus does not authorize playing it: `PazaakHandActionEnabledK1` and the
+action guards still require a nonempty card for Play, value 12 through 17 for
+Flip, mode zero, and the native player-turn state for Play. An accepted Play
+finishes its short press flash before its disabled gray caption settles.
+
+The production mock regression now also covers initial End Turn focus, first-slot
+selection, a nonflippable card enabling Play alone, consumption clearing native
+focus and restoring that empty slot, both actions disabled on empty, navigation
+back onto empty slots, vertical movement, modal return and mouse isolation. These
+tests verify controller logic without a game.
+
+Final verification (2026-10-29): after testing the hand-slot build in the Steam
+game at 3440x1440, the maintainer reported "works flawlessly" and authorized its
+commit and push. Module `build/controller-standalone/kmrp-controller.dll` is
+2,586,112 bytes, SHA-256
+`985656DD1B8B108D2EB9CCA98142F4924980811FF7E6F0F033D49F7C985EA8F3`.
+The installed module was re-read and its manifest row updated to that hash.
+`Test-PazaakActions.py`, `Test-ControllerKpatch.py` and the documentation link
+check pass. Other resolutions and controller families remain **not play-tested**.
+
 1. **The bank reads to its end.** `Test-ControllerKpatch.py` walks `kmrp-glyphs.bin` and
    fails unless it reads to its end with every glyph its scenes name. The limits the
    module's reader adds (section 2) are enforced where the bank is written:

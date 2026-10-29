@@ -462,6 +462,9 @@ PROMPT_TARGETS = (
     # pad's focus off both (K1NativeJoystick.cpp).
     PromptTarget("pazaakgame.gui", "BTN_XTEXT", 66, "A", "kmrpa_pzkend"),
     PromptTarget("pazaakgame.gui", "BTN_YTEXT", 67, "Y", "kmrpy_pzkstand"),
+    # Runtime buttons cloned from End Turn, with their own localized captions.
+    PromptTarget("pazaakgame.gui", "BTN_XTEXT", 66, "X", "kmrpx_pzkplay"),
+    PromptTarget("pazaakgame.gui", "BTN_XTEXT", 66, "LB", "kmrpl_pzkflip"),
 
     # The Character screen's Level Up and Auto Level Up (2026-09-26). The
     # screen levels up on A and auto-levels on Y itself (0x006B2295,

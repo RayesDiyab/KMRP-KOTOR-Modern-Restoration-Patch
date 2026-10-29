@@ -6258,6 +6258,22 @@ void KmrpPromptFillK1(void* control, const char* value)
     SetK1ControllerPromptFill(control, value);
 }
 
+// Pazaak's new actions carry a separate badge label. Dim that with the disabled
+// caption; changing the button's text colour alone cannot change its badge.
+void KmrpPromptDimK1(void* button, bool dim)
+{
+#ifdef KMRP_CONTROLLER_STANDALONE
+    K1BadgeOverlay* const entry = FindK1BadgeOverlay(button);
+    if (entry && entry->label) {
+        const float shade = dim ? 0.4f : 1.0f;
+        const float color[3] = {shade, shade, shade};
+        std::memcpy(static_cast<char*>(entry->label) + K1_BADGE_LABEL_PARAMS + 0x10, color, sizeof color);
+    }
+#else
+    (void)button; (void)dim;
+#endif
+}
+
 // Marks (or, with false, unmarks) a button whose badge and caption are centred together
 // on it (ShowK1BadgeOverlay): class selection's Select and Cancel.
 void KmrpBadgeCentreK1(void* button, bool on)

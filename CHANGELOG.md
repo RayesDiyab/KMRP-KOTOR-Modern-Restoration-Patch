@@ -117,6 +117,21 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Pazaak gameplay has four action areas with the controller** (2026-10-29).
+  Play Hand Card (X), Flip Hand Card (LB), End Turn (A) and Stand (Y) share one
+  row, with the right action strip and red backing mirrored onto the left. The
+  new pair use the game's localized captions and native press flash. Controller
+  focus starts on the leftmost hand slot and moves through all four slots,
+  including empty ones; playing preserves the consumed slot. A playable
+  nonflippable card disables only Flip, and an empty slot disables both actions,
+  with gray captions and dimmed badges. The PC flip controls and legends draw
+  only for mouse input. Native turn restrictions remain in effect. Verified by
+  the maintainer in the Steam game at 3440x1440: "works flawlessly". Production
+  mock tests cover 4,092 card/mode/turn cases plus focus, drawing and color
+  transitions; package checks pass. Other sizes and controller families are not
+  play-tested. The corrections and native behavior are recorded in the
+  [controller layout reference](docs/controller-live-adaptive-layout.md#pazaak-gameplay-action-strip-2026-10-29).
+
 - **Pazaak's side deck screen with the pad, drawn as the Xbox drew it** (2026-10-29, the
   maintainer: "lets actually recreate the xbox screen with geometry", the layout then chosen
   from previews the same day). The Xbox game's own pazaaksetup.gui and its picture

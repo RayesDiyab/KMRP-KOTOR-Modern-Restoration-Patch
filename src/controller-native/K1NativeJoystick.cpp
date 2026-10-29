@@ -3960,6 +3960,9 @@ constexpr std::size_t    K1_PAZAAK_HAND_STRIDE     = 0x031C;
 constexpr std::size_t    K1_PAZAAK_CARD_MODE       = 0x86E4;
 constexpr std::uintptr_t K1_PAZAAK_CLICK_CARD      = 0x0067EF80;
 
+void PazaakActionFlashK1(void* panel, bool flip);
+void RememberPazaakHandSlotK1(void* panel, void* card);
+
 void* PazaakFocusedHandCardK1(void* panel)
 {
     if (!panel || DispatcherOfK1(panel) != K1_PAZAAK_GAME_DISPATCHER ||
@@ -3981,11 +3984,14 @@ void* PazaakFocusedHandCardK1(void* panel)
 void PazaakPlayFocusedCardK1(void* panel)
 {
     void* const card = PazaakFocusedHandCardK1(panel);
-    if (!card) {
+    if (!card || *FieldAt<int>(panel, 0x86D4) != 3 || *FieldAt<int>(card, 0x304) < 0) {
         return;
     }
     LogGuardK1("X plays the focused Pazaak card", panel, K1_GUI_EVENT_CONFIRM, 1);
+    RememberPazaakHandSlotK1(panel, card);
     reinterpret_cast<void(__thiscall*)(void*, void*)>(K1_PAZAAK_CLICK_CARD)(panel, card);
+    RememberPazaakHandSlotK1(panel, card);
+    PazaakActionFlashK1(panel, false);
 }
 
 bool PazaakTableInFrontK1(void* panel);
@@ -4917,13 +4923,116 @@ constexpr std::uintptr_t K1_GUI_TEXT_SET_TEXT      = 0x00415E00;
 constexpr std::size_t    K1_LABEL_TEXT             = 0xE8;
 constexpr std::uintptr_t K1_GET_GUI_STRING         = 0x005EDEB0;
 
+void KmrpPromptFillK1(void* control, const char* value);
+void KmrpBadgeCentreK1(void* button, bool on);
+void KmrpPromptDimK1(void* button, bool dim);
+
 struct PazaakTableK1 {
     void* panel = nullptr;
-    void* playIcon = nullptr;         // KMRP's: the X
-    void* playLegend = nullptr;       // KMRP's: "Play Hand Card"
-    char flipIconFill[16] = {};       // LBL_FLIPICON's own picture, for the mouse
+    void* playButton = nullptr;         // X: Play Hand Card
+    void* flipButton = nullptr;         // LB: Flip Hand Card
+    bool artInitialized = false;
+    int handSlot = 0;
+    void** mouseVtables[6] = {};
+    void* hiddenMouseVtables[2][40] = {};
     bool shown = false;
 } g_pazaakTable;
+
+int PazaakHandSlotK1(void* panel, void* card)
+{
+    for (int i = 0; i < 4; ++i)
+        if (card == FieldAt<char>(panel, K1_PAZAAK_HAND_CARDS + i * K1_PAZAAK_HAND_STRIDE)) return i;
+    return -1;
+}
+
+// Select slots, including empty ones. The game initially focuses End Turn and its
+// hand navigation only links occupied cards. Do not change a modal or mouse focus.
+void RememberPazaakHandSlotK1(void* panel, void* card)
+{
+    if (panel != g_pazaakTable.panel) return;
+    const int index = PazaakHandSlotK1(panel, card);
+    if (index < 0) return;
+    g_pazaakTable.handSlot = index;
+    if (IsControllerInputActiveK1() && TopPanelK1() == panel &&
+        *FieldAt<int>(panel, K1_PAZAAK_CARD_MODE) == 0 && *FieldAt<void*>(panel, K1_PANEL_ACTIVE) != card)
+        reinterpret_cast<SetActiveControlFn>(K1_SET_ACTIVE_CONTROL)(panel, card, 0);
+}
+
+void EnsurePazaakHandFocusK1(void* panel)
+{
+    if (panel != g_pazaakTable.panel || !IsControllerInputActiveK1() || TopPanelK1() != panel ||
+        *FieldAt<int>(panel, K1_PAZAAK_CARD_MODE) != 0) return;
+    void* card = *FieldAt<void*>(panel, K1_PANEL_ACTIVE);
+    if (PazaakHandSlotK1(panel, card) < 0)
+        card = FieldAt<char>(panel, K1_PAZAAK_HAND_CARDS + g_pazaakTable.handSlot * K1_PAZAAK_HAND_STRIDE);
+    RememberPazaakHandSlotK1(panel, card);
+}
+
+bool PazaakHandActionEnabledK1(void* panel, bool flip)
+{
+    void* const card = PazaakFocusedHandCardK1(panel);
+    const int value = card ? *FieldAt<int>(card, 0x304) : -1;
+    return card && (flip ? (value >= 12 && value < 18) : (*FieldAt<int>(panel, 0x86D4) == 3 && value >= 0));
+}
+
+bool NavigatePazaakHandK1(void* panel, int dx, int dy)
+{
+    (void)dy;
+    EnsurePazaakHandFocusK1(panel);
+    if (panel != g_pazaakTable.panel || !IsControllerInputActiveK1() || TopPanelK1() != panel ||
+        *FieldAt<int>(panel, K1_PAZAAK_CARD_MODE) != 0) return false;
+    if (dx != 0) {
+        const int next = (g_pazaakTable.handSlot + (dx < 0 ? 3 : 1)) % 4;
+        RememberPazaakHandSlotK1(panel, FieldAt<char>(panel, K1_PAZAAK_HAND_CARDS + next * K1_PAZAAK_HAND_STRIDE));
+    }
+    return true;
+}
+
+// Same animated class and pulse as End Turn and Stand. Those native handlers flash
+// the PC's unused Play/Flip members; the displayed copies need their own pulse.
+void PazaakActionFlashK1(void* panel, bool flip)
+{
+#ifdef KMRP_CONTROLLER_STANDALONE
+    if (panel != g_pazaakTable.panel) return;
+    void* const button = flip ? g_pazaakTable.flipButton : g_pazaakTable.playButton;
+    if (button)
+        reinterpret_cast<void(__thiscall*)(void*, const float*)>(0x0067CA50)(
+            button, reinterpret_cast<const float*>(0x007A23CC));
+#else
+    (void)panel; (void)flip;
+#endif
+}
+
+// RefreshDisplay can make the PC flip controls and legends visible during Draw,
+// after our frame update. Suppress its draw in controller mode, preserving all of
+// the game's visibility/enabled state for mouse input and native handlers.
+void __fastcall PazaakMouseOnlyDrawK1(void* control, void*, float delta)
+{
+    if (IsControllerInputActiveK1()) return;
+    for (int i = 0; i < 6; ++i) {
+        const std::size_t offset = i < 4 ? K1_PAZAAK_FLIPS + i * K1_PAZAAK_FLIP_STRIDE
+                                          : i == 4 ? K1_PAZAAK_FLIP_ICON : K1_PAZAAK_FLIP_LEGEND;
+        if (control == FieldAt<char>(g_pazaakTable.panel, offset)) {
+            void** const vtable = g_pazaakTable.mouseVtables[i];
+            if (vtable) reinterpret_cast<void(__thiscall*)(void*, float)>(vtable[0x38 / 4])(control, delta);
+            return;
+        }
+    }
+}
+
+void SetPazaakActionEnabledK1(void* button, bool enabled)
+{
+    // Native disabled Pazaak text is still cyan. Use an explicit gray, canceling
+    // a previous card's pulse so its Draw cannot paint over the disabled color.
+    // Play becomes disabled as soon as its accepted action consumes the card;
+    // let that press finish flashing. Flip cancels a previous card's pulse.
+    if (!enabled && button != g_pazaakTable.playButton) *FieldAt<float>(button, 0x1C4) = -1.0f;
+    reinterpret_cast<void(__thiscall*)(void*, int)>((*FieldAt<void**>(button, 0))[0x88 / 4])(button, enabled);
+    if (!enabled) {
+        const float gray[3] = {0.5f, 0.5f, 0.5f};
+        reinterpret_cast<void(__thiscall*)(void*, const float*)>(0x00414E10)(FieldAt<char>(button, 0x16C), gray);
+    }
+}
 
 bool PazaakTableInFrontK1(void* panel)
 {
@@ -4960,10 +5069,13 @@ void PazaakFlipFocusedCardK1(void* panel)
     if (!card) {
         return;
     }
-    const std::size_t index = static_cast<std::size_t>(static_cast<char*>(card) - static_cast<char*>(panel) -
-                                                       K1_PAZAAK_HAND_CARDS) / K1_PAZAAK_HAND_STRIDE;
-    PressPazaakButtonK1(panel, K1_PAZAAK_FLIPS + index * K1_PAZAAK_FLIP_STRIDE, K1_PAZAAK_FLIP_CLICK,
-                        "LB flips the focused Pazaak card");
+    const int value = *FieldAt<int>(card, 0x304);
+    if (value < 12 || value >= 18) return;
+    const int before = *FieldAt<int>(card, 0x308);
+    // The native right-click handler operates on this card directly. Do not test
+    // the draw flag of the small mouse-only flip control to authorize the action.
+    reinterpret_cast<void(__thiscall*)(void*, void*)>(0x0067DD80)(panel, card);
+    if (*FieldAt<int>(card, 0x308) != before) PazaakActionFlashK1(panel, true);
 }
 
 // A control made from one of the panel's own, by its tag, and added after the others:
@@ -5021,88 +5133,54 @@ void InstallPazaakTableK1(void* panel)
     for (std::size_t i = 0; i < 4; ++i) {
         KmrpPadFocusExcludeK1(FieldAt<std::uint8_t>(panel, K1_PAZAAK_FLIPS + i * K1_PAZAAK_FLIP_STRIDE), true);
     }
-    std::memcpy(g_pazaakTable.flipIconFill,
-                FieldAt<std::uint8_t>(panel, K1_PAZAAK_FLIP_ICON + K1_LABEL_BORDER_PARAMS + K1_BORDER_PARAMS_FILL), 16);
 
-    g_pazaakTable.playIcon = AppendLabelLikeK1(panel, "LBL_FLIPICON");
-    g_pazaakTable.playLegend = AppendLabelLikeK1(panel, "LBL_FLIPLEGEND");
-    for (void* const label : {g_pazaakTable.playIcon, g_pazaakTable.playLegend}) {
-        if (label) {
-            *FieldAt<std::uint32_t>(label, K1_CONTROL_FLAGS) &= ~K1_CONTROL_FLAG_DRAWN;
+
+#ifdef KMRP_CONTROLLER_STANDALONE
+    g_pazaakTable.playButton = AppendControlLikeK1(panel, "BTN_XTEXT", 0x1D4, 0x0041C0F0);
+    g_pazaakTable.flipButton = AppendControlLikeK1(panel, "BTN_XTEXT", 0x1D4, 0x0041C0F0);
+    const int strings[] = {32330, 32331}; // Play Hand Card, Flip Hand Card
+    void* const buttons[] = {g_pazaakTable.playButton, g_pazaakTable.flipButton};
+    for (int i = 0; i < 2; ++i) {
+        void* const button = buttons[i];
+        if (!button) continue;
+        // Inline CSWGuiActivatedButton construction, as CSWGuiPazaakGame does.
+        *FieldAt<std::uintptr_t>(button, 0) = 0x00753120;
+        *FieldAt<float>(button, 0x1C4) = -1.0f;
+        std::memset(FieldAt<char>(button, 0x1C8), 0, 12);
+        KmrpPadFocusExcludeK1(button, true);
+        *FieldAt<std::uint32_t>(button, K1_CONTROL_FLAGS) &= ~K1_CONTROL_FLAG_DRAWN;
+        if (void* const client = ClientExoAppK1()) {
+            void* text[2] = {};
+            reinterpret_cast<void*(__thiscall*)(void*, void*, int)>(K1_GET_GUI_STRING)(client, &text, strings[i]);
+            reinterpret_cast<void(__thiscall*)(void*, void*)>(K1_GUI_TEXT_SET_TEXT)(FieldAt<char>(button, 0x16C), &text);
+            EngineFn<ExoStringDtorFn>(K1_EXOSTRING_DTOR)(&text);
         }
     }
-    void* const client = ClientExoAppK1();
-    if (g_pazaakTable.playLegend && client) {
-        void* text[2] = { nullptr, nullptr };          // CExoString
-        reinterpret_cast<void*(__thiscall*)(void*, void*, int)>(K1_GET_GUI_STRING)(client, &text, K1_PAZAAK_PLAY_STRING);
-        reinterpret_cast<void(__thiscall*)(void*, void*)>(K1_GUI_TEXT_SET_TEXT)(
-            FieldAt<std::uint8_t>(g_pazaakTable.playLegend, K1_LABEL_TEXT), &text);
-        EngineFn<ExoStringDtorFn>(K1_EXOSTRING_DTOR)(&text);
+    for (int i = 0; i < 6; ++i) {
+        const int kind = i < 4 ? 0 : 1;
+        const std::size_t offset = i < 4 ? K1_PAZAAK_FLIPS + i * K1_PAZAAK_FLIP_STRIDE
+                                          : i == 4 ? K1_PAZAAK_FLIP_ICON : K1_PAZAAK_FLIP_LEGEND;
+        void* const control = FieldAt<char>(panel, offset);
+        void** const original = *FieldAt<void**>(control, 0);
+        if (reinterpret_cast<std::uintptr_t>(original) != (kind == 0 ? 0x0073E658u : 0x0073E5B8u)) continue;
+        if (!g_pazaakTable.hiddenMouseVtables[kind][0]) {
+            std::memcpy(g_pazaakTable.hiddenMouseVtables[kind], original, sizeof g_pazaakTable.hiddenMouseVtables[kind]);
+            g_pazaakTable.hiddenMouseVtables[kind][0x38 / 4] = reinterpret_cast<void*>(&PazaakMouseOnlyDrawK1);
+        }
+        g_pazaakTable.mouseVtables[i] = original;
+        *FieldAt<void**>(control, 0) = g_pazaakTable.hiddenMouseVtables[kind];
     }
+#endif
 }
 
-// Every frame the table is up. With the pad in use: the flip legend's picture is LB,
-// and "X Play Hand Card" stands on the row under it, made the same size and moved
-// down by the legend's own height (the only free room: the flip buttons and the hand
-// are above it, End Turn and Stand beside it). Otherwise the table is as the game
-// drew it. Shown only while the flip legend is.
+#ifdef KMRP_CONTROLLER_STANDALONE
+void UpdatePazaakActionStripK1();
+#endif
 void UpdatePazaakTableK1()
 {
-    // Forgotten when the table is destroyed (ForgetPazaakTableK1); as GuiCueStillLiveK1,
-    // nothing is read here until IsReadableK1 agrees, in case that was missed.
-    void* const panel = g_pazaakTable.panel;
-    if (!panel || !IsReadableK1(panel, K1_PAZAAK_STAND + K1_GUI_LABEL_SIZE) ||
-            *FieldAt<std::uintptr_t>(panel, 0) != K1_PAZAAK_GAME_VTABLE) {
-        return;
-    }
-    void* const flipIcon = FieldAt<std::uint8_t>(panel, K1_PAZAAK_FLIP_ICON);
-    void* const flipLegend = FieldAt<std::uint8_t>(panel, K1_PAZAAK_FLIP_LEGEND);
-    const bool shown = IsControllerInputActiveK1() &&
-                       (*FieldAt<std::uint32_t>(flipLegend, K1_CONTROL_FLAGS) & K1_CONTROL_FLAG_DRAWN) != 0;
-    char* const iconFill = FieldAt<char>(flipIcon, K1_LABEL_BORDER_PARAMS + K1_BORDER_PARAMS_FILL);
-    char wanted[16] = {};
-    if (shown) {
-        sprintf_s(wanted, "kmr%crmlb", KmrpGlyphLetterK1());
-    } else {
-        std::memcpy(wanted, g_pazaakTable.flipIconFill, sizeof wanted);
-    }
-    if (_strnicmp(iconFill, wanted, sizeof wanted) != 0) {
-        EngineFn<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(FieldAt<std::uint8_t>(flipIcon, K1_LABEL_BORDER_PARAMS),
-                                                         wanted, 1);
-    }
-
-    struct Rect { int left, top, width, height; };
-    using SetExtentFn = void(__thiscall*)(void*, const Rect*);
-    const int drop = FieldAt<Rect>(flipLegend, 4)->height;
-    const struct { void* label; void* like; } pairs[] = {
-        {g_pazaakTable.playIcon, flipIcon}, {g_pazaakTable.playLegend, flipLegend}};
-    for (const auto& pair : pairs) {
-        if (!pair.label) {
-            continue;
-        }
-        std::uint32_t& flags = *FieldAt<std::uint32_t>(pair.label, K1_CONTROL_FLAGS);
-        flags = shown ? (flags | K1_CONTROL_FLAG_DRAWN) : (flags & ~K1_CONTROL_FLAG_DRAWN);
-        if (!shown) {
-            continue;
-        }
-        Rect wantedRect = *FieldAt<Rect>(pair.like, 4);
-        wantedRect.top += drop;
-        const Rect now = *FieldAt<Rect>(pair.label, 4);
-        if (now.left != wantedRect.left || now.top != wantedRect.top ||
-                now.width != wantedRect.width || now.height != wantedRect.height) {
-            reinterpret_cast<SetExtentFn>((*FieldAt<void**>(pair.label, 0))[1])(pair.label, &wantedRect);
-        }
-    }
-    if (g_pazaakTable.playIcon && shown) {
-        char x[16] = {};
-        sprintf_s(x, "kmr%crmx", KmrpGlyphLetterK1());
-        char* const fill = FieldAt<char>(g_pazaakTable.playIcon, K1_LABEL_BORDER_PARAMS + K1_BORDER_PARAMS_FILL);
-        if (_strnicmp(fill, x, sizeof x) != 0) {
-            EngineFn<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(
-                FieldAt<std::uint8_t>(g_pazaakTable.playIcon, K1_LABEL_BORDER_PARAMS), x, 1);
-        }
-    }
-    g_pazaakTable.shown = shown;
+#ifdef KMRP_CONTROLLER_STANDALONE
+    UpdatePazaakActionStripK1();
+#endif
 }
 
 // The table's end (the base destructor's ReleaseGff, as ForgetGuiCuesK1): the
@@ -5117,16 +5195,26 @@ void ForgetPazaakTableK1(void* panel)
     }
     KmrpPadFocusExcludeK1(FieldAt<std::uint8_t>(panel, K1_PAZAAK_END_TURN), false);
     KmrpPadFocusExcludeK1(FieldAt<std::uint8_t>(panel, K1_PAZAAK_STAND), false);
-    for (std::size_t i = 0; i < 4; ++i) {
-        KmrpPadFocusExcludeK1(FieldAt<std::uint8_t>(panel, K1_PAZAAK_FLIPS + i * K1_PAZAAK_FLIP_STRIDE), false);
+    for (std::size_t i = 0; i < 6; ++i) {
+        const std::size_t offset = i < 4 ? K1_PAZAAK_FLIPS + i * K1_PAZAAK_FLIP_STRIDE
+                                          : i == 4 ? K1_PAZAAK_FLIP_ICON : K1_PAZAAK_FLIP_LEGEND;
+        void* const control = FieldAt<char>(panel, offset);
+        if (i < 4) KmrpPadFocusExcludeK1(control, false);
+        if (g_pazaakTable.mouseVtables[i] && *FieldAt<void**>(control, 0) == g_pazaakTable.hiddenMouseVtables[i < 4 ? 0 : 1])
+            *FieldAt<void**>(control, 0) = g_pazaakTable.mouseVtables[i];
     }
     using DeletingDtorFn = void*(__thiscall*)(void*, unsigned);
     void** const controls = *FieldAt<void**>(panel, K1_PANEL_CONTROL_ARRAY);
     const int count = *FieldAt<int>(panel, K1_PANEL_CONTROL_COUNT);
-    for (void* const label : {g_pazaakTable.playIcon, g_pazaakTable.playLegend}) {
+    for (void* const label : {g_pazaakTable.playButton, g_pazaakTable.flipButton}) {
         if (!label) {
             continue;
         }
+        KmrpPadFocusExcludeK1(label, false);
+#ifdef KMRP_CONTROLLER_STANDALONE
+        KmrpBadgeCentreK1(label, false);
+        KmrpPromptFillK1(label, nullptr);
+#endif
         const int id = *FieldAt<int>(label, K1_CONTROL_ID);
         // As ForgetGuiCuesK1: a leak is safer than a double free.
         if (id >= 0 && id < count && IsReadableK1(controls + id, sizeof(void*)) && controls[id] == label) {
@@ -5193,6 +5281,104 @@ char* PanelFillParamsK1(void* panel)
 {
     char* const border = *FieldAt<char*>(panel, K1_PANEL_BORDER);
     return LooksLikePointerK1(border) ? border + 0x14 : nullptr;
+}
+
+// Four Pazaak actions on the PC table's foot. Copy only the action strip's rows
+// from the right half of the loaded picture to its left half, horizontally mirrored.
+// The picture stays private to the controller module, like class selection's art.
+void UpdatePazaakActionStripK1()
+{
+    auto& g = g_pazaakTable;
+    void* const panel = g.panel;
+    if (!panel || !g.playButton || !g.flipButton ||
+        !IsReadableK1(panel, K1_PAZAAK_STAND + 0x1C4) ||
+        *FieldAt<std::uintptr_t>(panel, 0) != K1_PAZAAK_GAME_VTABLE) return;
+    EnsurePazaakHandFocusK1(panel);
+    char* const params = PanelFillParamsK1(panel);
+    if (!params) return;
+    static void* owner = nullptr;
+    static char original[17] = {}, drawn[17] = {};
+    static ClassBoxK1 panelWas{}, endWas{}, standWas{};
+    if (owner != panel || !g.artInitialized) {
+        owner = panel;
+        original[0] = drawn[0] = 0;
+        g.artInitialized = true;
+    }
+    char* const fill = params + K1_BORDER_PARAMS_FILL;
+    if (!original[0] || (_strnicmp(fill, original, 16) && _strnicmp(fill, drawn, 16))) {
+        std::memcpy(original, fill, 16);
+        drawn[0] = 0;
+    }
+    const ClassBoxK1 box = *FieldAt<ClassBoxK1>(panel, 4);
+    const ClassBoxK1 end = *FieldAt<ClassBoxK1>(panel, K1_PAZAAK_END_TURN + 4);
+    const ClassBoxK1 stand = *FieldAt<ClassBoxK1>(panel, K1_PAZAAK_STAND + 4);
+    const int gap = (std::max)(0, stand.left - end.left - end.width);
+    // The PC row is not centred on the panel. Continue its own pitch to the left.
+    const int axisTwice = 2 * end.left - gap;
+    if (!SameBoxK1(box, panelWas) || !SameBoxK1(end, endWas) || !SameBoxK1(stand, standWas)) drawn[0] = 0;
+    bool shown = IsControllerInputActiveK1();
+    if (shown && !drawn[0] && box.width > 0 && box.height > 0) {
+        void* const texture = EngineFn<void*(__cdecl*)(const char*, int)>(0x00423A60)(original, 0);
+        const unsigned name = texture ? K1CaptionInk::UploadedName(texture) : 0;
+        int w = 0, h = 0;
+        unsigned char* pixels = name ? K1CaptionInk::ReadUploaded(name, &w, &h) : nullptr;
+        if (pixels && w > 0 && h > 0) {
+            // A one-layout-pixel rim includes the red border round the button boxes.
+            const ClassBoxK1 hand = *FieldAt<ClassBoxK1>(panel, K1_PAZAAK_HAND_CARDS + 4);
+            const int stripTop = (std::min)(end.top, hand.top + hand.height);
+            const int top = (std::max)(0, (stripTop - box.top - (std::max)(1, box.height / 480)) * h / box.height);
+            const int bottom = (std::min)(h, (end.top + end.height - box.top + (std::max)(1, box.height / 480)) * h / box.height);
+            const int axisTexTwice = (axisTwice - 2 * box.left) * w / box.width;
+            std::vector<std::uint8_t> sheet(static_cast<std::size_t>(w) * h * 4);
+            for (int y = 0; y < h; ++y) {
+                const auto* row = pixels + static_cast<std::size_t>(h - 1 - y) * w * 4;
+                auto* out = sheet.data() + static_cast<std::size_t>(y) * w * 4;
+                std::memcpy(out, row, static_cast<std::size_t>(w) * 4);
+                if (y >= top && y < bottom) {
+                    for (int x = 0; x < (std::min)(w, axisTexTwice / 2); ++x) {
+                        const int source = axisTexTwice - 1 - x;
+                        if (source >= 0 && source < w) std::memcpy(out + x * 4, row + source * 4, 4);
+                    }
+                }
+            }
+            std::uint32_t hash = 2166136261u;
+            for (unsigned char c : sheet) hash = (hash ^ c) * 16777619u;
+            char candidate[17] = {};
+            std::snprintf(candidate, sizeof candidate, "kmzpzk%08x", hash);
+            if (KmrpWriteDrawnPictureK1(candidate, sheet, w, h)) {
+                std::memcpy(drawn, candidate, sizeof drawn);
+                panelWas = box; endWas = end; standWas = stand;
+            }
+        }
+        std::free(pixels);
+    }
+    shown = shown && drawn[0];
+    const auto place = [](void* control, const ClassBoxK1& rect) {
+        if (!SameBoxK1(*FieldAt<ClassBoxK1>(control, 4), rect))
+            reinterpret_cast<void(__thiscall*)(void*, const ClassBoxK1*)>((*FieldAt<void**>(control, 0))[1])(control, &rect);
+    };
+    void* const buttons[] = {g.playButton, g.flipButton};
+    const ClassBoxK1 sources[] = {stand, end};
+    const char* const prompts[] = {"kmrpx_pzkplay", "kmrpl_pzkflip"};
+    for (int i = 0; i < 2; ++i) {
+        void* const button = buttons[i];
+        bool enabled = false;
+        auto& flags = *FieldAt<std::uint32_t>(button, K1_CONTROL_FLAGS);
+        flags = shown ? flags | K1_CONTROL_FLAG_DRAWN : flags & ~K1_CONTROL_FLAG_DRAWN;
+        if (shown) {
+            ClassBoxK1 rect = sources[i];
+            rect.left = axisTwice - rect.left - rect.width;
+            place(button, rect);
+            enabled = PazaakHandActionEnabledK1(panel, i != 0);
+            SetPazaakActionEnabledK1(button, enabled);
+        }
+        KmrpBadgeCentreK1(button, shown);
+        KmrpPromptFillK1(button, shown ? prompts[i] : nullptr);
+        KmrpPromptDimK1(button, !enabled);
+    }
+    const char* wanted = shown ? drawn : original;
+    if (_strnicmp(fill, wanted, 16)) EngineFn<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(params, wanted, 1);
+    g.shown = shown;
 }
 
 // The panel's picture drawn with two capsules between its arrows, for Cancel at `cancel`:
@@ -6999,6 +7185,9 @@ bool NavigateGalaxyMapK1(void* panel, int dx, int dy)
 
 bool NavigateFocusK1(int dx, int dy)
 {
+    void* const top = TopPanelK1();
+    if (top && DispatcherOfK1(top) == K1_PAZAAK_GAME_DISPATCHER)
+        return NavigatePazaakHandK1(top, dx, dy);
     if (InputClassK1() != K1_CLASS_PCGUI) {
         return false;              // gameplay: the D-pad has its own bindings
     }

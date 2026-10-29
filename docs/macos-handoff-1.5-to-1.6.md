@@ -1186,6 +1186,55 @@ Mac:** the same, and the A remap and badges. **How to check:** start Pazaak with
 the Xbox screen over the table, the cards solid and in their places, Y adds and removes, LT
 and RT switch lists, A plays; with the mouse, the game's screen as before.
 
+## 110. Pazaak gameplay's four action boxes (Windows 2026-10-29)
+
+`K1NativeJoystick.cpp` `UpdatePazaakActionStripK1` clones End Turn twice for Play
+Hand Card (string 32330, X) and Flip Hand Card (32331, LB). Their boxes mirror Stand
+and End Turn about the gap immediately left of End Turn. The loaded background's right action strip is
+mirrored to the left; the PC legends are hidden while using the controller. Mouse
+input restores the original background and legends. New badge definitions are
+`kmrpx_pzkplay` and `kmrpl_pzkflip`, built from End Turn's geometry. Port the same
+geometry and private texture copy using the Mac's own controls and texture APIs.
+Windows verification is recorded at the end of this item. See the
+[controller layout reference](controller-live-adaptive-layout.md#pazaak-gameplay-action-strip-2026-10-29)
+for the formula, measured gold extents and manual verification.
+
+Follow-up after the first Windows play-test: use `CSWGuiActivatedButton` for both
+new controls so they inherit the native 0.8-second text flash and disabled colour.
+Flip is enabled only for a focused +/- card (card value 12 through 17), with no
+hand-selection mode in progress, and calls the card's native right-click handler.
+Hide each small flip control's Draw only for controller input; changing its visible
+flag in a frame update can be undone by the panel's own refresh during drawing.
+Restore the mouse drawing path and preserve its native visibility. Windows mock
+coverage: 4,092 card/mode/turn cases and draw delegation. This was an intermediate
+build; final verification follows below.
+
+Second Windows play-test: the press effects work. Flip's selectable bit clears
+in level 2 logs, but native disabled text is still cyan `(0,0.33,0.49)` and the
+badge stayed bright. Disabled new actions now use gray text `(0.5,0.5,0.5)` and a
+badge multiplied by 0.4, restoring white on enable. Invalid Flip cancels an old
+pulse; Play preserves the accepted press pulse after consuming the card. Both PC
+Flip legends also need the mouse-only Draw policy: native RefreshDisplay can
+restore their visible flags after a frame update and paint over Play. Six controls
+now follow the policy (four small flip buttons, the icon and legend). New tests
+cover those transitions; final verification follows below.
+
+Next Windows correction: controller hand focus starts at slot zero, rather than
+the native End Turn focus seen in level 2 logs. Left/right moves through all four
+slots with wrapping, including empty ones. Preserve the played slot after native
+handling, even when empty; both new actions are then disabled. For a playable
+nonflippable card only Flip is disabled. Keep native per-turn restrictions, and
+avoid changing mouse/modal focus or focus while native hand mode is nonzero.
+See `EnsurePazaakHandFocusK1`, `NavigatePazaakHandK1` and
+`PazaakHandActionEnabledK1`. Production mock tests cover the transitions.
+
+Final Windows verification (2026-10-29): the maintainer tested the final module
+in the Steam game at 3440x1440 and reported "works flawlessly". Module SHA-256
+`985656DD1B8B108D2EB9CCA98142F4924980811FF7E6F0F033D49F7C985EA8F3`,
+2,586,112 bytes. Production handler/focus tests, controller package checks and
+relative documentation links pass. Other resolutions and controller families
+remain not play-tested. The Mac port of this item is still to do.
+
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
 | Change | Commit | Why not the Mac |
