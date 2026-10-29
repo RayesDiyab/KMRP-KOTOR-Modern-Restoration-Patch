@@ -23,6 +23,9 @@ the screens with nothing to fit); the rest still come from the sets (section 7).
 Class selection (`classsel.gui`) joins them on 2026-10-29, followed by Abilities
 (`abilities.gui`) and the menu tab strip (`top.gui`), then Gameplay and Feedback
 Options (`optgameplay.gui`, `optfeedback.gui`), making **49 screens**.
+**Coverage: 49 / 85 layout files, 57.65% complete by file count.** The
+[full inventory](#coverage-inventory) lists every file and its implementation status.
+
 Both mouse/keyboard and controller modes use the same live geometry; the existing
 controller Select/Cancel treatment reads the resulting rectangles.
 
@@ -36,13 +39,126 @@ the game at 3440x1440 only (section 6).
 
 | | |
 | --- | --- |
-| Source | master `6b4b17f` plus the Abilities/tab-strip and Gameplay/Feedback migrations of 2026-10-29 (uncommitted when written) |
+| Source | master `a9419f6`, including the Abilities/tab-strip and Gameplay/Feedback migrations of 2026-10-29 (uncommitted when first written) |
 | Module (49 screens) | `build\native-runtime\kmrp-native.dll`, 846,336 bytes, SHA-256 `F842D1C5F1A3DC943CB7514D7C38710BADEA5E139FDB9FE2090063E03E08939D`; built and packaged, not installed |
 | Previous module (47 screens) | 842,240 bytes, SHA-256 `C388D0DA3ED09D656EAA70996BB6AD51312CA968980A78E834D301A834380793` |
 | Previous module (45 screens) | `build\native-runtime\kmrp-native.dll`, 837,632 bytes, SHA-256 `DE6FD58D9F8C9C3B5AA6F56C03EC4EE5BCFD52CE7C5840F4066D5300DDEA7541` |
 | Previous module | the 14-screen build was 759,296 bytes, SHA-256 `ACA3146F97263EEDAE09BF84C0CDDF0EE75446BBD762D7BA376176A6CDC07132`; the options-only build was 744,448 bytes, `BD9742A55E7788CD82E8D7E964EC5DBE692D5C96AAD5B5DEDE293DC2BAB12DB4` |
 | Table | `macos/tools/kmrp-livelayout-table.h`, made by `python tools/build_live_layout.py` |
 | Executable | not changed: this writes layout files, no byte of `swkotor.exe` |
+
+## Coverage inventory
+
+**49 / 85 GUI layout files implemented: 57.65% (about 58%).**
+**36 / 85 remain outside the shared path: 42.35%.**
+
+Measured on 2026-10-29 against source `a9419f6`: the denominator is the union of
+84 original files in `build-inputs/vanilla-gui` and 83 distinct `.gui` names across
+all 66 `build/kmrp/resources/gui-*.zip` archives. Their union contains 85 names:
+the archives add `kmrplayout.gui`, while `startscreen.gui` and `statussummary.gui`
+occur only in the original-file inventory. The numerator is membership in
+`tools/build_live_layout.py` `FILES`. Percentage is `100 * 49 / 85`, rounded to
+two decimal places. Every name is listed once below.
+
+**Status definition:** Yes means the file is implemented in the shared
+`KmrpLiveLayout` path. No means migration, integration or an explicit audit is
+still pending. A No does not mean the screen is broken or has no runtime sizing:
+some have separate adapters already. The count includes resolution-specific
+HUD, main-menu and tooltip variants, the custom controller screen, and static
+or auxiliary game layouts. It is a file coverage measure, not a count of unique
+player-facing screens or completed play-tests. Mac runtime integration remains
+pending separately; section 6 records verification limits.
+
+| Layout file | Implemented in shared path? | Remaining work / notes |
+| --- | --- | --- |
+| `abchrgen.gui` | Yes | Shared runtime layout rules. |
+| `abilities.gui` | Yes | Row fitting, party-switch and sub-tab swap cues. |
+| `areatransition.gui` | Yes | Shared runtime layout rules. |
+| `barkbubble.gui` | Yes | Shared runtime layout rules. |
+| `character.gui` | Yes | Shared runtime layout rules. |
+| `classsel.gui` | Yes | Fixed frame margins and class-button art corrections. |
+| `computer.gui` | No | Terminal layout migration pending. |
+| `computercamera.gui` | Yes | Shared runtime layout rules. |
+| `confirm.gui` | No | Custom confirmation popup migration pending. |
+| `container.gui` | No | Container row fitting and caption layout pending. |
+| `credits.gui` | Yes | Shared runtime layout rules. |
+| `custpnl.gui` | Yes | Shared runtime layout rules. |
+| `debug.gui` | Yes | Shared runtime layout rules. |
+| `dialog.gui` | No | Existing runtime placement needs an integration audit. |
+| `equip.gui` | Yes | Shared runtime layout rules. |
+| `fade.gui` | Yes | Shared runtime layout rules. |
+| `ftchrgen.gui` | No | Feat-selection row fitting pending. |
+| `galaxymap.gui` | Yes | Shared runtime layout rules. |
+| `inventory.gui` | Yes | Shared runtime layout rules. |
+| `journal.gui` | No | Quest-list row layout migration pending. |
+| `kmrplayout.gui` | No | Custom Controller Layout screen; existing separate runtime path needs integration/audit. |
+| `leveluppnl.gui` | Yes | Shared runtime layout rules. |
+| `loadscreen.gui` | Yes | Shared runtime layout rules. |
+| `maincg.gui` | Yes | Shared runtime layout rules. |
+| `maininterface.gui` | Yes | Shared runtime layout rules. |
+| `mainmenu.gui` | No | Main-menu variant; existing runtime handling needs integration/audit. |
+| `mainmenu10x7.gui` | No | Main-menu variant; existing runtime handling needs integration/audit. |
+| `mainmenu12x9.gui` | No | Main-menu variant; existing runtime handling needs integration/audit. |
+| `mainmenu16x12.gui` | No | Main-menu variant; existing runtime handling needs integration/audit. |
+| `mainmenu8x6.gui` | No | Main-menu variant; existing runtime handling needs integration/audit. |
+| `map.gui` | No | Area-map integration pending. |
+| `messages.gui` | Yes | Shared runtime layout rules. |
+| `mi8x6.gui` | No | HUD variant; proportion/layout integration pending. |
+| `mipc10x7.gui` | No | HUD variant; proportion/layout integration pending. |
+| `mipc12x9.gui` | No | HUD variant; proportion/layout integration pending. |
+| `mipc16x12.gui` | No | HUD variant; proportion/layout integration pending. |
+| `mipc210x7.gui` | No | HUD variant; proportion/layout integration pending. |
+| `mipc212x9.gui` | No | HUD variant; proportion/layout integration pending. |
+| `mipc216x12.gui` | No | HUD variant; proportion/layout integration pending. |
+| `mipc28x6.gui` | No | HUD variant; proportion/layout integration pending. |
+| `mipc8x6.gui` | No | HUD variant; proportion/layout integration pending. |
+| `name.gui` | Yes | Shared runtime layout rules. |
+| `ntscpat.gui` | Yes | Shared runtime layout rules. |
+| `optautopause.gui` | Yes | Shared runtime layout rules. |
+| `optfeedback.gui` | Yes | Checkbox row template height scaling. |
+| `optgameplay.gui` | Yes | Controller Layout entry and column spacing. |
+| `optgraphics.gui` | Yes | Shared runtime layout rules. |
+| `optgraphicsadv.gui` | Yes | Shared runtime layout rules. |
+| `optionsingame.gui` | Yes | Shared runtime layout rules. |
+| `optionsmain.gui` | Yes | Shared runtime layout rules. |
+| `optkeyentry.gui` | Yes | Shared runtime layout rules. |
+| `optkeymapping.gui` | Yes | Shared runtime layout rules. |
+| `optmouse.gui` | Yes | Shared runtime layout rules. |
+| `optresolution.gui` | Yes | Shared runtime layout rules. |
+| `optsound.gui` | Yes | Shared runtime layout rules. |
+| `optsoundadv.gui` | Yes | Shared runtime layout rules. |
+| `partyselection.gui` | No | Existing runtime placement needs an integration audit. |
+| `pause.gui` | No | Existing runtime placement needs an integration audit. |
+| `pazaakgame.gui` | Yes | Shared runtime layout rules. |
+| `pazaaksetup.gui` | Yes | Shared runtime layout rules. |
+| `pazaakwager.gui` | Yes | Shared runtime layout rules. |
+| `portcust.gui` | Yes | Shared runtime layout rules. |
+| `pwrlvlup.gui` | No | Power-selection row fitting pending. |
+| `qorcpnl.gui` | Yes | Shared runtime layout rules. |
+| `questitem.gui` | Yes | Shared runtime layout rules. |
+| `quickpnl.gui` | Yes | Shared runtime layout rules. |
+| `saveload.gui` | Yes | Shared runtime layout rules. |
+| `savename.gui` | Yes | Shared runtime layout rules. |
+| `scriptselect.gui` | No | Character-script row centering migration pending. |
+| `skchrgen.gui` | Yes | Shared runtime layout rules. |
+| `skillinfo.gui` | No | Skill-list row fitting pending. |
+| `splashscreen.gui` | Yes | Shared runtime layout rules. |
+| `startscreen.gui` | No | Original game file, absent from size archives; audit pending. |
+| `statussummary.gui` | No | Absent from size archives; existing runtime placement needs an audit. |
+| `store.gui` | No | Store-list row fitting pending. |
+| `titlemovie.gui` | Yes | Shared runtime layout rules. |
+| `tooltip10x8.gui` | No | Tooltip variant migration pending. |
+| `tooltip12x9.gui` | No | Tooltip variant migration pending. |
+| `tooltip16x12.gui` | No | Tooltip variant migration pending. |
+| `tooltip6x4.gui` | No | Tooltip variant migration pending. |
+| `tooltip8x6.gui` | No | Tooltip variant migration pending. |
+| `top.gui` | Yes | Menu tab strip and LT/RT cues. |
+| `upgrade.gui` | Yes | Shared runtime layout rules. |
+| `upgradeitems.gui` | No | Upgrade-item row fitting pending. |
+| `upgradesel.gui` | Yes | Shared runtime layout rules. |
+
+Recount with the inventory command in section 8 after each migration; update
+the table status, numerator and percentage together.
 
 ## 1. What the engine does with a layout
 
@@ -468,6 +584,30 @@ clang (LLVM) on the `PATH`. To lay one screen out by hand with the C:
 clang -O2 -o kmrp-guiadapt.exe macos\tools\kmrp-guiadapt.c
 kmrp-guiadapt.exe live build-inputs/vanilla-gui/optionsmain.gui optionsmain.gui 1920 1080 out.gui
 python tools\dump_gui_extents.py out.gui
+```
+
+To recount the coverage inventory, run this Python from the repository root with
+the original GUI inputs and generated resource archives available. It lists the
+same union and checks implementation against `FILES`, without importing builders:
+
+```python
+import ast
+from pathlib import Path
+from zipfile import ZipFile
+
+inventory = {p.name.lower() for p in Path("build-inputs/vanilla-gui").glob("*.gui")}
+for archive in Path("build/kmrp/resources").glob("gui-*.zip"):
+    with ZipFile(archive) as files:
+        inventory.update(Path(n).name.lower() for n in files.namelist()
+                         if n.lower().endswith(".gui"))
+tree = ast.parse(Path("tools/build_live_layout.py").read_text())
+definition = next(n for n in tree.body if isinstance(n, ast.Assign)
+                  and any(isinstance(t, ast.Name) and t.id == "FILES" for t in n.targets))
+implemented = set(ast.literal_eval(definition.value))
+assert implemented <= inventory
+for name in sorted(inventory):
+    print(name, "Yes" if name in implemented else "No")
+print(f"{len(implemented)}/{len(inventory)} = {100 * len(implemented) / len(inventory):.2f}%")
 ```
 
 Checks that catch this subsystem's mistakes:
