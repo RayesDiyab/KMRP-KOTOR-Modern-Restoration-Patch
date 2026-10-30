@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "kmrp-path.h"
 #include <sys/stat.h>
 #ifdef _WIN32
 #include <direct.h>
@@ -67,7 +68,7 @@ static int fail(const char *what) { fprintf(stderr, "kmrp-gameart: %s\n", what);
 
 static Buffer read_file(const char *path) {
     Buffer b = { NULL, 0 };
-    FILE *f = fopen(path, "rb");
+    FILE *f = kmrp_fopen(path, "rb");
     if (!f) return b;
     fseek(f, 0, SEEK_END);
     long size = ftell(f);
@@ -229,7 +230,7 @@ unsigned char *KmrpReadPreloadTexture(const char *game, const char *assets, cons
         if (pass >= 2 && (!assets || !*assets)) continue;
         if (pass < 2) snprintf(path, sizeof path, "%s/Override/%s.%s", game, name, tga ? "tga" : "tpc");
         else snprintf(path, sizeof path, "%s/%s.%s", assets, name, tga ? "tga" : "tpc");
-        FILE *f = fopen(path, "rb");
+        FILE *f = kmrp_fopen(path, "rb");
         if (!f) continue;
         fseek(f, 0, SEEK_END); long length = ftell(f); rewind(f);
         uint8_t *data = length > 0 && length <= (64L << 20) ? malloc((size_t)length) : NULL;
@@ -240,7 +241,7 @@ unsigned char *KmrpReadPreloadTexture(const char *game, const char *assets, cons
         free(data); return rgba; /* Never silently replace a mod's unsupported texture. */
     }
     snprintf(path, sizeof path, "%s/TexturePacks/swpc_tex_gui.erf", game);
-    FILE *f = fopen(path, "rb");
+    FILE *f = kmrp_fopen(path, "rb");
     if (!f) return NULL;
     uint8_t head[160], key[24], resource[8];
     uint8_t *rgba = NULL;
@@ -539,11 +540,11 @@ int main(int argc, char **argv) {
         if (!add_texture(&erf, TUTORIAL_ICONS[i][0], TUTORIAL_ICONS[i][1], icon_size, 1)) return 1;
     if (!add_tutorial_table(argv[2])) return 1;
 
-    mkdir(argv[4], 0755);
+    kmrp_mkdir(argv[4]);
     for (size_t i = 0; i < output_count; i++) {
         char path[4096];
         snprintf(path, sizeof path, "%s/%s", argv[4], outputs[i].name);
-        FILE *f = fopen(path, "wb");
+        FILE *f = kmrp_fopen(path, "wb");
         if (!f || fwrite(outputs[i].file.data, 1, outputs[i].file.size, f) != outputs[i].file.size) {
             fprintf(stderr, "kmrp-gameart: %s: %s\n", path, strerror(errno));
             if (f) fclose(f);

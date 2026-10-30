@@ -52,6 +52,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "kmrp-path.h"
 #ifdef _WIN32
 #include <direct.h>
 #define strcasecmp _stricmp
@@ -199,7 +200,7 @@ static int take_text(char *out, size_t size) {
 
 /* The baked label width of `row` in a prompt manifest: "prompt <row> <w> <h> <width> ...". */
 static int caption_width(const char *manifest, const char *row, double *width) {
-    FILE *f = fopen(manifest, "r");
+    FILE *f = kmrp_fopen(manifest, "r");
     if (!f) return 0;
     char line[8192], name[64];
     int found = 0;
@@ -366,7 +367,7 @@ static int fit_rows(const RowFit *fit, uint8_t *data, uint32_t height, int32_t *
  * (lowerright.u - upperleft.u) * texturewidth * 100, spacingR * 100; and build_gui's line
  * height, fontheight * 100 from the first line matching "^fontheight (\S+)". */
 static int read_font(const char *path, Font *font) {
-    FILE *f = fopen(path, "r");
+    FILE *f = kmrp_fopen(path, "r");
     if (!f) return 0;
     static double upper[256], lower[256];
     int uppers = 0, lowers = 0, mode = 0, have_height = 0;   /* mode: 0 none, 1 upper, 2 lower */
@@ -534,7 +535,7 @@ static void generate(const Layout *L, const Font *font, uint8_t *data) {
 }
 
 static uint8_t *read_file(const char *path, size_t *size) {
-    FILE *f = fopen(path, "rb");
+    FILE *f = kmrp_fopen(path, "rb");
     if (!f) return NULL;
     fseek(f, 0, SEEK_END);
     long n = ftell(f);
@@ -593,7 +594,7 @@ static uint8_t *draw_hud(const Hud *m, const uint8_t *gui, const uint8_t *footer
 }
 
 static int write_file(const char *path, const uint8_t *data, size_t size) {
-    FILE *o = fopen(path, "wb");
+    FILE *o = kmrp_fopen(path, "wb");
     if (!o || fwrite(data, 1, size, o) != size || fclose(o) != 0) {
         fprintf(stderr, "kmrp-guiblend: %s: write failed\n", path);
         return 0;
@@ -755,7 +756,7 @@ int main(int argc, char **argv) {
     uint32_t height = (uint32_t)strtoul(argv[3], NULL, 10);
     if (width < 640 || height < 480) { fprintf(stderr, "kmrp-guiblend: bad resolution\n"); return 1; }
 
-    FILE *f = fopen(argv[1], "rb");
+    FILE *f = kmrp_fopen(argv[1], "rb");
     if (!f) { fprintf(stderr, "kmrp-guiblend: %s: %s\n", argv[1], strerror(errno)); return 1; }
     fseek(f, 0, SEEK_END);
     table_size = (size_t)ftell(f);
@@ -1002,7 +1003,7 @@ int main(int argc, char **argv) {
         snprintf(path, sizeof path, "%s/%s.txi", argv[5], layouts[i].font);
         if (!read_font(path, &fonts[i])) { fprintf(stderr, "kmrp-guiblend: %s: no glyph metrics\n", path); return 1; }
     }
-    mkdir(outdir, 0755);
+    kmrp_mkdir(outdir);
     uint32_t file_count = take_u32();
     Output *outputs = calloc(file_count ? file_count : 1, sizeof(Output));
     int32_t widened[4] = {0, 0, 0, 0};

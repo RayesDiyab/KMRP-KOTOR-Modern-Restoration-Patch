@@ -530,9 +530,8 @@ bool Build(const std::wstring& directory, const std::string& stamp, Fill fill)
     return WriteNew(directory + L".complete", std::vector<unsigned char>(stamp.begin(), stamp.end()));
 }
 
-// A path for the helpers, which take the system's code page; "" when the path has a
-// character it cannot write.
-std::string Narrow(const std::wstring& path)
+// A path in the system's code page as it is, or "" when it has a character the page lacks.
+static std::string CodePage(const std::wstring& path)
 {
     char text[MAX_PATH]; BOOL substituted = FALSE;
     if (!WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, path.c_str(), -1, text, MAX_PATH, nullptr, &substituted) ||
@@ -540,11 +539,61 @@ std::string Narrow(const std::wstring& path)
     return text;
 }
 
+// A folder's path for the game's resource manager (RegisterFolder), which takes the system's
+// code page; "" when even the short form cannot be written. The helpers take UTF-8
+// (Utf8Path) and need none of this. KMRP's cache is under %LOCALAPPDATA%, so its path holds
+// the Windows user name: one with a character the code page lacks (a Cyrillic or Chinese
+// name on a Windows set to a Western language) made this "" until 2026-10-30, and then no
+// folder of KMRP's was given to the game, silently. Such a path is now written with the 8.3
+// short name Windows keeps for folders on the system drive (C:\Users\5D6F~1\...), of its
+// longest part that exists, the rest as it is. Other drives often keep no short names
+// (checked on the test PC 2026-10-30: C: has them, E: does not); then this is logged once.
+std::string Narrow(const std::wstring& path)
+{
+    std::string text = CodePage(path);
+    if (!text.empty() || path.empty()) return text;
+    std::wstring head = path, tail;
+    for (;;) {
+        const DWORD attributes = GetFileAttributesW(head.c_str());
+        if (attributes != INVALID_FILE_ATTRIBUTES) break;
+        const size_t slash = head.find_last_of(L"\\/");
+        if (slash == std::wstring::npos || slash == 0) return std::string();
+        tail = head.substr(slash) + tail;
+        head.resize(slash);
+    }
+    const DWORD length = GetShortPathNameW(head.c_str(), nullptr, 0);
+    std::wstring shortened(length ? length : 1, L'\0');
+    if (!length || !GetShortPathNameW(head.c_str(), &shortened[0], length)) return std::string();
+    shortened.resize(wcslen(shortened.c_str()));
+    text = CodePage(shortened + tail);
+    static bool told = false;
+    if (text.empty() && !told) {
+        told = true;
+        KmrpRuntimeLog("[KMRP] a folder's name has a character this system's code page lacks and its drive keeps no "
+                       "short names: KMRP cannot give it to the game");
+    }
+    return text;
+}
+
+// A path as UTF-8, for the helpers that take it so (kmrp-guiadapt.c, whose kmrp_fopen opens it
+// as UTF-16): any character, any length. Since 2026-10-30; the code-page path above made
+// live layout skip every screen where a user name or the game folder had a character the
+// system's code page lacks.
+std::string Utf8Path(const std::wstring& path)
+{
+    const int length = WideCharToMultiByte(CP_UTF8, 0, path.c_str(), -1, nullptr, 0, nullptr, nullptr);
+    if (length <= 0) return std::string();
+    std::string text(static_cast<size_t>(length), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, path.c_str(), -1, &text[0], length, nullptr, nullptr);
+    text.resize(static_cast<size_t>(length) - 1);
+    return text;
+}
+
 // gui-blend.bin, beside the cache's folders: the blend helper reads it from a file.
 bool TablePath(std::string& path)
 {
     const std::wstring wide = root + L"\\gui-blend.bin";
-    path = Narrow(wide);
+    path = Utf8Path(wide);
     if (path.empty()) return false;
     if (GetFileAttributesW(wide.c_str()) != INVALID_FILE_ATTRIBUTES) return true;
     std::vector<unsigned char> table;
@@ -1051,8 +1100,8 @@ bool AdaptGalaxyMapK1(const std::wstring& set, const std::wstring& folder)
     if (game.empty()) return false;
     const bool theirs = OverrideHas(L"galaxymap.gui");
     const std::wstring target = folder + L"\\galaxymap.gui", work = target + L".tmp" + Pid();
-    const std::string key = Narrow(game + L"\\chitin.key"), layout = Narrow(LayoutBase(set, folder, L"galaxymap.gui"));
-    const std::string out = Narrow(work), source = theirs ? Narrow(game + L"\\override\\galaxymap.gui") : std::string();
+    const std::string key = Utf8Path(game + L"\\chitin.key"), layout = Utf8Path(LayoutBase(set, folder, L"galaxymap.gui"));
+    const std::string out = Utf8Path(work), source = theirs ? Utf8Path(game + L"\\override\\galaxymap.gui") : std::string();
     if (key.empty() || layout.empty() || out.empty() || (theirs && source.empty())) return false;
     const int result = KmrpGalaxyMap(key.c_str(), layout.c_str(), out.c_str(), theirs ? source.c_str() : nullptr);
     if (result != 0) {
@@ -1086,7 +1135,7 @@ bool AdaptMainMenuK1(const std::wstring& set, const std::wstring& folder)
                                 L"mainmenu16x12.gui"}) {
         if (OverrideHas(name)) continue;
         const std::wstring target = folder + L"\\" + name, work = target + L".tmp" + Pid();
-        const std::string layout = Narrow(LayoutBase(set, folder, name)), out = Narrow(work);
+        const std::string layout = Utf8Path(LayoutBase(set, folder, name)), out = Utf8Path(work);
         if (layout.empty() || out.empty() || KmrpMainMenuBars(layout.c_str(), out.c_str()) != 0) {
             DeleteFileW(work.c_str());
             continue;
@@ -1110,11 +1159,11 @@ bool AdaptLiveLayoutK1(const std::wstring& set, const std::wstring& folder, int 
 {
     const std::wstring game = GameFolder();
     if (game.empty()) return false;
-    const std::string key = Narrow(game + L"\\chitin.key");
+    const std::string key = Utf8Path(game + L"\\chitin.key");
     if (key.empty()) return false;
     // The set's folder: its prompt manifest (the Container is widened for the caption it
     // measured) and its kmrplayout.gui (the donor of confirm.gui's badge label).
-    const std::string setFolder = Narrow(set);
+    const std::string setFolder = Utf8Path(set);
     int written = 0, theirs = 0;
     for (int i = 0; i < KmrpLiveLayoutCount(); ++i) {
         const std::wstring name = Wide(KmrpLiveLayoutName(i));
@@ -1123,7 +1172,7 @@ bool AdaptLiveLayoutK1(const std::wstring& set, const std::wstring& folder, int 
         if (managedPartyRoster && Lower(name) == L"partyselection.gui") continue;
         const bool mod = OverrideHas(name);
         const std::wstring target = folder + L"\\" + name, work = target + L".tmp" + Pid();
-        const std::string out = Narrow(work), source = mod ? Narrow(game + L"\\override\\" + name) : std::string();
+        const std::string out = Utf8Path(work), source = mod ? Utf8Path(game + L"\\override\\" + name) : std::string();
         if (out.empty() || (mod && source.empty())) continue;
         const int result = KmrpLiveLayoutSet(key.c_str(), KmrpLiveLayoutName(i), mod ? source.c_str() : nullptr,
                                              width, height, out.c_str(), setFolder.c_str());
@@ -1158,7 +1207,7 @@ bool AdaptLiveLayoutK1(const std::wstring& set, const std::wstring& folder, int 
         const std::wstring name = Wide(hudName);
         if (!OverrideHas(name)) continue;
         const std::wstring target = folder + L"\\" + name, work = target + L".tmp" + Pid();
-        const std::string out = Narrow(work), source = Narrow(game + L"\\override\\" + name);
+        const std::string out = Utf8Path(work), source = Utf8Path(game + L"\\override\\" + name);
         if (out.empty() || source.empty()) continue;
         const int result = KmrpHudCues(source.c_str(), out.c_str());
         char line[200];
@@ -1294,8 +1343,8 @@ bool BuildSet(int width, int height, std::wstring& directory)
         ULONGLONG mark = GetTickCount64(), part[6]{};
         auto lap = [&](int which) { const ULONGLONG now = GetTickCount64(); part[which] += now - mark; mark = now; };
         std::vector<unsigned char> output;
-        const std::string directoryA = Narrow(work);
-        if (directoryA.empty()) return false;
+        const std::string directory8 = Utf8Path(work);
+        if (directory8.empty()) return false;
         unsigned left = 0;
         for (const auto& entry : selected->entries) if (!objects.count(entry.key)) ++left;
         // The pack's files, written as Decode checked them. For a listed size they go in
@@ -1320,7 +1369,7 @@ bool BuildSet(int width, int height, std::wstring& directory)
             std::string table;
             if (!TablePath(table) || !ReferenceTxi(height, output) ||
                 !WriteNew(work + L"\\dialogfont16x16.txi", output)) return false;
-            if (KmrpGuiBlend(table.c_str(), width, height, directoryA.c_str(), directoryA.c_str())) return false;
+            if (KmrpGuiBlend(table.c_str(), width, height, directory8.c_str(), directory8.c_str())) return false;
             // The fonts are the fonts folder's.
             DeleteFileW((work + L"\\dialogfont16x16.txi").c_str());
             lap(1);
@@ -1346,31 +1395,32 @@ bool BuildSet(int width, int height, std::wstring& directory)
         lap(2);
         // The icons the bank already supplies are not the helpers' to make. Beside the
         // folder, not in it: the game must not see it as a resource.
-        const std::string game8 = Narrow(game);
+        const std::string game8 = Utf8Path(game);
         if (game8.empty()) return true;
         const std::string pack = game8 + "\\TexturePacks\\swpc_tex_gui.erf", key = game8 + "\\chitin.key";
-        const std::string reserved = directoryA + ".reserved.txt";
+        const std::string reserved = directory8 + ".reserved.txt";
+        const std::wstring reservedW = work + L".reserved.txt";
         FILE* list = nullptr;
-        if (!fopen_s(&list, reserved.c_str(), "w") && list) {
+        if (!_wfopen_s(&list, reservedW.c_str(), L"w") && list) {
             for (const auto& group : groups) {
                 if (&group != selected && group.width != 0) continue;
                 for (const auto& entry : group.entries) fprintf(list, "%s\n", entry.name.c_str());
             }
             fclose(list);
         }
-        KmrpAbilityIcons(pack.c_str(), static_cast<unsigned>(height), directoryA.c_str(), reserved.c_str());
-        DeleteFileA(reserved.c_str());
+        KmrpAbilityIcons(pack.c_str(), static_cast<unsigned>(height), directory8.c_str(), reserved.c_str());
+        DeleteFileW(reservedW.c_str());
         lap(3);
         // All or nothing: without its files the tutorial popup tiles the game's small icon,
         // so a failure is always written (it was silent until 2026-10-23).
-        if (KmrpGameArt(pack.c_str(), key.c_str(), static_cast<unsigned>(height), directoryA.c_str()) != 0) {
+        if (KmrpGameArt(pack.c_str(), key.c_str(), static_cast<unsigned>(height), directory8.c_str()) != 0) {
             char line[200];
             sprintf_s(line, "[KMRP] warning: the tutorial popup's icons, tutorial.2da and the row frames for %dx%d "
                       "could not be made from the game's files", width, height);
             KmrpRuntimeLog(line);
         }
         lap(4);
-        const int swoop = KmrpSwoopHud(key.c_str(), directoryA.c_str(), static_cast<unsigned>(width), static_cast<unsigned>(height));
+        const int swoop = KmrpSwoopHud(key.c_str(), directory8.c_str(), static_cast<unsigned>(width), static_cast<unsigned>(height));
         lap(5);
         // What was made is a progress note, for the debug log only (KmrpOptions.h): since
         // the installer makes every size (2026-10-19) these lines would otherwise leave a

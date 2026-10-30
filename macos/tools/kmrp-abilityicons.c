@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "kmrp-path.h"
 #include <sys/stat.h>
 #ifdef _WIN32
 #include <direct.h>
@@ -138,7 +139,7 @@ static int write_tga(const char *path, const uint8_t *rgba, int width, int heigh
     header[14] = height & 0xff; header[15] = (height >> 8) & 0xff;
     header[16] = 32;
     header[17] = 0x08;
-    FILE *f = fopen(path, "wb");
+    FILE *f = kmrp_fopen(path, "wb");
     if (!f) return 0;
     int ok = fwrite(header, 1, 18, f) == 18;
     for (int i = 0; ok && i < width * height; i++) {
@@ -152,7 +153,7 @@ static char **reserved;
 static size_t reserved_count;
 
 static void load_reserved(const char *path) {
-    FILE *f = fopen(path, "r");
+    FILE *f = kmrp_fopen(path, "r");
     if (!f) {
         fprintf(stderr, "kmrp-abilityicons: %s: %s\n", path, strerror(errno));
 #ifdef KMRP_EMBEDDED
@@ -192,7 +193,7 @@ int main(int argc, char **argv) {
     const char *outdir = argv[3];
     if (argc == 5) load_reserved(argv[4]);
 
-    FILE *f = fopen(argv[1], "rb");
+    FILE *f = kmrp_fopen(argv[1], "rb");
     if (!f) { fprintf(stderr, "kmrp-abilityicons: %s: %s\n", argv[1], strerror(errno)); return 1; }
     fseek(f, 0, SEEK_END);
     pack_size = (size_t)ftell(f);
@@ -205,7 +206,7 @@ int main(int argc, char **argv) {
     const double scale = (double)scale_for_height(height);
     int32_t entries = i32(16), keys = i32(24), resources = i32(28);
     int written = 0;
-    mkdir(outdir, 0755);
+    kmrp_mkdir(outdir);
     for (int32_t i = 0; i < entries; i++) {
         size_t key_at = (size_t)keys + (size_t)i * ERF_KEY_SIZE;
         size_t resource_at = (size_t)resources + (size_t)i * ERF_RESOURCE_SIZE;

@@ -57,6 +57,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "kmrp-path.h"
 #ifdef _WIN32
 #include <direct.h>
 #define strcasecmp _stricmp
@@ -87,7 +88,7 @@ static void put_f32(uint8_t *p, float f) { memcpy(p, &f, 4); }
 
 static Buffer read_file(const char *path) {
     Buffer b = { NULL, 0 };
-    FILE *f = fopen(path, "rb");
+    FILE *f = kmrp_fopen(path, "rb");
     if (!f) return b;
     fseek(f, 0, SEEK_END);
     long size = ftell(f);
@@ -125,7 +126,7 @@ static Buffer keyed_resource(const Buffer *key, const char *key_path, const char
         if (other && (!slash || other > slash)) slash = other;
         int dir_length = slash ? (int)(slash - key_path) : 1;
         snprintf(bif_path, sizeof bif_path, "%.*s/%s", dir_length, slash ? key_path : ".", relative);
-        FILE *f = fopen(bif_path, "rb");
+        FILE *f = kmrp_fopen(bif_path, "rb");
         if (!f) return none;
         uint8_t head[20], record[16];
         Buffer out = none;
@@ -214,7 +215,7 @@ static int park_further(Buffer *mdl) {
 static int write_file(const char *directory, const char *name, const Buffer *b) {
     char path[4096];
     snprintf(path, sizeof path, "%s/%s", directory, name);
-    FILE *f = fopen(path, "wb");
+    FILE *f = kmrp_fopen(path, "wb");
     if (!f) return 0;
     int ok = fwrite(b->data, 1, b->size, f) == b->size;
     return fclose(f) == 0 && ok;
@@ -235,7 +236,7 @@ int KmrpSwoopHud(const char *key_path, const char *outdir, unsigned width, unsig
     Buffer mdx = keyed_resource(&key, key_path, MODEL, TYPE_MDX);
     int result = 1;
     if (mdl.data && mdx.data && park_further(&mdl)) {
-        mkdir(outdir, 0755);
+        kmrp_mkdir(outdir);
         result = write_file(outdir, MODEL ".mdl", &mdl) && write_file(outdir, MODEL ".mdx", &mdx) ? 0 : 2;
     }
     free(key.data); free(mdl.data); free(mdx.data);

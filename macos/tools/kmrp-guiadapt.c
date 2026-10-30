@@ -47,6 +47,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "kmrp-path.h"
 #ifdef _WIN32
 #define strcasecmp _stricmp
 #define strncasecmp _strnicmp
@@ -67,7 +68,7 @@ static void put_u32(uint8_t *p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t
 
 static Buffer read_file(const char *path) {
     Buffer b = { NULL, 0 };
-    FILE *f = fopen(path, "rb");
+    FILE *f = kmrp_fopen(path, "rb");
     if (!f) return b;
     fseek(f, 0, SEEK_END);
     long size = ftell(f);
@@ -105,7 +106,7 @@ static Buffer keyed_resource(const Buffer *key, const char *key_path, const char
         if (other && (!slash || other > slash)) slash = other;
         int dir_length = slash ? (int)(slash - key_path) : 1;
         snprintf(bif_path, sizeof bif_path, "%.*s/%s", dir_length, slash ? key_path : ".", relative);
-        FILE *f = fopen(bif_path, "rb");
+        FILE *f = kmrp_fopen(bif_path, "rb");
         if (!f) return none;
         uint8_t head[20], record[16];
         Buffer out = none;
@@ -272,7 +273,7 @@ int KmrpGalaxyMap(const char *key_path, const char *set_gui, const char *out_gui
         if (!extent_of(&source, 0, &root)) result = 1;
         else if (ev(&root, 2) != 640 || ev(&root, 3) != 480) result = 3;
         else if (place(&out, &source) > 0) {
-            FILE *f = fopen(out_gui, "wb");
+            FILE *f = kmrp_fopen(out_gui, "wb");
             result = 2;
             if (f) {
                 int ok = fwrite(mine.data, 1, mine.size, f) == mine.size;
@@ -325,7 +326,7 @@ int KmrpMainMenuBars(const char *set_gui, const char *out_gui) {
                 put_u32(button[i].v[1], (uint32_t)(int32_t)y);
                 put_u32(button[i].v[3], (uint32_t)(bottom - y));
             }
-            FILE *f = fopen(out_gui, "wb");
+            FILE *f = kmrp_fopen(out_gui, "wb");
             result = 2;
             if (f) {
                 int ok = fwrite(mine.data, 1, mine.size, f) == mine.size;
@@ -1335,7 +1336,7 @@ static void ll_add_cues(const char *name, Buffer *file) {
  * KmrpLiveLayoutPrompts: the same, with PROMPTS the size's prompt manifest (kmrp_prompts.txt),
  * whose Give Items caption width the Container is widened for; without it, it is not. */
 static int ll_manifest_caption(const char *path, double *width) {
-    FILE *f = path && *path ? fopen(path, "r") : NULL;
+    FILE *f = path && *path ? kmrp_fopen(path, "r") : NULL;
     if (!f) return 0;
     char line[8192], row[64];
     int found = 0, w, h;
@@ -1415,7 +1416,7 @@ static int ll_live(const char *key_path, const char *name, const char *source_gu
             ll_layout(name, file, &source, &own, width, height, caption);
             ll_add_cues(name, &theirs);
             ll_add_badge(name, donor, &theirs);
-            FILE *f = fopen(out_gui, "wb");
+            FILE *f = kmrp_fopen(out_gui, "wb");
             result = 2;
             if (f) {
                 int ok = fwrite(theirs.data, 1, theirs.size, f) == theirs.size;
@@ -1443,7 +1444,7 @@ int KmrpHudCues(const char *source_gui, const char *out_gui) {
     if (file.data && gff_open(&g, file.data, file.size)) {
         result = 3;
         if (ll_combat_cues(&g, &with)) {
-            FILE *f = fopen(out_gui, "wb");
+            FILE *f = kmrp_fopen(out_gui, "wb");
             result = 2;
             if (f) {
                 int ok = fwrite(with.data, 1, with.size, f) == with.size;

@@ -117,6 +117,14 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **KMRP works for a Windows user name in any script** (2026-10-30). KMRP's cache lives
+  under the user's profile, and until now KMRP passed its paths in the system's code page:
+  with a user name that page cannot write (a Cyrillic or Chinese name on a Windows set to
+  a Western language), no screen was laid out, no per-size set made and no KMRP folder
+  given to the game, without a word. KMRP's helpers now take every path in Unicode, and
+  the folders given to the game use Windows' short names. Checked with a folder named in
+  Cyrillic and Chinese on the test PC; not yet tried on such a Windows profile.
+
 - **Live Adaptive Layout covers every layout file the game uses** (2026-10-30). The
   message popup (Exit Game, Solo Mode, overwrite and delete save), the area map and the
   conversation box are now laid out at run time from the game's file or a mod's, with

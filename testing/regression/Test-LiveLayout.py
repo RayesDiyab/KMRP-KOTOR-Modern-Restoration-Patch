@@ -462,6 +462,7 @@ SHARED_CODE = [ROOT / "tools" / f for f in ("scale_listbox_padding.py", "prepare
                                              "build_controller_layout.py", "build_controller_prompt_textures.py")]
 SHARED_CODE += [Path(__file__).resolve(), Path(native_helpers.__file__).resolve()]
 GUIADAPT = ROOT / "macos" / "tools" / "kmrp-guiadapt.c"
+GUIADAPT_PATH = GUIADAPT.with_name("kmrp-path.h")  # included by it, so part of its fingerprint
 ROWS_BLOCK = re.compile(r"static const LLRow LL_ROWS_\d+\[\] = \{  /\* (\S+) \*/\n(.*?)\n\};\n", re.S)
 FILES_LIST = re.compile(r"static const LLFile LL_FILES\[\] = \{.*?\};\n", re.S)
 
@@ -492,7 +493,8 @@ class Fingerprints:
         except importlib.metadata.PackageNotFoundError:
             pykotor = "unknown"
         self.code = sha(CACHE_FORMAT, sys.version, pykotor, layout_code(),
-                        *(source_fingerprint.code_hash(p) for p in SHARED_CODE), GUIADAPT.read_bytes(), shared_table)
+                        *(source_fingerprint.code_hash(p) for p in SHARED_CODE), GUIADAPT.read_bytes(),
+                        GUIADAPT_PATH.read_bytes(), shared_table)
         self.table = table
         self.upstream = ll.upstream_sets()
         self.sets = {}

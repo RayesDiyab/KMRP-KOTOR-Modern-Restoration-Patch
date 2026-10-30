@@ -1464,6 +1464,16 @@ width, height, out, set_folder)`: the folder gives `kmrp_prompts.txt` and
 `kmrplayout.gui`; the CLI's last argument is that folder. Windows passes the set folder
 from `AdaptLiveLayoutK1`. Seen on Windows at 3440x1440 ("All look right").
 
+## 122. The C helpers open files through `kmrp-path.h` (Windows 2026-10-30, uncommitted)
+
+A new header, `macos/tools/kmrp-path.h`, gives `kmrp_fopen` and `kmrp_mkdir`; every
+`fopen` and `mkdir` in `kmrp-guiadapt.c`, `kmrp-guiblend.c`, `kmrp-gameart.c`,
+`kmrp-abilityicons.c` and `kmrp-swoophud.c` now goes through them. On the Mac they are
+the plain `fopen` and `mkdir(path, 0755)`, so nothing changes there, but `macos/build.sh`
+must find the header beside the sources (it does: they include it with quotes). On
+Windows the paths are UTF-8 and become UTF-16, for user names outside the code page. The
+module's `Narrow` short-name fallback is Windows-only.
+
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
 | Change | Commit | Why not the Mac |

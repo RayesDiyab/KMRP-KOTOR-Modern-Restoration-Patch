@@ -57,8 +57,9 @@ the game at 3440x1440 only (section 6).
 
 | | |
 | --- | --- |
-| Source | master `a314a6d` with the message popup, area map and conversation box of 2026-10-30 (uncommitted when written) |
-| Module (73 screens) | `build\native-runtime\kmrp-native.dll`, 881,664 bytes, SHA-256 `5E61BDE801B6331967BDFFE39551F2BC98A6FFED94F5FD348ECB3DE65CD087CA`; installed in the Steam game 2026-10-30 for the maintainer's test, with the controller module from the same source (2,722,816 bytes, `FC057B85D2E53E08CFD3B7F27E4A57FD2ED825978FBE8B068CAB7FCCADCC6F08`) |
+| Source | master `86ee647` with the path handling of 2026-10-30 (uncommitted when written) |
+| Module (73 screens, any path) | `build\native-runtime\kmrp-native.dll`, 884,224 bytes, SHA-256 `97E5DE246601EB368D2427C6B8C51226A4F0469D9AFA166223F2E899A8801EA5`, with the controller module from the same source (2,721,792 bytes, `2A04EF18F24AB2FFAA613F0427EB942A0AAE4244083AC4495D111F868B767570`); section 6, "Paths" |
+| Previous module (73 screens) | 881,664 bytes, SHA-256 `5E61BDE801B6331967BDFFE39551F2BC98A6FFED94F5FD348ECB3DE65CD087CA`; installed in the Steam game 2026-10-30 for the maintainer's test, with the controller module from the same source (2,722,816 bytes, `FC057B85D2E53E08CFD3B7F27E4A57FD2ED825978FBE8B068CAB7FCCADCC6F08`) |
 | Previous module (70 screens) | 870,912 bytes, SHA-256 `659BF0E9A1F9267E70740CB4D90216F70451998008965210575BF0E14A6E4331`, with the controller module `C57CDEC3CB93EC8333989D844036A9B232F52594123385329669082398431B8D`; seen in the game 2026-10-30 ("Both look right"), committed as `a314a6d` |
 | Withdrawn module (70 screens, first centre rule) | `BF8BB39C445D5E650F847B47C9A4473B8AB224C1627F0CEAEC0CD69B0AE5CBFB`: carried the centre for every kept-shape control, which failed 295 fields; installed for a short while the same day, replaced by the one above |
 | Previous module (65 screens, HUD cues) | 865,280 bytes, SHA-256 `506B380E4AAA95ACD35A9BC06E49C2D95B38799045563E017FEA329D9D0BEAC0`, with the controller module `28F2046EFC28B190B0D50037B685B53357F489A7067BABAB79EF54382E4D2D02`; committed as `94259de` |
@@ -696,6 +697,29 @@ controller patch changes only the three with the R3 cue, the same cue under the 
   its own.
 - A mod's file with two controls of one TAG lays each out on its own; the gold correction
   goes to each that has the game's extent.
+
+- **Paths (2026-10-30).** Until this date the module gave every path to the C helpers
+  (`kmrp-guiadapt`, `kmrp-guiblend`, `kmrp-gameart`, `kmrp-abilityicons`,
+  `kmrp-swoophud`) in the system's ANSI code page, and gave up on a path with a character
+  that page lacks. KMRP's cache is under `%LOCALAPPDATA%`, so its path holds the Windows
+  user name: a player with, say, a Cyrillic or Chinese user name on a Windows set to a
+  Western language got no live layout, no per-size set and no KMRP folder given to the
+  game, with nothing said. The set copies were no fallback for them: the game itself
+  could not be given the folder that holds them.
+
+  Now the helpers take UTF-8 and open every file through `macos/tools/kmrp-path.h`
+  (`_wfopen` and `_wmkdir` on Windows, the plain calls on the Mac). The one path that
+  must still be in the code page is the folder given to the game's resource manager
+  (`RegisterFolder`); for it `Narrow` falls back to the 8.3 short name Windows keeps on
+  the system drive, where `%LOCALAPPDATA%` is. A drive without short names (on the test PC
+  E: has none, C: has them) still cannot be given to the game under such a name, and the
+  module logs that once.
+
+  Checked on the test PC, whose code page is 1256: `KmrpLiveLayoutSet` with UTF-8 paths
+  through a folder named `Тест_用户`, the game reached by a junction inside it and the
+  1920x1080 set copied into it, wrote `confirm.gui` byte for byte as the plain path does;
+  `KmrpGameArt` and `KmrpSwoopHud` made a new folder there and wrote the same 20 files.
+  Not tried: a real Windows profile with such a name, in the game.
 
 ## 7. What is deliberately not changed
 
