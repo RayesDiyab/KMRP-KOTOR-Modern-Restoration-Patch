@@ -16,7 +16,7 @@ extern "C" int KmrpGameArt(const char*,const char*,unsigned,const char*) {return
 extern "C" int KmrpSwoopHud(const char*,const char*,unsigned,unsigned) {return 1;}
 extern "C" int KmrpGalaxyMap(const char*,const char*,const char*,const char*) {return 1;}
 extern "C" int KmrpMainMenuBars(const char*,const char*) {return 1;}
-extern "C" int KmrpLiveLayoutPrompts(const char*,const char*,const char*,int,int,const char*,const char*) {return 1;}
+extern "C" int KmrpLiveLayoutSet(const char*,const char*,const char*,int,int,const char*,const char*) {return 1;}
 extern "C" int KmrpHudCues(const char*,const char*) {return 1;}
 extern "C" const char* KmrpHudFileName(int) {return nullptr;}
 extern "C" int KmrpLiveLayoutCount(void) {return 0;}

@@ -1450,6 +1450,20 @@ their input. On Windows the reverse order wrote the galaxy map over the issue 67
 placement from 2026-10-28 to 2026-10-30. Measured with the C on Windows; the Mac does not
 call live layout yet (item 102).
 
+## 121. Message popup, area map and conversation box join Live Adaptive Layout (Windows 2026-10-30, uncommitted)
+
+The table now has 73 screens, adding `confirm.gui`, `map.gui` and `dialog.gui`.
+`kmrp-guiadapt.c` changes the Mac needs with it: **(1)** `LLFile.gold_size_only`: gold's
+geometry at 3440x1440 only for `GOLD_GEOMETRY_EXCLUDED` files and those upstream ships
+none of; `LLRow.gold_dimension`: gold's border thickness, at 3440x1440 only. **(2)** Two
+steps: `ll_popup` (scale_message_popup's measured table by the font scale) and LBL_Map
+from the screen's size. **(3)** Cross-file cloning in the GFF writer (`Sections.foreign`,
+`ll_append_from`): the badge labels `LBL_KMRPA` and `LBL_KMRPDLG` are cloned from the
+size's `kmrplayout.gui`. **(4)** A new entry point, `KmrpLiveLayoutSet(key, name, source,
+width, height, out, set_folder)`: the folder gives `kmrp_prompts.txt` and
+`kmrplayout.gui`; the CLI's last argument is that folder. Windows passes the set folder
+from `AdaptLiveLayoutK1`. Seen on Windows at 3440x1440 ("All look right").
+
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
 | Change | Commit | Why not the Mac |

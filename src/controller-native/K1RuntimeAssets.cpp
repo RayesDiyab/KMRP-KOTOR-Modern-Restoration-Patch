@@ -84,10 +84,11 @@ extern "C" int KmrpMainMenuBars(const char* setGui, const char* outGui);
 // The same file: Live Adaptive Layout, a screen the game's own file or a mod's (in Override)
 // lays out, laid out for the size (tools/build_live_layout.py). 0 written, 1 a layout could
 // not be read, 2 could not write, 3 the mod's file is not laid out for the game's size (left
-// to the game), 4 not a screen it lays out. `prompts`: the size's kmrp_prompts.txt, whose Give
-// Items caption width the Container is widened for.
-extern "C" int KmrpLiveLayoutPrompts(const char* key, const char* name, const char* sourceGui, int width, int height,
-                                     const char* outGui, const char* prompts);
+// to the game), 4 not a screen it lays out. `set`: the size's set folder, whose
+// kmrp_prompts.txt gives the Container's caption width and whose kmrplayout.gui is the donor
+// of the controller badge labels (confirm.gui's LBL_KMRPA).
+extern "C" int KmrpLiveLayoutSet(const char* key, const char* name, const char* sourceGui, int width, int height,
+                                 const char* outGui, const char* set);
 // The same file: a mod's mouse and keyboard HUD file with KMRP's combat cues added. 0
 // written, 3 nothing to add, else not written; and the HUD files' names.
 extern "C" int KmrpHudCues(const char* sourceGui, const char* outGui);
@@ -1111,8 +1112,9 @@ bool AdaptLiveLayoutK1(const std::wstring& set, const std::wstring& folder, int 
     if (game.empty()) return false;
     const std::string key = Narrow(game + L"\\chitin.key");
     if (key.empty()) return false;
-    // The set's prompt manifest: the Container is widened for the caption it measured.
-    const std::string prompts = Narrow(set + L"\\kmrp_prompts.txt");
+    // The set's folder: its prompt manifest (the Container is widened for the caption it
+    // measured) and its kmrplayout.gui (the donor of confirm.gui's badge label).
+    const std::string setFolder = Narrow(set);
     int written = 0, theirs = 0;
     for (int i = 0; i < KmrpLiveLayoutCount(); ++i) {
         const std::wstring name = Wide(KmrpLiveLayoutName(i));
@@ -1123,8 +1125,8 @@ bool AdaptLiveLayoutK1(const std::wstring& set, const std::wstring& folder, int 
         const std::wstring target = folder + L"\\" + name, work = target + L".tmp" + Pid();
         const std::string out = Narrow(work), source = mod ? Narrow(game + L"\\override\\" + name) : std::string();
         if (out.empty() || (mod && source.empty())) continue;
-        const int result = KmrpLiveLayoutPrompts(key.c_str(), KmrpLiveLayoutName(i), mod ? source.c_str() : nullptr,
-                                                 width, height, out.c_str(), prompts.c_str());
+        const int result = KmrpLiveLayoutSet(key.c_str(), KmrpLiveLayoutName(i), mod ? source.c_str() : nullptr,
+                                             width, height, out.c_str(), setFolder.c_str());
         if (result != 0) {
             DeleteFileW(work.c_str());
             char line[200];

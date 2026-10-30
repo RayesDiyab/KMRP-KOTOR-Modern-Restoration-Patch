@@ -117,6 +117,15 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Live Adaptive Layout covers every layout file the game uses** (2026-10-30). The
+  message popup (Exit Game, Solo Mode, overwrite and delete save), the area map and the
+  conversation box are now laid out at run time from the game's file or a mod's, with
+  KMRP's popup sizing, map picture rectangle and the controller's A labels made as the
+  build makes them. That brings the shared path to 73 of 85 layout files. Of the rest, the
+  HUD is placed by its own table, the status summary by code each time it opens, eight
+  files are never loaded by the game, and one is KMRP's own Controller Layout screen.
+  Seen in the Steam game at 3440x1440: "All look right".
+
 - **The galaxy map's planets are where the game puts them again** (2026-10-30). Since
   2026-10-28 Live Adaptive Layout wrote the galaxy map after KMRP had placed its planets
   where the game's own layout has them (issue 67), so they stood in High Resolution Menus'

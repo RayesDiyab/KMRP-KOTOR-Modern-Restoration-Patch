@@ -82,6 +82,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 from prepare_universal_resources import (COMBAT_CUE_SCALE, COMBAT_CUE_TEMPLATE, COMBAT_CUES,  # noqa: E402
                                          add_combat_cues)
+from prepare_universal_resources import GOLD_GEOMETRY_EXCLUDED  # noqa: E402
 from prepare_universal_resources import (CONTAINER_FIT_TAG, CONTAINER_SCREEN,  # noqa: E402
                                          CONTAINER_WIDENED, DESCRIPTION_LISTBOXES, FONT_HEIGHT_DIVISOR,
                                          FONT_SCALE_OFFSET, HAND_TUNED_GUTTERS, LIST_LISTBOXES,
@@ -97,8 +98,25 @@ from scale_listbox_padding import (FEEDBACK_LIST, GUTTER_AT_UNIT_SCALE, JOURNAL_
                                    SCRIPTSELECT_FRAME, centre_rows_in_frame, fit_list_to_rows,
                                    fit_rows_to_list, scale_row_template)
 import build_controller_prompt_textures as prompts  # noqa: E402
-from build_controller_layout import (ENTRY_CAPTION, ENTRY_FALLBACK_STEP, ENTRY_LIFT_DIVISOR,  # noqa: E402
-                                     ENTRY_PREVIOUS, ENTRY_SCREEN, ENTRY_TAG, ENTRY_TEMPLATE, add_entry)
+from build_controller_layout import (CONFIRM_BADGE_STEM, CONFIRM_BADGE_TAG, DIALOG_BADGE_TAG, ENTRY_CAPTION,  # noqa: E402
+                                     ENTRY_FALLBACK_STEP, ENTRY_LIFT_DIVISOR, ENTRY_PREVIOUS, ENTRY_SCREEN,
+                                     ENTRY_TAG, ENTRY_TEMPLATE, add_confirm_badge, add_entry)
+from scale_message_popup import (MESSAGE_PADDING, TUNED, TUNED_SCALE,  # noqa: E402
+                                 apply_tuned as apply_popup_layout)
+
+# The screens the build gives a controller badge label, cloned from the size's
+# kmrplayout.gui (add_confirm_badge): the confirmation box's travelling A and the
+# dialogue reply's.
+BADGE_SCREENS = {"confirm.gui": CONFIRM_BADGE_TAG, "dialog.gui": DIALOG_BADGE_TAG}
+POPUP_SCREEN = "confirm.gui"
+BADGE_DONOR = "kmrplayout.gui"
+MAP_SCREEN, MAP_TAG = "map.gui", "LBL_Map"
+
+
+def map_control_box(width: int, height: int) -> tuple[int, int, int, int]:
+    """LBL_Map's extent on a screen, as analyze_resolution_guis.geometry has it."""
+    overlay, canvas = width // 2, height // 2
+    return (width - overlay) // 2, (height - canvas) // 2 + 14, overlay, canvas
 
 VANILLA = ROOT / "build-inputs" / "vanilla-gui"
 UPSTREAM = ROOT / "third_party" / "Included" / "kotor-high-resolution-menus-1.5"
@@ -151,6 +169,17 @@ FILES = (
     # The main menu's five files (2026-10-30): laid out here, then the module puts the
     # buttons on the bars of their art (AdaptMainMenuK1, KmrpMainMenuBars) from this result.
     "mainmenu.gui", "mainmenu8x6.gui", "mainmenu10x7.gui", "mainmenu12x9.gui", "mainmenu16x12.gui",
+    # The message popup (2026-10-30): gold at 3440x1440 only, as the build has it
+    # (GOLD_GEOMETRY_EXCLUDED); then its measured table by the font scale and the
+    # controller's badge label from the size's kmrplayout.gui.
+    "confirm.gui",
+    # The area map (2026-10-30): gold at 3440x1440 only, as the build has it, and LBL_Map
+    # from the screen's size (map_control_box).
+    "map.gui",
+    # The conversation box (2026-10-30): upstream ships none, so every size but 3440x1440
+    # shows the game's own numbers (vanilla_dialog_gui), 3440x1440 gold's; the module places
+    # the box at run time. Then the dialogue A's label from the size's kmrplayout.gui.
+    "dialog.gui",
 )
 
 # The prompt manifest row whose caption width the Container is widened for.
@@ -263,6 +292,12 @@ def alignment(struct: GFFStruct) -> int | None:
     return text.get_int32("ALIGNMENT") if text is not None and text.exists("ALIGNMENT") else None
 
 
+def dimension(struct: GFFStruct) -> int | None:
+    """A structure's BORDER.DIMENSION, or None."""
+    border = child(struct, "BORDER")
+    return border.get_int32("DIMENSION") if border is not None and border.exists("DIMENSION") else None
+
+
 def fill_style(struct: GFFStruct) -> int | None:
     """A structure's BORDER.FILLSTYLE, or None."""
     border = child(struct, "BORDER")
@@ -331,9 +366,24 @@ def upstream_sets() -> list[tuple[tuple[int, int], Path]]:
     return sets
 
 
+def upstream_ships(name: str) -> bool:
+    """Does High Resolution Menus ship this file in any of its sets?"""
+    return any((folder / name).is_file() for _, folder in upstream_sets())
+
+
+def gold_size_only(name: str) -> bool:
+    """Is gold's geometry this file's at 3440x1440 alone? For the files the build never carries
+    it from (GOLD_GEOMETRY_EXCLUDED), and for those upstream ships none of, which every other
+    size shows as the game's own (dialog.gui, vanilla_dialog_gui; 2026-10-30)."""
+    return name in GOLD_GEOMETRY_EXCLUDED or not upstream_ships(name)
+
+
 def choose_rules(name: str, sets) -> dict:
-    """Per structure key of the game's file: its four rules, chosen on upstream's sets."""
+    """Per structure key of the game's file: its four rules, chosen on upstream's sets. A file
+    upstream ships none of keeps the game's own numbers at every size: every field fixed."""
     vanilla = read_gff(VANILLA / name).root
+    if not any((folder / name).is_file() for _, folder in sets):
+        return {key: ["fixed"] * 4 for key, _, _ in structures(vanilla)}
     base = base_of(vanilla)
     gold = {key: extent(s) for key, s, _ in structures(read_gff(GOLD / name).root)} if (GOLD / name).is_file() else {}
     seen = {}
@@ -427,9 +477,13 @@ def table_entries() -> list[tuple[str, list]]:
                 if (vb is not None and gb is not None and vb.exists(part) and gb.exists(part)
                         and str(vb.get_resref(part)) and not str(gb.get_resref(part))):
                     clear |= 1 << bit
+            # A border's thickness the gold file changed, which only 3440x1440 has (the build
+            # ships gold's whole file there): dialog.gui's reply list, 4 to 8 and 0 to 4.
+            vdim, gdim = dimension(struct), dimension(gs) if gs is not None else None
             rows.append((key, rules[key], g, gpad if gpad is not None and gpad != vpad else None,
                          galign if galign is not None and valign is not None and galign != valign else None,
-                         gfill if gfill is not None and vfill is not None and gfill != vfill else None, clear))
+                         gfill if gfill is not None and vfill is not None and gfill != vfill else None, clear,
+                         gdim if gdim is not None and vdim is not None and gdim != vdim else None))
         files.append((name, rows))
     return files
 
@@ -455,9 +509,10 @@ def render() -> str:
         "#define LL_NO_PADDING (-1)",
         "#define LL_NO_ALIGN (-1)",
         "#define LL_NO_FILL (-1)",
+        "#define LL_NO_DIMENSION (-1)",
         "",
-        "typedef struct { const char *tag, *sub; unsigned char rule[4]; int gold[4]; int gold_padding; int gold_align; int gold_fill; unsigned char clear_border; } LLRow;",
-        "typedef struct { const char *name; const LLRow *rows; int count; } LLFile;",
+        "typedef struct { const char *tag, *sub; unsigned char rule[4]; int gold[4]; int gold_padding; int gold_align; int gold_fill; unsigned char clear_border; int gold_dimension; } LLRow;",
+        "typedef struct { const char *name; const LLRow *rows; int count; int gold_size_only; } LLFile;",
         "typedef struct { const char *tag; double unit; int force; } LLGutter;",
         "",
         f"#define LL_GOLD_WIDTH {GOLD_SIZE[0]}",
@@ -525,6 +580,40 @@ def render() -> str:
     lines.append(f"#define LL_WIDEN_TAG {c_string(CONTAINER_FIT_TAG)}")
     lines.append(f"#define LL_WIDEN_CAPTION_ROW {c_string(caption_row)}")
     lines.append("static const char *const LL_WIDENED[] = { " + ", ".join(map(c_string, CONTAINER_WIDENED)) + " };")
+    # The message popup's measured table (scale_message_popup.apply_tuned), by the font scale.
+    lines.append("/* The message popup, confirm.gui: its panel and these controls from the table measured at")
+    lines.append(" * font scale POPUP_SCALE, times the size's font scale over it, half up; the panel centred")
+    lines.append(" * where it was; LB_MESSAGE's PADDING and its scroll bar's width 0 (apply_tuned). */")
+    lines.append(f"#define LL_POPUP_SCREEN {c_string(POPUP_SCREEN)}")
+    lines.append(f"#define LL_POPUP_SCALE {TUNED_SCALE!r}")
+    lines.append(f"#define LL_POPUP_PADDING {MESSAGE_PADDING}")
+    lines.append(f"#define LL_POPUP_WIDTH {TUNED['TGuiPanel'][0]}")
+    lines.append(f"#define LL_POPUP_HEIGHT {TUNED['TGuiPanel'][1]}")
+    lines.append('#define LL_POPUP_MESSAGE "LB_MESSAGE"')
+    lines.append("typedef struct { const char *tag; int box[4]; } LLPopupRow;")
+    lines.append("static const LLPopupRow LL_POPUP_ROWS[] = {")
+    for tag, box in TUNED.items():
+        if tag != "TGuiPanel":
+            lines.append(f"    {{ {c_string(tag)}, {{ {', '.join(map(str, box))} }} }},")
+    lines.append("};")
+    # The area map's picture control (map_control_box).
+    lines.append("/* The area map's LBL_Map: half the screen each way, centred, MAP_INSET lower for the")
+    lines.append(" * renderer's top inset (analyze_resolution_guis.geometry). */")
+    lines.append(f"#define LL_MAP_SCREEN {c_string(MAP_SCREEN)}")
+    lines.append(f"#define LL_MAP_TAG {c_string(MAP_TAG)}")
+    lines.append(f"#define LL_MAP_INSET {map_control_box(0, 0)[1]}")
+    # The controller badge labels (add_confirm_badge), cloned from the size's kmrplayout.gui.
+    lines.append("/* The controller badge label a screen is given (add_confirm_badge): a clone of the size's")
+    lines.append(" * kmrplayout.gui's LBL_TITLE with this tag, no text, picture kmrpcnfa, extent 0. */")
+    lines.append("typedef struct { const char *screen, *tag; } LLBadge;")
+    lines.append("static const LLBadge LL_BADGES[] = {")
+    for screen, tag in sorted(BADGE_SCREENS.items()):
+        lines.append(f"    {{ {c_string(screen)}, {c_string(tag)} }},")
+    lines.append("};")
+    lines.append(f"#define LL_BADGE_DONOR {c_string(BADGE_DONOR)}")
+    lines.append('#define LL_BADGE_DONOR_TAG "LBL_TITLE"')
+    lines.append(f'#define LL_BADGE_FILL "kmrp{CONFIRM_BADGE_STEM}"')
+    lines.append("")
     # The HUD's combat cues (prepare_universal_resources.add_combat_cues), given to a mod's
     # mipc*.gui that lacks them (KmrpHudCues): the HUD's places come from the module's
     # table (K1PcHud.cpp), which places these cues too, so only the controls are added.
@@ -584,18 +673,19 @@ def render() -> str:
     entries = table_entries()
     for index, (name, rows) in enumerate(entries):
         lines.append(f"static const LLRow LL_ROWS_{index}[] = {{  /* {name} */")
-        for (tag, sub), rules, gold, pad, align, fill, clear in rows:
+        for (tag, sub), rules, gold, pad, align, fill, clear, dim in rows:
             r = ", ".join(str(RULES.index(x)) for x in rules)
             g = ", ".join("LL_NO_GOLD" if gold is None else str(x) for x in (gold or [None] * 4))
             p = "LL_NO_PADDING" if pad is None else str(pad)
             a = "LL_NO_ALIGN" if align is None else str(align)
             fs = "LL_NO_FILL" if fill is None else str(fill)
-            lines.append(f"    {{ {c_string(tag)}, {c_string(sub)}, {{ {r} }}, {{ {g} }}, {p}, {a}, {fs}, {clear} }},")
+            d = "LL_NO_DIMENSION" if dim is None else str(dim)
+            lines.append(f"    {{ {c_string(tag)}, {c_string(sub)}, {{ {r} }}, {{ {g} }}, {p}, {a}, {fs}, {clear}, {d} }},")
         lines.append("};")
     lines.append("")
     lines.append("static const LLFile LL_FILES[] = {")
     for index, (name, rows) in enumerate(entries):
-        lines.append(f"    {{ {c_string(name)}, LL_ROWS_{index}, {len(rows)} }},")
+        lines.append(f"    {{ {c_string(name)}, LL_ROWS_{index}, {len(rows)}, {int(gold_size_only(name))} }},")
     lines.append("};")
     lines.append("")
     lines.append("#endif")
@@ -604,7 +694,7 @@ def render() -> str:
 
 # ----------------------------------------------------------------------------- the layout
 def table_by_file() -> dict:
-    return {name: {key: (rules, gold, pad, align, fill, clear) for key, rules, gold, pad, align, fill, clear in rows}
+    return {name: {key: (rules, gold, pad, align, fill, clear, dim) for key, rules, gold, pad, align, fill, clear, dim in rows}
             for name, rows in table_entries()}
 
 
@@ -625,11 +715,13 @@ def manifest_caption(manifest: str) -> float | None:
 
 
 def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height: int,
-           rows: dict, caption: float | None = None) -> GFFStruct | None:
+           rows: dict, caption: float | None = None, donor: Path | None = None) -> GFFStruct | None:
     """`source` (the game's file or a mod's) laid out for width x height, in place, or None
     when it is not laid out for the game's size (game_size). What KmrpLiveLayout
     (kmrp-guiadapt.c) does, in Python. `caption`: the Container's caption width from the
-    size's prompt manifest; without it the Container is not widened."""
+    size's prompt manifest; without it the Container is not widened. `donor`: the size's
+    kmrplayout.gui, whose LBL_TITLE the controller badge labels are cloned from; without it
+    none is added."""
     if not game_size(source, vanilla):
         return None
     base = base_of(source)
@@ -637,6 +729,14 @@ def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height:
     own_align = {key: alignment(s) for key, s, _ in structures(vanilla)}
     own_fill = {key: fill_style(s) for key, s, _ in structures(vanilla)}
     own_structs = {key: s for key, s, _ in structures(vanilla)}
+    # The build carries gold's geometry to other sizes for every file but these, whose
+    # geometry another step owns (prepare_universal_resources.GOLD_GEOMETRY_EXCLUDED): theirs
+    # is gold's at 3440x1440 only, upstream's (the rules') elsewhere. confirm.gui's gold popup
+    # sits left of the middle, on purpose, at 3440x1440 alone (2026-10-30). Only the
+    # geometry: text alignment and the rest stay gold's, which are upstream's there too
+    # (map.gui's two labels, 18 where the game's file has 10).
+    if gold_size_only(name) and (width, height) != GOLD_SIZE:
+        rows = {key: (row[0], None, None, *row[3:]) for key, row in rows.items()}
     for key, struct, ctype in structures(source):
         v4 = extent(struct)
         row = rows.get(key)
@@ -667,6 +767,11 @@ def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height:
                 if (border is not None and border.exists(part) and own_border is not None
                         and str(border.get_resref(part)) == str(own_border.get_resref(part))):
                     border.set_resref(part, ResRef.from_blank())
+        # Gold's border thickness, at 3440x1440 only and where the file still has the game's.
+        dim = dimension(struct)
+        if (row is not None and row[6] is not None and (width, height) == GOLD_SIZE and dim is not None
+                and dim == dimension(own_structs[key])):
+            child(struct, "BORDER").set_int32("DIMENSION", row[6])
     # The build's gutters, never reducing one but for the hand-set ones.
     for key, struct, ctype in structures(source):
         if key[1] or ctype != LISTBOX or not struct.exists("PADDING"):
@@ -687,7 +792,19 @@ def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height:
     centre = name == "scriptselect.gui"
     journal = name == "journal.gui"
     widen = name == CONTAINER_SCREEN and caption is not None
-    if not lists and not cue and not extra_cues and not feedback and not entry and not (centre or journal or widen):
+    popup = name == POPUP_SCREEN
+    badge = BADGE_SCREENS.get(name) if donor is not None else None
+    # The area map's picture control: half the screen's width and height, centred, 14 px
+    # lower for the renderer's top inset (analyze_resolution_guis.geometry,
+    # set_map_control_extent; reverse-engineering/area-map-surface.md). Every size, 3440x1440 too.
+    if name == MAP_SCREEN:
+        target = next((s for k, s, _ in structures(source) if k == (MAP_TAG, "")), None)
+        if target is not None:
+            box = map_control_box(width, height)
+            for f, v in zip(FIELDS, box):
+                child(target, "EXTENT").set_int32(f, v)
+    if (not lists and not cue and not extra_cues and not feedback and not entry
+            and not (centre or journal or widen or popup or badge)):
         return source
     # The build's own steps, on a file: the lists made as tall as whole rows, then the R3
     # cue. A list or a cue the file cannot have (a mod's without the control, a row that
@@ -725,6 +842,18 @@ def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height:
         if widen:
             try:
                 widen_container(path, path, caption)
+            except (ValueError, AttributeError, KeyError):
+                pass
+        # The message popup sized from its measured table by the font scale, centred where
+        # the panel was (scale_message_popup.apply_tuned); then the badge label.
+        if popup:
+            try:
+                apply_popup_layout(path, path, font_scale(height))
+            except (ValueError, AttributeError, KeyError):
+                pass
+        if badge:
+            try:
+                add_confirm_badge(path, path, donor, tag=badge)
             except (ValueError, AttributeError, KeyError):
                 pass
         if cue:

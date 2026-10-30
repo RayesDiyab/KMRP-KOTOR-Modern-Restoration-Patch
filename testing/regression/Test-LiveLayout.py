@@ -124,9 +124,21 @@ def built_manifest(size: str) -> str:
 
 
 def python_layout(name: str, source: Path, width: int, height: int, rows: dict,
-                  caption: float | None = None) -> GFFStruct | None:
+                  caption: float | None = None, donor: Path | None = None) -> GFFStruct | None:
     vanilla = read_gff(ll.VANILLA / name).root
-    return ll.layout(name, vanilla, read_gff(source).root, width, height, rows, caption)
+    return ll.layout(name, vanilla, read_gff(source).root, width, height, rows, caption, donor)
+
+
+def set_folder(folder: Path, size: str, manifest: str) -> Path:
+    """A size's set folder as the run time reads it: the prompt manifest and the badge
+    labels' donor, kmrplayout.gui (a set's own at its size, else the 3440x1440 set's)."""
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "kmrp_prompts.txt").write_text(manifest, encoding="utf-8")
+    donor_size = size if (RESOURCES / f"gui-{size}.zip").is_file() else "3440x1440"
+    with zipfile.ZipFile(RESOURCES / f"gui-{donor_size}.zip") as z:
+        entry = next(i for i in z.infolist() if i.filename.rsplit("/", 1)[-1].lower() == ll.BADGE_DONOR)
+        (folder / ll.BADGE_DONOR).write_bytes(z.read(entry))
+    return folder
 
 
 def centred_padding(name: str, size: str, k, ours: GFFStruct, theirs: GFFStruct) -> bool:
@@ -681,7 +693,8 @@ def check_screen(name, sizes, rows, extra, helper, tmp, fail, notes) -> tuple[Co
     for size in sizes:
         w, h = (int(x) for x in size.split("x"))
         caption = ll.manifest_caption(built_manifest(size))
-        ours = python_layout(name, ll.VANILLA / name, w, h, rows[name], caption)
+        donor = set_folder(tmp / f"donor-{size}", size, built_manifest(size)) / ll.BADGE_DONOR
+        ours = python_layout(name, ll.VANILLA / name, w, h, rows[name], caption, donor)
         theirs = built_file(size, name)
         a, b = numbers(ours), numbers(theirs)
         if a.keys() != b.keys():
@@ -719,8 +732,14 @@ def check_screen(name, sizes, rows, extra, helper, tmp, fail, notes) -> tuple[Co
         # Every other field at every size (until 2026-10-28 at 3440x1440 only, which
         # hid that Character's LBL_LEVEL alignment, gold's at every size, was not carried).
         fa, fb = flat(ours), flat(theirs)
+        # A controller badge label's text colour: it has no text, so the colour is never drawn.
+        # The build cloned it from kmrplayout.gui's title before a later step coloured that
+        # title 0.98 (it had 250/255 then); the run time clones the finished file (2026-10-30).
+        controls = ours.acquire("CONTROLS", GFFList(), GFFList)
+        silent = {f".CONTROLS[{i}].TEXT.COLOR" for i, c in enumerate(controls)
+                  if c.acquire("TAG", "") in ll.BADGE_SCREENS.values() and not fa.get(f".CONTROLS[{i}].TEXT.TEXT")}
         for k in fa.keys() | fb.keys():
-            if ".EXTENT." in k or k.endswith(".PADDING"):
+            if ".EXTENT." in k or k.endswith(".PADDING") or k in silent:
                 continue
             x, y = fa.get(k), fb.get(k)
             if x == y:
@@ -749,14 +768,13 @@ def check_screen(name, sizes, rows, extra, helper, tmp, fail, notes) -> tuple[Co
         size = f"{w}x{h}"
         manifest = (built_manifest(size) if size in sizes else
                     f"prompt {ll.CAPTION_ROW} 1 1 {rng.uniform(100, 900):.2f} -\n")
-        prompts = tmp / "kmrp_prompts.txt"
-        prompts.write_text(manifest, encoding="utf-8")
+        folder = set_folder(tmp / "set", size, manifest)
         args = [str(helper()), "live", native_helpers.arg(ll.VANILLA / name), name, str(w), str(h),
                 native_helpers.arg(out), native_helpers.arg(source) if source else "-",
-                native_helpers.arg(prompts)]
+                native_helpers.arg(folder)]
         code = subprocess.run(args, stdout=subprocess.DEVNULL).returncode
         ours = python_layout(name, source or ll.VANILLA / name, w, h, rows[name],
-                             ll.manifest_caption(manifest))
+                             ll.manifest_caption(manifest), folder / ll.BADGE_DONOR)
         if code != 0 or not out.is_file():
             fail(f"{name} {w}x{h}{' (mod)' if source else ''}: the helper returned {code}")
             continue
@@ -771,7 +789,10 @@ def check_screen(name, sizes, rows, extra, helper, tmp, fail, notes) -> tuple[Co
         ours = numbers(python_layout(name, mod, 3440, 1440, rows[name]))
         gold = numbers(read_gff(ll.GOLD / name).root)
         key = (moved_tag, "")
-        if ours[(key, "LEFT")] == gold[(key, "LEFT")] or ours[(key, "TOP")] == gold[(key, "TOP")]:
+        # The popup's own controls are placed by its measured table whatever the file says,
+        # as the build places them (scale_message_popup.apply_tuned).
+        owned = name == ll.POPUP_SCREEN and moved_tag in ll.TUNED
+        if not owned and (ours[(key, "LEFT")] == gold[(key, "LEFT")] or ours[(key, "TOP")] == gold[(key, "TOP")]):
             fail(f"{name}: {moved_tag}, moved by the mod, took gold's place")
         if ((("LBL_MOD_ADDED", ""), "LEFT")) not in ours:
             fail(f"{name}: the mod's own control was not laid out")

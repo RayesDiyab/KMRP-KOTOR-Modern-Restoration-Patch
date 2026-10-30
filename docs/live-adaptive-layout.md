@@ -10,6 +10,13 @@
 plan, every picture drawn at the size it is shown, is
 [controller-live-adaptive-layout.md](controller-live-adaptive-layout.md).
 
+**Status: complete on Windows (2026-10-30, the maintainer: "mark it complete").** Every one
+of the 85 layout files has its status and none is pending: 73 laid out here, 3 placed at
+run time by other code (the HUD's table, the status summary's), 8 never loaded, 1 KMRP's
+own. Seen in the Steam game at 3440x1440 batch by batch. Still open: the Mac does not call
+it yet ([handoff item 102](macos-handoff-1.5-to-1.6.md)), and the 66 sets still carry their
+copies of these files (section 7).
+
 KMRP ships each screen's layout made at build time for each of 66 sizes. A GUI mod's
 `.gui` in `Override` took the place of KMRP's whole file, laid out for 640x480, so the
 screen was drawn small in a corner of a large display, or not at all where KMRP's art
@@ -27,12 +34,14 @@ nine screens whose lists the build fits to their rows join them (Terminal, Conta
 Feats, Journal, Powers, Script Selection, the granted skill popup, Store and the
 workbench's item list), making 58 screens; the same day the pause notice (`pause.gui`)
 and party selection (`partyselection.gui`) follow, making 60, and then the five
-tooltip files, making 65, and the main menu's five files, making **70 screens**. The
-HUD's two loaded files are placed at run time by the HUD's own table instead
-(`K1PcHud.cpp`), and seven HUD files are never loaded with KMRP installed (2026-10-30,
+tooltip files, making 65, the main menu's five files, making 70, and then the message
+popup, the area map and the conversation box, making **73 screens**. The HUD's two loaded
+files are placed at run time by the HUD's own table instead (`K1PcHud.cpp`), the status
+summary is laid out in code each time it opens, seven HUD files and `startscreen.gui` are
+never loaded with KMRP installed, and `kmrplayout.gui` is KMRP's own screen (2026-10-30,
 coverage inventory).
-**Coverage: 70 / 85 layout files in the shared path (82.35%); 72 / 85 laid out at run
-time with the HUD table's two (84.71%); 7 never loaded; 6 remain.** The
+**Coverage: 73 / 85 layout files in the shared path (85.88%); 76 / 85 laid out at run
+time (89.41%); 8 never loaded; 1 KMRP's own; none remain.** The
 [full inventory](#coverage-inventory) lists every file and its implementation status.
 
 Both mouse/keyboard and controller modes use the same live geometry; the existing
@@ -48,8 +57,9 @@ the game at 3440x1440 only (section 6).
 
 | | |
 | --- | --- |
-| Source | master `94259de` with the main menu, `aspect_centre` and the adapter order of 2026-10-30 (uncommitted when written) |
-| Module (70 screens) | `build\native-runtime\kmrp-native.dll`, 870,912 bytes, SHA-256 `659BF0E9A1F9267E70740CB4D90216F70451998008965210575BF0E14A6E4331`; installed in the Steam game 2026-10-30 for the maintainer's test, with the controller module from the same source (2,716,160 bytes, `C57CDEC3CB93EC8333989D844036A9B232F52594123385329669082398431B8D`) |
+| Source | master `a314a6d` with the message popup, area map and conversation box of 2026-10-30 (uncommitted when written) |
+| Module (73 screens) | `build\native-runtime\kmrp-native.dll`, 881,664 bytes, SHA-256 `5E61BDE801B6331967BDFFE39551F2BC98A6FFED94F5FD348ECB3DE65CD087CA`; installed in the Steam game 2026-10-30 for the maintainer's test, with the controller module from the same source (2,722,816 bytes, `FC057B85D2E53E08CFD3B7F27E4A57FD2ED825978FBE8B068CAB7FCCADCC6F08`) |
+| Previous module (70 screens) | 870,912 bytes, SHA-256 `659BF0E9A1F9267E70740CB4D90216F70451998008965210575BF0E14A6E4331`, with the controller module `C57CDEC3CB93EC8333989D844036A9B232F52594123385329669082398431B8D`; seen in the game 2026-10-30 ("Both look right"), committed as `a314a6d` |
 | Withdrawn module (70 screens, first centre rule) | `BF8BB39C445D5E650F847B47C9A4473B8AB224C1627F0CEAEC0CD69B0AE5CBFB`: carried the centre for every kept-shape control, which failed 295 fields; installed for a short while the same day, replaced by the one above |
 | Previous module (65 screens, HUD cues) | 865,280 bytes, SHA-256 `506B380E4AAA95ACD35A9BC06E49C2D95B38799045563E017FEA329D9D0BEAC0`, with the controller module `28F2046EFC28B190B0D50037B685B53357F489A7067BABAB79EF54382E4D2D02`; committed as `94259de` |
 | Previous module (65 screens) | 860,672 bytes, SHA-256 `B2C2C639C7A40B3AF85CD45544926873B60BD8AFFE3CB6A3DC86A465F5FC566D`, with the controller module `4B1A279104DA41814AF3C438A04594DCDE048D2B2288C79C1C6C1D589039F922`; installed and seen in the game 2026-10-30 ("it works", the HUD's tooltips) |
@@ -64,10 +74,11 @@ the game at 3440x1440 only (section 6).
 
 ## Coverage inventory
 
-**70 / 85 GUI layout files implemented in the shared path: 82.35% (about 82%).**
-**2 / 85 placed at run time by the HUD's own table (HUD table): 72 / 85, 84.71%.**
-**7 / 85 never loaded with KMRP installed (Not loaded).**
-**6 / 85 remain: 7.06%.**
+**73 / 85 GUI layout files implemented in the shared path: 85.88%.**
+**2 / 85 placed at run time by the HUD's own table (HUD table) and 1 / 85 laid out in code
+each time it opens (Run-time code): 76 / 85 laid out at run time, 89.41%.**
+**8 / 85 never loaded with KMRP installed (Not loaded); 1 / 85 KMRP's own screen (KMRP's own).**
+**0 / 85 remain** (2026-10-30).
 
 Measured on 2026-10-29 against source `a9419f6`, and the numerator again on 2026-10-30
 after the row-fitted lists (the denominator unchanged): the denominator is the union of
@@ -75,7 +86,7 @@ after the row-fitted lists (the denominator unchanged): the denominator is the u
 all 66 `build/kmrp/resources/gui-*.zip` archives. Their union contains 85 names:
 the archives add `kmrplayout.gui`, while `startscreen.gui` and `statussummary.gui`
 occur only in the original-file inventory. The numerator is membership in
-`tools/build_live_layout.py` `FILES`. Percentage is `100 * 70 / 85`, rounded to
+`tools/build_live_layout.py` `FILES`. Percentage is `100 * 73 / 85`, rounded to
 two decimal places. Every name is listed once below.
 
 **Status definition:** Yes means the file is implemented in the shared
@@ -83,8 +94,11 @@ two decimal places. Every name is listed once below.
 used as it is, a mod's included, and every control is placed for the screen and HUD
 Size by the module's own table (`K1PcHud.cpp`, `docs/hud-size-options.md`): the same
 outcome by another route. Not loaded means the game never loads the file with KMRP
-installed, so there is nothing to lay out. No means migration, integration or an
-explicit audit is still pending. A No does not mean the screen is broken or has no runtime sizing:
+installed, so there is nothing to lay out (for `startscreen.gui`: its name is not in the
+executable). Run-time code (since 2026-10-30) means the game and KMRP's module lay the
+screen out in code each time, whatever the file says. KMRP's own means KMRP's own screen,
+made for every size by its build, which no game or mod file replaces. No means migration,
+integration or an explicit audit is still pending; since 2026-10-30 no file is No. A No does not mean the screen is broken or has no runtime sizing:
 some have separate adapters already. The count includes resolution-specific
 HUD, main-menu and tooltip variants, the custom controller screen, and static
 or auxiliary game layouts. It is a file coverage measure, not a count of unique
@@ -101,19 +115,19 @@ pending separately; section 6 records verification limits.
 | `classsel.gui` | Yes | Fixed frame margins and class-button art corrections. |
 | `computer.gui` | Yes | Shared rules and its hand-set list gutters. |
 | `computercamera.gui` | Yes | Shared runtime layout rules. |
-| `confirm.gui` | No | Audited 2026-10-30: every set adds KMRP's `LBL_KMRPA` and the popup is sized by the build (`apply_popup_layout`); both must be repeated at run time. |
+| `confirm.gui` | Yes | Gold at 3440x1440 only (`GOLD_GEOMETRY_EXCLUDED`); the measured popup table by the font scale (`apply_tuned`); `LBL_KMRPA` cloned from the size's `kmrplayout.gui`. |
 | `container.gui` | Yes | Popup list fitted to rows; column widened for the Give Items caption the size's prompt manifest gives. |
 | `credits.gui` | Yes | Shared runtime layout rules. |
 | `custpnl.gui` | Yes | Shared runtime layout rules. |
 | `debug.gui` | Yes | Shared runtime layout rules. |
-| `dialog.gui` | No | Audited 2026-10-30: upstream ships no `dialog.gui` (none of its 48 sets), every KMRP set adds `LBL_KMRPDLG`, and only 3440x1440 is tuned; needs that control added at run time and a rule source other than upstream. |
+| `dialog.gui` | Yes | Upstream ships none: every field the game's own (fixed), gold's at 3440x1440 only, as the build has it (`vanilla_dialog_gui`); `LBL_KMRPDLG` cloned from the size's `kmrplayout.gui`. The module places the box at run time. |
 | `equip.gui` | Yes | Shared runtime layout rules. |
 | `fade.gui` | Yes | Shared runtime layout rules. |
 | `ftchrgen.gui` | Yes | Feat list fitted to rows. |
 | `galaxymap.gui` | Yes | Shared runtime layout rules. |
 | `inventory.gui` | Yes | Shared runtime layout rules. |
 | `journal.gui` | Yes | Quest row template sized for six rows. |
-| `kmrplayout.gui` | No | Custom Controller Layout screen; existing separate runtime path needs integration/audit. |
+| `kmrplayout.gui` | KMRP's own | KMRP's Controller Layout screen, made for every size by its build (`build_controller_layout.py`) and loaded by KMRP's module; no game or mod file of it exists to adapt. |
 | `leveluppnl.gui` | Yes | Shared runtime layout rules. |
 | `loadscreen.gui` | Yes | Shared runtime layout rules. |
 | `maincg.gui` | Yes | Shared runtime layout rules. |
@@ -123,7 +137,7 @@ pending separately; section 6 records verification limits.
 | `mainmenu12x9.gui` | Yes | Shared rules (a kept-shape control's centre carried by gold); then `AdaptMainMenuK1` puts the buttons on the bars of their art, from this result. |
 | `mainmenu16x12.gui` | Yes | Shared rules (a kept-shape control's centre carried by gold); then `AdaptMainMenuK1` puts the buttons on the bars of their art, from this result. |
 | `mainmenu8x6.gui` | Yes | Shared rules (a kept-shape control's centre carried by gold); then `AdaptMainMenuK1` puts the buttons on the bars of their art, from this result. |
-| `map.gui` | No | Audited 2026-10-30: rules alone are 395 of 2,640 fields well off (`LBL_Map`, `LBL_MapNote`, up to 2,880 px); the build computes the map rectangle per size, which the run time must repeat. |
+| `map.gui` | Yes | Gold at 3440x1440 only (`GOLD_GEOMETRY_EXCLUDED`); `LBL_Map` from the screen's size (`map_control_box`). |
 | `messages.gui` | Yes | Shared runtime layout rules. |
 | `mi8x6.gui` | Not loaded | The Xbox game's HUD; the PC game never loads it (the HUD's constructor, 0x0068C4D5, picks only `mipc*`). The Xbox-style HUD's table is built from it (`tools/build_xbox_hud.py`). |
 | `mipc10x7.gui` | Not loaded | Never loaded with KMRP: its HUD selector loads only `mipc210x7` and `mipc28x6` (binary inventory 5.4). A mod's copy is still given the combat cues. |
@@ -165,8 +179,8 @@ pending separately; section 6 records verification limits.
 | `skchrgen.gui` | Yes | Shared runtime layout rules. |
 | `skillinfo.gui` | Yes | Popup skill list fitted to rows. |
 | `splashscreen.gui` | Yes | Shared runtime layout rules. |
-| `startscreen.gui` | No | Audited 2026-10-30: in no set and not in gold, so nothing to compare a rule against. |
-| `statussummary.gui` | No | Absent from every size archive and from the gold set; only the module sizes it at run time (`K1ControllerLayout.cpp`). Nothing to compare a rule against yet. |
+| `startscreen.gui` | Not loaded | Its name is in neither the executable (0 matches, 2026-10-30) nor the decompilation: the game never loads it. |
+| `statussummary.gui` | Run-time code | The game lays the box out in code each time it opens (0x00625C60) and KMRP's module again each frame, scaled to the font (`layoutStatusSummary`, `K1ControllerLayout.cpp`); the file's numbers never reach the screen. |
 | `store.gui` | Yes | Both item lists fitted to rows. |
 | `titlemovie.gui` | Yes | Shared runtime layout rules. |
 | `tooltip10x8.gui` | Yes | Shared runtime layout rules. |
@@ -572,6 +586,33 @@ controller patch changes only the three with the R3 cue, the same cue under the 
   `K1RuntimeAssets.cpp`). That order, run with the C, gives the galaxy adapter's planets
   and the main menu's barred buttons exactly as from the set at 3440x1440 and 1920x1080,
   and within a pixel at 2560x1440.
+
+- The message popup, the area map and the conversation box (added 2026-10-30, uncommitted).
+  `confirm.gui` and `map.gui` are in `GOLD_GEOMETRY_EXCLUDED`: the build gives them gold's
+  geometry at 3440x1440 only, and so does live layout now (`gold_size_only`; text alignment
+  and the rest stay gold's, which upstream's own files have too). Without that the popup,
+  which gold sets left of the middle at 3440x1440 on purpose, was 2,373 px from the set at
+  15360x8640. `dialog.gui` has no upstream file: every field is the game's own (fixed)
+  but at 3440x1440, as the build has it. Two build steps repeat at run time: the popup's
+  measured table by the font scale (`apply_tuned`) and `LBL_Map` from the screen's size; and
+  two controller badge labels, `LBL_KMRPA` and `LBL_KMRPDLG`, are cloned from the size's
+  `kmrplayout.gui` as the build clones them (the C copies a control **from another file**
+  since then: labels found or added, field data copied). Gold's border thickness at
+  3440x1440 is carried too (the reply list's, 4 to 8 and 0 to 4). Allowed: the badge label's
+  text colour, 0.98 against the set's 250/255, a tenth of a step on a label with no text.
+  Focused runs: `confirm.gui` 1,848 extent fields, 99.73% exact; `map.gui` and `confirm.gui`
+  together 4,488, 97.68%; `dialog.gui` 1,584, 100%; 3440x1440 identical, C equal to the
+  Python at every case. The full run passes: 73 screens, 333,432 extent fields, 94.13%
+  exact, 5.64% one pixel off, 755 further within the allowances; 19,706 C/Python layouts
+  and the three mod suites, in 4.1 minutes on 16 cores. Both module builds and eight
+  module/package regressions pass. Seen in the Steam game at 3440x1440 the same day with the
+  module above: the confirmation popups, the area map and a conversation ("All look
+  right"). The last three files are done by finding:
+  `statussummary.gui` is laid out in code (Run-time code), `startscreen.gui` is never loaded,
+  `kmrplayout.gui` is KMRP's own. A side finding, not acted on: the four sized main menu
+  files' names are not in the executable either, only `mainmenu` is (0 and 3 matches), so
+  the game appears to load `mainmenu.gui` itself, against `build_controller_assets.py`'s
+  note; all five are laid out, so nothing depends on it.
 
 - The main menu (added 2026-10-30, uncommitted): the five files. One rule came with it,
   `aspect_centre` (rule 8): a kept-shape control's LEFT carries gold by its **centre**, by

@@ -2,7 +2,7 @@
  *
  *   kmrp-guiadapt galaxy KEY SET_GUI OUT_GUI [SOURCE_GUI]
  *   kmrp-guiadapt mainmenu SET_GUI OUT_GUI
- *   kmrp-guiadapt live KEY|GAME_GUI NAME WIDTH HEIGHT OUT_GUI [SOURCE_GUI|- [PROMPTS]]
+ *   kmrp-guiadapt live KEY|GAME_GUI NAME WIDTH HEIGHT OUT_GUI [SOURCE_GUI|- [SET_FOLDER]]
  *   kmrp-guiadapt hudcues SOURCE_GUI OUT_GUI
  *
  * Three things, sharing the reading and writing of a layout's EXTENTs: the galaxy map's
@@ -501,6 +501,7 @@ static void ll_fit_rows(Gff *g, const LLRowList *list, int height);
 static void ll_centre_rows(Gff *g, int width);
 static void ll_fit_journal(Gff *g, int height);
 static void ll_widen(Gff *g, double caption);
+static void ll_popup(Gff *g, int height);
 static long ll_control(const Gff *g, const char *tag, int last_exact);
 static int ll_row_height(int base, int height);
 
@@ -538,6 +539,10 @@ static void ll_layout(const char *name, const LLFile *file, Gff *source, const G
                       double caption) {
     int bw, bh;
     ll_base(source, &bw, &bh);
+    /* Gold's geometry (extents, PADDING) only at its own size for the files the build never
+     * carries it from (GOLD_GEOMETRY_EXCLUDED): confirm.gui, map.gui. Alignment and the
+     * rest stay gold's, as upstream's own files have them there too. */
+    const int gold_here = !file->gold_size_only || (width == LL_GOLD_WIDTH && height == LL_GOLD_HEIGHT);
     LLStruct st;
     for (int i = 0; ll_struct(source, i, &st); i++) {
         Extent e;
@@ -551,6 +556,7 @@ static void ll_layout(const char *name, const LLFile *file, Gff *source, const G
             Extent oe;
             unmoved = own >= 0 && extent_of(game, (uint32_t)own, &oe);
             for (int f = 0; f < 4 && unmoved; f++) unmoved = ev(&oe, f) == v4[f];
+            unmoved = unmoved && gold_here;
         }
         int out[4];
         for (int f = 0; f < 4; f++) {
@@ -591,6 +597,14 @@ static void ll_layout(const char *name, const LLFile *file, Gff *source, const G
         }
         if (row && row->clear_border)
             ll_clear_border(source, game, st.s, ll_find(game, st.tag, st.sub), row->clear_border);
+        /* Gold's border thickness, at 3440x1440 only, where the file still has the game's. */
+        if (row && row->gold_dimension != LL_NO_DIMENSION && width == LL_GOLD_WIDTH && height == LL_GOLD_HEIGHT) {
+            long border = gff_child(source, st.s, "BORDER"), own = ll_find(game, st.tag, st.sub), own_border;
+            uint8_t *dim = border >= 0 ? int_field(source, (uint32_t)border, "DIMENSION") : NULL, *own_dim;
+            if (dim && own >= 0 && (own_border = gff_child(game, (uint32_t)own, "BORDER")) >= 0 &&
+                (own_dim = int_field(game, (uint32_t)own_border, "DIMENSION")) && u32(own_dim) == u32(dim))
+                put_u32(dim, (uint32_t)(int32_t)row->gold_dimension);
+        }
     }
     /* The build's gutters, never reducing one but for the hand-set ones. */
     for (int i = 1; ll_struct(source, i, &st); i++) {
@@ -621,6 +635,17 @@ static void ll_layout(const char *name, const LLFile *file, Gff *source, const G
     for (int t = 0; t < LL_ROW_LIST_COUNT; t++)
         if (strcasecmp(LL_ROW_LISTS[t].file, name) == 0) ll_fit_rows(source, &LL_ROW_LISTS[t], height);
     if (caption >= 0 && strcasecmp(name, LL_WIDEN_SCREEN) == 0) ll_widen(source, caption);
+    if (strcasecmp(name, LL_POPUP_SCREEN) == 0) ll_popup(source, height);
+    /* The area map's picture control (build_live_layout.map_control_box): every size. */
+    if (strcasecmp(name, LL_MAP_SCREEN) == 0) {
+        const long map = ll_find(source, LL_MAP_TAG, "");
+        Extent me;
+        if (map >= 0 && extent_of(source, (uint32_t)map, &me)) {
+            const int overlay = width / 2, canvas = height / 2;
+            const int box[4] = { (width - overlay) / 2, (height - canvas) / 2 + LL_MAP_INSET, overlay, canvas };
+            for (int k = 0; k < 4; k++) put_u32(me.v[k], (uint32_t)box[k]);
+        }
+    }
 }
 
 static int ll_r3_screen(const char *name) {
@@ -810,7 +835,39 @@ static int grow(Grow *b, const void *p, size_t n) {
     return 1;
 }
 static int grow_u32(Grow *b, uint32_t v) { uint8_t p[4]; put_u32(p, v); return grow(b, p, 4); }
-typedef struct { Grow s, f, l, d, i, li; int ok; } Sections;
+/* foreign: the structures cloned come from another file (a donor), so their field labels are
+ * found or added in this file's labels and their field data is copied, not shared. */
+typedef struct { Grow s, f, l, d, i, li; int ok; int foreign; } Sections;
+
+/* A donor's 16-byte label in `out`'s labels, added at the end when it is not there. */
+static uint32_t ll_label_in(Sections *out, const uint8_t *name) {
+    const size_t n = out->l.n / 16;
+    for (size_t k = 0; k < n; k++)
+        if (memcmp(out->l.d + k * 16, name, 16) == 0) return (uint32_t)k;
+    out->ok &= grow(&out->l, name, 16);
+    return (uint32_t)n;
+}
+
+/* A donor field's data copied into `out`: its offset there, or the inline value as it was.
+ * GFF types: 6 DWORD64, 7 INT64, 9 DOUBLE (8 bytes); 10 CExoString and 13 VOID (a length
+ * and the bytes); 11 CResRef (a length byte and the bytes); 12 CExoLocString (a total size
+ * and that many bytes); 16 orientation (16 bytes); 17 vector (12 bytes). */
+static uint32_t ll_copy_data(const Gff *g, uint32_t type, uint32_t data, Sections *out) {
+    size_t length = 0;
+    if (type == 6 || type == 7 || type == 9) length = 8;
+    else if (type == 16) length = 16;
+    else if (type == 17) length = 12;
+    else if (type != 10 && type != 11 && type != 12 && type != 13) return data;
+    if (data >= g->nvalues) { out->ok = 0; return 0; }
+    const uint8_t *p = g->d + g->values + data;
+    const size_t left = g->nvalues - data;
+    if (type == 11) length = 1 + (size_t)p[0];
+    else if (type == 10 || type == 12 || type == 13) length = left >= 4 ? 4 + (size_t)u32(p) : left + 1;
+    if (length > left) { out->ok = 0; return 0; }
+    const uint32_t at = (uint32_t)out->d.n;
+    out->ok &= grow(&out->d, p, length);
+    return at;
+}
 
 /* The `k`th field of structure `s`, or -1. */
 static long ll_field_at(const Gff *g, uint32_t s, uint32_t k) {
@@ -886,6 +943,11 @@ static uint32_t ll_clone_field(const Gff *g, long f, Sections *out, int role, co
         for (uint32_t k = 0; k < n && items; k++) out->ok &= grow_u32(&out->li, items[k]);
         free(items);
     }
+    if (out->foreign) {
+        if (label >= g->nlabels) { out->ok = 0; label = 0; }
+        else label = ll_label_in(out, g->d + g->labels + (size_t)label * 16);
+        if (!set_int && !text && type != 14 && type != 15) data = ll_copy_data(g, type, data, out);
+    }
     uint32_t index = (uint32_t)(out->f.n / 12);
     out->ok &= grow_u32(&out->f, type) && grow_u32(&out->f, label) && grow_u32(&out->f, data);
     return index;
@@ -935,18 +997,25 @@ static int ll_overlaps(const Extent *b, int x, int y, int size) {
 }
 
 /* Append one cue without changing existing field offsets or shared template data. */
+static int ll_append_from(const Gff *g, const Gff *donor, long template, const CueValues *values, Buffer *out);
 static int ll_append_cue(const Gff *g, long template, const CueValues *values, Buffer *out) {
+    return ll_append_from(g, g, template, values, out);
+}
+
+/* The same with the control cloned from `donor`, another file (the badge labels, cloned from
+ * KMRP's kmrplayout.gui as add_confirm_badge does). */
+static int ll_append_from(const Gff *g, const Gff *donor, long template, const CueValues *values, Buffer *out) {
     uint32_t at, n = controls_of(g, &at);
     long border;
     Extent te;
-    if (template < 0 || !int_field(g, (uint32_t)template, "ID") || gff_field(g, (uint32_t)template, "TAG") < 0 ||
-        !extent_of(g, (uint32_t)template, &te) || (border = gff_child(g, (uint32_t)template, "BORDER")) < 0 ||
-        gff_field(g, (uint32_t)border, "FILL") < 0) return 0;
-    Sections s = { { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, 1 };
+    if (template < 0 || !int_field(donor, (uint32_t)template, "ID") || gff_field(donor, (uint32_t)template, "TAG") < 0 ||
+        !extent_of(donor, (uint32_t)template, &te) || (border = gff_child(donor, (uint32_t)template, "BORDER")) < 0 ||
+        gff_field(donor, (uint32_t)border, "FILL") < 0) return 0;
+    Sections s = { { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, 1, donor != g };
     s.ok &= grow(&s.s, g->d + g->structs, (size_t)g->nstructs * 12) && grow(&s.f, g->d + g->fields, (size_t)g->nfields * 12) &&
             grow(&s.l, g->d + g->labels, (size_t)g->nlabels * 16) && grow(&s.d, g->d + g->values, g->nvalues) &&
             grow(&s.i, g->d + g->indices, g->nindices) && grow(&s.li, g->d + g->lists, g->nlists);
-    const uint32_t cue = ll_clone_struct(g, (uint32_t)template, &s, ROLE_CUE, values);
+    const uint32_t cue = ll_clone_struct(donor, (uint32_t)template, &s, ROLE_CUE, values);
     /* The controls again, at the end of the list indices, with the cue last. */
     long controls = gff_field(g, 0, "CONTROLS");
     if (controls >= 0 && s.ok) {
@@ -1154,6 +1223,71 @@ static int ll_combat_cues(const Gff *g, Buffer *out) {
     return done;
 }
 
+/* scale_message_popup.round_half_up: Python rounds the shortest decimal of the value half
+ * up; on the binary value that is the same as halves rounded up exactly, as here. */
+static int ll_half_up(double x) {
+    const double whole = floor(x);
+    return (int)whole + (x - whole >= 0.5);
+}
+
+/* scale_message_popup.apply_tuned on `g` (confirm.gui), in place: the panel and its message
+ * box and buttons from the measured table at the size's font scale, the panel centred where
+ * it was, LB_MESSAGE's PADDING, and its scroll bar's width 0. Controls by exact TAG, nested
+ * ones too, as the table's walk finds them. */
+static void ll_popup_controls(Gff *g, uint32_t s, double factor, int depth) {
+    long f = gff_field(g, s, "CONTROLS");
+    if (f < 0 || field_type(g, f) != 15 || depth > 8) return;
+    const uint32_t at = u32(field_data(g, f));
+    if ((uint64_t)at + 4 > g->nlists) return;
+    const uint32_t n = u32(g->d + g->lists + at);
+    if (n > 512 || (uint64_t)at + 4 + (uint64_t)n * 4 > g->nlists) return;
+    for (uint32_t i = 0; i < n; i++) {
+        const uint32_t c = u32(g->d + g->lists + at + 4 + i * 4);
+        char tag[64];
+        if (c >= g->nstructs) continue;
+        if (control_tag(g, c, tag, sizeof tag)) {
+            if (strcmp(tag, LL_POPUP_MESSAGE) == 0) {
+                uint8_t *padding = int_field(g, c, "PADDING");
+                if (padding) put_u32(padding, (uint32_t)ll_half_up(LL_POPUP_PADDING * factor));
+                long bar = gff_child(g, c, "SCROLLBAR");
+                Extent be;
+                if (bar >= 0 && extent_of(g, (uint32_t)bar, &be)) put_u32(be.v[2], 0);
+            }
+            Extent ce;
+            for (size_t r = 0; r < sizeof LL_POPUP_ROWS / sizeof *LL_POPUP_ROWS; r++)
+                if (strcmp(tag, LL_POPUP_ROWS[r].tag) == 0 && extent_of(g, c, &ce))
+                    for (int k = 0; k < 4; k++)
+                        put_u32(ce.v[k], (uint32_t)ll_half_up(LL_POPUP_ROWS[r].box[k] * factor));
+        }
+        ll_popup_controls(g, c, factor, depth + 1);
+    }
+}
+
+static void ll_popup(Gff *g, int height) {
+    Extent root;
+    if (!extent_of(g, 0, &root)) return;
+    double scale = height / LL_FONT_HEIGHT_DIVISOR - LL_FONT_SCALE_OFFSET;
+    if (scale < 1.0) scale = 1.0;
+    const double factor = scale / LL_POPUP_SCALE;
+    const int w = ll_half_up(LL_POPUP_WIDTH * factor), h = ll_half_up(LL_POPUP_HEIGHT * factor);
+    const int left = ll_half_up(ev(&root, 0) + (ev(&root, 2) - w) / 2.0);
+    const int top = ll_half_up(ev(&root, 1) + (ev(&root, 3) - h) / 2.0);
+    put_u32(root.v[0], (uint32_t)left); put_u32(root.v[1], (uint32_t)top);
+    put_u32(root.v[2], (uint32_t)w); put_u32(root.v[3], (uint32_t)h);
+    ll_popup_controls(g, 0, factor, 0);
+}
+
+/* build_controller_layout.add_confirm_badge on `g`: the controller's badge label, a clone of
+ * the donor's (the size's kmrplayout.gui's) LBL_TITLE with this tag, the next ID, no text,
+ * picture kmrpcnfa and extent 0 (the controller places it each frame). 0 where the file has
+ * the tag already or the donor lacks the label. */
+static int ll_badge(const Gff *g, const Gff *donor, const char *tag, Buffer *out) {
+    if (ll_control(g, tag, 1) >= 0) return 0;
+    CueValues values = { 0, { 0, 0, 0, 0 }, tag, LL_BADGE_FILL };
+    if (!ll_next_id(g, &values.id)) return 0;
+    return ll_append_from(g, donor, ll_control(donor, LL_BADGE_DONOR_TAG, 1), &values, out);
+}
+
 /* The Gameplay entry, cloned before lifting the original buttons. Publish the new
  * file only after every needed field has been found, so failure leaves the source intact. */
 static int ll_gameplay_entry(const Gff *g, Buffer *out) {
@@ -1212,8 +1346,44 @@ static int ll_manifest_caption(const char *path, double *width) {
     return found;
 }
 
+/* The badge label the screen is given, from DONOR (the size's kmrplayout.gui), when it has one. */
+static void ll_add_badge(const char *name, const char *donor_gui, Buffer *file) {
+    const char *tag = NULL;
+    for (size_t i = 0; i < sizeof LL_BADGES / sizeof *LL_BADGES; i++)
+        if (strcasecmp(LL_BADGES[i].screen, name) == 0) tag = LL_BADGES[i].tag;
+    if (!tag || !donor_gui || !*donor_gui) return;
+    Buffer donor = read_file(donor_gui), next = { NULL, 0 };
+    Gff g, d;
+    if (donor.data && gff_open(&g, file->data, file->size) && gff_open(&d, donor.data, donor.size) &&
+        ll_badge(&g, &d, tag, &next)) {
+        free(file->data);
+        *file = next;
+    }
+    free(donor.data);
+}
+
+static int ll_live(const char *key_path, const char *name, const char *source_gui, int width, int height,
+                   const char *out_gui, const char *prompts, const char *donor);
+
 int KmrpLiveLayoutPrompts(const char *key_path, const char *name, const char *source_gui, int width, int height,
                           const char *out_gui, const char *prompts) {
+    return ll_live(key_path, name, source_gui, width, height, out_gui, prompts, NULL);
+}
+
+/* KmrpLiveLayout with SET the size's set folder: its kmrp_prompts.txt (the Container's caption)
+ * and kmrplayout.gui (the badge labels' donor). */
+int KmrpLiveLayoutSet(const char *key_path, const char *name, const char *source_gui, int width, int height,
+                      const char *out_gui, const char *set) {
+    char prompts[1024] = "", donor[1024] = "";
+    if (set && *set) {
+        snprintf(prompts, sizeof prompts, "%s/kmrp_prompts.txt", set);
+        snprintf(donor, sizeof donor, "%s/%s", set, LL_BADGE_DONOR);
+    }
+    return ll_live(key_path, name, source_gui, width, height, out_gui, prompts, donor);
+}
+
+static int ll_live(const char *key_path, const char *name, const char *source_gui, int width, int height,
+                   const char *out_gui, const char *prompts, const char *donor) {
     const LLFile *file = ll_file(name);
     if (!file) return 4;
     double caption = -1;
@@ -1244,6 +1414,7 @@ int KmrpLiveLayoutPrompts(const char *key_path, const char *name, const char *so
         else {
             ll_layout(name, file, &source, &own, width, height, caption);
             ll_add_cues(name, &theirs);
+            ll_add_badge(name, donor, &theirs);
             FILE *f = fopen(out_gui, "wb");
             result = 2;
             if (f) {
@@ -1338,10 +1509,11 @@ const char *KmrpLiveLayoutName(int i) { return i >= 0 && i < KmrpLiveLayoutCount
 #ifndef KMRP_EMBEDDED
 int main(int argc, char **argv) {
     if (argc >= 7 && argc <= 9 && strcmp(argv[1], "live") == 0) {
-        /* SOURCE "-": the game's own, for giving PROMPTS without a mod's file. */
+        /* SOURCE "-": the game's own, for giving SET without a mod's file. SET: the size's set
+         * folder (its kmrp_prompts.txt and kmrplayout.gui). */
         const char *source = argc >= 8 && strcmp(argv[7], "-") != 0 ? argv[7] : NULL;
-        int result = KmrpLiveLayoutPrompts(argv[2], argv[3], source, atoi(argv[4]), atoi(argv[5]), argv[6],
-                                           argc == 9 ? argv[8] : NULL);
+        int result = KmrpLiveLayoutSet(argv[2], argv[3], source, atoi(argv[4]), atoi(argv[5]), argv[6],
+                                       argc == 9 ? argv[8] : NULL);
         if (result == 0) printf("%s written: %s laid out for %sx%s\n", argv[6], argv[3], argv[4], argv[5]);
         if (result == 1) fprintf(stderr, "kmrp-guiadapt: a layout could not be read; nothing written\n");
         if (result == 2) fprintf(stderr, "kmrp-guiadapt: %s: %s\n", argv[6], strerror(errno));
