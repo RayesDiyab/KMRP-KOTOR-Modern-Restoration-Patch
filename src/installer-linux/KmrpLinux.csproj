@@ -1,0 +1,55 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- KMRP's native Linux installer (issue 76, docs/linux-appimage-installer.md). It compiles the
+       Windows installer's portable core from src/patcher as it is: the same install, restore and
+       ownership rules, not a copy of them. Nothing here may be a second version of a rule. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Kmrp</RootNamespace>
+    <AssemblyName>kmrp-installer</AssemblyName>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <!-- The core is written for C# 5 (the Windows build's csc); warnings it gives under a newer
+         compiler are about style, not behaviour. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CS0168;CS0219;CS0414;CS0649;CA1416;SYSLIB0014</NoWarn>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <!-- Every source is listed below, the shared ones by path. -->
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <!-- Linux has no .NET, so the program carries its runtime; trimmed, only what it calls
+         (2026-10-30: the program 134 MB untrimmed, 81 MB trimmed, of which 59 MB is KMRP's
+         payload). The trim warnings are all Avalonia's designer support, which a published
+         program does not use. -->
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
+    <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\patcher\InstallCore.cs" />
+    <Compile Include="..\patcher\KpmEdition.cs" />
+    <Compile Include="..\patcher\InstallPlatform.cs" />
+    <Compile Include="..\patcher\GuiBlend.cs" />
+    <Compile Include="..\patcher\GameArtGenerator.cs" />
+    <Compile Include="..\patcher\AbilityIconGenerator.cs" />
+    <Compile Include="..\patcher\WindowsEnginePatch.cs" />
+    <Compile Include="..\patcher\AssemblyInfo.cs" />
+    <Compile Include="..\patcher\LightField.cs" />
+    <Compile Include="Program.cs" />
+    <Compile Include="InstallPlatform.Linux.cs" />
+    <Compile Include="SteamLibraries.cs" />
+    <Compile Include="LinuxDisplay.cs" />
+    <Compile Include="MainWindow.cs" />
+  </ItemGroup>
+  <!-- The window (MainWindow.cs): Avalonia, MIT licensed, from nuget.org. Its fonts are carried
+       (fonts/README.md), so it looks the same whatever fonts a distribution has. -->
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.2.1" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.2.1" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.1" />
+    <AvaloniaResource Include="fonts/*.ttf" />
+  </ItemGroup>
+  <!-- The Windows installer's resources under the same names, from the list build_kmrp.ps1
+       writes (tools/build_linux_installer.ps1 makes this file and passes its path). -->
+  <Import Project="$(KmrpResources)" Condition="'$(KmrpResources)' != '' And Exists('$(KmrpResources)')" />
+</Project>

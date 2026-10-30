@@ -46,6 +46,11 @@ $sources = @(
     "src\patcher\WindowsEnginePatch.cs",
     # The resolution list and the install blend sizes without a set since 2026-09-30.
     "src\patcher\GuiBlend.cs",
+    "src\patcher\InstallCore.cs",
+    "src\patcher\InstallPlatform.cs",
+    "src\patcher\InstallPlatform.Windows.cs",
+    "src\patcher\ArtPreparation.cs",
+    "src\patcher\LightField.cs",
     "testing\regression\UpdateCheckSelfTest.cs"
 ) | ForEach-Object { Join-Path $projectRoot $_ }
 $compilerArgs = @(

@@ -141,7 +141,10 @@ def main() -> int:
         local5 = tmp / "none"
         local5.mkdir()
         code, none = finish(run(lone / "kmrp.dll", game, local5))
-        log = (game / "kmrp-kpm.log").read_text(errors="replace") if (game / "kmrp-kpm.log").exists() else ""
+        # KMRP's logs are in KMRP\logs since 2026-10-20 (KmrpLogPath, KmrpOptions.h); this
+        # read the game folder's root until 2026-10-30 and failed from the move on.
+        path = game / "KMRP" / "logs" / "kmrp-kpm.log"
+        log = path.read_text(errors="replace") if path.exists() else ""
         check(code != 0 and none == -1 and "kmrp-assets.pack is not in the patches folder" in log,
               "without the pack nothing is made, and kmrp-kpm.log says the pack is missing")
     print()

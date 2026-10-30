@@ -424,13 +424,18 @@ $compilerArgs += (Join-Path $projectRoot "src\patcher\AssemblyInfo.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\KpmEdition.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\WindowsEnginePatch.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\GuiBlend.cs")
+$compilerArgs += (Join-Path $projectRoot "src\patcher\InstallCore.cs")
+$compilerArgs += (Join-Path $projectRoot "src\patcher\InstallPlatform.cs")
+$compilerArgs += (Join-Path $projectRoot "src\patcher\InstallPlatform.Windows.cs")
+$compilerArgs += (Join-Path $projectRoot "src\patcher\ArtPreparation.cs")
+$compilerArgs += (Join-Path $projectRoot "src\patcher\LightField.cs")
 
 # Properties -> Details must name the version the install record names. The two live
 # in different files and nothing compares them at run time, so they drifted twice:
 # the v2.10.0 release reported 2.7.0, and 2.11.0-movieaspect was built reporting
 # 2.10.0-mapnotes. Refuse to compile while they disagree.
 $patchVersion = [regex]::Match(
-    (Get-Content -Raw -LiteralPath (Join-Path $projectRoot "src\patcher\KmrpPatcher.cs")),
+    (Get-Content -Raw -LiteralPath (Join-Path $projectRoot "src\patcher\InstallCore.cs")),
     'internal const string PatchVersion = "([^"]+)";').Groups[1].Value
 $assemblyInfo = Get-Content -Raw -LiteralPath (Join-Path $projectRoot "src\patcher\AssemblyInfo.cs")
 $versionFields = @{}
@@ -442,7 +447,7 @@ if (-not $patchVersion -or
         $versionFields["AssemblyInformationalVersion"] -ne $patchVersion -or
         $versionFields["AssemblyFileVersion"] -ne $numericVersion -or
         $versionFields["AssemblyVersion"] -ne $numericVersion) {
-    throw ("Version mismatch: PatchVersion '{0}' in KmrpPatcher.cs, but AssemblyInfo.cs has " +
+    throw ("Version mismatch: PatchVersion '{0}' in InstallCore.cs, but AssemblyInfo.cs has " +
         "AssemblyVersion '{1}', AssemblyFileVersion '{2}', AssemblyInformationalVersion '{3}' " +
         "(expected '{4}', '{4}', '{0}').") -f $patchVersion, $versionFields["AssemblyVersion"],
         $versionFields["AssemblyFileVersion"], $versionFields["AssemblyInformationalVersion"], $numericVersion
@@ -583,6 +588,21 @@ $engineArgs += "/resource:$emptyContainersKpatch,KmrpEmptyContainers.kpatch"
 $engineArgs += "/resource:$(Join-Path $kpmConfigDir 'k1-marked-empty-containers.hooks.toml'),KmrpEmptyContainers.engine.hooks"
 $engineArgs += "/resource:$(Join-Path $projectRoot 'third_party\Included\K1MarkedEmptyContainers-1.0.0 by ShaeMyName\LICENSE'),Kmrp.license.emptycontainers"
 $engineArgs += "/resource:$(Join-Path $projectRoot 'src\patcher\KPM-PATCHES-README.txt'),Kmrp.kpatch.readme"
+# The installer's embedded resources, one per line as "name<TAB>path", for the native Linux
+# installer's build (tools/build_linux_installer.ps1), which embeds the same files under the
+# same names (2026-10-30). One list, written from the arguments themselves: a resource added
+# above reaches both installers.
+$installerResources = Join-Path $projectRoot "build\kmrp\installer-resources.tsv"
+$resourceLines = foreach ($argument in ($compilerArgs + $engineArgs)) {
+    if ($argument -like "/resource:*") {
+        $spec = $argument.Substring(10)
+        $comma = $spec.LastIndexOf(",")
+        "{0}`t{1}" -f $spec.Substring($comma + 1), [System.IO.Path]::GetFullPath($spec.Substring(0, $comma))
+    }
+}
+[System.IO.File]::WriteAllLines($installerResources, [string[]]$resourceLines, (New-Object System.Text.UTF8Encoding $false))
+Write-Detail ("{0} installer resources listed in {1}" -f @($resourceLines).Count, $installerResources)
+
 Write-Bar -Percent 100 -Label "running the C# compiler"
 Invoke-Tool -Exe $compiler -Arguments ($compilerArgs + $engineArgs) -Label "compile" `
     -FailureMessage "KMRP compilation failed"

@@ -11,7 +11,7 @@ function Restore-TestNvidiaProfiles([string]$FixtureRoot) {
         'src/patcher/KmrpPatcher.cs', 'src/patcher/AbilityIconGenerator.cs',
         'src/patcher/GameArtGenerator.cs',
         'src/patcher/ControllerPromptGenerator.cs', 'src/patcher/AssemblyInfo.cs',
-        'src/patcher/KpmEdition.cs', 'src/patcher/WindowsEnginePatch.cs', 'src/patcher/GuiBlend.cs',
+        'src/patcher/KpmEdition.cs', 'src/patcher/WindowsEnginePatch.cs', 'src/patcher/GuiBlend.cs', 'src/patcher/InstallCore.cs', 'src/patcher/InstallPlatform.cs', 'src/patcher/InstallPlatform.Windows.cs', 'src/patcher/ArtPreparation.cs', 'src/patcher/LightField.cs',
         'testing/regression/NvidiaPresentSelfTest.cs'
     ) | ForEach-Object { Join-Path $projectPath $_ }
     & 'C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe' /nologo /target:exe /platform:anycpu /main:Kmrp.NvidiaPresentSelfTest "/out:$harnessPath" /reference:System.dll /reference:System.Drawing.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll /reference:System.Windows.Forms.dll @sourcePaths

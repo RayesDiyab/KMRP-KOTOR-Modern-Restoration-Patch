@@ -38,9 +38,8 @@ namespace Kmrp
     /// the shipped English placement stands, which is what shipped before this
     /// existed.
     /// </summary>
-    internal static class ControllerPromptGenerator
+    internal static partial class ControllerPromptGenerator
     {
-        internal const string ManifestName = "kmrp_prompts.txt";
         private const int TgaHeaderSize = 18;
         private const int TlkHeaderSize = 20;
         private const int TlkEntrySize = 40;

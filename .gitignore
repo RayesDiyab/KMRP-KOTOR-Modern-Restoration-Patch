@@ -208,3 +208,7 @@ K1DriverCompat.ini
 macos/tools/kpm-cli/bin/
 macos/tools/kpm-cli/obj/
 
+
+# The Linux installer project's build output (dotnet), beside its sources.
+src/installer-linux/bin/
+src/installer-linux/obj/

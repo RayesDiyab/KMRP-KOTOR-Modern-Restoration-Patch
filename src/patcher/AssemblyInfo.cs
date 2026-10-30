@@ -22,7 +22,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyTrademark("Star Wars and related properties are trademarks of Lucasfilm Ltd. "
     + "BioWare and the BioWare Odyssey Engine are trademarks of BioWare Corp.")]
 
-// Keep in step with GoldPatch.PatchVersion in KmrpPatcher.cs.
+// Keep in step with GoldPatch.PatchVersion in InstallCore.cs.
 //
 // This drifted once and shipped. PatchVersion reached 2.10.0-mapnotes while these
 // stayed at 2.7.0.0, so the v2.10.0 release reported 2.7.0 under Properties ->

@@ -14,6 +14,8 @@
 *.yml       text
 *.yaml      text
 *.asm       text
+# Run by bash in WSL (tools/build_linux_installer.ps1): a CRLF checkout would break it.
+tools/build_linux_appimage.sh text eol=lf
 
 # Binary. Without these git may try to diff or merge them, and a mangled GUI or
 # texture is not obvious until it is in the game.
