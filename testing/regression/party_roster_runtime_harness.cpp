@@ -16,7 +16,7 @@ extern "C" int KmrpGameArt(const char*,const char*,unsigned,const char*) {return
 extern "C" int KmrpSwoopHud(const char*,const char*,unsigned,unsigned) {return 1;}
 extern "C" int KmrpGalaxyMap(const char*,const char*,const char*,const char*) {return 1;}
 extern "C" int KmrpMainMenuBars(const char*,const char*) {return 1;}
-extern "C" int KmrpLiveLayout(const char*,const char*,const char*,int,int,const char*) {return 1;}
+extern "C" int KmrpLiveLayoutPrompts(const char*,const char*,const char*,int,int,const char*,const char*) {return 1;}
 extern "C" int KmrpLiveLayoutCount(void) {return 0;}
 extern "C" const char* KmrpLiveLayoutName(int) {return nullptr;}
 // The art pack is not read here (K1AssetPack.cpp, not in this harness).

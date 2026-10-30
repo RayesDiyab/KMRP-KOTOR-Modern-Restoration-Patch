@@ -779,8 +779,14 @@ void ArtCaptions(void* panel) {
 // is at +0x78, its OpenGL name at +0x58. The maintainer, 2026-10-28, of reading a font
 // again a quarter second after it failed: "Instead of retry shouldn't hook the correct
 // spot in the chain once?"
+#if !defined(KMRP_TEXT_LAYOUT_TEST) && defined(KMRP_NATIVE_RUNTIME)
+void CorrectHardwareMipmapsK1();   // K1NativeJoystick.cpp: once, after the first upload
+#endif
 extern "C" void __cdecl KmrpTextureUploadedK1(void* texture) {
 #ifndef KMRP_TEXT_LAYOUT_TEST
+#ifdef KMRP_NATIVE_RUNTIME
+    CorrectHardwareMipmapsK1();
+#endif
     if (!texture) return;
     const unsigned glName = At<unsigned>(texture, 0x58);
     if (!glName) return;

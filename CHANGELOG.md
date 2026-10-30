@@ -117,6 +117,34 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Screens with KMRP's art open without the CPU mipmap stall** (2026-10-30). With
+  K1 Modern Driver Compatibility installed, the game believed it ran on a 2003 ATI driver
+  and built every uncompressed texture's mipmaps on the CPU each time it loaded: the
+  workbench took about 0.9 s to open (912 and 893 ms measured), nearly all of it in
+  `gluBuild2DMipmaps` for its two 768x768 pictures. KMRP now tells the game hardware
+  mipmaps are available when the driver has them and the ATI extension is only K1DC's
+  emulation. The workbench then opened in under 100 ms both times, in the Steam game at
+  3440x1440 on NVIDIA. Not tested on AMD or Intel, or side by side for K1DC's effects.
+  A workaround: reported to K1DC's author the same day, and to be removed once K1DC fixes
+  it. Details and removal steps: `docs/third-party-driver-compat.md`, section 5.
+
+- **Level 2 debug logs time slow frames** (2026-10-30). With `debug-logs=2`,
+  `KMRP\logs\kmrp-frame-timing.log` lists every GUI frame that comes 100 ms or more after
+  the one before, the screens built in it and KMRP's own time in them, and a summary of
+  where the game's main thread was during it: a thread suspends it every 2 ms and reads
+  where it is (no debugger; pausing the Steam game from x32dbg killed it).
+
+- **Nine more screens use Live Adaptive Layout** (2026-10-30), the ones whose lists
+  the build fits to their rows: the Terminal, the Container, Feats, the Journal,
+  Powers, Script Selection, the granted skill popup, the Store and the workbench's
+  item list, bringing coverage to 58 of 85 layout files. Their row steps now run on
+  whichever file the game would load, a mod's included: lists made as tall as whole
+  rows, the Journal's six quest rows, Script Selection's rows centred in their art's
+  frame, and the Container widened so "Switch To Give Item" and its badge fit, from
+  the caption width the size's prompt manifest carries. All nine pass against the
+  66 resolution sets (3440x1440 identical) and 2,430 C/Python layouts. Not yet seen
+  in the game.
+
 - **Gameplay and Feedback Options use Live Adaptive Layout** (2026-10-29),
   bringing coverage to 49 screens. Gameplay clones its Controller Layout entry
   from the live Keymapping button and retains custom styling and column spacing.

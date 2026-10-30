@@ -1377,6 +1377,32 @@ The full 49-screen regression also passes: 259,248 extent fields against 66 sets
 both 36-case mod suites pass. Both Windows module builds, package regressions
 and the controller preload regression pass; no live install was performed.
 
+## 116. The row-fitted lists join Live Adaptive Layout (Windows 2026-10-30, uncommitted)
+
+The shared table now has 58 screens, adding `computer.gui`, `container.gui`,
+`ftchrgen.gui`, `journal.gui`, `pwrlvlup.gui`, `scriptselect.gui`,
+`skillinfo.gui`, `store.gui` and `upgradeitems.gui`. `kmrp-guiadapt.c` repeats three
+more build steps after the gutters, in the build's order: Script Selection's
+`LST_AIState` PADDING centred in its art's frame (`centre_rows_in_frame`), the
+Journal's row template for six rows (`fit_rows_to_list`), then, after the existing
+`ROW_LISTS` fits, the Container widened for its Give Items caption
+(`widen_container`, split out of `fit_container_to_caption`).
+
+**What the Mac must do.** The Container needs the caption width, so there is a new entry
+point, `KmrpLiveLayoutPrompts(key, name, source, width, height, out, prompts)`, where
+`prompts` is the size's `kmrp_prompts.txt` (its `kmrpx_contgive` row, the width the
+build measured and `kmrp-guiblend` already reads). `KmrpLiveLayout` stays, calling it
+with no manifest, which leaves the Container unwidened. When the Mac adopts live layout
+(item 102), pass the set's own manifest, as Windows does from `AdaptLiveLayoutK1`. The
+CLI takes it as `live KEY NAME W H OUT [SOURCE|-] [PROMPTS]`. No executable sites change.
+
+The nine screens pass against all 66 sets (32,736 extent fields, 91.36% exact,
+8.31% one pixel off, 110 further within the allowances; 3440x1440 identical) and
+2,430 C/Python layouts. Two checked allowances are new (Script Selection's PADDING
+follows its own list's rounding; a Feats row count crossed by the rounding pixel at
+2880x1864); the [layout reference](live-adaptive-layout.md) section 6 has both.
+Not seen in the game yet.
+
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
 | Change | Commit | Why not the Mac |
@@ -1385,6 +1411,7 @@ and the controller preload regression pass; no live install was performed.
 | XInput loaded at run time, not linked | 9fee5e4 | Windows 7 |
 | A Linux pad's own key (`KEY_BACK`) not keyboard use; the Gamepad layout notice | 8f60e46 | Linux's kernel driver and Wine |
 | K1 Modern Driver Compatibility 2.0.0; left out on Windows 7 | b5cbd6a, f0ca54c | the Mac ships no K1DC or `dinput8.dll` |
+| Hardware mipmaps where only K1DC's emulated ATI extension turned them off (`CorrectHardwareMipmapsK1`); level-2 frame timing and sampler (`kmrp-frame-timing.log`) | uncommitted, 2026-10-30 | the Mac ships no K1DC; the sampler uses Windows thread APIs |
 | Bink drawn with GDI (`0x00405734`), the `[Movies]` 640x480 mode, feature bit 8 | 4a1cd73, 3ab7a87 | Windows' Bink and DirectDraw (item 78 says what applies) |
 | The NVIDIA profile's manifest path, the installer's two registry views, the installer's scrolling Advanced Settings page | b5cbd6a, f0ca54c | Windows installer and drivers |
 | The KMRP Font Converter (`font-converter`) | 34dfabb | a Windows program |

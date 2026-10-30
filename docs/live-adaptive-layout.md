@@ -22,8 +22,11 @@ Quest Items, the Galaxy Map, Pazaak, the workbench, the HUD's base file `mainint
 the screens with nothing to fit); the rest still come from the sets (section 7).
 Class selection (`classsel.gui`) joins them on 2026-10-29, followed by Abilities
 (`abilities.gui`) and the menu tab strip (`top.gui`), then Gameplay and Feedback
-Options (`optgameplay.gui`, `optfeedback.gui`), making **49 screens**.
-**Coverage: 49 / 85 layout files, 57.65% complete by file count.** The
+Options (`optgameplay.gui`, `optfeedback.gui`), making 49 screens. On 2026-10-30 the
+nine screens whose lists the build fits to their rows join them (Terminal, Container,
+Feats, Journal, Powers, Script Selection, the granted skill popup, Store and the
+workbench's item list), making **58 screens**.
+**Coverage: 58 / 85 layout files, 68.24% complete by file count.** The
 [full inventory](#coverage-inventory) lists every file and its implementation status.
 
 Both mouse/keyboard and controller modes use the same live geometry; the existing
@@ -39,8 +42,9 @@ the game at 3440x1440 only (section 6).
 
 | | |
 | --- | --- |
-| Source | master `a9419f6`, including the Abilities/tab-strip and Gameplay/Feedback migrations of 2026-10-29 (uncommitted when first written) |
-| Module (49 screens) | `build\native-runtime\kmrp-native.dll`, 846,336 bytes, SHA-256 `F842D1C5F1A3DC943CB7514D7C38710BADEA5E139FDB9FE2090063E03E08939D`; built and packaged, not installed |
+| Source | master `cdb9990` with the row-fitted lists of 2026-10-30 (uncommitted when written) |
+| Module (58 screens) | `build\native-runtime\kmrp-native.dll`, 856,064 bytes, SHA-256 `47FEE683DE0BC7304078D62EFFA0ECE7AC3061471D506A87BA84DF7668725910`; installed in the Steam game 2026-10-30 for the maintainer's test, with the controller module from the same source (2,702,336 bytes, `795C4355FCC5B5B78C7CE6D24C01C52AEF41A7BAC4993A445FFCC100255FAC51`) |
+| Previous module (49 screens) | 846,336 bytes, SHA-256 `F842D1C5F1A3DC943CB7514D7C38710BADEA5E139FDB9FE2090063E03E08939D`; installed in the Steam game 2026-10-30 |
 | Previous module (47 screens) | 842,240 bytes, SHA-256 `C388D0DA3ED09D656EAA70996BB6AD51312CA968980A78E834D301A834380793` |
 | Previous module (45 screens) | `build\native-runtime\kmrp-native.dll`, 837,632 bytes, SHA-256 `DE6FD58D9F8C9C3B5AA6F56C03EC4EE5BCFD52CE7C5840F4066D5300DDEA7541` |
 | Previous module | the 14-screen build was 759,296 bytes, SHA-256 `ACA3146F97263EEDAE09BF84C0CDDF0EE75446BBD762D7BA376176A6CDC07132`; the options-only build was 744,448 bytes, `BD9742A55E7788CD82E8D7E964EC5DBE692D5C96AAD5B5DEDE293DC2BAB12DB4` |
@@ -49,15 +53,16 @@ the game at 3440x1440 only (section 6).
 
 ## Coverage inventory
 
-**49 / 85 GUI layout files implemented: 57.65% (about 58%).**
-**36 / 85 remain outside the shared path: 42.35%.**
+**58 / 85 GUI layout files implemented: 68.24% (about 68%).**
+**27 / 85 remain outside the shared path: 31.76%.**
 
-Measured on 2026-10-29 against source `a9419f6`: the denominator is the union of
+Measured on 2026-10-29 against source `a9419f6`, and the numerator again on 2026-10-30
+after the row-fitted lists (the denominator unchanged): the denominator is the union of
 84 original files in `build-inputs/vanilla-gui` and 83 distinct `.gui` names across
 all 66 `build/kmrp/resources/gui-*.zip` archives. Their union contains 85 names:
 the archives add `kmrplayout.gui`, while `startscreen.gui` and `statussummary.gui`
 occur only in the original-file inventory. The numerator is membership in
-`tools/build_live_layout.py` `FILES`. Percentage is `100 * 49 / 85`, rounded to
+`tools/build_live_layout.py` `FILES`. Percentage is `100 * 58 / 85`, rounded to
 two decimal places. Every name is listed once below.
 
 **Status definition:** Yes means the file is implemented in the shared
@@ -77,20 +82,20 @@ pending separately; section 6 records verification limits.
 | `barkbubble.gui` | Yes | Shared runtime layout rules. |
 | `character.gui` | Yes | Shared runtime layout rules. |
 | `classsel.gui` | Yes | Fixed frame margins and class-button art corrections. |
-| `computer.gui` | No | Terminal layout migration pending. |
+| `computer.gui` | Yes | Shared rules and its hand-set list gutters. |
 | `computercamera.gui` | Yes | Shared runtime layout rules. |
 | `confirm.gui` | No | Custom confirmation popup migration pending. |
-| `container.gui` | No | Container row fitting and caption layout pending. |
+| `container.gui` | Yes | Popup list fitted to rows; column widened for the Give Items caption the size's prompt manifest gives. |
 | `credits.gui` | Yes | Shared runtime layout rules. |
 | `custpnl.gui` | Yes | Shared runtime layout rules. |
 | `debug.gui` | Yes | Shared runtime layout rules. |
 | `dialog.gui` | No | Existing runtime placement needs an integration audit. |
 | `equip.gui` | Yes | Shared runtime layout rules. |
 | `fade.gui` | Yes | Shared runtime layout rules. |
-| `ftchrgen.gui` | No | Feat-selection row fitting pending. |
+| `ftchrgen.gui` | Yes | Feat list fitted to rows. |
 | `galaxymap.gui` | Yes | Shared runtime layout rules. |
 | `inventory.gui` | Yes | Shared runtime layout rules. |
-| `journal.gui` | No | Quest-list row layout migration pending. |
+| `journal.gui` | Yes | Quest row template sized for six rows. |
 | `kmrplayout.gui` | No | Custom Controller Layout screen; existing separate runtime path needs integration/audit. |
 | `leveluppnl.gui` | Yes | Shared runtime layout rules. |
 | `loadscreen.gui` | Yes | Shared runtime layout rules. |
@@ -133,19 +138,19 @@ pending separately; section 6 records verification limits.
 | `pazaaksetup.gui` | Yes | Shared runtime layout rules. |
 | `pazaakwager.gui` | Yes | Shared runtime layout rules. |
 | `portcust.gui` | Yes | Shared runtime layout rules. |
-| `pwrlvlup.gui` | No | Power-selection row fitting pending. |
+| `pwrlvlup.gui` | Yes | Power list fitted to rows. |
 | `qorcpnl.gui` | Yes | Shared runtime layout rules. |
 | `questitem.gui` | Yes | Shared runtime layout rules. |
 | `quickpnl.gui` | Yes | Shared runtime layout rules. |
 | `saveload.gui` | Yes | Shared runtime layout rules. |
 | `savename.gui` | Yes | Shared runtime layout rules. |
-| `scriptselect.gui` | No | Character-script row centering migration pending. |
+| `scriptselect.gui` | Yes | Script rows centred in the art's frame (list PADDING). |
 | `skchrgen.gui` | Yes | Shared runtime layout rules. |
-| `skillinfo.gui` | No | Skill-list row fitting pending. |
+| `skillinfo.gui` | Yes | Popup skill list fitted to rows. |
 | `splashscreen.gui` | Yes | Shared runtime layout rules. |
 | `startscreen.gui` | No | Original game file, absent from size archives; audit pending. |
 | `statussummary.gui` | No | Absent from size archives; existing runtime placement needs an audit. |
-| `store.gui` | No | Store-list row fitting pending. |
+| `store.gui` | Yes | Both item lists fitted to rows. |
 | `titlemovie.gui` | Yes | Shared runtime layout rules. |
 | `tooltip10x8.gui` | No | Tooltip variant migration pending. |
 | `tooltip12x9.gui` | No | Tooltip variant migration pending. |
@@ -154,7 +159,7 @@ pending separately; section 6 records verification limits.
 | `tooltip8x6.gui` | No | Tooltip variant migration pending. |
 | `top.gui` | Yes | Menu tab strip and LT/RT cues. |
 | `upgrade.gui` | Yes | Shared runtime layout rules. |
-| `upgradeitems.gui` | No | Upgrade-item row fitting pending. |
+| `upgradeitems.gui` | Yes | Item list fitted to rows. |
 | `upgradesel.gui` | Yes | Shared runtime layout rules. |
 
 Recount with the inventory command in section 8 after each migration; update
@@ -318,6 +323,7 @@ before `Override` (the roster folder, or this run's folder of links when the pla
 | `classsel.gui` | the game's own, with the frame rules and gold's alignment/border corrections | the player's file at the game's base size; replacement border art is preserved |
 | `abilities.gui`, `top.gui` | the game's own, with row fitting and the added cues below | the player's file, with cues added where their controls support them; existing cues preserved |
 | `optgameplay.gui`, `optfeedback.gui` | the game's own, with the Controller Layout entry or scaled checkbox row template | the player's file, retaining button styling and custom row height; existing entry preserved |
+| `computer.gui`, `container.gui`, `ftchrgen.gui`, `journal.gui`, `pwrlvlup.gui`, `scriptselect.gui`, `skillinfo.gui`, `store.gui`, `upgradeitems.gui` | the game's own, with the build's row steps below | the player's file, the same steps where its controls have what they need; a step it cannot take is left out |
 
 "Laid out for the game's size": its base (section 2) is the game's file's and its root lies
 inside it. A mod's file laid out for 1920x1080 is refused (`Test-LiveLayout.py` part 4).
@@ -331,7 +337,10 @@ inside it. A mod's file laid out for 1920x1080 is refused (`Test-LiveLayout.py` 
 | `PADDING` the gold file sets by hand | at 3440x1440 only, before the gutters: `optresolution.gui`'s resolution list, 20, and `optionsmain.gui LB_DESC`, 40, which the gutter then raises to 72 as in the set |
 | `TEXT.ALIGNMENT` the gold file changes | at every size, where the file has the game's own alignment there, as `transfer_gold_gui_geometry.py` carries it: Character's `LBL_LEVEL`, 12 to 10 |
 | class selection's cleared `BORDER` and `HILIGHT` `CORNER`/`EDGE` resrefs | six class buttons, four fields each (24 fields); cleared only where the source still names the game's own art. A mod's different art is kept. The C redirects each field to an existing empty resref encoding, leaving shared value bytes intact |
-| a list made as tall as whole rows | after the gutters, `scale_listbox_padding.py` `fit_list_to_rows` for the lists of `ROW_LISTS` on these screens: Equipment's `LB_ITEMS`, rows of 56 at `max(1, H / 720)` in single precision, rounded half to even, each an eleventh of a row apart; a screen's list only shrinks, when a kind of row sits looser than an eighth of a row (at 1024x576, 336 to 313 px) |
+| Script Selection's `LST_AIState` `PADDING` | after the gutters, `scale_listbox_padding.py` `centre_rows_in_frame`: the rows centred in the box `lbl_char_scr.tpc` draws at 302.5/2868 and 1409/2868 of the screen width, from the list's own left, width and scroll bar width, rounded half to even, kept within 0 to 255 and half the content width. A list with no `PADDING` field keeps none (the C adds no fields) |
+| the Journal's `LB_ITEMS` `PROTOITEM` HEIGHT | then `fit_rows_to_list`: the largest row template whose six rows fill the list, each an eleventh of a row apart, at `max(1, H / 720)` in single precision; left alone where six rows would not fit |
+| a list made as tall as whole rows | after the gutters, `scale_listbox_padding.py` `fit_list_to_rows` for the lists of `ROW_LISTS`: Equipment's, the Container's, the workbench's and the Store's two lists (rows of 56), the Feats, Powers, Abilities and granted skill lists (rows of 50), at `max(1, H / 720)` in single precision, rounded half to even, each an eleventh of a row apart; a screen's list only shrinks, when a kind of row sits looser than an eighth of a row (at 1024x576, Equipment's 336 to 313 px); a popup's (the Container, the granted skill popup) grows or shrinks and moves what is below it, its panel kept centred |
+| the Container's panel and column widths | last, `prepare_universal_resources.py` `widen_container`: widened by an even number of pixels about its centre until `BTN_GIVEITEMS` holds its caption and badge (`badge_fit_width`); `LBL_MESSAGE`, `LB_ITEMS`, `BTN_OK`, `BTN_GIVEITEMS` and `BTN_CANCEL` widen with it. The caption's width is the `kmrpx_contgive` row of the size's `kmrp_prompts.txt`, the same number the build measured in the size's font; with no manifest the Container is not widened. 43 of the 66 sets are widened, by 6 to 186 px (their manifests' `widened` lines, 2026-10-30) |
 | the R3 cue, `LBL_KMRPR3` | added last on Inventory, Equipment and Character, as `prepare_universal_resources.py` `add_party_switch_cue` adds it: a clone of the file's first label with the tag, the next free ID, the picture `kmrprb_party` and no frame or text, its side 90% of the portraits' height, centred in their gap when the gap holds it with a tenth of it free each side, else a third of it right of the second portrait. Left out, as the build would stop, where it would leave the panel or cover a button, check box, slider, scroll bar, progress bar or list, where `BTN_CHANGE1` or `BTN_CHANGE2` is missing or they overlap, or where the label it is cloned from lacks a field it sets |
 
 **Why the cue.** With KMRP installed the controller patch takes its own copies of the
@@ -493,8 +502,32 @@ controller patch changes only the three with the R3 cue, the same cue under the 
 
 - Class selection (added 2026-10-29): against the 66 sets, 4,752 extent fields,
   4,434 exact, 308 one pixel off, 10 two or three pixels off; 3440x1440 identical.
-  Its `LBL_CLASS` alignment is carried from 10 to 18. Its layout migration has
-  **not yet been play-tested**, including the existing controller split artwork.
+  Its `LBL_CLASS` alignment is carried from 10 to 18. When written this said its layout
+  migration had not been play-tested. **Correction, 2026-10-30:** the maintainer reports
+  every one of the 49 screens implemented by then tested in their game ("all implemented
+  ones are already tested"); which sizes was not stated.
+
+- The row-fitted lists (added 2026-10-30, uncommitted): the nine screens against the 66
+  sets, 32,736 extent fields, 91.36% exact, 8.31% one pixel off, 110 further within the
+  allowances; 3440x1440 identical in every extent and `PADDING`. C and Python agree on
+  2,430 layouts (each set's own manifest at a set's size, a made-up caption from 100 to
+  900 px at the 200 random sizes) and refuse nine files laid out for 1920x1080. Two
+  allowances are new, each printed as a note and checked, not assumed:
+
+  | Allowance | Where | Why it is right |
+  | --- | --- | --- |
+  | Script Selection's `PADDING` 1 to 3 px from the set's, at 33 sizes | `LST_AIState` | each value is `centre_rows_in_frame` of its own list, and the two differ by no more than that list's rounding (its left twice, its width, its scroll bar's width, one for the result). The run time centres the rows for the list as it lays it out |
+  | a list's height a whole row from the set's | `ftchrgen.gui` `LB_FEATS` and its scroll bar at 2880x1864 | the rounding pixel before fitting: the set's 1035 px holds 7 rows of 129 with 18 px left, looser than an eighth, and shrinks to 984; the run time's 1036 holds 8 exactly and stays. The test runs the build's own `fit_list_to_rows` on both and requires each result |
+
+  The full 58-screen run the same day passes: 291,984 extent fields against the 66 sets,
+  94.09% exact, 5.66% one pixel off, 718 further within the allowances; 3440x1440
+  identical; 15,656 C/Python layouts, 58 refused files laid out for 1920x1080, and both
+  36-layout mod suites. Both Windows module builds and `Test-OverrideFontMetrics.py`,
+  `Test-PartyRosterGui.py`, `Test-KpatchSource.py`, `Test-ControllerKpatch.py`,
+  `Test-RuntimeKpatch.py` and `Test-ControllerPreload.py` pass.
+
+  **Not seen in the game.** Built for the user's test; a mod's version of these screens has
+  only the automated mod cases (one control moved, one added).
 
 - **Seen in the game at 3440x1440 only.** The maintainer opened the options screens from
   the main menu and the pause menu in their Steam game with the module above on 2026-10-28:
@@ -563,7 +596,14 @@ controller patch changes only the three with the R3 cue, the same cue under the 
   Next: `confirm.gui`
   (KMRP's own popup), `map.gui`, the container, the other row-fitted lists, and the HUD
   (`apply_proportions`).
-- The sets keep their copies of the 49 files; removing them from the bank is a size change
+- **Correction, 2026-10-30:** the container and the row-fitted lists no longer wait: the
+  nine screens are laid out at run time (section 3). Still from the sets: `confirm.gui`,
+  `kmrplayout.gui`, `dialog.gui`, `pause.gui`, `partyselection.gui`, `statussummary.gui`,
+  `map.gui`, the HUD files (`mi8x6`, `mipc*`), the main menu files, the tooltips and
+  `startscreen.gui`. The Journal's and Script Selection's Close and neighbour buttons
+  (`tools/menu_bottom_row.py`) need no step of their own: gold's ratio places them where
+  the set has them.
+- The sets keep their copies of the 58 files; removing them from the bank is a size change
   for later.
 - The Mac does not call `KmrpLiveLayout` yet ([handoff item 102](macos-handoff-1.5-to-1.6.md)).
 - No byte of the executable.

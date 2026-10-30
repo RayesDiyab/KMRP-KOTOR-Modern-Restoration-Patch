@@ -53,9 +53,40 @@ typedef struct { const char *file, *tag; int popup; int bases[4]; int count; } L
 #define LL_LOOSE_GAP 0.125
 static const LLRowList LL_ROW_LISTS[] = {
     { "abilities.gui", "LB_ABILITY", 0, { 50, 0, 0, 0 }, 1 },
+    { "container.gui", "LB_ITEMS", 1, { 56, 0, 0, 0 }, 1 },
     { "equip.gui", "LB_ITEMS", 0, { 56, 0, 0, 0 }, 1 },
+    { "ftchrgen.gui", "LB_FEATS", 0, { 50, 0, 0, 0 }, 1 },
+    { "pwrlvlup.gui", "LB_POWERS", 0, { 50, 0, 0, 0 }, 1 },
+    { "skillinfo.gui", "LB_SKILLS", 1, { 50, 0, 0, 0 }, 1 },
+    { "store.gui", "LB_INVITEMS", 0, { 56, 0, 0, 0 }, 1 },
+    { "store.gui", "LB_SHOPITEMS", 0, { 56, 0, 0, 0 }, 1 },
+    { "upgradeitems.gui", "LB_ITEMS", 0, { 56, 0, 0, 0 }, 1 },
 };
-#define LL_ROW_LIST_COUNT 2
+#define LL_ROW_LIST_COUNT 9
+
+/* Script Selection's list PADDING centring its rows in the art's frame, at these
+ * fractions of the screen width (centre_rows_in_frame); the Journal's row template
+ * sized so JOURNAL_ROWS rows fill its list (fit_rows_to_list). */
+#define LL_CENTRE_SCREEN "scriptselect.gui"
+#define LL_CENTRE_TAG "LST_AIState"
+#define LL_CENTRE_FRAME_LEFT 0.10547419804741981
+#define LL_CENTRE_FRAME_RIGHT 0.49128312412831243
+#define LL_JOURNAL_SCREEN "journal.gui"
+#define LL_JOURNAL_TAG "LB_ITEMS"
+#define LL_JOURNAL_ROWS 6
+
+/* The Container widened until its Give Items button holds the caption the size's
+ * prompt manifest gives (row CAPTION_ROW) and its badge (fit_container_to_caption). */
+#define LL_WIDEN_SCREEN "container.gui"
+#define LL_WIDEN_TAG "BTN_GIVEITEMS"
+#define LL_WIDEN_CAPTION_ROW "kmrpx_contgive"
+static const char *const LL_WIDENED[] = { "LBL_MESSAGE", "LB_ITEMS", "BTN_OK", "BTN_GIVEITEMS", "BTN_CANCEL" };
+#define LL_BADGE_RADIUS 0.29
+#define LL_BADGE_RADIUS_SHORT 0.4
+#define LL_BADGE_SHORT_BELOW 60
+#define LL_BADGE_GAP 0.55
+#define LL_BADGE_EDGE 1.15
+#define LL_FIT_MARGIN 0.5
 
 /* The R3 cue by the party portraits (add_party_switch_cue): its side is R3_PERCENT of
  * the portraits' height, centred in their gap when the gap holds it with R3_MARGIN of
@@ -1165,6 +1196,148 @@ static const LLRow LL_ROWS_48[] = {  /* optfeedback.gui */
     { "LB_OPTIONS", "PROTOITEM", { 2, 2, 2, 2 }, { 76, 90, 240, 43 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
     { "LB_OPTIONS", "SCROLLBAR", { 1, 0, 1, 0 }, { 323, 270, 86, 870 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
 };
+static const LLRow LL_ROWS_49[] = {  /* computer.gui */
+    { "", "", { 1, 0, 1, 0 }, { 0, 0, 3440, 1440 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_STATIC1", "", { 1, 0, 1, 0 }, { 650, 126, 2150, 252 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_STATIC3", "", { 1, 0, 1, 0 }, { 650, 378, 2150, 252 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_STATIC4", "", { 1, 0, 1, 0 }, { 650, 624, 2150, 252 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_STATIC2", "", { 1, 0, 1, 0 }, { 648, 1053, 1555, 261 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_REP_UNITS_ICON", "", { 3, 0, 0, 0 }, { 1990, 1194, 96, 96 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_COMP_SPIKES_ICON", "", { 3, 0, 0, 0 }, { 1990, 1077, 96, 96 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_REP_SKILL_ICON", "", { 3, 0, 0, 0 }, { 768, 1194, 96, 96 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_COMP_SKILL_ICON", "", { 3, 0, 0, 0 }, { 770, 1077, 96, 96 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_REP_UNITS", "", { 1, 0, 1, 0 }, { 1010, 1242, 600, 48 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_REP_SKILL", "", { 1, 0, 1, 0 }, { 1010, 1185, 600, 48 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_COMP_SPIKES", "", { 1, 0, 1, 0 }, { 1010, 1128, 600, 48 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_REPLIES", "", { 1, 0, 1, 0 }, { 890, 539, 1699, 315 }, 10, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_REPLIES", "PROTOITEM", { 2, 2, 2, 2 }, { 952, 530, 1645, 55 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_REPLIES", "SCROLLBAR", { 1, 0, 1, 0 }, { 878, 575, 64, 230 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_COMP_SKILL", "", { 1, 0, 1, 0 }, { 1010, 1071, 600, 48 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_COMP_SKILL_VAL", "", { 1, 0, 1, 0 }, { 1675, 1071, 215, 48 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_COMP_SPIKES_VAL", "", { 1, 0, 1, 0 }, { 1675, 1128, 215, 48 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_REP_SKILL_VAL", "", { 1, 0, 1, 0 }, { 1675, 1185, 215, 48 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_REP_UNITS_VAL", "", { 1, 0, 1, 0 }, { 1675, 1242, 215, 48 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_MESSAGE", "", { 1, 0, 1, 0 }, { 862, 169, 1678, 330 }, 40, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_MESSAGE", "PROTOITEM", { 2, 2, 2, 2 }, { 962, 165, 1578, 55 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_MESSAGE", "SCROLLBAR", { 1, 0, 1, 0 }, { 862, 169, 68, 330 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_OBSCURE", "", { 1, 0, 1, 0 }, { 645, 1049, 1562, 270 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+};
+static const LLRow LL_ROWS_50[] = {  /* container.gui */
+    { "", "", { 1, 0, 1, 0 }, { 882, 204, 700, 981 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_MESSAGE", "", { 1, 0, 1, 0 }, { 70, 15, 569, 144 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_ITEMS", "", { 1, 0, 1, 0 }, { 54, 165, 601, 555 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_ITEMS", "PROTOITEM", { 2, 2, 2, 2 }, { 32, 61, 183, 39 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_ITEMS", "SCROLLBAR", { 1, 0, 1, 0 }, { 54, 165, 30, 555 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_OK", "", { 1, 0, 1, 0 }, { 54, 729, 601, 66 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_GIVEITEMS", "", { 1, 0, 1, 0 }, { 54, 804, 601, 66 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_CANCEL", "", { 1, 0, 1, 0 }, { 54, 879, 601, 66 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+};
+static const LLRow LL_ROWS_51[] = {  /* ftchrgen.gui */
+    { "", "", { 1, 0, 1, 0 }, { 0, 0, 3440, 1440 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "MAIN_TITLE_LBL", "", { 1, 0, 1, 0 }, { 712, 117, 2016, 63 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "SUB_TITLE_LBL", "", { 1, 0, 1, 0 }, { 419, 192, 2580, 60 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "DESC_LBL", "", { 1, 0, 1, 0 }, { 1736, 405, 1406, 72 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "STD_SELECTIONS_REMAINING_LBL", "", { 1, 0, 1, 0 }, { 2040, 285, 1011, 90 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "STD_REMAINING_SELECTIONS_LBL", "", { 1, 0, 1, 0 }, { 1763, 283, 217, 99 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_FEATS", "", { 1, 0, 1, 0 }, { 265, 410, 1440, 800 }, 25, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_FEATS", "PROTOITEM", { 2, 2, 2, 2 }, { 68, 141, 245, 56 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_FEATS", "SCROLLBAR", { 1, 0, 1, 0 }, { 265, 410, 63, 800 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_DESC", "", { 1, 0, 1, 0 }, { 1751, 504, 1415, 615 }, 72, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_DESC", "PROTOITEM", { 2, 2, 2, 2 }, { 324, 164, 248, 50 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_DESC", "SCROLLBAR", { 1, 0, 1, 0 }, { 3085, 494, 80, 635 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_NAME", "", { 1, 0, 1, 0 }, { 360, 264, 1344, 129 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_RECOMMENDED", "", { 1, 0, 1, 0 }, { 538, 1230, 785, 84 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_SELECT", "", { 1, 0, 1, 0 }, { 1811, 1146, 1177, 72 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_ACCEPT", "", { 1, 0, 1, 0 }, { 1328, 1230, 785, 84 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_BACK", "", { 1, 0, 1, 0 }, { 2118, 1230, 785, 84 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+};
+static const LLRow LL_ROWS_52[] = {  /* journal.gui */
+    { "", "", { 1, 0, 1, 0 }, { 0, 0, 3440, 1440 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_ITEMS", "", { 1, 0, 1, 0 }, { 273, 350, 1452, 769 }, 25, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_ITEMS", "PROTOITEM", { 2, 2, 2, 2 }, { 75, 120, 241, 78 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_ITEMS", "SCROLLBAR", { 1, 0, 1, 0 }, { 273, 350, 86, 769 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_TITLE", "", { 1, 0, 1, 0 }, { 419, 261, 2607, 63 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_ITEM_DESCRIPTION", "", { 1, 0, 1, 0 }, { 1751, 360, 1413, 749 }, 72, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_ITEM_DESCRIPTION", "PROTOITEM", { 2, 2, 2, 2 }, { 328, 119, 237, 84 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_ITEM_DESCRIPTION", "SCROLLBAR", { 1, 0, 1, 0 }, { 3080, 360, 84, 749 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_QUESTITEMS", "", { 1, 0, 1, 0 }, { 607, 1134, 1107, 81 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_SWAPTEXT", "", { 1, 0, 1, 0 }, { 1725, 1134, 1172, 81 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_SORT", "", { 1, 0, 1, 0 }, { 607, 1230, 1500, 84 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_EXIT", "", { 1, 0, 1, 0 }, { 2112, 1230, 785, 84 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+};
+static const LLRow LL_ROWS_53[] = {  /* pwrlvlup.gui */
+    { "", "", { 1, 0, 1, 0 }, { 0, 0, 3440, 1440 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "MAIN_TITLE_LBL", "", { 1, 0, 1, 0 }, { 419, 75, 2580, 150 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "SUB_TITLE_LBL", "", { 1, 0, 1, 0 }, { 419, 192, 2580, 60 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "REMAINING_SELECTIONS_LBL", "", { 1, 0, 1, 0 }, { 1758, 264, 226, 129 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "SELECTIONS_REMAINING_LBL", "", { 1, 0, 1, 0 }, { 2005, 264, 1075, 129 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "DESC_LBL", "", { 1, 0, 1, 0 }, { 1736, 411, 1424, 72 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_POWERS", "", { 1, 0, 1, 0 }, { 249, 420, 1455, 781 }, 25, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_POWERS", "PROTOITEM", { 2, 2, 2, 2 }, { 67, 139, 248, 56 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_POWERS", "SCROLLBAR", { 1, 0, 1, 0 }, { 249, 420, 81, 781 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_DESC", "", { 1, 0, 1, 0 }, { 1750, 500, 1420, 620 }, 72, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_DESC", "PROTOITEM", { 2, 2, 2, 2 }, { 324, 164, 247, 50 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_DESC", "SCROLLBAR", { 1, 0, 1, 0 }, { 3084, 500, 86, 620 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_POWER", "", { 1, 0, 1, 0 }, { 360, 264, 1344, 129 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "RECOMMENDED_BTN", "", { 1, 0, 1, 0 }, { 538, 1230, 785, 84 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "SELECT_BTN", "", { 1, 0, 1, 0 }, { 1811, 1146, 1183, 72 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "ACCEPT_BTN", "", { 1, 0, 1, 0 }, { 1328, 1230, 785, 84 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BACK_BTN", "", { 1, 0, 1, 0 }, { 2118, 1230, 785, 84 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+};
+static const LLRow LL_ROWS_54[] = {  /* scriptselect.gui */
+    { "", "", { 1, 0, 1, 0 }, { 0, 0, 3440, 1440 }, LL_NO_PADDING, LL_NO_ALIGN, 2, 0 },
+    { "LST_AIState", "", { 1, 0, 1, 0 }, { 261, 256, 1410, 939 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LST_AIState", "PROTOITEM", { 2, 2, 2, 2 }, { 71, 84, 241, 50 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LST_AIState", "SCROLLBAR", { 1, 0, 1, 0 }, { 261, 256, 86, 939 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_DESC", "", { 1, 0, 1, 0 }, { 1730, 256, 1438, 939 }, 72, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_DESC", "PROTOITEM", { 2, 2, 2, 2 }, { 324, 86, 242, 50 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_DESC", "SCROLLBAR", { 1, 0, 1, 0 }, { 3082, 256, 86, 939 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_TITLE", "", { 1, 0, 1, 0 }, { 753, 120, 1957, 63 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_Back", "", { 1, 0, 1, 0 }, { 2112, 1230, 785, 84 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_Accept", "", { 1, 0, 1, 0 }, { 1328, 1230, 784, 84 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+};
+static const LLRow LL_ROWS_55[] = {  /* skillinfo.gui */
+    { "", "", { 1, 0, 1, 0 }, { 828, 354, 1790, 693 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_MESSAGE", "", { 1, 0, 1, 0 }, { 65, 15, 1666, 144 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_SKILLS", "", { 1, 0, 1, 0 }, { 65, 165, 1666, 420 }, 10, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_SKILLS", "PROTOITEM", { 2, 2, 2, 2 }, { 34, 61, 282, 56 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_SKILLS", "SCROLLBAR", { 1, 0, 1, 0 }, { 65, 165, 86, 420 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_OK", "", { 1, 0, 1, 0 }, { 629, 603, 538, 66 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+};
+static const LLRow LL_ROWS_56[] = {  /* store.gui */
+    { "", "", { 1, 0, 1, 0 }, { 0, 0, 3440, 1440 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_INVITEMS", "", { 1, 0, 1, 0 }, { 278, 291, 1417, 887 }, 25, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_INVITEMS", "PROTOITEM", { 2, 2, 2, 2 }, { 76, 95, 239, 50 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_INVITEMS", "SCROLLBAR", { 1, 0, 1, 0 }, { 278, 291, 86, 887 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_DESCRIPTION", "", { 1, 0, 1, 0 }, { 1747, 465, 1422, 710 }, 72, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_DESCRIPTION", "PROTOITEM", { 2, 2, 2, 2 }, { 326, 152, 241, 53 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_DESCRIPTION", "SCROLLBAR", { 1, 0, 1, 0 }, { 3083, 465, 86, 710 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_SHOPITEMS", "", { 1, 0, 1, 0 }, { 278, 291, 1418, 887 }, 25, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_SHOPITEMS", "PROTOITEM", { 2, 2, 2, 2 }, { 76, 95, 239, 50 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_SHOPITEMS", "SCROLLBAR", { 1, 0, 1, 0 }, { 278, 291, 86, 887 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_BUYSELL", "", { 1, 0, 1, 0 }, { 376, 198, 763, 63 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_CREDITS_VALUE", "", { 1, 0, 1, 0 }, { 2607, 120, 392, 63 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_CREDITS", "", { 1, 0, 1, 0 }, { 1994, 120, 575, 63 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_COST_VALUE", "", { 1, 0, 1, 0 }, { 2607, 276, 441, 75 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_COST", "", { 1, 0, 1, 0 }, { 1736, 276, 833, 75 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_STOCK", "", { 1, 0, 1, 0 }, { 1736, 363, 833, 75 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_STOCK_VALUE", "", { 1, 0, 1, 0 }, { 2607, 363, 441, 75 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_Examine", "", { 1, 0, 1, 0 }, { 1290, 1215, 860, 108 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_Cancel", "", { 1, 0, 1, 0 }, { 2161, 1215, 672, 108 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_Accept", "", { 1, 0, 1, 0 }, { 607, 1215, 672, 108 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+};
+static const LLRow LL_ROWS_57[] = {  /* upgradeitems.gui */
+    { "", "", { 1, 0, 1, 0 }, { 0, 0, 3440, 1440 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_ITEMS", "", { 1, 0, 1, 0 }, { 267, 212, 1451, 979 }, 25, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_ITEMS", "PROTOITEM", { 2, 2, 2, 2 }, { 76, 71, 244, 50 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_ITEMS", "SCROLLBAR", { 1, 0, 1, 0 }, { 267, 212, 86, 979 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_DESCRIPTION", "", { 1, 0, 1, 0 }, { 1778, 212, 1388, 979 }, 72, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_DESCRIPTION", "PROTOITEM", { 2, 2, 2, 2 }, { 333, 70, 234, 42 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LB_DESCRIPTION", "SCROLLBAR", { 1, 0, 1, 0 }, { 3080, 212, 86, 979 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_TITLE", "", { 1, 0, 1, 0 }, { 962, 120, 1505, 63 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_UPGRADEITEM", "", { 1, 0, 1, 0 }, { 607, 1230, 978, 84 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_BACK", "", { 1, 0, 1, 0 }, { 1849, 1230, 978, 84 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+};
 
 static const LLFile LL_FILES[] = {
     { "optionsmain.gui", LL_ROWS_0, 11 },
@@ -1216,6 +1389,15 @@ static const LLFile LL_FILES[] = {
     { "top.gui", LL_ROWS_46, 17 },
     { "optgameplay.gui", LL_ROWS_47, 17 },
     { "optfeedback.gui", LL_ROWS_48, 10 },
+    { "computer.gui", LL_ROWS_49, 24 },
+    { "container.gui", LL_ROWS_50, 8 },
+    { "ftchrgen.gui", LL_ROWS_51, 17 },
+    { "journal.gui", LL_ROWS_52, 12 },
+    { "pwrlvlup.gui", LL_ROWS_53, 17 },
+    { "scriptselect.gui", LL_ROWS_54, 10 },
+    { "skillinfo.gui", LL_ROWS_55, 6 },
+    { "store.gui", LL_ROWS_56, 20 },
+    { "upgradeitems.gui", LL_ROWS_57, 10 },
 };
 
 #endif

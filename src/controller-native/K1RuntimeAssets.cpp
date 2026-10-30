@@ -84,9 +84,10 @@ extern "C" int KmrpMainMenuBars(const char* setGui, const char* outGui);
 // The same file: Live Adaptive Layout, a screen the game's own file or a mod's (in Override)
 // lays out, laid out for the size (tools/build_live_layout.py). 0 written, 1 a layout could
 // not be read, 2 could not write, 3 the mod's file is not laid out for the game's size (left
-// to the game), 4 not a screen it lays out.
-extern "C" int KmrpLiveLayout(const char* key, const char* name, const char* sourceGui, int width, int height,
-                              const char* outGui);
+// to the game), 4 not a screen it lays out. `prompts`: the size's kmrp_prompts.txt, whose Give
+// Items caption width the Container is widened for.
+extern "C" int KmrpLiveLayoutPrompts(const char* key, const char* name, const char* sourceGui, int width, int height,
+                                     const char* outGui, const char* prompts);
 extern "C" int KmrpLiveLayoutCount(void);
 extern "C" const char* KmrpLiveLayoutName(int i);
 void KmrpRuntimeLog(const char* line);       // K1RuntimeEngine.cpp: one line into kmrp-kpm.log
@@ -1091,12 +1092,14 @@ bool AdaptMainMenuK1(const std::wstring& set, const std::wstring& folder)
 // chitin.key), written into `folder` as the galaxy map is, over the set's. A mod's file laid
 // out for another size is left to the game, as before. Until 2026-10-28 these screens came
 // only from the set, and a mod's file took the place of the whole screen at 640x480.
-bool AdaptLiveLayoutK1(const std::wstring& folder, int width, int height)
+bool AdaptLiveLayoutK1(const std::wstring& set, const std::wstring& folder, int width, int height)
 {
     const std::wstring game = GameFolder();
     if (game.empty()) return false;
     const std::string key = Narrow(game + L"\\chitin.key");
     if (key.empty()) return false;
+    // The set's prompt manifest: the Container is widened for the caption it measured.
+    const std::string prompts = Narrow(set + L"\\kmrp_prompts.txt");
     int written = 0, theirs = 0;
     for (int i = 0; i < KmrpLiveLayoutCount(); ++i) {
         const std::wstring name = Wide(KmrpLiveLayoutName(i));
@@ -1104,8 +1107,8 @@ bool AdaptLiveLayoutK1(const std::wstring& folder, int width, int height)
         const std::wstring target = folder + L"\\" + name, work = target + L".tmp" + Pid();
         const std::string out = Narrow(work), source = mod ? Narrow(game + L"\\override\\" + name) : std::string();
         if (out.empty() || (mod && source.empty())) continue;
-        const int result = KmrpLiveLayout(key.c_str(), KmrpLiveLayoutName(i), mod ? source.c_str() : nullptr,
-                                          width, height, out.c_str());
+        const int result = KmrpLiveLayoutPrompts(key.c_str(), KmrpLiveLayoutName(i), mod ? source.c_str() : nullptr,
+                                                 width, height, out.c_str(), prompts.c_str());
         if (result != 0) {
             DeleteFileW(work.c_str());
             char line[200];
@@ -1606,7 +1609,7 @@ bool KmrpRuntimeAssetsDimensions(int width, int height)
         AdaptPartyRosterK1(set, view);
         AdaptGalaxyMapK1(set, view);
         AdaptMainMenuK1(set, view);
-        AdaptLiveLayoutK1(view, width, height);
+        AdaptLiveLayoutK1(set, view, width, height);
     } else {
         ++generation;
         roster = root + L"\\roster-" + Pid() + L"-" + std::to_wstring(generation);
@@ -1616,7 +1619,7 @@ bool KmrpRuntimeAssetsDimensions(int width, int height)
             const bool party = AdaptPartyRosterK1(set, roster);
             const bool galaxy = AdaptGalaxyMapK1(set, roster);
             const bool menu = AdaptMainMenuK1(set, roster);
-            const bool live = AdaptLiveLayoutK1(roster, width, height);
+            const bool live = AdaptLiveLayoutK1(set, roster, width, height);
             adapted = party || galaxy || menu || live;
         }
         if (!adapted) {

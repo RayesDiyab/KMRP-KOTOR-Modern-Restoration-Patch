@@ -863,14 +863,24 @@ def fit_container_to_caption(source: Path, destination: Path, font_txi: Path) ->
     Returns the pixels added; 0 means the file already fits and nothing is
     written.
     """
+    return widen_container(source, destination, container_caption(font_txi))
+
+
+def container_caption(font_txi: Path) -> float:
+    """The width of BTN_GIVEITEMS's caption in this font, as the prompt manifest carries it."""
     advances, spacing = parse_font_metrics(font_txi)
     if not advances:
         raise ValueError(f"{font_txi.name}: no glyph metrics")
     target = next(t for t in PROMPT_TARGETS if (t.gui, t.tag) == (CONTAINER_SCREEN, CONTAINER_FIT_TAG))
     labels = target_labels(target, PROMPT_STRREFS[(target.gui, target.tag)])
     # To two places, as the prompt manifest carries it, so the Mac installer, which
-    # redoes this for a resolution with no set (kmrp-guiblend), computes the same.
-    caption = round(max(measure_label(label, advances, spacing) for label in labels), 2)
+    # redoes this for a resolution with no set (kmrp-guiblend), and Live Adaptive Layout,
+    # which reads it from the set's manifest (kmrp-guiadapt), compute the same.
+    return round(max(measure_label(label, advances, spacing) for label in labels), 2)
+
+
+def widen_container(source: Path, destination: Path, caption: float) -> int:
+    """fit_container_to_caption for a caption already measured."""
     gff = read_gff(source)
     root = gff.root
     controls = root.get_list("CONTROLS")

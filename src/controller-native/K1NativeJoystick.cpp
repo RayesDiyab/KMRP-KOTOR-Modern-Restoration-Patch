@@ -2836,8 +2836,264 @@ extern "C" void __cdecl NativeFreeSaveBufferK1(void* buffer)
 // constructors calls this as its last act, and it is the last instant at which a
 // control can be added: it deletes the parsed .gui the binder resolves tags
 // against. Panels that are not party screens are left alone.
+// debug-logs=2: a GUI frame that comes long after the one before, into
+// KMRP\logs\kmrp-frame-timing.log, with each panel built in between (the end of its
+// constructor, ReleaseGff below: its class by vtable, when it finished after the last
+// frame, and KMRP's own time in this hook) and KMRP's time in the frame hook before it.
+// What is left is the engine's (2026-10-30: the workbench took about a second to open
+// and no log said where the time went).
+namespace FrameTimingK1 {
+constexpr double kLongMs = 100.0;
+struct Built { unsigned vtable; double after, kmrp; };
+double g_frequency = 0, g_lastEnd = 0, g_lastKmrp = 0;
+Built g_built[16];
+int g_builtCount = 0, g_builtMissed = 0;
+
+double Now()
+{
+    LARGE_INTEGER t;
+    if (g_frequency == 0) {
+        LARGE_INTEGER f;
+        QueryPerformanceFrequency(&f);
+        g_frequency = static_cast<double>(f.QuadPart) / 1000.0;
+    }
+    QueryPerformanceCounter(&t);
+    return static_cast<double>(t.QuadPart) / g_frequency;
+}
+
+void Write(const char* text)
+{
+    HANDLE file = KmrpAppendLog(L"kmrp-frame-timing.log");
+    if (file == INVALID_HANDLE_VALUE) return;
+    char line[1200];
+#ifdef KMRP_CONTROLLER_STANDALONE
+    const char* module = "controller";
+#else
+    const char* module = "kmrp";
+#endif
+    const int length = std::snprintf(line, sizeof line, "%lu %s %s\r\n", GetTickCount(), module, text);
+    DWORD done = 0;
+    if (length > 0) WriteFile(file, line, static_cast<DWORD>(length < static_cast<int>(sizeof line) ? length : sizeof line - 1), &done, nullptr);
+    CloseHandle(file);
+}
+
+// A panel's constructor ended, `kmrp` ms of it in ReleaseGff's hook.
+void PanelBuilt(void* panel, double start)
+{
+    const double now = Now();
+    if (g_builtCount < static_cast<int>(sizeof g_built / sizeof *g_built)) {
+        const unsigned vtable = IsReadableK1(panel, 4) ? static_cast<unsigned>(*static_cast<std::uintptr_t*>(panel)) : 0;
+        g_built[g_builtCount++] = { vtable, g_lastEnd ? start - g_lastEnd : 0, now - start };
+    } else {
+        ++g_builtMissed;
+    }
+}
+
+// The sampler (debug-logs=2, 2026-10-30): a thread of its own that every couple of
+// milliseconds suspends the game's main thread, notes where it is and the first return
+// address into the game's code on its stack, and resumes it. A long frame's samples say
+// where the main thread spent it: the game, the driver or KMRP. A debugger could not be
+// used: pausing the Steam game from x32dbg killed it (0x4000001F in nvoglv32.dll).
+// While the thread is suspended the sampler only reads its context and copies its stack:
+// no allocation, no lock, so it cannot wait on anything the suspended thread holds.
+struct Sample { double at; unsigned eip, caller; };
+constexpr unsigned kSamples = 8192;           // about 16 s at 2 ms
+constexpr unsigned kGameTextStart = 0x00401000, kGameTextEnd = 0x0073D000;   // swkotor.exe .text
+Sample g_samples[kSamples];
+volatile LONG g_sampleCount = 0;
+HANDLE g_mainThread = nullptr;
+
+// The first value on the copied stack that points into the game's code: the nearest
+// game function the thread is in or was called from (a return address, or stale data
+// that looks like one; counted over many samples, the noise falls away).
+unsigned GameCaller(const unsigned* stack, int count)
+{
+    for (int i = 0; i < count; ++i)
+        if (stack[i] >= kGameTextStart && stack[i] < kGameTextEnd) return stack[i];
+    return 0;
+}
+
+int CopyStack(unsigned esp, unsigned* out, int count)
+{
+    __try {
+        std::memcpy(out, reinterpret_cast<const void*>(static_cast<std::uintptr_t>(esp)), count * sizeof *out);
+        return count;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return 0;
+    }
+}
+
+DWORD WINAPI SamplerThread(void*)
+{
+    unsigned stack[96];
+    for (;;) {
+        Sleep(2);
+        if (SuspendThread(g_mainThread) == static_cast<DWORD>(-1)) continue;
+        CONTEXT context{};
+        context.ContextFlags = CONTEXT_CONTROL;
+        const bool got = GetThreadContext(g_mainThread, &context) != 0;
+        const int copied = got ? CopyStack(context.Esp, stack, 96) : 0;
+        ResumeThread(g_mainThread);
+        if (!got) continue;
+        // Inside the game's own code the place is the caller; elsewhere the stack says.
+        const unsigned eip = context.Eip;
+        const unsigned caller = eip >= kGameTextStart && eip < kGameTextEnd ? eip : GameCaller(stack, copied);
+        const LONG index = InterlockedIncrement(&g_sampleCount) - 1;
+        g_samples[static_cast<unsigned>(index) % kSamples] = { Now(), eip, caller };
+    }
+}
+
+// Started once, from the main thread's frame hook.
+void StartSampler()
+{
+    static bool started = false;
+    if (started) return;
+    started = true;
+    g_mainThread = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION, FALSE,
+                              GetCurrentThreadId());
+    if (!g_mainThread) return;
+    HANDLE thread = CreateThread(nullptr, 64 * 1024, SamplerThread, nullptr, 0, nullptr);
+    if (thread) {
+        SetThreadPriority(thread, THREAD_PRIORITY_TIME_CRITICAL);
+        CloseHandle(thread);
+    }
+    Write("sampler started: the main thread every 2 ms");
+}
+
+// "module+offset" for an address, on the main thread (never while it is suspended).
+void Place(unsigned address, char* out, std::size_t room)
+{
+    HMODULE module = nullptr;
+    char path[MAX_PATH];
+    if (address && GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                                      reinterpret_cast<const char*>(static_cast<std::uintptr_t>(address)), &module) &&
+            GetModuleFileNameA(module, path, sizeof path)) {
+        const char* name = std::strrchr(path, '\\');
+        std::snprintf(out, room, "%s+%X", name ? name + 1 : path,
+                      address - static_cast<unsigned>(reinterpret_cast<std::uintptr_t>(module)));
+    } else {
+        std::snprintf(out, room, "%08X", address);
+    }
+}
+
+// The samples taken between `from` and `to`, summarised: share per module, the commonest
+// places, and the commonest game functions they were in or under.
+void ReportSamples(double from, double to)
+{
+    const LONG total = g_sampleCount;
+    struct Count { unsigned key; int n; };
+    Count modules[24]{}, places[64]{}, callers[64]{};
+    int nModules = 0, nPlaces = 0, nCallers = 0, n = 0;
+    auto add = [](Count* list, int& size, int room, unsigned key) {
+        for (int i = 0; i < size; ++i) if (list[i].key == key) { ++list[i].n; return; }
+        if (size < room) list[size++] = { key, 1 };
+    };
+    const LONG first = total > static_cast<LONG>(kSamples) ? total - static_cast<LONG>(kSamples) : 0;
+    for (LONG i = first; i < total; ++i) {
+        const Sample& s = g_samples[static_cast<unsigned>(i) % kSamples];
+        if (s.at < from || s.at > to) continue;
+        ++n;
+        HMODULE module = nullptr;
+        GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                           reinterpret_cast<const char*>(static_cast<std::uintptr_t>(s.eip)), &module);
+        add(modules, nModules, 24, static_cast<unsigned>(reinterpret_cast<std::uintptr_t>(module)));
+        add(places, nPlaces, 64, s.eip);
+        add(callers, nCallers, 64, s.caller);
+    }
+    if (n == 0) { Write("  samples: none in it"); return; }
+    auto top = [](Count* list, int size) { std::sort(list, list + size, [](const Count& a, const Count& b) { return a.n > b.n; }); };
+    top(modules, nModules); top(places, nPlaces); top(callers, nCallers);
+    char text[1100], where[160];
+    int used = std::snprintf(text, sizeof text, "  %d samples; by module:", n);
+    for (int i = 0; i < nModules && used > 0 && used < static_cast<int>(sizeof text) - 80; ++i) {
+        char name[MAX_PATH] = "?";
+        if (modules[i].key) GetModuleFileNameA(reinterpret_cast<HMODULE>(static_cast<std::uintptr_t>(modules[i].key)), name, sizeof name);
+        const char* base = std::strrchr(name, '\\');
+        used += std::snprintf(text + used, sizeof text - used, " %s %d%%", base ? base + 1 : name, 100 * modules[i].n / n);
+    }
+    Write(text);
+    for (int pass = 0; pass < 2; ++pass) {
+        Count* list = pass ? callers : places;
+        const int size = pass ? nCallers : nPlaces;
+        used = std::snprintf(text, sizeof text, pass ? "  in or under game code:" : "  where:");
+        for (int i = 0; i < size && i < 12 && used > 0 && used < static_cast<int>(sizeof text) - 80; ++i) {
+            Place(list[i].key, where, sizeof where);
+            used += std::snprintf(text + used, sizeof text - used, " %s %d%%", list[i].key ? where : "none", 100 * list[i].n / n);
+        }
+        Write(text);
+    }
+}
+
+// Once: what the game decided about hardware mipmaps and why (2026-10-30). The workbench's
+// pictures were mipmapped on the CPU by gluBuild2DMipmaps because AurSGIMipmapAvailable
+// (0x0045F910) returned 0: it needs GL_SGIS_generate_mipmap's bit in the game's extension
+// mask and refuses whenever GL_ATI_fragment_shader's is there too. Read from the game's
+// own variables (glcaps.h: mask 0x007BB85C, the two extensions' bits at 0x0078E4CC and
+// 0x0078E4D0, the cached answer 0x0078E538) and the driver's own extension string.
+void LogMipmapCapsOnce()
+{
+    static int frames = 0;
+    if (++frames != 120) return;   // well after the renderer has started and asked
+    const unsigned* mask = reinterpret_cast<const unsigned*>(0x007BB85C);
+    const unsigned* sgis = reinterpret_cast<const unsigned*>(0x0078E4CC);
+    const unsigned* ati = reinterpret_cast<const unsigned*>(0x0078E4D0);
+    const int* answer = reinterpret_cast<const int*>(0x0078E538);
+    if (!IsReadableK1(mask, 4) || !IsReadableK1(sgis, 8) || !IsReadableK1(answer, 4)) return;
+    using GetString = const unsigned char*(WINAPI*)(unsigned);
+    const HMODULE gl = GetModuleHandleA("opengl32.dll");
+    const GetString getString = gl ? reinterpret_cast<GetString>(GetProcAddress(gl, "glGetString")) : nullptr;
+    const char* extensions = getString ? reinterpret_cast<const char*>(getString(0x1F03)) : nullptr;   // GL_EXTENSIONS
+    const char* version = getString ? reinterpret_cast<const char*>(getString(0x1F02)) : nullptr;      // GL_VERSION
+    char text[400];
+    std::snprintf(text, sizeof text,
+                  "mipmap caps: game mask %08X, SGIS bit %08X (%s), ATI bit %08X (%s), cached answer %d; driver "
+                  "lists GL_SGIS_generate_mipmap %s, GL_ATI_fragment_shader %s; extension string %u chars; GL %s",
+                  *mask, *sgis, (*mask & *sgis) == *sgis ? "set" : "missing", *ati, (*mask & *ati) ? "set" : "clear",
+                  *answer, extensions && std::strstr(extensions, "GL_SGIS_generate_mipmap") ? "yes" : "no",
+                  extensions && std::strstr(extensions, "GL_ATI_fragment_shader") ? "yes" : "no",
+                  extensions ? static_cast<unsigned>(std::strlen(extensions)) : 0u, version ? version : "?");
+    Write(text);
+}
+
+// The frame hook's start: report the gap since the last frame's end when it is long.
+void FrameStart(double start)
+{
+    StartSampler();
+    LogMipmapCapsOnce();
+    if (g_lastEnd != 0 && start - g_lastEnd >= kLongMs) {
+        char text[1100];
+        int used = std::snprintf(text, sizeof text, "long frame: %.1f ms since the last GUI frame ended "
+                                 "(KMRP's frame work before it %.1f ms); panels built in it:",
+                                 start - g_lastEnd, g_lastKmrp);
+        for (int i = 0; i < g_builtCount && used > 0 && used < static_cast<int>(sizeof text); ++i)
+            used += std::snprintf(text + used, sizeof text - used, " vt=%08X done at +%.1f ms (KMRP %.1f ms)",
+                                  g_built[i].vtable, g_built[i].after + g_built[i].kmrp, g_built[i].kmrp);
+        if (g_builtCount == 0 && used > 0 && used < static_cast<int>(sizeof text))
+            std::snprintf(text + used, sizeof text - used, " none");
+        else if (g_builtMissed && used > 0 && used < static_cast<int>(sizeof text))
+            std::snprintf(text + used, sizeof text - used, " and %d more", g_builtMissed);
+        Write(text);
+        ReportSamples(g_lastEnd, start);
+    }
+    g_builtCount = g_builtMissed = 0;
+}
+
+// Records the frame hook's end on every way out of it; `start` below 0: not timing.
+struct FrameGuard {
+    double start;
+    ~FrameGuard()
+    {
+        if (start < 0) return;
+        g_lastEnd = Now();
+        g_lastKmrp = g_lastEnd - start;
+    }
+};
+}  // namespace FrameTimingK1
+
 extern "C" void __cdecl NativePanelReleaseGffK1(void* panel)
 {
+    const bool timed = KmrpDebugLevel() >= 2;
+    const double timingStart = timed ? FrameTimingK1::Now() : 0;
     CapturePartyRosterBindingsK1(panel);
     ControllerLayoutReleaseGffK1(panel);
 #ifdef KMRP_CONTROLLER_STANDALONE
@@ -2856,6 +3112,7 @@ extern "C" void __cdecl NativePanelReleaseGffK1(void* panel)
     InstallClassSelectPadK1(panel);
     InstallPazaakSetupPadK1(panel);
 #endif
+    if (timed) FrameTimingK1::PanelBuilt(panel, timingStart);
 }
 
 // The standalone controller patch reaches NativePanelReleaseGffK1's two moments from
@@ -7501,6 +7758,62 @@ void UpdateCursorConfinementK1()
     }
 }
 
+#ifdef KMRP_NATIVE_RUNTIME
+void KmrpRuntimeLog(const char* line);   // K1RuntimeEngine.cpp: one line into kmrp-kpm.log
+
+// Hardware mipmaps where only K1 Modern Driver Compatibility's ATI emulation turned them
+// off (2026-10-30). The game builds a texture's mipmaps on the graphics card only when
+// AurSGIMipmapAvailable (0x0045F910) says so: GL_SGIS_generate_mipmap in its extension
+// mask (0x007BB85C, that extension's bit at 0x0078E4CC) and not GL_ATI_fragment_shader
+// (bit at 0x0078E4D0), a rule for the ATI drivers of 2003. K1DC answers yes to the ATI
+// extension, which no current driver has, to emulate the ATI shader path, so the rule
+// sent every uncompressed texture through gluBuild2DMipmaps on the CPU: 93 to 96% of the
+// 0.9 s the workbench took to open, its 768x768 pictures rescaled and mipmapped each time
+// (in-process samples, Steam game at 3440x1440, NVIDIA 616.56). Where the driver itself
+// has the SGIS extension and not the ATI one, the rule's reason is absent: the cached
+// answer (0x0078E538, -1 until the game first asks) is set to 1. Nothing else changes; a
+// real ATI driver of the period, or one without the SGIS extension, keeps the game's.
+// Called after each texture upload (KmrpTextureUploadedK1), the OpenGL context current,
+// until it has decided once: from the first texture the game loads.
+// A workaround for K1DC, reported to its author on 2026-10-30: remove it once K1DC fixes
+// this, by the steps in docs/third-party-driver-compat.md, section 5.
+void CorrectHardwareMipmapsK1()
+{
+    static bool done = false;
+    static int frames = 0;   // uploads seen before the extension mask was there
+    if (done) return;
+    unsigned* const mask = reinterpret_cast<unsigned*>(0x007BB85C);
+    const unsigned* const sgis = reinterpret_cast<const unsigned*>(0x0078E4CC);
+    const unsigned* const ati = reinterpret_cast<const unsigned*>(0x0078E4D0);
+    int* const answer = reinterpret_cast<int*>(0x0078E538);
+    if (!IsReadableK1(mask, 4) || !IsReadableK1(sgis, 8) || !IsReadableK1(answer, 4)) { done = true; return; }
+    using GetString = const unsigned char*(WINAPI*)(unsigned);
+    static GetString getString = nullptr;
+    if (!getString) {
+        const HMODULE gl = GetModuleHandleA("opengl32.dll");
+        getString = gl ? reinterpret_cast<GetString>(GetProcAddress(gl, "glGetString")) : nullptr;
+    }
+    const char* const extensions = getString ? reinterpret_cast<const char*>(getString(0x1F03)) : nullptr;  // GL_EXTENSIONS
+    // Until the renderer has asked the driver: no extension mask or string yet.
+    if (*mask == 0 || !extensions) {
+        if (++frames > 600) done = true;
+        return;
+    }
+    done = true;
+    const bool gameSgis = *sgis != 0 && (*mask & *sgis) == *sgis;
+    const bool gameAti = *ati != 0 && (*mask & *ati) != 0;
+    const bool driverSgis = std::strstr(extensions, "GL_SGIS_generate_mipmap") != nullptr;
+    const bool driverAti = std::strstr(extensions, "GL_ATI_fragment_shader") != nullptr;
+    if (!(gameSgis && gameAti && driverSgis && !driverAti)) return;   // the game's own answer stands
+    const int before = *answer;
+    *answer = 1;
+    char line[200];
+    std::snprintf(line, sizeof line, "[KMRP] hardware mipmaps on: the driver has GL_SGIS_generate_mipmap and not "
+                  "GL_ATI_fragment_shader, which only K1DC's emulation reports (the game's answer was %d)", before);
+    KmrpRuntimeLog(line);
+}
+#endif
+
 // The GUI frame without controller support (installed as "no-controller" in
 // kotor1.hooks.toml): its two jobs that are not the pad's. Mouse confinement is
 // for mouse players, and fitting the status summary to KMRP's larger text is a
@@ -7652,6 +7965,10 @@ bool KmrpGuiModelsPendingK1() { return K1GuiModelPreload::Pending(); }
 extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
 {
     (void)guiManager;
+    const bool timed = KmrpDebugLevel() >= 2;
+    const double timingStart = timed ? FrameTimingK1::Now() : 0;
+    if (timed) FrameTimingK1::FrameStart(timingStart);
+    const FrameTimingK1::FrameGuard timingGuard{ timed ? timingStart : -1 };
 #ifdef KMRP_NATIVE_RUNTIME
     KmrpResolutionObservedK1(guiManager);   // as CoreGuiFrameK1 does, above
 #endif

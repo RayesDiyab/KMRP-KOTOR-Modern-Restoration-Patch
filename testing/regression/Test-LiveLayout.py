@@ -105,9 +105,73 @@ def built_file(size: str, name: str) -> GFFStruct:
         return read_gff(z.read(entry)).root
 
 
-def python_layout(name: str, source: Path, width: int, height: int, rows: dict) -> GFFStruct | None:
+def built_manifest(size: str) -> str:
+    """The set's prompt manifest (kmrp_prompts.txt), which the run time reads beside its files."""
+    with zipfile.ZipFile(RESOURCES / f"gui-{size}.zip") as z:
+        return z.read("kmrp_prompts.txt").decode("utf-8")
+
+
+def python_layout(name: str, source: Path, width: int, height: int, rows: dict,
+                  caption: float | None = None) -> GFFStruct | None:
     vanilla = read_gff(ll.VANILLA / name).root
-    return ll.layout(name, vanilla, read_gff(source).root, width, height, rows)
+    return ll.layout(name, vanilla, read_gff(source).root, width, height, rows, caption)
+
+
+def centred_padding(name: str, size: str, k, ours: GFFStruct, theirs: GFFStruct) -> bool:
+    """Is Script Selection's PADDING off only because the list it centres is? Each must be
+    centre_rows_in_frame of its own list, and the two no further apart than that list's
+    rounding: its left edge twice, its width and its scroll bar's width, and a pixel for the
+    rounding of the result. At 3440x1440 they are the same; elsewhere up to 3 px
+    (2026-10-30), the run time's rows centred in the art's frame for the list as it lays it."""
+    if name != "scriptselect.gui" or k != (("LST_AIState", ""), "PADDING"):
+        return False
+    w = int(size.split("x")[0])
+
+    def geometry(root: GFFStruct) -> tuple[int, int, int, int]:
+        s = {key: struct for key, struct, _ in ll.structures(root)}
+        e = ll.extent(s[("LST_AIState", "")])
+        return e[0], e[2], ll.extent(s[("LST_AIState", "SCROLLBAR")])[2], s[("LST_AIState", "")].get_int32("PADDING")
+
+    def centred(left: int, width: int, bar: int) -> int:
+        frame_left, frame_right = (f * w for f in ll.SCRIPTSELECT_FRAME)
+        padding = int(round(frame_left + frame_right - (left + width) - left - bar))
+        return max(0, min(padding, 255, (width - bar) // 2 - 1))
+
+    a, b = geometry(ours), geometry(theirs)
+    bound = 2 * abs(a[0] - b[0]) + abs(a[1] - b[1]) + abs(a[2] - b[2]) + 1
+    return centred(*a[:3]) == a[3] and centred(*b[:3]) == b[3] and abs(a[3] - b[3]) <= bound
+
+
+def row_threshold(name: str, size: str, k, rows: dict, caption) -> bool:
+    """Is a row list's height off only because the accepted rounding pixel put the list before
+    fitting on the other side of a row count? Then the build's own fit_list_to_rows, given the
+    run time's height, makes the run time's list, and given the set's, the set's.
+    ftchrgen.gui at 2880x1864: 1035 px fits 7 rows loosely and shrinks to 984, 1036 fits 8
+    rows exactly and stays (2026-10-30)."""
+    (tag, sub), field = k
+    if field != "HEIGHT" or sub not in ("", "SCROLLBAR") or (name, tag) not in ll.ROW_LISTS:
+        return False
+    w, h = (int(x) for x in size.split("x"))
+    fitted = next((int(line.split()[-1]) for line in built_manifest(size).splitlines()
+                   if line.split()[:3] == ["fitted", name, tag]), None)
+    saved = dict(ll.ROW_LISTS)
+    ll.ROW_LISTS.clear()
+    try:
+        unfitted = python_layout(name, ll.VANILLA / name, w, h, rows, caption)
+    finally:
+        ll.ROW_LISTS.update(saved)
+    before = numbers(unfitted)[((tag, ""), "HEIGHT")]
+    theirs_list = numbers(built_file(size, name))[((tag, ""), "HEIGHT")]
+    if fitted is None or abs(before - (theirs_list - fitted)) > 1:
+        return False
+    kind, bases = ll.ROW_LISTS[(name, tag)]
+    with tempfile.TemporaryDirectory(prefix="kmrp-rowthreshold-") as tmp:
+        path = Path(tmp) / name
+        gff = read_gff(ll.VANILLA / name)
+        gff.root = unfitted
+        write_gff(gff, path, ResourceType.GUI)
+        change = ll.fit_list_to_rows(path, path, h, tag, bases, popup=kind == "popup")
+    return before + change == numbers(python_layout(name, ll.VANILLA / name, w, h, rows, caption))[((tag, ""), "HEIGHT")]
 
 
 def mod_files(name: str, out: Path) -> tuple[Path | None, Path, str | None]:
@@ -338,7 +402,8 @@ def main() -> int:
     for name in files:
         for size in sizes:
             w, h = (int(x) for x in size.split("x"))
-            ours = python_layout(name, ll.VANILLA / name, w, h, rows[name])
+            caption = ll.manifest_caption(built_manifest(size))
+            ours = python_layout(name, ll.VANILLA / name, w, h, rows[name], caption)
             theirs = built_file(size, name)
             a, b = numbers(ours), numbers(theirs)
             if a.keys() != b.keys():
@@ -347,7 +412,9 @@ def main() -> int:
             for k in a:
                 d = abs(a[k] - b[k])
                 if k[1] == "PADDING":
-                    if d:
+                    if d and size != "3440x1440" and centred_padding(name, size, k, ours, theirs):
+                        print(f"note {name} {size} {k}: PADDING {a[k]}, the set has {b[k]} (its own list centred)")
+                    elif d:
                         fail(f"{name} {size} {k}: PADDING {a[k]}, the set has {b[k]}")
                     continue
                 diffs["exact" if d == 0 else "1 px" if d <= 1 else "more"] += 1
@@ -362,6 +429,10 @@ def main() -> int:
                 if (d > limit(w) and not engine_placed and size != "3440x1440"
                         and d <= limit(w) * moved_ratio(name, k)):
                     print(f"note {name} {size} {k}: {a[k]}, the set has {b[k]} (gold moved it)")
+                    continue
+                if (d > limit(w) and size != "3440x1440"
+                        and row_threshold(name, size, k, rows[name], caption)):
+                    print(f"note {name} {size} {k}: {a[k]}, the set has {b[k]} (a row count crossed by the rounding pixel)")
                     continue
                 if (size == "3440x1440" and d) or (d > limit(w) and not engine_placed):
                     fail(f"{name} {size} {k}: {a[k]}, the set has {b[k]}")
@@ -408,10 +479,20 @@ def main() -> int:
             for w, h, source in cases:
                 out = tmp / "out.gui"
                 out.unlink(missing_ok=True)
+                # The size's prompt manifest, as the run time reads it from the set: the set's
+                # own at a set's size, else one giving a caption that may or may not need the
+                # Container widened.
+                size = f"{w}x{h}"
+                manifest = (built_manifest(size) if size in sizes else
+                            f"prompt {ll.CAPTION_ROW} 1 1 {rng.uniform(100, 900):.2f} -\n")
+                prompts = tmp / "kmrp_prompts.txt"
+                prompts.write_text(manifest, encoding="utf-8")
                 args = [str(helper), "live", native_helpers.arg(ll.VANILLA / name), name, str(w), str(h),
-                        native_helpers.arg(out)] + ([native_helpers.arg(source)] if source else [])
+                        native_helpers.arg(out), native_helpers.arg(source) if source else "-",
+                        native_helpers.arg(prompts)]
                 code = subprocess.run(args, stdout=subprocess.DEVNULL).returncode
-                ours = python_layout(name, source or ll.VANILLA / name, w, h, rows[name])
+                ours = python_layout(name, source or ll.VANILLA / name, w, h, rows[name],
+                                     ll.manifest_caption(manifest))
                 if code != 0 or not out.is_file():
                     fail(f"{name} {w}x{h}{' (mod)' if source else ''}: the helper returned {code}")
                     continue

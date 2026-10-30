@@ -77,16 +77,21 @@ from pykotor.common.misc import ResRef
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
-from prepare_universal_resources import (DESCRIPTION_LISTBOXES, FONT_HEIGHT_DIVISOR,  # noqa: E402
+from prepare_universal_resources import (CONTAINER_FIT_TAG, CONTAINER_SCREEN,  # noqa: E402
+                                         CONTAINER_WIDENED, DESCRIPTION_LISTBOXES, FONT_HEIGHT_DIVISOR,
                                          FONT_SCALE_OFFSET, HAND_TUNED_GUTTERS, LIST_LISTBOXES,
                                          R3_CUE_BLOCKING_TYPES, R3_CUE_FILL, R3_CUE_GAP_MARGIN,
                                          R3_CUE_SCALE, R3_CUE_SCREENS, R3_CUE_TAG,
                                          SUBTAB_TAGS, SWAP_CUE_ASPECT, SWAP_CUE_BESIDE,
                                          SWAP_CUE_FILL, SWAP_CUE_SCREEN, SWAP_CUE_TAG,
                                          TAB_CUES, TAB_CUE_SCREEN, TAB_TAGS,
-                                         add_party_switch_cue, add_subtab_swap_cue, add_tab_strip_cues)
-from scale_listbox_padding import (FEEDBACK_LIST, GUTTER_AT_UNIT_SCALE, LIST_GUTTER_AT_UNIT_SCALE,  # noqa: E402
-                                   LOOSE_GAP, ROW_GAP_DIVISOR, ROW_LISTS, fit_list_to_rows, scale_row_template)
+                                         add_party_switch_cue, add_subtab_swap_cue, add_tab_strip_cues,
+                                         widen_container)
+from scale_listbox_padding import (FEEDBACK_LIST, GUTTER_AT_UNIT_SCALE, JOURNAL_ROWS,  # noqa: E402
+                                   LIST_GUTTER_AT_UNIT_SCALE, LOOSE_GAP, ROW_GAP_DIVISOR, ROW_LISTS,
+                                   SCRIPTSELECT_FRAME, centre_rows_in_frame, fit_list_to_rows,
+                                   fit_rows_to_list, scale_row_template)
+import build_controller_prompt_textures as prompts  # noqa: E402
 from build_controller_layout import (ENTRY_CAPTION, ENTRY_FALLBACK_STEP, ENTRY_LIFT_DIVISOR,  # noqa: E402
                                      ENTRY_PREVIOUS, ENTRY_SCREEN, ENTRY_TAG, ENTRY_TEMPLATE, add_entry)
 
@@ -122,7 +127,17 @@ FILES = (
     # the tab strip's LT/RT cues (2026-10-29).
     "abilities.gui", "top.gui",
     "optgameplay.gui", "optfeedback.gui",
+    # The lists the build fits to their rows (2026-10-30, the maintainer: "Row-fitted
+    # lists"): ROW_LISTS as for Equipment, Script Selection's rows centred in its art's
+    # frame, the Journal's six quest rows, and the Container widened for its Give Items
+    # caption, whose width the size's prompt manifest carries.
+    "computer.gui", "container.gui", "ftchrgen.gui", "journal.gui", "pwrlvlup.gui",
+    "scriptselect.gui", "skillinfo.gui", "store.gui", "upgradeitems.gui",
 )
+
+# The prompt manifest row whose caption width the Container is widened for.
+CAPTION_ROW = next(t.resref for t in prompts.PROMPT_TARGETS
+                   if (t.gui, t.tag) == (CONTAINER_SCREEN, CONTAINER_FIT_TAG))
 
 FIELDS = ("LEFT", "TOP", "WIDTH", "HEIGHT")
 # Rule numbers, as kmrp-guiadapt.c has them.
@@ -411,6 +426,33 @@ def render() -> str:
     lines.append("};")
     lines.append(f"#define LL_ROW_LIST_COUNT {len(rows_listed)}")
     lines.append("")
+    # Script Selection's rows centred in its art's frame (centre_rows_in_frame) and the
+    # Journal's quest rows (fit_rows_to_list), both scale_listbox_padding.py.
+    lines.append("/* Script Selection's list PADDING centring its rows in the art's frame, at these")
+    lines.append(" * fractions of the screen width (centre_rows_in_frame); the Journal's row template")
+    lines.append(" * sized so JOURNAL_ROWS rows fill its list (fit_rows_to_list). */")
+    lines.append(f"#define LL_CENTRE_SCREEN {c_string('scriptselect.gui')}")
+    lines.append(f"#define LL_CENTRE_TAG {c_string('LST_AIState')}")
+    lines.append(f"#define LL_CENTRE_FRAME_LEFT {SCRIPTSELECT_FRAME[0]!r}")
+    lines.append(f"#define LL_CENTRE_FRAME_RIGHT {SCRIPTSELECT_FRAME[1]!r}")
+    lines.append(f"#define LL_JOURNAL_SCREEN {c_string('journal.gui')}")
+    lines.append(f"#define LL_JOURNAL_TAG {c_string('LB_ITEMS')}")
+    lines.append(f"#define LL_JOURNAL_ROWS {JOURNAL_ROWS}")
+    lines.append("")
+    # The Container widened for its caption (prepare_universal_resources.py
+    # fit_container_to_caption, build_controller_prompt_textures.py badge_fit_width).
+    caption_row = CAPTION_ROW
+    lines.append("/* The Container widened until its Give Items button holds the caption the size's")
+    lines.append(" * prompt manifest gives (row CAPTION_ROW) and its badge (fit_container_to_caption). */")
+    lines.append(f"#define LL_WIDEN_SCREEN {c_string(CONTAINER_SCREEN)}")
+    lines.append(f"#define LL_WIDEN_TAG {c_string(CONTAINER_FIT_TAG)}")
+    lines.append(f"#define LL_WIDEN_CAPTION_ROW {c_string(caption_row)}")
+    lines.append("static const char *const LL_WIDENED[] = { " + ", ".join(map(c_string, CONTAINER_WIDENED)) + " };")
+    for key, number in (("BADGE_RADIUS", prompts.BADGE_RADIUS), ("BADGE_RADIUS_SHORT", prompts.BADGE_RADIUS_SHORT),
+                        ("BADGE_SHORT_BELOW", prompts.BADGE_SHORT_BELOW), ("BADGE_GAP", prompts.BADGE_GAP),
+                        ("BADGE_EDGE", prompts.BADGE_EDGE), ("FIT_MARGIN", prompts.FIT_MARGIN)):
+        lines.append(f"#define LL_{key} {number!r}")
+    lines.append("")
     # The R3 cue (prepare_universal_resources.py add_party_switch_cue, r3_cue_extent).
     blocking = 0
     for t in R3_CUE_BLOCKING_TYPES:
@@ -481,11 +523,21 @@ def game_size(source: GFFStruct, vanilla: GFFStruct) -> bool:
             and root[0] + root[2] <= base[0] and root[1] + root[3] <= base[1])
 
 
+def manifest_caption(manifest: str) -> float | None:
+    """The Container's caption width a prompt manifest (kmrp_prompts.txt) gives, or None."""
+    for line in manifest.splitlines():
+        parts = line.split()
+        if len(parts) >= 5 and parts[0] == "prompt" and parts[1] == CAPTION_ROW:
+            return float(parts[4])
+    return None
+
+
 def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height: int,
-           rows: dict) -> GFFStruct | None:
+           rows: dict, caption: float | None = None) -> GFFStruct | None:
     """`source` (the game's file or a mod's) laid out for width x height, in place, or None
     when it is not laid out for the game's size (game_size). What KmrpLiveLayout
-    (kmrp-guiadapt.c) does, in Python."""
+    (kmrp-guiadapt.c) does, in Python. `caption`: the Container's caption width from the
+    size's prompt manifest; without it the Container is not widened."""
     if not game_size(source, vanilla):
         return None
     base = base_of(source)
@@ -539,7 +591,10 @@ def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height:
     extra_cues = name in (SWAP_CUE_SCREEN, TAB_CUE_SCREEN)
     feedback = name == FEEDBACK_LIST[0]
     entry = name == ENTRY_SCREEN
-    if not lists and not cue and not extra_cues and not feedback and not entry:
+    centre = name == "scriptselect.gui"
+    journal = name == "journal.gui"
+    widen = name == CONTAINER_SCREEN and caption is not None
+    if not lists and not cue and not extra_cues and not feedback and not entry and not (centre or journal or widen):
         return source
     # The build's own steps, on a file: the lists made as tall as whole rows, then the R3
     # cue. A list or a cue the file cannot have (a mod's without the control, a row that
@@ -549,6 +604,21 @@ def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height:
         gff = GFF(GFFContent.GUI)
         gff.root = source
         write_gff(gff, path, ResourceType.GUI)
+        # In the build's order: the rows centred and the Journal's fitted after the
+        # gutters, then the Feedback rows and the row lists, the Container widened last.
+        # A list without a PADDING keeps none, as the C, which adds no fields, leaves it.
+        centred = [c for c in source.acquire("CONTROLS", GFFList(), GFFList)
+                   if c.acquire("TAG", "").upper() == "LST_AISTATE"]
+        if centre and centred and centred[-1].exists("PADDING"):
+            try:
+                centre_rows_in_frame(path, path, width, "LST_AIState", SCRIPTSELECT_FRAME)
+            except (ValueError, AttributeError, KeyError):
+                pass
+        if journal:
+            try:
+                fit_rows_to_list(path, path, height, "LB_ITEMS", JOURNAL_ROWS)
+            except (ValueError, AttributeError, KeyError, ZeroDivisionError):
+                pass
         if feedback and feedback_template(source) is not None:
             try:
                 scale_row_template(path, path, height, FEEDBACK_LIST[1])
@@ -558,6 +628,11 @@ def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height:
             try:
                 fit_list_to_rows(path, path, height, tag, bases, popup=kind == "popup")
             except (ValueError, AttributeError):
+                pass
+        if widen:
+            try:
+                widen_container(path, path, caption)
+            except (ValueError, AttributeError, KeyError):
                 pass
         if cue:
             try:

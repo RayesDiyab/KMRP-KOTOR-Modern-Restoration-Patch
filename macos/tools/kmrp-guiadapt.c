@@ -2,7 +2,7 @@
  *
  *   kmrp-guiadapt galaxy KEY SET_GUI OUT_GUI [SOURCE_GUI]
  *   kmrp-guiadapt mainmenu SET_GUI OUT_GUI
- *   kmrp-guiadapt live KEY|GAME_GUI NAME WIDTH HEIGHT OUT_GUI [SOURCE_GUI]
+ *   kmrp-guiadapt live KEY|GAME_GUI NAME WIDTH HEIGHT OUT_GUI [SOURCE_GUI|- [PROMPTS]]
  *
  * Three things, sharing the reading and writing of a layout's EXTENTs: the galaxy map's
  * planets (KmrpGalaxyMap, below), the main menu's buttons on the bars of their art
@@ -496,6 +496,9 @@ static int ll_game_size(const Gff *source, const Gff *game) {
 }
 
 static void ll_fit_rows(Gff *g, const LLRowList *list, int height);
+static void ll_centre_rows(Gff *g, int width);
+static void ll_fit_journal(Gff *g, int height);
+static void ll_widen(Gff *g, double caption);
 static long ll_control(const Gff *g, const char *tag, int last_exact);
 static int ll_row_height(int base, int height);
 
@@ -527,8 +530,10 @@ static void ll_clear_border(Gff *source, const Gff *game, uint32_t s, long own, 
     }
 }
 
-/* `source` laid out in place for width x height. */
-static void ll_layout(const char *name, const LLFile *file, Gff *source, const Gff *game, int width, int height) {
+/* `source` laid out in place for width x height. `caption`: the Container's caption width
+ * from the size's prompt manifest, or below 0 for none (the Container is then not widened). */
+static void ll_layout(const char *name, const LLFile *file, Gff *source, const Gff *game, int width, int height,
+                      double caption) {
     int bw, bh;
     ll_base(source, &bw, &bh);
     LLStruct st;
@@ -586,9 +591,11 @@ static void ll_layout(const char *name, const LLFile *file, Gff *source, const G
             if (strcasecmp(LL_FILE_GUTTERS[t].file, name) == 0 && strcasecmp(LL_FILE_GUTTERS[t].tag, st.tag) == 0)
                 put_u32(padding, (uint32_t)ll_gutter(LL_FILE_GUTTERS[t].unit, height));
     }
-    /* Then the lists made as tall as whole rows, as the build does after the gutters. */
-    for (int t = 0; t < LL_ROW_LIST_COUNT; t++)
-        if (strcasecmp(LL_ROW_LISTS[t].file, name) == 0) ll_fit_rows(source, &LL_ROW_LISTS[t], height);
+    /* The build's steps after the gutters, in its order: Script Selection's rows centred, the
+     * Journal's fitted, the Feedback rows, the lists made as tall as whole rows, and last the
+     * Container widened. */
+    if (strcasecmp(name, LL_CENTRE_SCREEN) == 0) ll_centre_rows(source, width);
+    if (strcasecmp(name, LL_JOURNAL_SCREEN) == 0) ll_fit_journal(source, height);
     /* Checkbox rows are built at their own template height, unlike text rows. */
     if (strcasecmp(name, LL_FEEDBACK_SCREEN) == 0) {
         long c = ll_control(source, LL_FEEDBACK_TAG, 0);
@@ -597,6 +604,9 @@ static void ll_layout(const char *name, const LLFile *file, Gff *source, const G
         if (proto >= 0 && extent_of(source, (uint32_t)proto, &e))
             put_u32(e.v[3], (uint32_t)ll_row_height(ev(&e, 3), height));
     }
+    for (int t = 0; t < LL_ROW_LIST_COUNT; t++)
+        if (strcasecmp(LL_ROW_LISTS[t].file, name) == 0) ll_fit_rows(source, &LL_ROW_LISTS[t], height);
+    if (caption >= 0 && strcasecmp(name, LL_WIDEN_SCREEN) == 0) ll_widen(source, caption);
 }
 
 static int ll_r3_screen(const char *name) {
@@ -680,6 +690,94 @@ static void ll_fit_rows(Gff *g, const LLRowList *list, int height) {
     }
     put_u32(root.v[1], (uint32_t)(ev(&root, 1) - ll_floordiv(change, 2)));
     put_u32(root.v[3], (uint32_t)(ev(&root, 3) + change));
+}
+
+/* scale_listbox_padding.centre_rows_in_frame on `g`: Script Selection's list PADDING so its
+ * rows sit centred in the box its art draws at fixed fractions of the screen width. The last
+ * control so tagged, any case, as the build's loop finds it; a list without a PADDING keeps
+ * none (the C adds no fields), and Python leaves it the same way. */
+static void ll_centre_rows(Gff *g, int width) {
+    uint32_t at, n = controls_of(g, &at);
+    long target = -1, bar;
+    for (uint32_t i = 0; i < n; i++) {
+        uint32_t c = u32(g->d + g->lists + at + 4 + i * 4);
+        char name[64];
+        if (c < g->nstructs && control_tag(g, c, name, sizeof name) && strcasecmp(name, LL_CENTRE_TAG) == 0)
+            target = (long)c;
+    }
+    Extent te, be;
+    uint8_t *padding;
+    if (target < 0 || !extent_of(g, (uint32_t)target, &te) || (bar = gff_child(g, (uint32_t)target, "SCROLLBAR")) < 0 ||
+        !extent_of(g, (uint32_t)bar, &be) || !(padding = int_field(g, (uint32_t)target, "PADDING"))) return;
+    const int left = ev(&te, 0), list_width = ev(&te, 2), bar_width = ev(&be, 2);
+    const double frame_left = LL_CENTRE_FRAME_LEFT * width, frame_right = LL_CENTRE_FRAME_RIGHT * width;
+    int value = (int)nearbyint(frame_left + frame_right - (left + list_width) - left - bar_width);
+    const int most = ll_floordiv(list_width - bar_width, 2) - 1;
+    if (value > 255) value = 255;
+    if (value > most) value = most;
+    if (value < 0) value = 0;
+    put_u32(padding, (uint32_t)value);
+}
+
+/* scale_listbox_padding.fit_rows_to_list on `g`: the Journal's row template, the largest whose
+ * JOURNAL_ROWS rows fill the list with an eleventh of a row between them. Nothing changes
+ * where the build would stop with an error. */
+static void ll_fit_journal(Gff *g, int height) {
+    long target = ll_control(g, LL_JOURNAL_TAG, 0), border, proto;
+    Extent te, pe;
+    uint8_t *dimension;
+    if (target < 0 || !extent_of(g, (uint32_t)target, &te) || (border = gff_child(g, (uint32_t)target, "BORDER")) < 0 ||
+        !(dimension = int_field(g, (uint32_t)border, "DIMENSION")) ||
+        (proto = gff_child(g, (uint32_t)target, "PROTOITEM")) < 0 || !extent_of(g, (uint32_t)proto, &pe)) return;
+    const int inner = ev(&te, 3) - 2 * (int32_t)u32(dimension), rows = LL_JOURNAL_ROWS;
+    const double spread = rows * (1 + 1.0 / LL_ROW_GAP_DIVISOR);
+    float scale = (float)(height / 720.0);
+    if (scale < 1.0f) scale = 1.0f;
+#define LL_FITS(t) ((double)(ll_row_height((t), height) * rows) * (1 + 1.0 / LL_ROW_GAP_DIVISOR) <= inner)
+    int best = (int)((double)inner / spread / (double)scale);
+    for (int guard = 0; !LL_FITS(best); best--)
+        if (++guard > 100000) return;
+    for (int guard = 0; LL_FITS(best + 1); best++)
+        if (++guard > 100000) return;
+#undef LL_FITS
+    const int row = ll_row_height(best, height);
+    if (row <= 0 || ll_floordiv(inner, row) != rows) return;
+    put_u32(pe.v[3], (uint32_t)best);
+}
+
+/* prepare_universal_resources.widen_container on `g`: the Container's column widened, by an
+ * even number of pixels about its centre, until Give Items holds `caption` and its badge
+ * (build_controller_prompt_textures.badge_fit_width). Controls by exact TAG, the last of a
+ * TAG, as the build's by_tag keeps them; nothing changes when one is missing. */
+static void ll_widen(Gff *g, double caption) {
+    long widened[sizeof LL_WIDENED / sizeof *LL_WIDENED];
+    Extent ext[sizeof LL_WIDENED / sizeof *LL_WIDENED], root;
+    for (size_t i = 0; i < sizeof LL_WIDENED / sizeof *LL_WIDENED; i++)
+        if ((widened[i] = ll_control(g, LL_WIDENED[i], 1)) < 0 || !extent_of(g, (uint32_t)widened[i], &ext[i])) return;
+    long button = ll_control(g, LL_WIDEN_TAG, 1), border, corner;
+    Extent be;
+    if (button < 0 || !extent_of(g, (uint32_t)button, &be) || !extent_of(g, 0, &root) ||
+        (border = gff_child(g, (uint32_t)button, "BORDER")) < 0 ||
+        (corner = gff_field(g, (uint32_t)border, "CORNER")) < 0) return;
+    const uint8_t *art = ll_resref(g, corner);
+    if (!art) return;
+    int inset = 0;
+    if (*art) {   /* fill_inset: corner art insets the fill by the border's DIMENSION */
+        uint8_t *dimension = int_field(g, (uint32_t)border, "DIMENSION");
+        if (!dimension || (int32_t)u32(dimension) <= 0) return;
+        inset = (int32_t)u32(dimension);
+    }
+    const int h = ev(&be, 3);
+    double radius = h * (h < LL_BADGE_SHORT_BELOW ? LL_BADGE_RADIUS_SHORT : LL_BADGE_RADIUS);
+    if (inset > 0) radius = fmin(radius, (h - 2 * inset) / 2.0 - LL_FIT_MARGIN);
+    const double need = caption + 2.0 * (inset + radius * (LL_BADGE_GAP + 1.0 + LL_BADGE_EDGE));
+    int extra = (int)ceil(need - ev(&be, 2));
+    if (extra <= 0) return;
+    extra += extra % 2;
+    put_u32(root.v[0], (uint32_t)(ev(&root, 0) - extra / 2));
+    put_u32(root.v[2], (uint32_t)(ev(&root, 2) + extra));
+    for (size_t i = 0; i < sizeof LL_WIDENED / sizeof *LL_WIDENED; i++)
+        put_u32(ext[i].v[2], (uint32_t)(ev(&ext[i], 2) + extra));
 }
 
 /* A GFF written again with structures added: every section copied as it is and new entries
@@ -1044,11 +1142,27 @@ static void ll_add_cues(const char *name, Buffer *file) {
  * or the game's own; GAME is the game's own file, read through chitin.key when KEY_PATH ends
  * in ".key", else read as it is. 0: written. 1: a layout could not be read; nothing written.
  * 2: could not write. 3: SOURCE is not laid out for the game's size; nothing written, and the
- * player's file is left to the game. 4: not a layout this lays out. */
-int KmrpLiveLayout(const char *key_path, const char *name, const char *source_gui, int width, int height,
-                   const char *out_gui) {
+ * player's file is left to the game. 4: not a layout this lays out.
+ * KmrpLiveLayoutPrompts: the same, with PROMPTS the size's prompt manifest (kmrp_prompts.txt),
+ * whose Give Items caption width the Container is widened for; without it, it is not. */
+static int ll_manifest_caption(const char *path, double *width) {
+    FILE *f = path && *path ? fopen(path, "r") : NULL;
+    if (!f) return 0;
+    char line[8192], row[64];
+    int found = 0, w, h;
+    while (!found && fgets(line, sizeof line, f))
+        if (sscanf(line, "prompt %63s %d %d %lf", row, &w, &h, width) == 4 && strcmp(row, LL_WIDEN_CAPTION_ROW) == 0)
+            found = 1;
+    fclose(f);
+    return found;
+}
+
+int KmrpLiveLayoutPrompts(const char *key_path, const char *name, const char *source_gui, int width, int height,
+                          const char *out_gui, const char *prompts) {
     const LLFile *file = ll_file(name);
     if (!file) return 4;
+    double caption = -1;
+    if (!ll_manifest_caption(prompts, &caption) || caption < 0) caption = -1;
     Buffer game = { NULL, 0 }, theirs = { NULL, 0 };
     size_t length = strlen(key_path);
     if (length > 4 && strcasecmp(key_path + length - 4, ".key") == 0) {
@@ -1073,7 +1187,7 @@ int KmrpLiveLayout(const char *key_path, const char *name, const char *source_gu
         gff_open(&source, theirs.data, theirs.size)) {
         if (!ll_game_size(&source, &own)) result = 3;
         else {
-            ll_layout(name, file, &source, &own, width, height);
+            ll_layout(name, file, &source, &own, width, height, caption);
             ll_add_cues(name, &theirs);
             FILE *f = fopen(out_gui, "wb");
             result = 2;
@@ -1085,6 +1199,11 @@ int KmrpLiveLayout(const char *key_path, const char *name, const char *source_gu
     }
     free(game.data); free(theirs.data);
     return result;
+}
+
+int KmrpLiveLayout(const char *key_path, const char *name, const char *source_gui, int width, int height,
+                   const char *out_gui) {
+    return KmrpLiveLayoutPrompts(key_path, name, source_gui, width, height, out_gui, NULL);
 }
 
 /* How many layouts KmrpLiveLayout lays out, and the name of one. */
@@ -1135,8 +1254,11 @@ const char *KmrpLiveLayoutName(int i) { return i >= 0 && i < KmrpLiveLayoutCount
 
 #ifndef KMRP_EMBEDDED
 int main(int argc, char **argv) {
-    if (argc >= 7 && argc <= 8 && strcmp(argv[1], "live") == 0) {
-        int result = KmrpLiveLayout(argv[2], argv[3], argc == 8 ? argv[7] : NULL, atoi(argv[4]), atoi(argv[5]), argv[6]);
+    if (argc >= 7 && argc <= 9 && strcmp(argv[1], "live") == 0) {
+        /* SOURCE "-": the game's own, for giving PROMPTS without a mod's file. */
+        const char *source = argc >= 8 && strcmp(argv[7], "-") != 0 ? argv[7] : NULL;
+        int result = KmrpLiveLayoutPrompts(argv[2], argv[3], source, atoi(argv[4]), atoi(argv[5]), argv[6],
+                                           argc == 9 ? argv[8] : NULL);
         if (result == 0) printf("%s written: %s laid out for %sx%s\n", argv[6], argv[3], argv[4], argv[5]);
         if (result == 1) fprintf(stderr, "kmrp-guiadapt: a layout could not be read; nothing written\n");
         if (result == 2) fprintf(stderr, "kmrp-guiadapt: %s: %s\n", argv[6], strerror(errno));

@@ -346,6 +346,58 @@ confirmed the game launches and reaches a loaded scene with both files present. 
 have not compared rendering before and after, on any vendor, and we have not tested
 AMD or Intel at all.
 
+### Hardware mipmaps, and what KMRP corrects (2026-10-30)
+
+A side effect found by measurement, not by reading K1DC: because K1DC answers yes to
+`GL_ATI_fragment_shader`, the game's `AurSGIMipmapAvailable` (`0x0045F910`) says no to
+`GL_SGIS_generate_mipmap`, by a rule written for ATI's drivers of 2003. Every uncompressed
+texture that asks for mipmaps is then rescaled and mipmapped on the CPU by
+`gluBuild2DMipmaps` (`CreateTexture`, `0x00424980`) each time it is loaded.
+
+| Measured (Steam game, 3440x1440, NVIDIA 616.56, OpenGL 4.6) | Value |
+| --- | --- |
+| game extension mask `0x007BB85C` | `3F7EFDFF`, the same as K1DC's log reports |
+| its SGIS bit (`[0x0078E4CC]` = `00080000`) / ATI bit (`[0x0078E4D0]` = `00100000`) | both set |
+| driver's own `GL_EXTENSIONS`: SGIS / ATI fragment shader | yes / no |
+| cached answer `0x0078E538` | 0 |
+| workbench opening, two times (frame gap) | 912 and 893 ms, 93 to 96% of in-process samples under `swkotor.exe+0x24CE5` in `GLU32.dll` and `msvcrt.dll` |
+
+KMRP's art is where it showed: 684 of the 876 uncompressed TGAs KMRP serves have no TXI
+(`lbl_wupgradeb1.tga` and `lbl_wupgradeb2.tga` are 768x768; the game's own are 256x256
+DXT5 TPCs with nine mip levels built). **Since 2026-10-30 KMRP sets the cached answer to
+1**, once, from its hook after a texture upload (`KmrpTextureUploadedK1`, `0x004216F1`,
+calling `CorrectHardwareMipmapsK1` in `K1NativeJoystick.cpp`), when the game's mask has
+both bits, the driver lists `GL_SGIS_generate_mipmap` and the driver does not list
+`GL_ATI_fragment_shader`; a real ATI driver of the period keeps the game's answer. After
+it, in the same game: the log line `[KMRP] hardware mipmaps on ... (the game's answer was
+-1)`, both workbench openings under the 100 ms timing threshold, and K1DC's log with the
+same two `INVALID_OPERATION` warnings (`soft_shadow`, `glow`) it had on 2026-10-20.
+**Not tested:** without K1DC (the condition is then false and nothing is written), on AMD
+or Intel, and a side-by-side look at K1DC's effects. The finding was sent to K1DC's
+author ([report](handoffs/k1dc-hardware-mipmaps-report-2026-10-30.md)); the maintainer
+messaged Synchro on 2026-10-30.
+
+**This is a workaround, to be removed once K1DC fixes it** (the maintainer, 2026-10-30:
+"whenever Synchro fixes it we should remove our workaround"). When a K1DC release says it
+fixes hardware mipmaps, or bundling a newer K1DC:
+
+1. Check the fix with KMRP's correction still in place but not acting: set
+   `debug-logs=2`, start the game, and read the `mipmap caps` line in
+   `KMRP\logs\kmrp-frame-timing.log`. K1DC fixed it if the cached answer is 1 while
+   `kmrp-kpm.log` has **no** `[KMRP] hardware mipmaps on` line for that run (KMRP writes
+   only when the game's own answer would have been 0). If K1DC fixed it by keeping the ATI
+   bit out of the game's mask, the line shows the ATI bit clear.
+2. Time the workbench the same way (two openings, no `long frame` line with
+   `vt=007571B0`).
+3. Then remove `CorrectHardwareMipmapsK1` (`src/controller-native/K1NativeJoystick.cpp`)
+   and its call at the top of `KmrpTextureUploadedK1` (`K1TextLayout.cpp`), add a
+   `CHANGELOG.md` entry, and replace this subsection with a short correction naming the
+   K1DC version that fixed it. Keep the level-2 `mipmap caps` line: it is how a
+   regression would show.
+
+Until then the correction stays: with K1DC 2.0.0 (the version KMRP bundles, built
+2026-10-10) every KMRP install with Modern Driver Compatibility on needs it.
+
 ## 6. The opt-out
 
 **Advanced Settings**, the square gear button beside *Start Patching*, opens a
