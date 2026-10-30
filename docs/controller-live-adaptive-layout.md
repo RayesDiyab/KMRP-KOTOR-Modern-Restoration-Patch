@@ -40,7 +40,7 @@ was seen in the game, and what was not, is in section 8.
 | Executable the addresses were checked in | `build-inputs\swkotornopatch.exe`, the 1.03 executable, 4,042,752 bytes, SHA-256 `761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886` |
 | Executable played | Steam's `swkotor.exe` (`build-inputs\swkotor-steam.exe`, 4,395,008 bytes, SHA-256 `34E6D971C034222A417995D8E1E8FDD9F8781795C9C289BD86C499A439F34C88`). Its code is wrapped on disk, so it was not disassembled; KPM runs the module against it at the same addresses |
 | Glyph bank | `build\controller-standalone\files\kmrp-glyphs.bin`, 1,712,499 bytes: 136 outlines and 172 scenes |
-| What the patch carries | 18 files: 17 layout files and `kmrp-glyphs.bin` (and SDL, packed beside them). No texture |
+| What the patch carries | 2 files since 2026-10-30: `kmrplayout.gui` and `kmrp-glyphs.bin` (and SDL, packed beside them); the other 16 layout files are cued at run time (section 4, "The screens' cues"). 18 files before. No texture |
 
 Addresses are virtual addresses (VA) in the executable. This document changes no byte of
 the executable; every address here is one the module reads, writes in memory, or calls.
@@ -470,6 +470,33 @@ against their ownership records and removed as required by the live-test policy.
 Their installation metadata was retained in the ignored build records. The
 accepted controller module and its manifest row remain installed.
 
+### The screens' cues (2026-10-30)
+
+The pictures were drawn at run time from 2026-10-28; the layouts that show them were not.
+Until 2026-10-30 the patch carried 16 of the game's layout files with its cues added at
+build time, and its folder is searched before `Override`, so a mod's file for one of those
+screens was replaced by the game's own with cues. Now the patch carries only
+`kmrplayout.gui`, and the module adds the cues to whichever file the game would load:
+
+| Step | What |
+| --- | --- |
+| When | once a session, in `KmrpPrepareResourcesK1`, after the bank is unpacked and before the folder is registered (`CueScreens`, `K1ControllerStandalone.cpp`) |
+| Which screens | `KmrpControllerCueScreen`: `abilities`, `character`, `equip`, `inventory`, `top`, `optgameplay`, `confirm`, `dialog` and the eight `mipc*` |
+| From | the player's file in `Override` when there is one, else the game's own through `chitin.key` |
+| What is added | `KmrpControllerCues` (`macos/tools/kmrp-guiadapt.c`): the party cue, the swap-tabs cue, the LT and RT cues, the Controller Layout entry, the travelling A (its label cloned from the patch's `kmrplayout.gui` `LBL_TITLE`), the combat cues. The same C steps Live Adaptive Layout runs for KMRP, without laying anything out: the file keeps its own size |
+| Not written | a file that already has its cues, or lacks the controls they sit by (result 3): the game loads the player's file as it is. A failure is written to `kmrp-controller.log` |
+| Beside KMRP | nothing: KMRP's screens carry the cues already (`LeaveLayoutsToKmrp`) |
+
+Measured on 2026-10-30. `Test-ControllerKpatch.py` runs `KmrpControllerCues` on the game's
+16 files and compares each with what the build's Python steps make, field for field. All
+16 are identical but for the travelling A's `TEXT.COLOR` in `confirm.gui` and `dialog.gui`,
+0.98 against 250/255, on a label with no text (`Test-LiveLayout.py` allows the same). A
+file run through it a second time is not written. The scratch game
+(`build\controller-standalone\game`, the CD executable, this patch alone, its data linked to
+the Steam game's) was started without input. The patch's folder held the 16 screens and
+`kmrplayout.gui`. An `equip.gui` placed in its `Override` with Back moved 7 px kept the
+move and gained the party cue. The screens were not looked at in the game.
+
 ## 5. How this stays isolated
 
 * Only fills whose name begins `kmr` or `kmz` and names a scene are touched; every other
@@ -517,6 +544,7 @@ accepted controller module and its manifest row remain installed.
 | Pictures match the textures they replace | mean difference per channel, drawn at the old texture's size: tab arrows and remap symbols 0.6 to 3.2 of 255; the board 0.38 (Xbox), 0.41 (PlayStation); the backdrop 0.02 to 1.06; the HUD frames 0.01 to 0.65 | measured |
 | Badges, cues, the Controller Layout, the remapping screen, the HUD's frames | the maintainer, at 3440x1440 and after changes to 2560x1440 and 1920x1440, with a DualSense | seen working on 2026-10-28 |
 | The swoop race's prompt | | **not seen in the game** |
+| The screens' cues made at run time (2026-10-30) | `Test-ControllerKpatch.py`; the scratch game started, its folder read | the 16 screens written, a mod's `equip.gui` cued and kept; **not seen in the game** |
 | Other pads (Xbox, Switch, Deck), other aspect ratios than 21:9 and 4:3 | | **not seen in the game**; drawn by the same code and covered by the tests above |
 | The background thread under a slow disk or processor | | **not measured**; its trigger is by events, not time, so that the order holds anywhere |
 

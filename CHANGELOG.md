@@ -117,6 +117,25 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **The controller patch on its own gives a GUI mod's screens its button prompts**
+  (2026-10-30, Controller Live Adaptive Layout). The controller patch used to carry 16 of the
+  game's layout files with its prompts added (the party, swap-tabs, LT and RT cues, the
+  Controller Layout entry, the travelling A, the combat cues), and these took the place of a
+  mod's file for the same screen. Now it adds the prompts while the game starts to whichever
+  file the game would load, a mod's or the game's own, and carries only its Controller
+  Layout screen. Beside KMRP nothing changes: KMRP's screens carry the prompts already.
+  The result matches the old files field for field. Started in a scratch game without
+  input: a mod's Equipment screen kept its own layout and gained the RB cue. Not yet looked
+  at in the game.
+
+- **The sets no longer carry the screens Live Adaptive Layout makes** (2026-10-30). Each of
+  the 66 resolution sets held its own copy of the 73 screens that are now laid out while the
+  game runs, which the run-time file always covered. KMRP's art pack now leaves them out
+  (52.1 MB to 50.9 MB) and the size's folder in KMRP's cache holds none. The 32-slot party
+  roster is built from the screen laid out for the size instead of the set's copy. A
+  screen that cannot be laid out shows the game's own, with a line in the log. Tests pass;
+  installed in the Steam game, not yet seen there.
+
 - **KMRP works for a Windows user name in any script** (2026-10-30). KMRP's cache lives
   under the user's profile, and until now KMRP passed its paths in the system's code page:
   with a user name that page cannot write (a Cyrillic or Chinese name on a Windows set to
@@ -154,7 +173,8 @@ proxy, and it applies the executable changes above as well.
   the default size's place. A widescreen mod's `mipc*.gui` in Override is now given the
   two badges KMRP's own files carry. The HUD files are recorded in the layout inventory:
   the two the game loads with KMRP are placed at run time by the HUD's table, and seven
-  are never loaded. Not seen in the game: the badges show only with the pad in use.
+  are never loaded. Seen in the Steam game at 3440x1440 with KMRP's own HUD (2026-10-30,
+  "Combat Q works"); a mod's HUD file has not been tried in the game.
 
 - **The tooltips use Live Adaptive Layout** (2026-10-30): the five tooltip files, one
   per base size, laid out by the shared rules and gold alone, a mod's file included,

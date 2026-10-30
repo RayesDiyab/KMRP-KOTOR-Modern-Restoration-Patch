@@ -57,8 +57,9 @@ the game at 3440x1440 only (section 6).
 
 | | |
 | --- | --- |
-| Source | master `86ee647` with the path handling of 2026-10-30 (uncommitted when written) |
-| Module (73 screens, any path) | `build\native-runtime\kmrp-native.dll`, 884,224 bytes, SHA-256 `97E5DE246601EB368D2427C6B8C51226A4F0469D9AFA166223F2E899A8801EA5`, with the controller module from the same source (2,721,792 bytes, `2A04EF18F24AB2FFAA613F0427EB942A0AAE4244083AC4495D111F868B767570`); section 6, "Paths" |
+| Source | master `ccf4641` with the sets' copies retired, 2026-10-30 (uncommitted when written) |
+| Module (73 screens, sets without them) | `build\native-runtime\kmrp-native.dll`, 885,248 bytes, SHA-256 `BE06766955FCB5BFB4DD81237DB7B3484BC3065758BC599744A68B12BD231006` (with `KmrpControllerCues` linked in; `73FED839...9981` before it), with its art pack `kmrp-assets.pack`, 50,911,384 bytes, `1F2C1A4CFC14BE616F9D49D25C940238F0B0B1997A496D76D6BC0C88EAF8C597` (52,056,152 bytes before); installed in the Steam game 2026-10-30; section 3, "The sets hold none of these" |
+| Previous module (73 screens, any path) | `build\native-runtime\kmrp-native.dll`, 884,224 bytes, SHA-256 `97E5DE246601EB368D2427C6B8C51226A4F0469D9AFA166223F2E899A8801EA5`, with the controller module from the same source (2,721,792 bytes, `2A04EF18F24AB2FFAA613F0427EB942A0AAE4244083AC4495D111F868B767570`); section 6, "Paths" |
 | Previous module (73 screens) | 881,664 bytes, SHA-256 `5E61BDE801B6331967BDFFE39551F2BC98A6FFED94F5FD348ECB3DE65CD087CA`; installed in the Steam game 2026-10-30 for the maintainer's test, with the controller module from the same source (2,722,816 bytes, `FC057B85D2E53E08CFD3B7F27E4A57FD2ED825978FBE8B068CAB7FCCADCC6F08`) |
 | Previous module (70 screens) | 870,912 bytes, SHA-256 `659BF0E9A1F9267E70740CB4D90216F70451998008965210575BF0E14A6E4331`, with the controller module `C57CDEC3CB93EC8333989D844036A9B232F52594123385329669082398431B8D`; seen in the game 2026-10-30 ("Both look right"), committed as `a314a6d` |
 | Withdrawn module (70 screens, first centre rule) | `BF8BB39C445D5E650F847B47C9A4473B8AB224C1627F0CEAEC0CD69B0AE5CBFB`: carried the centre for every kept-shape control, which failed 295 fields; installed for a short while the same day, replaced by the one above |
@@ -348,6 +349,20 @@ sets, upstream's rounding. So the default is:
 before `Override` (the roster folder, or this run's folder of links when the player's
 `Override` has some of the set's files), `K1RuntimeAssets.cpp` `AdaptLiveLayoutK1`:
 
+**The sets hold none of these since 2026-10-30.** Until then each of the 66 sets, and each
+size the blend helper made, carried its own copy of every screen below, which the file
+written here covered. Now the art pack's index names none of the 73
+(`tools/build_native_assets.py` `LIVE_LAYOUTS`, read from the table's `LL_FILES`), and
+`BuildSet` deletes what the blend helper writes of them, so a size's set folder holds
+only what live layout does not make: the HUD, the status summary, KMRP's own
+`kmrplayout.gui` (the badge donor), `kmrp_prompts.txt` (the Container's caption width), the
+fonts' metrics and art. The 32-slot roster's base is now this screen laid out for the size
+(`AdaptPartyRosterK1` calls `KmrpLiveLayoutSet` for `partyselection.gui`), and the galaxy
+map and main menu start only from what live layout wrote (`LayoutBase`). A screen live
+layout cannot make is the game's own file at 640x480, with a log line; before, it was the
+set's copy. The build's `gui-*.zip` sets are unchanged: `Test-LiveLayout.py` compares
+against them and the Mac's installer copies them (handoff item 123).
+
 | File | Source when `Override` has none | Source when it has one |
 | --- | --- | --- |
 | `optionsmain.gui`, `optionsingame.gui`, `optautopause.gui`, `optgraphics.gui`, `optgraphicsadv.gui`, `optmouse.gui`, `optsound.gui`, `optsoundadv.gui`, `optkeymapping.gui`, `optkeyentry.gui`, `optresolution.gui` | the game's own, from `chitin.key` | the player's, if it is laid out for the game's size; else nothing is written and the player's file is left to the game, as before |
@@ -357,7 +372,7 @@ before `Override` (the roster folder, or this run's folder of links when the pla
 | `optgameplay.gui`, `optfeedback.gui` | the game's own, with the Controller Layout entry or scaled checkbox row template | the player's file, retaining button styling and custom row height; existing entry preserved |
 | `computer.gui`, `container.gui`, `ftchrgen.gui`, `journal.gui`, `pwrlvlup.gui`, `scriptselect.gui`, `skillinfo.gui`, `store.gui`, `upgradeitems.gui` | the game's own, with the build's row steps below | the player's file, the same steps where its controls have what they need; a step it cannot take is left out |
 | `pause.gui` | the game's own, by the rules and gold alone; the module's `Pause` (`K1TextLayout.cpp`) then places the notice under the live menu row, its margins read from this file | the player's file, the same |
-| `partyselection.gui` | the game's own, by the rules and gold alone; **not written while the 32-slot roster is active**, whose file `AdaptPartyRosterK1` builds from the set's layout just before and keeps (`managedPartyRoster`) | the same, or the roster's file |
+| `partyselection.gui` | the game's own, by the rules and gold alone; **not written while the 32-slot roster is active**, whose file `AdaptPartyRosterK1` builds just before from this screen laid out for the size (from the set's copy until 2026-10-30) and keeps (`managedPartyRoster`) | the same, or the roster's file |
 | `mainmenu.gui`, `mainmenu8x6.gui`, `mainmenu10x7.gui`, `mainmenu12x9.gui`, `mainmenu16x12.gui` | the game's own, by the rules and gold; then `AdaptMainMenuK1` puts the five buttons on the bars of their art (`KmrpMainMenuBars`) from this file | the player's file, laid out the same; the bars are KMRP's art's, so a mod's file keeps its own button places, as before |
 | `galaxymap.gui` (since 2026-10-28) | the game's own, by the rules and gold; then `AdaptGalaxyMapK1` puts the planets and Live slots where the game's own 640x480 layout has them (issue 67), from this file | the same, the mod's destinations placed |
 | `mipc*.gui` (the HUD) | nothing: the set's file is used, and the module's table places the HUD (`K1PcHud.cpp`) | the player's file **as it is**, with KMRP's two combat cues added when it lacks them (`KmrpHudCues`: `add_combat_cues`'s rule, clones of `LBL_QUEUE1`); not laid out, because the table places every control, the cues included |

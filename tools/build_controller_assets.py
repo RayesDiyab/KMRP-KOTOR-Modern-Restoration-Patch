@@ -324,7 +324,24 @@ def make(work: Path) -> dict:
     UNSHIPPED.clear()
     if not CARRY_DRAWN:
         UNSHIPPED.update({name: files.pop(name) for name in sorted(unshipped) if name in files})
+    # The cued screens are made at run time by the module from the file the game would load,
+    # a mod's or the game's own (KmrpControllerCues, macos/tools/kmrp-guiadapt.c; Controller
+    # Live Adaptive Layout, 2026-10-30), so the patch does not carry them. Still made here, for
+    # the tests (which hold the C to them) and for the Mac, whose module does not (CARRY_CUED).
+    if not CARRY_CUED:
+        UNSHIPPED.update({name: files.pop(name) for name in sorted(cued_screens()) if name in files})
     return files
+
+
+# Made by the C at run time on Windows (KmrpControllerCueScreen): the screens the steps above
+# add cues to. testing/regression/Test-ControllerKpatch.py holds the two lists equal.
+def cued_screens() -> list:
+    return sorted(set(R3_CUE_SCREENS) | {SWAP_CUE_SCREEN, TAB_CUE_SCREEN, "optgameplay.gui", "confirm.gui",
+                                         "dialog.gui"} | {p.name.lower() for p in VANILLA_GUI.glob("mipc*.gui")})
+
+
+# The Mac sets this: its module adds no cues at run time, so it carries the cued screens.
+CARRY_CUED = False
 
 
 # --carry-drawn: carry the drawn pictures in the patch too, as a fallback (make).
@@ -487,6 +504,8 @@ def badge_shapes(files: Path = OUT / "files") -> str:
         boxes[resref] = (glyph, int(left), int(top), int(width), int(height))
     for target in PROMPT_TARGETS:
         gui = files / target.gui
+        if not gui.exists():
+            gui = files.parent / "made" / target.gui    # a cued screen, made at run time (CUED_SCREENS)
         if not gui.exists():
             gui = VANILLA_GUI / target.gui       # a screen this patch leaves as the game has it
         if target.gui == "mainmenu.gui":

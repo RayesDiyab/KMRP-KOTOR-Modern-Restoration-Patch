@@ -82,6 +82,66 @@ def alpha_box(tga: bytes):
     return min(xs), min(ys), max(xs) - min(xs) + 1, max(ys) - min(ys) + 1
 
 
+def gff_fields(value, path=""):
+    """A layout's every field as {path: value}, list items by index."""
+    from pykotor.resource.formats.gff import GFFList, GFFStruct
+    if isinstance(value, GFFStruct):
+        out = {f"{path}#id": value.struct_id}
+        for label, _kind, field in value:
+            out.update(gff_fields(field, f"{path}.{label}"))
+        return out
+    if isinstance(value, GFFList):
+        out = {f"{path}#len": len(value)}
+        for i, item in enumerate(value):
+            out.update(gff_fields(item, f"{path}[{i}]"))
+        return out
+    return {path: value}
+
+
+def check_run_time_cues(cued: list, made: Path) -> None:
+    """The module's KmrpControllerCues (macos/tools/kmrp-guiadapt.c) on the game's own layouts
+    gives the files the build's steps make, field for field: the same screens, and a file
+    that already has its cues is left alone."""
+    import subprocess
+    import tempfile
+    sys.path.insert(0, str(ROOT / "testing/regression"))
+    import native_helpers
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        helper = next(iter(native_helpers.build(ROOT / "macos/tools/kmrp-guiadapt.c", tmp, "kmrp-guiadapt").values()))
+        listed = subprocess.run([str(helper), "cuescreens"], capture_output=True, text=True).stdout.split()
+        check(sorted(listed) == cued, f"the module cues the same {len(listed)} screens the build does")
+        donor = native_helpers.arg(FILES / "kmrplayout.gui")
+        wrong, again = [], []
+        for name in cued:
+            out = tmp / name
+            subprocess.run([str(helper), "cues", native_helpers.arg(assets.VANILLA_GUI / name), name,
+                            native_helpers.arg(out), "-", donor], capture_output=True)
+            if not out.exists():
+                wrong.append(f"{name}: not written")
+                continue
+            ours, theirs = gff_fields(read_gff(out).root), gff_fields(read_gff(made / name).root)
+            for key in sorted(ours.keys() | theirs.keys()):
+                a, b = ours.get(key), theirs.get(key)
+                if a == b:
+                    continue
+                # The travelling A's label has no text to colour: its TEXT.COLOR is
+                # kmrplayout.gui's LBL_TITLE's, 0.98, where the build's clone has 250/255,
+                # as Test-LiveLayout.py allows for the same label.
+                if key.endswith(".TEXT.COLOR") and a is not None and b is not None and all(
+                        abs(getattr(a, c) - getattr(b, c)) < 1 / 255 for c in "xyz"):
+                    continue
+                wrong.append(f"{name} {key}: {a} != {b}")
+            twice = tmp / ("again-" + name)
+            subprocess.run([str(helper), "cues", native_helpers.arg(out), name, native_helpers.arg(twice), "-", donor],
+                           capture_output=True)
+            if twice.exists():
+                again.append(name)
+        check(not wrong, f"the module's cues on the game's {len(cued)} screens are the build's, field for field"
+              + ("" if not wrong else f": {wrong[:4]}"))
+        check(not again, "a screen that has its cues is given none again" + ("" if not again else f": {again}"))
+
+
 def main() -> int:
     # 1. The package against its sources.
     result = package.validate(PACKAGE)
@@ -149,11 +209,16 @@ def main() -> int:
     check(made_names and not set(made_names) & set(names),
           f"the {len(made_names)} badges and one-glyph pictures the module draws are not carried")
     guis = [n for n in names if n.endswith(".gui")]
+    # The cued screens are made at run time from the file the game would load (Controller
+    # Live Adaptive Layout, 2026-10-30): the patch carries only its own screen.
+    check(guis == ["kmrplayout.gui"], f"{len(guis)} layout file carried: the Controller Layout screen alone")
+    cued = assets.cued_screens()
     expected = sorted(list(assets.R3_CUE_SCREENS) + [assets.TAB_CUE_SCREEN, "optgameplay.gui", "confirm.gui",
-                                                      "dialog.gui", "kmrplayout.gui"]
-                      + [p.name for p in assets.VANILLA_GUI.glob("mipc*.gui")])
-    check(guis == expected,
-          f"{len(guis)} layout files: the ones the controller changes and its own screen")
+                                                      "dialog.gui"]
+                      + [p.name.lower() for p in assets.VANILLA_GUI.glob("mipc*.gui")])
+    check(cued == expected and all((MADE / n).exists() for n in cued),
+          f"the {len(cued)} cued screens are made for the tests, not carried")
+    check_run_time_cues(cued, MADE)
     # Nothing prebuilt (phase 5, 2026-10-28): every picture the patch shows is drawn by its
     # module at the size it is shown, so it carries no texture and no texture's TXI. The
     # pictures are still made, into build/controller-standalone/made, for the tests and for
@@ -243,7 +308,7 @@ def main() -> int:
     loaded = {}
     for target in targets:
         source = "mainmenu8x6.gui" if target.gui == "mainmenu.gui" else target.gui
-        path = FILES / source if (FILES / source).exists() else assets.VANILLA_GUI / source
+        path = next((d / source for d in (FILES, MADE) if (d / source).exists()), assets.VANILLA_GUI / source)
         # the badges' textures are made, not carried (MADE)
         controls = loaded.setdefault(source, {c.get_string("TAG"): c for c in read_gff(path).root.get_list("CONTROLS")})
         control = controls[target.tag]
@@ -320,7 +385,7 @@ def main() -> int:
     pieces = xbox_hud.pieces()
     by_tag = {piece["tag"]: piece for piece in pieces}
     problems = []
-    for hud in sorted(FILES.glob("mipc2*.gui")):
+    for hud in sorted(MADE.glob("mipc2*.gui")):
         kinds = {c.get_string("TAG"): c.get_int32("CONTROLTYPE") for c in read_gff(hud).root.get_list("CONTROLS")}
         problems += [f"{hud.name}: {p['tag']}" for p in pieces if kinds.get(p["tag"]) != p["kind"]]
         order = [c.get_string("TAG") for c in read_gff(hud).root.get_list("CONTROLS")]

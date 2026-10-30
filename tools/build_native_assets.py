@@ -22,6 +22,12 @@ puts the stored files back over the helper's where both exist, and holds every f
 against the index (K1RuntimeAssets.cpp). The result is the build's set at every
 listed size, as before.
 
+Since 2026-10-30 a set's index leaves out the layouts Live Adaptive Layout makes at run
+time (the 73 screens of macos/tools/kmrp-livelayout-table.h, LIVE_LAYOUTS below): the
+module lays each out from the game's own file or a mod's, and deletes what the helper
+writes of them from the set. The build's gui-*.zip still hold them, for
+testing/regression/Test-LiveLayout.py and for the Mac, whose installer copies sets.
+
 Measured on the build of 2026-10-05: 248,545,368 bytes with every object (30,848
 objects), 128,804,860 bytes like this (3,758 objects; 56,349 of the sets' 62,898
 files left to the module). 45 sets are rebuilt whole, 20 in part (32 to 329 files
@@ -60,10 +66,11 @@ ROOT = Path(__file__).resolve().parents[1]
 # The art pack (tools/kmrp_pack.py), which the installer writes beside the module.
 PACK = 'kmrp-assets.pack'
 # build_native_runtime.cmd makes the pack again when this differs from the
-# font-style-assets.version it wrote: 7 HD Original's atlases drawn from the KMRP Original HD
+# font-style-assets.version it wrote: 8 the sets without Live Adaptive Layout's screens
+# (2026-10-30), 7 HD Original's atlases drawn from the KMRP Original HD
 # fonts (fonts/otf, 2026-10-22), 6 the round o in HD Original's body and light fonts
 # (2026-10-21), 5 the pack (2026-10-19), 4 the last bank.
-ASSETS_VERSION = 7
+ASSETS_VERSION = 8
 # What the bank, KNAST002, used until 2026-10-19 (still the controller patch's,
 # tools/build_controller_assets.py): the Windows Compression API's XPRESS with Huffman.
 MAGIC = b'KNAST002'
@@ -75,6 +82,22 @@ HELPER_FLAGS = ['/nologo', '/O2', '/fp:strict', '/MT', '/TC']
 # What the helper reads from a set (its caption widths and its font's metrics).
 HELPER_INPUTS = ('kmrp_prompts.txt', 'dialogfont16x16.txi')
 FONT_FILES = {name + extension for name in FONT_RESREFS for extension in ('.tga', '.txi')}
+LIVE_TABLE = ROOT / 'macos/tools/kmrp-livelayout-table.h'
+
+
+def live_layouts(table: Path = LIVE_TABLE) -> frozenset:
+    """The screens the module lays out at run time, read from the table it is compiled
+    with (LL_FILES), lower case."""
+    text = table.read_text(encoding='utf-8')
+    block = text[text.index('static const LLFile LL_FILES[] = {'):]
+    block = block[:block.index('\n};')]
+    names = frozenset(name.lower() for name in re.findall(r'\{ "([^"]+\.gui)"', block))
+    if len(names) < 70:
+        raise ValueError(f'{table}: only {len(names)} screens found in LL_FILES')
+    return names
+
+
+LIVE_LAYOUTS = live_layouts()
 
 
 # The size the HD styles are baked at, and the one the runtime's text sizes are reckoned
@@ -250,7 +273,7 @@ def build(resources, out, helper=None, every_object=False):
             for name in source.namelist():
                 # Fonts have one shared source per style, below. Live sizing
                 # changes native font metrics, never rasterizes another atlas.
-                if name in FONT_FILES:
+                if name in FONT_FILES or (number and name.lower() in LIVE_LAYOUTS):
                     continue
                 data = source.read(name)
                 digest = hashlib.sha256(data).digest()

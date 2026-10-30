@@ -309,6 +309,65 @@ void LeaveLayoutsToKmrp()
     FindClose(find);
 }
 
+extern "C" int KmrpControllerCues(const char* key, const char* name, const char* sourceGui, const char* outGui,
+                                  const char* donorGui);
+extern "C" const char* KmrpControllerCueScreen(int i);
+
+namespace {
+std::string Utf8Path(const std::wstring& path)
+{
+    const int length = WideCharToMultiByte(CP_UTF8, 0, path.c_str(), -1, nullptr, 0, nullptr, nullptr);
+    if (length <= 0) return std::string();
+    std::string text(static_cast<size_t>(length), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, path.c_str(), -1, &text[0], length, nullptr, nullptr);
+    text.resize(static_cast<size_t>(length) - 1);
+    return text;
+}
+}
+
+// Controller Live Adaptive Layout's screens (2026-10-30): the file the game would load, a
+// mod's in Override or else the game's own (through chitin.key), with the controller's cues
+// added at run time and written into the folder, which the game searches before Override.
+// Not laid out: without KMRP every screen keeps its file's size. The party, swap-tabs, LT/RT
+// and combat cues, the Controller Layout entry and the travelling A (its label from this
+// patch's kmrplayout.gui) are the steps tools/build_controller_assets.py ran on the game's
+// own files; the bank carried those 16 files until this date, and a mod's file in Override
+// lost to them, its layout replaced by the game's. A file the cues cannot reach (one that
+// has them, or lacks the controls they sit by) is left to the game. Beside KMRP its screens
+// already carry the cues (LeaveLayoutsToKmrp), so nothing is written.
+void CueScreens()
+{
+    if (GetModuleHandleW(L"kmrp.dll") || cache.empty()) return;
+    wchar_t folder[MAX_PATH];
+    if (!KmrpGameFolder(folder)) return;
+    const std::wstring game = folder;
+    const std::string key = Utf8Path(game + L"\\chitin.key"), donor = Utf8Path(cache + L"\\kmrplayout.gui");
+    if (key.empty() || donor.empty()) return;
+    for (int i = 0; const char* screen = KmrpControllerCueScreen(i); ++i) {
+        const std::wstring name(screen, screen + std::strlen(screen)), theirs = game + L"\\override\\" + name;
+        const std::wstring target = cache + L"\\" + name, work = target + L".tmp";
+        const bool mod = GetFileAttributesW(theirs.c_str()) != INVALID_FILE_ATTRIBUTES;
+        const std::string out = Utf8Path(work), source = mod ? Utf8Path(theirs) : std::string();
+        if (out.empty() || (mod && source.empty())) continue;
+        const int result = KmrpControllerCues(key.c_str(), screen, mod ? source.c_str() : nullptr, out.c_str(), donor.c_str());
+        if (result == 0 && MoveFileExW(work.c_str(), target.c_str(), MOVEFILE_REPLACE_EXISTING)) {
+            if (mod) {
+                char line[200];
+                wsprintfA(line, "The Override folder's %s was given the controller's button prompts.", screen);
+                Report(line);
+            }
+            continue;
+        }
+        DeleteFileW(work.c_str());
+        if (result != 3) {
+            char line[200];
+            wsprintfA(line, "%s could not be given the controller's button prompts (%d); the game shows it without them.",
+                      screen, result);
+            Report(line);
+        }
+    }
+}
+
 // Hooked before the game's first resource lookup, on the game's own thread.
 extern "C" void __cdecl KmrpPrepareResourcesK1(void* manager)
 {
@@ -328,6 +387,7 @@ extern "C" void __cdecl KmrpPrepareResourcesK1(void* manager)
                "works; its button prompts and the Controller Layout screen are missing.");
     } else {
         LeaveLayoutsToKmrp();
+        CueScreens();
         if (RegisterDirectory()) registered = true;
     }
     busy = false;

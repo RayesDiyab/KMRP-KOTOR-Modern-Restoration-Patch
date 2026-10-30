@@ -9,8 +9,9 @@ against the index (src/controller-native/K1RuntimeAssets.cpp). What this proves,
 the built pack and the sets it was built from (it starts no game):
 
   1. The index is complete: 67 groups, each set's group naming exactly its archive's
-     files with their SHA-256, the common group and SDL included; and the pack is the
-     one the module was built for (KMRP_ASSET_BUILD).
+     files with their SHA-256, but for Live Adaptive Layout's screens, which no set
+     names since 2026-10-30 (the module lays them out at run time); the common group and
+     SDL included; and the pack is the one the module was built for (KMRP_ASSET_BUILD).
   2. Nothing is missing that the module cannot make: every common file is stored;
      in a set, the two files the helper reads and every font are stored, and a file
      that is not stored is one of the kinds the helper writes.
@@ -90,8 +91,11 @@ def main() -> int:
     wrong = []
     for size, archive in archives.items():
         with zipfile.ZipFile(archive) as z:
+            # A set names none of Live Adaptive Layout's screens (since 2026-10-30): the
+            # module lays them out at run time and takes the helper's out of the set.
             expected = {name: hashlib.sha256(z.read(name)).digest() for name in z.namelist()
-                        if name not in builder.FONT_FILES}
+                        if name not in builder.FONT_FILES
+                        and not (size != "0x0" and name.lower() in builder.LIVE_LAYOUTS)}
         entries = dict(groups.get(size, {}))
         if size == "0x0":
             entries.pop("kmrp-sdl3.dll", None)

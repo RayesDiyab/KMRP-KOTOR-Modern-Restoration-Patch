@@ -16,7 +16,14 @@ extern "C" int KmrpGameArt(const char*,const char*,unsigned,const char*) {return
 extern "C" int KmrpSwoopHud(const char*,const char*,unsigned,unsigned) {return 1;}
 extern "C" int KmrpGalaxyMap(const char*,const char*,const char*,const char*) {return 1;}
 extern "C" int KmrpMainMenuBars(const char*,const char*) {return 1;}
-extern "C" int KmrpLiveLayoutSet(const char*,const char*,const char*,int,int,const char*,const char*) {return 1;}
+// Live Adaptive Layout's party selection for the size (the roster's base since 2026-10-30):
+// here the fixture's KMRP layout, which the test writes to the set folder, copied as it is.
+// Only the game's own file is asked for (no source), with the set folder given.
+extern "C" int KmrpLiveLayoutSet(const char*,const char* name,const char* source,int width,int height,const char* out,
+                                 const char* setFolder) {
+    if (std::strcmp(name,"partyselection.gui")||source||width<=0||height<=0||!setFolder) return 1;
+    return CopyFileA((std::string(setFolder)+"\\partyselection.gui").c_str(),out,FALSE)?0:1;
+}
 extern "C" int KmrpHudCues(const char*,const char*) {return 1;}
 extern "C" const char* KmrpHudFileName(int) {return nullptr;}
 extern "C" int KmrpLiveLayoutCount(void) {return 0;}
@@ -60,7 +67,7 @@ int wmain(int argc,wchar_t** argv) {
         fs::remove_all(viewDir);fs::create_directories(viewDir);
         overrideListed=false;overrideNames.clear();overrideTextures.clear();
         if(!OverrideHas(L"partyselection.gui"))assert(Link(shipped.wstring(),shown.wstring()));
-        return AdaptPartyRosterK1(setDir.wstring(),viewDir.wstring());
+        return AdaptPartyRosterK1(setDir.wstring(),viewDir.wstring(),1920,1080);
     };
     set(0x3A80,0x3A80);assert(!show(layout));assert(!fs::exists(shown));
     set(0xA194,0xA194);assert(show(layout));assert(Read(shown.wstring(),got));assert(got!=layout);

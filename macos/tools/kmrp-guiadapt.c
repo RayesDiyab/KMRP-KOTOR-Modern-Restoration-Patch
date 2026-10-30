@@ -4,6 +4,8 @@
  *   kmrp-guiadapt mainmenu SET_GUI OUT_GUI
  *   kmrp-guiadapt live KEY|GAME_GUI NAME WIDTH HEIGHT OUT_GUI [SOURCE_GUI|- [SET_FOLDER]]
  *   kmrp-guiadapt hudcues SOURCE_GUI OUT_GUI
+ *   kmrp-guiadapt cues KEY|GAME_GUI NAME OUT_GUI [SOURCE_GUI|- [DONOR_GUI]]
+ *   kmrp-guiadapt cuescreens
  *
  * Three things, sharing the reading and writing of a layout's EXTENTs: the galaxy map's
  * planets (KmrpGalaxyMap, below), the main menu's buttons on the bars of their art
@@ -1456,6 +1458,80 @@ int KmrpHudCues(const char *source_gui, const char *out_gui) {
     return result;
 }
 
+/* The controller patch's screens (Controller Live Adaptive Layout, 2026-10-30): the file the
+ * game would load, SOURCE_GUI (a mod's) or else the game's own through KEY_PATH, with the
+ * controller's cues added and nothing else changed: not laid out, since without KMRP every
+ * screen keeps the size its file has. The steps are the ones the controller build ran on the
+ * game's own files (tools/build_controller_assets.py `make`): the party cue, the swap-tabs
+ * cue, the LT and RT cues, the Controller Layout entry, the travelling A (its label cloned
+ * from DONOR_GUI's LBL_TITLE) and the combat cues. Until this date the controller patch
+ * carried the game's files with the cues added, which a mod's file in Override replaced.
+ * 0: written. 1: a file could not be read. 2: could not write. 3: nothing to add (it has
+ * them all, or its controls do not allow them); nothing written. 4: not a screen it cues. */
+const char *KmrpHudFileName(int i);
+
+int KmrpControllerCues(const char *key_path, const char *name, const char *source_gui, const char *out_gui,
+                       const char *donor_gui) {
+    int screen = 0, hud = 0;
+    for (const char *const *h = LL_HUD_FILES; *h; h++) if (strcasecmp(*h, name) == 0) hud = 1;
+    for (size_t i = 0; i < sizeof LL_BADGES / sizeof *LL_BADGES; i++)
+        if (strcasecmp(LL_BADGES[i].screen, name) == 0) screen = 1;
+    if (ll_r3_screen(name) || strcasecmp(name, LL_SWAP_SCREEN) == 0 || strcasecmp(name, LL_TAB_SCREEN) == 0 ||
+        strcasecmp(name, LL_ENTRY_SCREEN) == 0) screen = 1;
+    if (!screen && !hud) return 4;
+    Buffer file = { NULL, 0 };
+    const size_t length = key_path ? strlen(key_path) : 0;
+    if (source_gui && *source_gui) file = read_file(source_gui);
+    else if (length <= 4 || strcasecmp(key_path + length - 4, ".key") != 0) file = read_file(key_path);
+    else {
+        Buffer key = read_file(key_path);
+        char resref[17] = { 0 };
+        const char *dot = strrchr(name, '.');
+        const size_t n = dot ? (size_t)(dot - name) : strlen(name);
+        if (key.data && n < sizeof resref) {
+            memcpy(resref, name, n);
+            file = keyed_resource(&key, key_path, resref, TYPE_GUI);
+        }
+        free(key.data);
+    }
+    Gff g;
+    if (!file.data || !gff_open(&g, file.data, file.size)) { free(file.data); return 1; }
+    const size_t before = file.size;
+    uint8_t *original = malloc(before);
+    if (!original) { free(file.data); return 1; }
+    memcpy(original, file.data, before);
+    if (hud) {
+        Buffer with = { NULL, 0 };
+        if (ll_combat_cues(&g, &with)) { free(file.data); file = with; }
+    } else {
+        ll_add_cues(name, &file);
+        ll_add_badge(name, donor_gui, &file);
+    }
+    const int same = file.size == before && memcmp(file.data, original, before) == 0;
+    free(original);
+    int result = 3;
+    if (!same) {
+        FILE *f = kmrp_fopen(out_gui, "wb");
+        result = 2;
+        if (f) {
+            int ok = fwrite(file.data, 1, file.size, f) == file.size;
+            if (fclose(f) == 0 && ok) result = 0;
+        }
+    }
+    free(file.data);
+    return result;
+}
+
+/* The screens KmrpControllerCues adds cues to, the i-th of them; NULL past the last. */
+const char *KmrpControllerCueScreen(int i) {
+    static const char *const screens[] = { "abilities.gui", "character.gui", "equip.gui", "inventory.gui", "top.gui",
+                                           "optgameplay.gui", "confirm.gui", "dialog.gui" };
+    const int fixed = (int)(sizeof screens / sizeof *screens);
+    if (i < 0) return NULL;
+    if (i < fixed) return screens[i];
+    return KmrpHudFileName(i - fixed);
+}
+
 /* Whether a name is one of the HUD files KmrpHudCues is for, and the i-th of them. */
 const char *KmrpHudFileName(int i) {
     return i >= 0 && i < (int)(sizeof LL_HUD_FILES / sizeof *LL_HUD_FILES) - 1 ? LL_HUD_FILES[i] : NULL;
@@ -1528,6 +1604,21 @@ int main(int argc, char **argv) {
         if (result == 1) fprintf(stderr, "kmrp-guiadapt: %s could not be read\n", argv[2]);
         if (result == 2) fprintf(stderr, "kmrp-guiadapt: %s: %s\n", argv[3], strerror(errno));
         if (result == 3) printf("%s: nothing to add; nothing written\n", argv[2]);
+        return result == 3 ? 0 : result;
+    }
+    if (argc == 2 && strcmp(argv[1], "cuescreens") == 0) {
+        for (int i = 0; KmrpControllerCueScreen(i); i++) printf("%s\n", KmrpControllerCueScreen(i));
+        return 0;
+    }
+    if (argc >= 5 && argc <= 7 && strcmp(argv[1], "cues") == 0) {
+        /* SOURCE "-": the game's own, for giving DONOR without a mod's file. */
+        const char *source = argc >= 6 && strcmp(argv[5], "-") != 0 ? argv[5] : NULL;
+        int result = KmrpControllerCues(argv[2], argv[3], source, argv[4], argc == 7 ? argv[6] : NULL);
+        if (result == 0) printf("%s written: %s with the controller's cues\n", argv[4], argv[3]);
+        if (result == 1) fprintf(stderr, "kmrp-guiadapt: %s could not be read\n", argv[3]);
+        if (result == 2) fprintf(stderr, "kmrp-guiadapt: %s: %s\n", argv[4], strerror(errno));
+        if (result == 3) printf("%s: nothing to add; nothing written\n", argv[3]);
+        if (result == 4) fprintf(stderr, "kmrp-guiadapt: %s is not a screen the controller cues\n", argv[3]);
         return result == 3 ? 0 : result;
     }
     if (argc >= 4 && strcmp(argv[1], "mainmenu") == 0) {

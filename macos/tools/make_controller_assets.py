@@ -82,6 +82,9 @@ def main() -> int:
     # carries every one made (Windows' --carry-drawn). Without this, make() leaves them
     # out for Windows' module and the Mac would show none.
     shared.CARRY_DRAWN = True
+    # Nor does it add the controller's cues to the screens at run time (Windows' does since
+    # 2026-10-30, KmrpControllerCues), so it carries the cued screens as before.
+    shared.CARRY_CUED = True
 
     if args.extract:
         print(f"{shared.extract(args.extract)} layout files written to {shared.VANILLA_GUI}")

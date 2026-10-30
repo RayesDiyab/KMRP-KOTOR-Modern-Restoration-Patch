@@ -1474,6 +1474,25 @@ must find the header beside the sources (it does: they include it with quotes). 
 Windows the paths are UTF-8 and become UTF-16, for user names outside the code page. The
 module's `Narrow` short-name fallback is Windows-only.
 
+## 123. Windows' sets no longer carry the live screens (Windows 2026-10-30, uncommitted)
+
+Windows' art pack (`tools/build_native_assets.py`) leaves Live Adaptive Layout's 73 screens
+out of every set, and `BuildSet` deletes the blend helper's copies; the 32-slot roster is
+built from `KmrpLiveLayoutSet`'s `partyselection.gui`. **Nothing changes for the Mac until
+its module runs live layout** (items 102 and 116 to 121): the Mac installer copies the
+build's `gui-*.zip` sets, which still hold every screen. Once it does, the Mac can drop
+the same files from what it installs, and should, so one file never has two sources.
+
+## 124. The Windows controller patch cues the screens at run time (Windows 2026-10-30, uncommitted)
+
+New in `kmrp-guiadapt.c`: `KmrpControllerCues(key, name, source, out, donor)` and
+`KmrpControllerCueScreen(i)`, with the CLI commands `cues` and `cuescreens`. Windows'
+controller patch now carries only `kmrplayout.gui` and calls these for its 16 cued screens
+as the game starts (`CueScreens`). **The Mac keeps carrying the 16 files**:
+`make_controller_assets.py` sets `CARRY_CUED = True`. To match Windows, the Mac's module
+would call `KmrpControllerCues` on each screen before giving its folder to the game, with
+the patch's `kmrplayout.gui` as the donor, and then stop carrying them.
+
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
 | Change | Commit | Why not the Mac |

@@ -139,6 +139,18 @@ tests and for `build_controller_assets.py --carry-drawn`, which carries them aga
 fallback. `Test-ControllerKpatch.py` fails if a texture is carried. The counts above are
 the bank as it was before.
 
+**Since 2026-10-30 the bank carries one layout file, `kmrplayout.gui`.** The 16 screens
+below are given their cues while the game runs (Controller Live Adaptive Layout,
+[`controller-live-adaptive-layout.md`](controller-live-adaptive-layout.md), "The screens'
+cues"): before the folder is registered, `CueScreens` (`K1ControllerStandalone.cpp`) takes
+each from the file the game would load, a mod's in `Override` or else the game's own
+through `chitin.key`, adds the cues with `KmrpControllerCues`
+(`macos/tools/kmrp-guiadapt.c`) and writes it into the folder. Until then the bank carried
+the game's files with the cues added, and since the folder is searched before `Override`,
+a mod's file for one of these screens was replaced by the game's own. The build still
+makes the 16 into `build\controller-standalone\made`, for `Test-ControllerKpatch.py` and
+for the Mac, which carries them (`CARRY_CUED`).
+
 The layout steps are the ones KMRP's resource build runs on its own sets
 (`tools\prepare_universal_resources.py`), called here on the game's files:
 

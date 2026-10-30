@@ -1042,20 +1042,29 @@ bool OverrideHas(const std::wstring& file)
     return (extension == L".tga" || extension == L".tpc" || extension == L".txi") && textures.count(name.substr(0, dot));
 }
 
-// The party roster for the size: KMRP's layout (from the set) adapted to the 32-slot
-// roster, written into this run's folder for the size, never into the set.
-bool AdaptPartyRosterK1(const std::wstring& set, const std::wstring& view)
+std::wstring GameFolder();
+
+// The party roster for the size: KMRP's layout adapted to the 32-slot roster, written
+// into this run's folder for the size, never into the set. KMRP's layout is the game's
+// own partyselection.gui laid out for the size by Live Adaptive Layout; until 2026-10-30
+// it was the set's copy, which the sets no longer carry.
+bool AdaptPartyRosterK1(const std::wstring& set, const std::wstring& view, int width, int height)
 {
     managedPartyRoster = false;
     if (!KmrpPartyRoster32ActiveK1()) return false;
-    wchar_t game[MAX_PATH];
-    const DWORD length=GetModuleFileNameW(nullptr,game,MAX_PATH);
-    wchar_t* slash=length && length<MAX_PATH?wcsrchr(game,L'\\'):nullptr;
-    if (!slash) return false;
-    *slash=0;
-    const std::wstring source=std::wstring(game)+L"\\override\\partyselection.gui";
+    const std::wstring game = GameFolder();
+    if (game.empty()) return false;
+    const std::wstring source=game+L"\\override\\partyselection.gui", base=view+L"\\partyselection.gui.base"+Pid();
+    const std::string key=Utf8Path(game+L"\\chitin.key"), base8=Utf8Path(base), set8=Utf8Path(set);
     std::vector<unsigned char> roster,layout,adapted;
-    if (!Read(set+L"\\partyselection.gui",layout)) return false;
+    const int laid=key.empty()||base8.empty()?1:
+        KmrpLiveLayoutSet(key.c_str(),"partyselection.gui",nullptr,width,height,base8.c_str(),set8.c_str());
+    const bool read=laid==0&&Read(base,layout);
+    DeleteFileW(base.c_str());
+    if (!read) {
+        KmrpRuntimeLog("[KMRP] party roster: the game's party selection could not be laid out; the game's own is used");
+        return false;
+    }
     WIN32_FILE_ATTRIBUTE_DATA info{};
     const bool supplied=GetFileAttributesExW(source.c_str(),GetFileExInfoStandard,&info)!=0;
     std::string reason;
@@ -1084,14 +1093,14 @@ bool AdaptPartyRosterK1(const std::wstring& set, const std::wstring& view)
 // game, drew the map 640x480 in the middle of the screen. A mod's file of any other size is
 // left to the game, as before. The folder may hold a link into the set under this name
 // (LinkSet), so the file is written beside it and moved over it, never written through it.
-std::wstring GameFolder();
 
-// The layout an adapter starts from: what live layout wrote into `folder` for the size
-// (or the set's file, linked there), else the set's own.
-std::wstring LayoutBase(const std::wstring& set, const std::wstring& folder, const wchar_t* name)
+// The layout an adapter starts from: what live layout wrote into `folder` for the size, or
+// "" when it wrote none (it has logged why). Until 2026-10-30 the set's copy was the
+// fallback; the sets carry none since.
+std::wstring LayoutBase(const std::wstring& folder, const wchar_t* name)
 {
     const std::wstring written = folder + L"\\" + name;
-    return GetFileAttributesW(written.c_str()) != INVALID_FILE_ATTRIBUTES ? written : set + L"\\" + name;
+    return GetFileAttributesW(written.c_str()) != INVALID_FILE_ATTRIBUTES ? written : std::wstring();
 }
 
 bool AdaptGalaxyMapK1(const std::wstring& set, const std::wstring& folder)
@@ -1100,7 +1109,7 @@ bool AdaptGalaxyMapK1(const std::wstring& set, const std::wstring& folder)
     if (game.empty()) return false;
     const bool theirs = OverrideHas(L"galaxymap.gui");
     const std::wstring target = folder + L"\\galaxymap.gui", work = target + L".tmp" + Pid();
-    const std::string key = Utf8Path(game + L"\\chitin.key"), layout = Utf8Path(LayoutBase(set, folder, L"galaxymap.gui"));
+    const std::string key = Utf8Path(game + L"\\chitin.key"), layout = Utf8Path(LayoutBase(folder, L"galaxymap.gui"));
     const std::string out = Utf8Path(work), source = theirs ? Utf8Path(game + L"\\override\\galaxymap.gui") : std::string();
     if (key.empty() || layout.empty() || out.empty() || (theirs && source.empty())) return false;
     const int result = KmrpGalaxyMap(key.c_str(), layout.c_str(), out.c_str(), theirs ? source.c_str() : nullptr);
@@ -1108,7 +1117,7 @@ bool AdaptGalaxyMapK1(const std::wstring& set, const std::wstring& folder)
         DeleteFileW(work.c_str());
         if (result == 3) KmrpRuntimeLog("[KMRP] galaxy map: the Override folder's galaxymap.gui is not the game's "
                                         "640x480 layout; it is left to the game");
-        else KmrpRuntimeLog("[KMRP] galaxy map: could not be placed; KMRP's map is used as it is");
+        else KmrpRuntimeLog("[KMRP] galaxy map: could not be placed; the map is left as live layout made it");
         return false;
     }
     SetFileAttributesW(target.c_str(), FILE_ATTRIBUTE_NORMAL);
@@ -1135,7 +1144,7 @@ bool AdaptMainMenuK1(const std::wstring& set, const std::wstring& folder)
                                 L"mainmenu16x12.gui"}) {
         if (OverrideHas(name)) continue;
         const std::wstring target = folder + L"\\" + name, work = target + L".tmp" + Pid();
-        const std::string layout = Utf8Path(LayoutBase(set, folder, name)), out = Utf8Path(work);
+        const std::string layout = Utf8Path(LayoutBase(folder, name)), out = Utf8Path(work);
         if (layout.empty() || out.empty() || KmrpMainMenuBars(layout.c_str(), out.c_str()) != 0) {
             DeleteFileW(work.c_str());
             continue;
@@ -1152,9 +1161,10 @@ bool AdaptMainMenuK1(const std::wstring& set, const std::wstring& folder)
 
 // Live Adaptive Layout: the screens its table lists, laid out for the size from the file the
 // game would load, a mod's 640x480 file in Override or else the game's own (through
-// chitin.key), written into `folder` as the galaxy map is, over the set's. A mod's file laid
-// out for another size is left to the game, as before. Until 2026-10-28 these screens came
-// only from the set, and a mod's file took the place of the whole screen at 640x480.
+// chitin.key), written into `folder` as the galaxy map is. A mod's file laid out for another
+// size is left to the game, as before. Until 2026-10-28 these screens came only from the set,
+// and a mod's file took the place of the whole screen at 640x480; until 2026-10-30 the set
+// still carried a copy of each, which this covered and which the sets no longer hold.
 bool AdaptLiveLayoutK1(const std::wstring& set, const std::wstring& folder, int width, int height)
 {
     const std::wstring game = GameFolder();
@@ -1168,7 +1178,7 @@ bool AdaptLiveLayoutK1(const std::wstring& set, const std::wstring& folder, int 
     for (int i = 0; i < KmrpLiveLayoutCount(); ++i) {
         const std::wstring name = Wide(KmrpLiveLayoutName(i));
         // The 32-slot roster's file is AdaptPartyRosterK1's, written just before this: it
-        // builds its pages from the set's layout and a mod's, and keeps them.
+        // builds its pages from this screen laid out for the size and a mod's, and keeps them.
         if (managedPartyRoster && Lower(name) == L"partyselection.gui") continue;
         const bool mod = OverrideHas(name);
         const std::wstring target = folder + L"\\" + name, work = target + L".tmp" + Pid();
@@ -1181,7 +1191,7 @@ bool AdaptLiveLayoutK1(const std::wstring& set, const std::wstring& folder, int 
             char line[200];
             if (result == 3) sprintf_s(line, "[KMRP] live layout: the Override folder's %s is not laid out for the "
                                              "game's size; it is left to the game", KmrpLiveLayoutName(i));
-            else sprintf_s(line, "[KMRP] live layout: %s could not be laid out (%d); the set's is used",
+            else sprintf_s(line, "[KMRP] live layout: %s could not be laid out (%d); the game's own is used",
                            KmrpLiveLayoutName(i), result);
             KmrpRuntimeLog(line);
             continue;
@@ -1392,6 +1402,12 @@ bool BuildSet(int width, int height, std::wstring& directory)
                 }
             }
         }
+        // Live Adaptive Layout's screens are laid out for the size each time from the file the
+        // game would load (AdaptLiveLayoutK1, the party roster's base too), so the set holds
+        // none: the pack's index names none since 2026-10-30, and the blend helper's are taken
+        // out. Before, each size's set carried its own copy, which the run-time file covered.
+        for (int i = 0; i < KmrpLiveLayoutCount(); ++i)
+            DeleteFileW((work + L"\\" + Wide(KmrpLiveLayoutName(i))).c_str());
         lap(2);
         // The icons the bank already supplies are not the helpers' to make. Beside the
         // folder, not in it: the game must not see it as a resource.
@@ -1704,7 +1720,7 @@ bool KmrpRuntimeAssetsDimensions(int width, int height)
     // not where the game's own layout does (issue 67), measured at 3440x1440 that day.
     if (theirs) {
         if (!LinkSet(set, view)) return false;
-        AdaptPartyRosterK1(set, view);
+        AdaptPartyRosterK1(set, view, width, height);
         AdaptLiveLayoutK1(set, view, width, height);
         AdaptGalaxyMapK1(set, view);
         AdaptMainMenuK1(set, view);
@@ -1714,7 +1730,7 @@ bool KmrpRuntimeAssetsDimensions(int width, int height)
         RemoveFlat(roster);
         bool adapted = CreateDirectoryW(roster.c_str(), nullptr) != 0;
         if (adapted) {
-            const bool party = AdaptPartyRosterK1(set, roster);
+            const bool party = AdaptPartyRosterK1(set, roster, width, height);
             const bool live = AdaptLiveLayoutK1(set, roster, width, height);
             const bool galaxy = AdaptGalaxyMapK1(set, roster);
             const bool menu = AdaptMainMenuK1(set, roster);
