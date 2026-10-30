@@ -349,7 +349,7 @@ int KmrpMainMenuBars(const char *set_gui, const char *out_gui) {
  * Then the build's list gutters (PADDING). Only those numbers change, in place. */
 #include "kmrp-livelayout-table.h"
 
-enum { LL_SCALE, LL_STRETCH, LL_FIXED, LL_ASPECT, LL_CENTRE, LL_RIGHT, LL_FRAME, LL_FRAME_INCLUSIVE };
+enum { LL_SCALE, LL_STRETCH, LL_FIXED, LL_ASPECT, LL_CENTRE, LL_RIGHT, LL_FRAME, LL_FRAME_INCLUSIVE, LL_ASPECT_CENTRE };
 #define LL_LISTBOX 11
 
 /* An INT field of structure `s` (the inline value), or NULL. */
@@ -449,7 +449,8 @@ static double ll_value(int rule, int field, int v, int w, int width, int height,
     case LL_SCALE: return v * s;
     case LL_FIXED: return (double)v;
     case LL_STRETCH: return (double)((long long)v * width) / bw;
-    case LL_ASPECT: return field == 0 ? (v + w / 2.0) * width / bw - w * s / 2 : v * s;
+    case LL_ASPECT:
+    case LL_ASPECT_CENTRE: return field == 0 ? (v + w / 2.0) * width / bw - w * s / 2 : v * s;
     case LL_CENTRE: return field == 0 ? width / 2.0 + (v - bw / 2.0) * s : v * s;
     case LL_RIGHT: return field == 0 ? width - (bw - v) * s : v * s;
     case LL_FRAME:
@@ -555,6 +556,18 @@ static void ll_layout(const char *name, const LLFile *file, Gff *source, const G
         for (int f = 0; f < 4; f++) {
             const int rule = row ? row->rule[f] : ll_default(f, st.sub, st.type, v4[2], v4[3]);
             out[f] = ll_placed(f, rule, v4, unmoved ? row->gold[f] : LL_NO_GOLD, width, height, bw, bh);
+        }
+        /* build_live_layout.aspect_left: an aspect_centre control gold differs from the rule
+         * by, by gold's centre carried by the rule's centre (which grows with the width
+         * alone), less half its width. The table chooses the rule (aspect_centre_fits). */
+        if (row && unmoved && row->rule[0] == LL_ASPECT_CENTRE && row->gold[0] != LL_NO_GOLD && row->gold[2] != LL_NO_GOLD) {
+            const double rule_left = ll_value(LL_ASPECT, 0, v4[0], v4[2], LL_GOLD_WIDTH, LL_GOLD_HEIGHT, bw, bh);
+            const double centre_at_gold = rule_left + ll_value(row->rule[2], 2, v4[2], v4[2], LL_GOLD_WIDTH, LL_GOLD_HEIGHT, bw, bh) / 2;
+            if (row->gold[0] != ll_rhalf(rule_left) && centre_at_gold != 0) {
+                const double centre = ll_value(LL_ASPECT, 0, v4[0], v4[2], width, height, bw, bh) +
+                                      ll_value(row->rule[2], 2, v4[2], v4[2], width, height, bw, bh) / 2;
+                out[0] = ll_rhalf((row->gold[0] + row->gold[2] / 2.0) * (centre / centre_at_gold) - out[2] / 2.0);
+            }
         }
         for (int f = 0; f < 4; f++) put_u32(e.v[f], (uint32_t)(int32_t)out[f]);
         uint8_t *padding = int_field(source, st.s, "PADDING");

@@ -1438,6 +1438,18 @@ game's eight HUD files, each as it is and in five mod-like variants (48 cases);
 `hud_options_harness.cpp` checks the rule gives the shipped cues at 3440x1440. Not seen
 in the game.
 
+## 120. Main menu in live layout, a kept-shape control's centre, adapter order (Windows 2026-10-30)
+
+The table now has 70 screens, adding the five `mainmenu*.gui`. **(1)** A new rule,
+`aspect_centre` (number 8): `kmrp-guiadapt.c`'s `ll_layout` carries gold's correction on
+such a control's centre (`build_live_layout.aspect_left`). The generated table names it
+for 18 fields; the Mac gets both with the files. **(2)** Order: where the Mac adapts
+a size's files, run the party roster, then live layout, then the galaxy map
+(`KmrpGalaxyMap`) and the main menu (`KmrpMainMenuBars`) with live layout's output as
+their input. On Windows the reverse order wrote the galaxy map over the issue 67
+placement from 2026-10-28 to 2026-10-30. Measured with the C on Windows; the Mac does not
+call live layout yet (item 102).
+
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
 | Change | Commit | Why not the Mac |

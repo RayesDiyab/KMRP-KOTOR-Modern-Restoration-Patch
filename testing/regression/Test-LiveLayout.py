@@ -26,7 +26,7 @@ run. This:
 
 Each screen that passed is kept in build/test-cache/live-layout under a fingerprint of what
 it reads, and skipped while that still matches (see "the cache" below); --no-cache checks
-everything.
+everything. The screens left to check run in worker processes, one a core (--jobs N).
 """
 from __future__ import annotations
 
@@ -38,7 +38,9 @@ import hashlib
 import importlib.metadata
 import json
 import logging
+import os
 import re
+from concurrent.futures import ProcessPoolExecutor
 import random
 import subprocess
 import sys
@@ -542,6 +544,8 @@ def main() -> int:
     parser.add_argument("--screens", nargs="+", choices=ll.FILES, default=ll.FILES,
                         help="check selected screens; table and cue/options mod checks still run")
     parser.add_argument("--no-cache", action="store_true", help="check every screen, whatever passed before")
+    parser.add_argument("--jobs", type=int, default=0,
+                        help="worker processes for the screens to check (default: one a core; 1: none)")
     args = parser.parse_args()
     RESOURCES = args.resources
     files = args.screens
@@ -587,9 +591,24 @@ def main() -> int:
     rng = random.Random(20261028)
     extra = [(rng.randint(640, 15360), 0) for _ in range(200)]
     extra = [(w, rng.randint(max(480, w // 4), min(8640, w * 3 // 4 + 1))) for w, _ in extra]
+    fingerprints = {name: prints.screen(name) for name in files}
+    records = {} if args.no_cache else {name: cached("screens", name, fingerprints[name]) for name in files}
+    to_check = [name for name in files if records.get(name) is None]
+    # The screens not taken from the cache, in parallel: one worker process a screen at a time,
+    # as many as the machine has cores (2026-10-30, the maintainer: a run that has to check
+    # every screen took about 18 minutes on one core). Each works in a folder of its own and
+    # returns its failures and notes, printed here in the screens' order.
+    if to_check:
+        built_helper = helper()
+        jobs = [(name, sizes, rows[name], extra, str(built_helper), str(RESOURCES)) for name in to_check]
+        workers = min(len(jobs), os.cpu_count() or 1, args.jobs or os.cpu_count() or 1)
+        if workers > 1:
+            with ProcessPoolExecutor(max_workers=workers) as pool:
+                results = dict(zip(to_check, pool.map(check_screen_job, jobs)))
+        else:
+            results = {name: check_screen_job(job) for name, job in zip(to_check, jobs)}
     for name in files:
-        fingerprint = prints.screen(name)
-        record = None if args.no_cache else cached("screens", name, fingerprint)
+        record = records.get(name)
         if record is not None:
             for line in record["notes"]:
                 print(line)
@@ -597,13 +616,15 @@ def main() -> int:
             checked += record["checked"]
             reused += 1
             continue
-        before = failures
-        notes: list[str] = []
-        screen_diffs, screen_checked = check_screen(name, sizes, rows, extra, helper, tmp, fail, notes)
+        fails, notes, screen_diffs, screen_checked = results[name]
+        for line in notes:
+            print(line)
+        for message in fails:
+            fail(message)
         diffs.update(screen_diffs)
         checked += screen_checked
-        if failures == before:
-            keep("screens", name, fingerprint, {"notes": notes, "diffs": dict(screen_diffs), "checked": screen_checked})
+        if not fails:
+            keep("screens", name, fingerprints[name], {"notes": notes, "diffs": dict(screen_diffs), "checked": screen_checked})
     total = sum(diffs.values())
     print(f"against KMRP's {len(sizes)} sets, {len(files)} screens: {total} EXTENT fields, "
           f"{100 * diffs['exact'] / total:.2f}% exact, {100 * diffs['1 px'] / total:.2f}% 1 px off, "
@@ -634,12 +655,26 @@ def main() -> int:
     return 1 if failed else 0
 
 
+def check_screen_job(job) -> tuple[list[str], list[str], Counter, int]:
+    """check_screen in a worker process: its failures and notes collected, not printed."""
+    global RESOURCES
+    name, sizes, screen_rows, extra, helper_path, resources = job
+    RESOURCES = Path(resources)
+    logging.disable(logging.DEBUG)
+    fails: list[str] = []
+    notes: list[str] = []
+    with tempfile.TemporaryDirectory(prefix="kmrp-livelayout-screen-") as tmp:
+        screen_diffs, screen_checked = check_screen(name, sizes, {name: screen_rows}, extra,
+                                                    lambda: Path(helper_path), Path(tmp), fails.append, notes)
+    return fails, notes, screen_diffs, screen_checked
+
+
 def check_screen(name, sizes, rows, extra, helper, tmp, fail, notes) -> tuple[Counter, int]:
     """One screen's checks: the Python against KMRP's sets (2), the C against the Python (3),
-    a mod's file (4). Returns the EXTENT field counts and the C layouts checked."""
+    a mod's file (4). Returns the EXTENT field counts and the C layouts checked; its notes go
+    into `notes` (printed by the caller)."""
     def note(line: str) -> None:
         notes.append(line)
-        print(line)
 
     # 2. The Python against KMRP's sets.
     diffs = Counter()

@@ -1035,13 +1035,22 @@ bool AdaptPartyRosterK1(const std::wstring& set, const std::wstring& view)
 // left to the game, as before. The folder may hold a link into the set under this name
 // (LinkSet), so the file is written beside it and moved over it, never written through it.
 std::wstring GameFolder();
+
+// The layout an adapter starts from: what live layout wrote into `folder` for the size
+// (or the set's file, linked there), else the set's own.
+std::wstring LayoutBase(const std::wstring& set, const std::wstring& folder, const wchar_t* name)
+{
+    const std::wstring written = folder + L"\\" + name;
+    return GetFileAttributesW(written.c_str()) != INVALID_FILE_ATTRIBUTES ? written : set + L"\\" + name;
+}
+
 bool AdaptGalaxyMapK1(const std::wstring& set, const std::wstring& folder)
 {
     const std::wstring game = GameFolder();
     if (game.empty()) return false;
     const bool theirs = OverrideHas(L"galaxymap.gui");
     const std::wstring target = folder + L"\\galaxymap.gui", work = target + L".tmp" + Pid();
-    const std::string key = Narrow(game + L"\\chitin.key"), layout = Narrow(set + L"\\galaxymap.gui");
+    const std::string key = Narrow(game + L"\\chitin.key"), layout = Narrow(LayoutBase(set, folder, L"galaxymap.gui"));
     const std::string out = Narrow(work), source = theirs ? Narrow(game + L"\\override\\galaxymap.gui") : std::string();
     if (key.empty() || layout.empty() || out.empty() || (theirs && source.empty())) return false;
     const int result = KmrpGalaxyMap(key.c_str(), layout.c_str(), out.c_str(), theirs ? source.c_str() : nullptr);
@@ -1076,7 +1085,7 @@ bool AdaptMainMenuK1(const std::wstring& set, const std::wstring& folder)
                                 L"mainmenu16x12.gui"}) {
         if (OverrideHas(name)) continue;
         const std::wstring target = folder + L"\\" + name, work = target + L".tmp" + Pid();
-        const std::string layout = Narrow(set + L"\\" + name), out = Narrow(work);
+        const std::string layout = Narrow(LayoutBase(set, folder, name)), out = Narrow(work);
         if (layout.empty() || out.empty() || KmrpMainMenuBars(layout.c_str(), out.c_str()) != 0) {
             DeleteFileW(work.c_str());
             continue;
@@ -1636,12 +1645,17 @@ bool KmrpRuntimeAssetsDimensions(int width, int height)
     std::wstring view = set, roster;
     // The galaxy map (AdaptGalaxyMapK1), the main menu (AdaptMainMenuK1) and the screens Live
     // Adaptive Layout lays out (AdaptLiveLayoutK1) are adapted the same way, beside the roster.
+    // In this order: the roster first (live layout leaves its file alone), then live layout,
+    // then the galaxy map and the main menu on what live layout wrote (LayoutBase). Until
+    // 2026-10-30 live layout came last and wrote the galaxy map over AdaptGalaxyMapK1's
+    // (since 32b426e, 2026-10-28): the planets stood where High Resolution Menus put them,
+    // not where the game's own layout does (issue 67), measured at 3440x1440 that day.
     if (theirs) {
         if (!LinkSet(set, view)) return false;
         AdaptPartyRosterK1(set, view);
+        AdaptLiveLayoutK1(set, view, width, height);
         AdaptGalaxyMapK1(set, view);
         AdaptMainMenuK1(set, view);
-        AdaptLiveLayoutK1(set, view, width, height);
     } else {
         ++generation;
         roster = root + L"\\roster-" + Pid() + L"-" + std::to_wstring(generation);
@@ -1649,9 +1663,9 @@ bool KmrpRuntimeAssetsDimensions(int width, int height)
         bool adapted = CreateDirectoryW(roster.c_str(), nullptr) != 0;
         if (adapted) {
             const bool party = AdaptPartyRosterK1(set, roster);
+            const bool live = AdaptLiveLayoutK1(set, roster, width, height);
             const bool galaxy = AdaptGalaxyMapK1(set, roster);
             const bool menu = AdaptMainMenuK1(set, roster);
-            const bool live = AdaptLiveLayoutK1(set, roster, width, height);
             adapted = party || galaxy || menu || live;
         }
         if (!adapted) {

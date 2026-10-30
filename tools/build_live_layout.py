@@ -26,6 +26,9 @@ for one, is an 800x600 layout):
                                                    centred where the stretched one would be
     fixed    v                                     list row prototypes (PROTOITEM)
     centre   W/2 + (v - BW/2) * s,  right  W - (BW - v) * s
+    aspect_centre                                  aspect's value, but gold carried on the
+                                                   control's centre (aspect_left; chosen by
+                                                   aspect_centre_fits, 2026-10-30)
 
 One rule per field reproduces 92.1% of the fields of upstream's 48 sets exactly in every
 set and 99.0% of the values. KMRP's own changes are, per field, the gold 3440x1440 file's
@@ -145,6 +148,9 @@ FILES = (
     # The tooltips, one file per base size (2026-10-30): rules and gold alone make every
     # set's file, and nothing else in KMRP changes them.
     "tooltip6x4.gui", "tooltip8x6.gui", "tooltip10x8.gui", "tooltip12x9.gui", "tooltip16x12.gui",
+    # The main menu's five files (2026-10-30): laid out here, then the module puts the
+    # buttons on the bars of their art (AdaptMainMenuK1, KmrpMainMenuBars) from this result.
+    "mainmenu.gui", "mainmenu8x6.gui", "mainmenu10x7.gui", "mainmenu12x9.gui", "mainmenu16x12.gui",
 )
 
 # The prompt manifest row whose caption width the Container is widened for.
@@ -161,7 +167,7 @@ assert COMBAT_CUES[1][3] == "BTN_CLEARALL", "add_combat_cues sizes the cues by B
 
 FIELDS = ("LEFT", "TOP", "WIDTH", "HEIGHT")
 # Rule numbers, as kmrp-guiadapt.c has them.
-RULES = ("scale", "stretch", "fixed", "aspect", "centre", "right", "frame", "frame_inclusive")
+RULES = ("scale", "stretch", "fixed", "aspect", "centre", "right", "frame", "frame_inclusive", "aspect_centre")
 FRAME_MARGIN = 10
 LISTBOX = 11
 SUBS = ("PROTOITEM", "SCROLLBAR")
@@ -238,7 +244,7 @@ def value(rule: str, field: int, v: int, w: int, width: int, height: int, base: 
         return float(v)
     if rule == "stretch":
         return v * width / bw
-    if rule == "aspect":
+    if rule in ("aspect", "aspect_centre"):
         return (v + w / 2) * width / bw - w * s / 2 if field == 0 else v * s
     if rule == "centre":
         return width / 2 + (v - bw / 2) * s if field == 0 else v * s
@@ -289,6 +295,31 @@ def placed(field: int, rule: str, v4: list[int], gold: int | None, width: int, h
     return rhalf((gold - origin) * ((r - origin) / (at_gold - origin)) + origin)
 
 
+def aspect_left(rules: list[str], v4: list[int], gold: list, out: list[int], width: int, height: int,
+                base: tuple[int, int]) -> int:
+    """An aspect_centre LEFT where gold differs from the rule: gold's centre carried by the
+    rule's centre, which grows with the screen's width alone, then half the laid-out width
+    off it. Elsewhere `out[0]`.
+
+    Carrying gold on the LEFT instead (placed) moves the centre with the height too, since
+    the width scales by the height: the main menu's logo was 4 to 9 px from every set at
+    7680x4320 and up, whose logo stands a fixed share of the width from the middle at
+    every height (+414.5 px at every 3840-wide size; 2026-10-30). Not for every kept-shape
+    control: done for all of them it put the galaxy map's planets and Terminal's icons up to
+    23 px from the sets, which carry gold on the LEFT where gold moved a control
+    (transfer_gold_gui_geometry). So choose_rules picks it per control (aspect_centre_fits)."""
+    if rules[0] != "aspect_centre" or gold[0] is None or gold[2] is None:
+        return out[0]
+    rule_left = value("aspect", 0, v4[0], v4[2], *GOLD_SIZE, base)
+    if gold[0] == rhalf(rule_left):
+        return out[0]
+    centre_at_gold = rule_left + value(rules[2], 2, v4[2], v4[2], *GOLD_SIZE, base) / 2
+    if centre_at_gold == 0:
+        return out[0]
+    centre = value("aspect", 0, v4[0], v4[2], width, height, base) + value(rules[2], 2, v4[2], v4[2], width, height, base) / 2
+    return rhalf((gold[0] + gold[2] / 2) * (centre / centre_at_gold) - out[2] / 2)
+
+
 # ----------------------------------------------------------------------------- the table
 def upstream_sets() -> list[tuple[tuple[int, int], Path]]:
     sets = []
@@ -304,6 +335,7 @@ def choose_rules(name: str, sets) -> dict:
     """Per structure key of the game's file: its four rules, chosen on upstream's sets."""
     vanilla = read_gff(VANILLA / name).root
     base = base_of(vanilla)
+    gold = {key: extent(s) for key, s, _ in structures(read_gff(GOLD / name).root)} if (GOLD / name).is_file() else {}
     seen = {}
     for (w, h), folder in sets:
         for key, struct, _ in structures(read_gff(folder / name).root):
@@ -340,8 +372,33 @@ def choose_rules(name: str, sets) -> dict:
                            for (w, h), e in seen.get(key, ()))
             best = max(candidates, key=lambda r: (hits(r, True), hits(r, False), r == default))
             rules.append(best)
+        if rules[0] == "aspect" and aspect_centre_fits(v4, rules, seen.get(key, ()), gold.get(key), base):
+            rules[0] = "aspect_centre"
         chosen[key] = rules
     return chosen
+
+
+def aspect_centre_fits(v4: list[int], rules: list[str], seen, gold: list[int] | None,
+                       base: tuple[int, int]) -> bool:
+    """Should a kept-shape control's LEFT carry gold by its centre (aspect_left)? Only where
+    gold left it where upstream's 3440x1440 set has it, so the build carried nothing and the
+    sets keep upstream's own places, and where carrying the centre puts it at upstream's own
+    place, within a pixel and a half, at strictly more of upstream's sizes than carrying the
+    LEFT does (2026-10-30)."""
+    up = next((e for size, e in seen if size == GOLD_SIZE), None)
+    if gold is None or up is None or gold[0] != up[0] or gold[2] != up[2]:
+        return False
+    if gold[0] == rhalf(value("aspect", 0, v4[0], v4[2], *GOLD_SIZE, base)):
+        return False
+    by_left = by_centre = 0
+    for (w, h), e in seen:
+        left = placed(0, "aspect", v4, up[0], w, h, base)
+        width = placed(2, rules[2], v4, up[2], w, h, base)
+        centred = aspect_left(["aspect_centre", rules[1], rules[2], rules[3]], v4, [up[0], None, up[2], None],
+                              [left, 0, width, 0], w, h, base)
+        by_left += abs(e[0] - left) <= 1.5
+        by_centre += abs(e[0] - centred) <= 1.5
+    return by_centre > by_left
 
 
 def table_entries() -> list[tuple[str, list]]:
@@ -588,6 +645,7 @@ def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height:
         gold = row[1] if unmoved and row[1] is not None else [None] * 4
         e = child(struct, "EXTENT")
         out = [placed(f, rules[f], v4, gold[f], width, height, base) for f in range(4)]
+        out[0] = aspect_left(rules, v4, gold, out, width, height, base)
         for f, x in zip(FIELDS, out):
             e.set_int32(f, x)
         if unmoved and row[2] is not None and (width, height) == GOLD_SIZE and struct.exists("PADDING"):

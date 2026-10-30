@@ -117,6 +117,20 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **The galaxy map's planets are where the game puts them again** (2026-10-30). Since
+  2026-10-28 Live Adaptive Layout wrote the galaxy map after KMRP had placed its planets
+  where the game's own layout has them (issue 67), so they stood in High Resolution Menus'
+  arrangement again (Korriban right of the core, Tatooine below it). KMRP now lays the
+  screen out first and places the planets on the result.
+
+- **The main menu uses Live Adaptive Layout** (2026-10-30): its five files, a mod's
+  included, then KMRP's buttons on the bars of their art as before, bringing the shared
+  path to 70 of 85 layout files. Some square controls (the main menu's logo among them, 18
+  in all, chosen where it matches the original high-resolution layouts better) now keep
+  their centre as a share of the screen's width, which put the logo within a few pixels of
+  KMRP's sets at the largest sizes, where it had been up to 9 px off. Both changes seen in
+  the Steam game at 3440x1440: "Both look right".
+
 - **The HUD's combat cues follow the HUD and reach a mod's HUD** (2026-10-30). The Y and B
   badges beside Clear and Disengage are now placed beside the buttons wherever the HUD
   table puts them, so they follow the Disengage part at any HUD Size; before, they kept

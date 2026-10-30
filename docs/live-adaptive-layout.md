@@ -27,11 +27,12 @@ nine screens whose lists the build fits to their rows join them (Terminal, Conta
 Feats, Journal, Powers, Script Selection, the granted skill popup, Store and the
 workbench's item list), making 58 screens; the same day the pause notice (`pause.gui`)
 and party selection (`partyselection.gui`) follow, making 60, and then the five
-tooltip files, making **65 screens**. The HUD's two loaded files are placed at run time
-by the HUD's own table instead (`K1PcHud.cpp`), and seven HUD files are never loaded with
-KMRP installed (2026-10-30, coverage inventory).
-**Coverage: 65 / 85 layout files in the shared path (76.47%); 67 / 85 laid out at run
-time with the HUD table's two (78.82%); 7 never loaded; 11 remain.** The
+tooltip files, making 65, and the main menu's five files, making **70 screens**. The
+HUD's two loaded files are placed at run time by the HUD's own table instead
+(`K1PcHud.cpp`), and seven HUD files are never loaded with KMRP installed (2026-10-30,
+coverage inventory).
+**Coverage: 70 / 85 layout files in the shared path (82.35%); 72 / 85 laid out at run
+time with the HUD table's two (84.71%); 7 never loaded; 6 remain.** The
 [full inventory](#coverage-inventory) lists every file and its implementation status.
 
 Both mouse/keyboard and controller modes use the same live geometry; the existing
@@ -47,8 +48,10 @@ the game at 3440x1440 only (section 6).
 
 | | |
 | --- | --- |
-| Source | master `0e4274b` with the pause notice, party selection, tooltips and the HUD's combat cues of 2026-10-30 (uncommitted when written) |
-| Module (65 screens, HUD cues) | `build\native-runtime\kmrp-native.dll`, 865,280 bytes, SHA-256 `506B380E4AAA95ACD35A9BC06E49C2D95B38799045563E017FEA329D9D0BEAC0`; installed in the Steam game 2026-10-30 for the maintainer's test, with the controller module from the same source (2,712,064 bytes, `28F2046EFC28B190B0D50037B685B53357F489A7067BABAB79EF54382E4D2D02`) |
+| Source | master `94259de` with the main menu, `aspect_centre` and the adapter order of 2026-10-30 (uncommitted when written) |
+| Module (70 screens) | `build\native-runtime\kmrp-native.dll`, 870,912 bytes, SHA-256 `659BF0E9A1F9267E70740CB4D90216F70451998008965210575BF0E14A6E4331`; installed in the Steam game 2026-10-30 for the maintainer's test, with the controller module from the same source (2,716,160 bytes, `C57CDEC3CB93EC8333989D844036A9B232F52594123385329669082398431B8D`) |
+| Withdrawn module (70 screens, first centre rule) | `BF8BB39C445D5E650F847B47C9A4473B8AB224C1627F0CEAEC0CD69B0AE5CBFB`: carried the centre for every kept-shape control, which failed 295 fields; installed for a short while the same day, replaced by the one above |
+| Previous module (65 screens, HUD cues) | 865,280 bytes, SHA-256 `506B380E4AAA95ACD35A9BC06E49C2D95B38799045563E017FEA329D9D0BEAC0`, with the controller module `28F2046EFC28B190B0D50037B685B53357F489A7067BABAB79EF54382E4D2D02`; committed as `94259de` |
 | Previous module (65 screens) | 860,672 bytes, SHA-256 `B2C2C639C7A40B3AF85CD45544926873B60BD8AFFE3CB6A3DC86A465F5FC566D`, with the controller module `4B1A279104DA41814AF3C438A04594DCDE048D2B2288C79C1C6C1D589039F922`; installed and seen in the game 2026-10-30 ("it works", the HUD's tooltips) |
 | Previous module (60 screens) | 860,160 bytes, SHA-256 `D074F8E673736A2D6C5885F83E3CCF54648E2D10614F0CFCA1DF36068BEEEA00`, with the controller module `D1DDDB2DFECC6C403B6362A1C8EBA72A79EA3245475911E8873DD6D20CC1E8BF`; installed and seen in the game 2026-10-30 ("looks good") |
 | Previous module (58 screens) | 856,064 bytes, SHA-256 `47FEE683DE0BC7304078D62EFFA0ECE7AC3061471D506A87BA84DF7668725910`, with the controller module `795C4355FCC5B5B78C7CE6D24C01C52AEF41A7BAC4993A445FFCC100255FAC51`; installed and play-tested 2026-10-30 ("all works perfectly") |
@@ -61,10 +64,10 @@ the game at 3440x1440 only (section 6).
 
 ## Coverage inventory
 
-**65 / 85 GUI layout files implemented in the shared path: 76.47% (about 76%).**
-**2 / 85 placed at run time by the HUD's own table (HUD table): 67 / 85, 78.82%.**
+**70 / 85 GUI layout files implemented in the shared path: 82.35% (about 82%).**
+**2 / 85 placed at run time by the HUD's own table (HUD table): 72 / 85, 84.71%.**
 **7 / 85 never loaded with KMRP installed (Not loaded).**
-**11 / 85 remain: 12.94%.**
+**6 / 85 remain: 7.06%.**
 
 Measured on 2026-10-29 against source `a9419f6`, and the numerator again on 2026-10-30
 after the row-fitted lists (the denominator unchanged): the denominator is the union of
@@ -72,7 +75,7 @@ after the row-fitted lists (the denominator unchanged): the denominator is the u
 all 66 `build/kmrp/resources/gui-*.zip` archives. Their union contains 85 names:
 the archives add `kmrplayout.gui`, while `startscreen.gui` and `statussummary.gui`
 occur only in the original-file inventory. The numerator is membership in
-`tools/build_live_layout.py` `FILES`. Percentage is `100 * 65 / 85`, rounded to
+`tools/build_live_layout.py` `FILES`. Percentage is `100 * 70 / 85`, rounded to
 two decimal places. Every name is listed once below.
 
 **Status definition:** Yes means the file is implemented in the shared
@@ -115,11 +118,11 @@ pending separately; section 6 records verification limits.
 | `loadscreen.gui` | Yes | Shared runtime layout rules. |
 | `maincg.gui` | Yes | Shared runtime layout rules. |
 | `maininterface.gui` | Yes | Shared runtime layout rules. |
-| `mainmenu.gui` | No | Audited 2026-10-30: 2 to 51 fields beyond the allowance (the logo up to 9 px), and `AdaptMainMenuK1` writes the same file at run time. |
-| `mainmenu10x7.gui` | No | Audited 2026-10-30: 2 to 51 fields beyond the allowance (the logo up to 9 px), and `AdaptMainMenuK1` writes the same file at run time. |
-| `mainmenu12x9.gui` | No | Audited 2026-10-30: 2 to 51 fields beyond the allowance (the logo up to 9 px), and `AdaptMainMenuK1` writes the same file at run time. |
-| `mainmenu16x12.gui` | No | Audited 2026-10-30: 2 to 51 fields beyond the allowance (the logo up to 9 px), and `AdaptMainMenuK1` writes the same file at run time. |
-| `mainmenu8x6.gui` | No | Audited 2026-10-30: 2 to 51 fields beyond the allowance (the logo up to 9 px), and `AdaptMainMenuK1` writes the same file at run time. |
+| `mainmenu.gui` | Yes | Shared rules (a kept-shape control's centre carried by gold); then `AdaptMainMenuK1` puts the buttons on the bars of their art, from this result. |
+| `mainmenu10x7.gui` | Yes | Shared rules (a kept-shape control's centre carried by gold); then `AdaptMainMenuK1` puts the buttons on the bars of their art, from this result. |
+| `mainmenu12x9.gui` | Yes | Shared rules (a kept-shape control's centre carried by gold); then `AdaptMainMenuK1` puts the buttons on the bars of their art, from this result. |
+| `mainmenu16x12.gui` | Yes | Shared rules (a kept-shape control's centre carried by gold); then `AdaptMainMenuK1` puts the buttons on the bars of their art, from this result. |
+| `mainmenu8x6.gui` | Yes | Shared rules (a kept-shape control's centre carried by gold); then `AdaptMainMenuK1` puts the buttons on the bars of their art, from this result. |
 | `map.gui` | No | Audited 2026-10-30: rules alone are 395 of 2,640 fields well off (`LBL_Map`, `LBL_MapNote`, up to 2,880 px); the build computes the map rectangle per size, which the run time must repeat. |
 | `messages.gui` | Yes | Shared runtime layout rules. |
 | `mi8x6.gui` | Not loaded | The Xbox game's HUD; the PC game never loads it (the HUD's constructor, 0x0068C4D5, picks only `mipc*`). The Xbox-style HUD's table is built from it (`tools/build_xbox_hud.py`). |
@@ -340,6 +343,8 @@ before `Override` (the roster folder, or this run's folder of links when the pla
 | `computer.gui`, `container.gui`, `ftchrgen.gui`, `journal.gui`, `pwrlvlup.gui`, `scriptselect.gui`, `skillinfo.gui`, `store.gui`, `upgradeitems.gui` | the game's own, with the build's row steps below | the player's file, the same steps where its controls have what they need; a step it cannot take is left out |
 | `pause.gui` | the game's own, by the rules and gold alone; the module's `Pause` (`K1TextLayout.cpp`) then places the notice under the live menu row, its margins read from this file | the player's file, the same |
 | `partyselection.gui` | the game's own, by the rules and gold alone; **not written while the 32-slot roster is active**, whose file `AdaptPartyRosterK1` builds from the set's layout just before and keeps (`managedPartyRoster`) | the same, or the roster's file |
+| `mainmenu.gui`, `mainmenu8x6.gui`, `mainmenu10x7.gui`, `mainmenu12x9.gui`, `mainmenu16x12.gui` | the game's own, by the rules and gold; then `AdaptMainMenuK1` puts the five buttons on the bars of their art (`KmrpMainMenuBars`) from this file | the player's file, laid out the same; the bars are KMRP's art's, so a mod's file keeps its own button places, as before |
+| `galaxymap.gui` (since 2026-10-28) | the game's own, by the rules and gold; then `AdaptGalaxyMapK1` puts the planets and Live slots where the game's own 640x480 layout has them (issue 67), from this file | the same, the mod's destinations placed |
 | `mipc*.gui` (the HUD) | nothing: the set's file is used, and the module's table places the HUD (`K1PcHud.cpp`) | the player's file **as it is**, with KMRP's two combat cues added when it lacks them (`KmrpHudCues`: `add_combat_cues`'s rule, clones of `LBL_QUEUE1`); not laid out, because the table places every control, the cues included |
 
 "Laid out for the game's size": its base (section 2) is the game's file's and its root lies
@@ -557,6 +562,38 @@ controller patch changes only the three with the R3 cue, the same cue under the 
   at 3440x1440: the maintainer, "looks good". Not tested: the 32-slot roster's skip
   (`managedPartyRoster`) is by code reading only.
 
+- **Correction, 2026-10-30: live layout undid the galaxy map's planet placement.** From
+  `32b426e` (2026-10-28) `AdaptLiveLayoutK1` ran after `AdaptGalaxyMapK1` and wrote
+  `galaxymap.gui` over it, so the planets stood where High Resolution Menus put them, not
+  where the game's own layout does (issue 67). Measured with the C at 3440x1440: Korriban
+  2237, 351 from live layout against 1805, 646 from the galaxy adapter; Tatooine 1760, 677
+  against 2161, 406. Since then the module runs the party roster, then live layout, then
+  the galaxy map and the main menu on what live layout wrote (`LayoutBase`,
+  `K1RuntimeAssets.cpp`). That order, run with the C, gives the galaxy adapter's planets
+  and the main menu's barred buttons exactly as from the set at 3440x1440 and 1920x1080,
+  and within a pixel at 2560x1440.
+
+- The main menu (added 2026-10-30, uncommitted): the five files. One rule came with it,
+  `aspect_centre` (rule 8): a kept-shape control's LEFT carries gold by its **centre**, by
+  the width (`aspect_left`), instead of by the left edge, which moved the centre with the
+  height too. The logo (`LBL_GAMELOGO`, 870 px square at 3440x1440) was 4 to 9 px from the
+  sets at 7680x4320, 8192x4608 and 15360x8640; the sets keep its centre a fixed share of the
+  width from the middle at every height (+414.5 px at every 3840-wide size). **Correction,
+  the same day:** done first for every kept-shape control gold differs from the rule by, it
+  failed 295 fields, the galaxy map's planets and Terminal's icons up to 23 px from the
+  sets. The build carries gold to other sizes on each field itself, and only where gold
+  differs from upstream's own 3440x1440 value (`transfer_gold_gui_geometry.py`); where it
+  does not, the sets keep upstream's places, whose square controls are centred by the
+  width. So the rule chooser now gives `aspect_centre` only where gold equals upstream's
+  value and carrying the centre reproduces upstream's 48 sets at strictly more sizes than
+  the left edge (`aspect_centre_fits`): 18 fields, among them the logo, the main menu's
+  `LBL_NEWCONTENT` and `LBL_BW`, Pazaak's card labels and `top.gui`'s `BTN_OPT`. The full
+  run then passes: 70 screens, 327,360 extent fields against the 66 sets, 94.05% exact,
+  5.72% one pixel off, 755 further within the allowances, 3440x1440 identical; 18,896
+  C/Python layouts and the three mod suites. Seen in the Steam game at 3440x1440 with the
+  module above, the same day: the main menu and the galaxy map, the planets where the
+  game's own layout has them ("Both look right").
+
 - The tooltips (added 2026-10-30, uncommitted): the five files, 2,640 extent fields,
   97.35% exact, the rest one pixel off, 3440x1440 identical. The full 65-screen run
   passes: 306,240 extent fields against the 66 sets, 94.05% exact, 5.72% one pixel off,
@@ -679,7 +716,9 @@ upstream's sets give each screen (`rules\`) and the three mod suites (`suites\`)
 the same way. So adding a screen checks that screen, and a change to shared code or a new
 build checks everything. Nothing that failed is kept. Each screen's random Container
 captions come from its own seeded stream, so its cases do not depend on which screens ran
-before it.
+before it. The screens left to check run in worker processes, one a core (`--jobs N`, 1
+for none): every screen of 70, on 16 cores, in 3.4 minutes against about 18 on one
+(2026-10-30, same result).
 
 To lay one screen out by hand with the C:
 
