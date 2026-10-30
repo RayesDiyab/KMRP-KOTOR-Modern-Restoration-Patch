@@ -165,4 +165,16 @@ inline int Find(const char* tag)
     }
     return -1;
 }
+
+// A combat cue beside its button, as the packager places it (add_combat_cues): a square
+// whose side is kPcCombatCueScale of the Disengage button's height (Python's round, half
+// to even), at least 8; a quarter of it, at least 2, left of the button; centred on the
+// button's height. Until 2026-10-30 only the packager placed the cues, at the HUD's
+// default size, so with the Disengage part sized away from 50% they stayed behind.
+inline Rect CombatCueRect(const Rect& disengage, const Rect& button)
+{
+    const int size = (std::max)(8, static_cast<int>(std::nearbyint(disengage.height * kPcCombatCueScale)));
+    const int gap = (std::max)(2, size / 4);
+    return Rect{button.left - gap - size, button.top + (button.height - size) / 2, size, size};
+}
 }  // namespace KmrpPcHud

@@ -1403,6 +1403,41 @@ follows its own list's rounding; a Feats row count crossed by the rounding pixel
 2880x1864); the [layout reference](live-adaptive-layout.md) section 6 has both.
 Not seen in the game yet.
 
+## 117. Pause notice and party selection join Live Adaptive Layout (Windows 2026-10-30, uncommitted)
+
+The shared table now has 60 screens, adding `pause.gui` and `partyselection.gui`;
+neither needs a step of its own, so `kmrp-guiadapt.c` is unchanged apart from the
+generated table. **What the Mac must do** when it calls live layout (item 102): skip
+`partyselection.gui` while its 32-slot roster adapter has written the file, as
+`AdaptLiveLayoutK1` does on Windows (`managedPartyRoster`), or the live layout would
+replace the roster's pages. The Mac's pause adapter, if it reads the file's margins
+like Windows' `Pause`, needs nothing. Both pass against all 66 sets (pause 1,056
+extent fields, 91.10% exact; party selection 10,560, 92.25% exact, 10 further within
+the allowance), 3440x1440 identical.
+
+## 118. The tooltips join Live Adaptive Layout (Windows 2026-10-30, uncommitted)
+
+The shared table now has 65 screens, adding `tooltip6x4.gui`, `tooltip8x6.gui`,
+`tooltip10x8.gui`, `tooltip12x9.gui` and `tooltip16x12.gui`. No step of their own:
+the generated table is the whole change, so the Mac needs nothing beyond item 102.
+Against all 66 sets: 2,640 extent fields, 97.35% exact, the rest one pixel off,
+3440x1440 identical; 1,350 C/Python layouts.
+
+## 119. The HUD's combat cues: placed with the HUD, and given to a mod's HUD file (Windows 2026-10-30, uncommitted)
+
+Two changes. **(1)** `K1PcHud.cpp` places `LBL_KMRPY` and `LBL_KMRPX` beside Clear and
+Disengage after placing the HUD (`CombatCueRect` in `K1PcHudLayout.h`, the packager's
+`add_combat_cues` rule; its constants now come through the generated
+`K1PcHudLayout.inc`). If the Mac places the PC HUD from the same table, it needs the same
+three lines. **(2)** `kmrp-guiadapt.c` has `KmrpHudCues(source, out)` (CLI `hudcues`): a
+mod's `mipc*.gui` with the two cues added, as the build adds them, and nothing else
+changed. Windows calls it from `AdaptLiveLayoutK1` for each HUD file in Override and
+writes the result into the size's folder; the Mac would do the same where it adapts the
+sets. Tested: `Test-LiveLayout.py` compares it with the build's own function on the
+game's eight HUD files, each as it is and in five mod-like variants (48 cases);
+`hud_options_harness.cpp` checks the rule gives the shipped cues at 3440x1440. Not seen
+in the game.
+
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
 | Change | Commit | Why not the Mac |

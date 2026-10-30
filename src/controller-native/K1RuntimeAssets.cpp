@@ -88,6 +88,10 @@ extern "C" int KmrpMainMenuBars(const char* setGui, const char* outGui);
 // Items caption width the Container is widened for.
 extern "C" int KmrpLiveLayoutPrompts(const char* key, const char* name, const char* sourceGui, int width, int height,
                                      const char* outGui, const char* prompts);
+// The same file: a mod's mouse and keyboard HUD file with KMRP's combat cues added. 0
+// written, 3 nothing to add, else not written; and the HUD files' names.
+extern "C" int KmrpHudCues(const char* sourceGui, const char* outGui);
+extern "C" const char* KmrpHudFileName(int i);
 extern "C" int KmrpLiveLayoutCount(void);
 extern "C" const char* KmrpLiveLayoutName(int i);
 void KmrpRuntimeLog(const char* line);       // K1RuntimeEngine.cpp: one line into kmrp-kpm.log
@@ -1103,6 +1107,9 @@ bool AdaptLiveLayoutK1(const std::wstring& set, const std::wstring& folder, int 
     int written = 0, theirs = 0;
     for (int i = 0; i < KmrpLiveLayoutCount(); ++i) {
         const std::wstring name = Wide(KmrpLiveLayoutName(i));
+        // The 32-slot roster's file is AdaptPartyRosterK1's, written just before this: it
+        // builds its pages from the set's layout and a mod's, and keeps them.
+        if (managedPartyRoster && Lower(name) == L"partyselection.gui") continue;
         const bool mod = OverrideHas(name);
         const std::wstring target = folder + L"\\" + name, work = target + L".tmp" + Pid();
         const std::string out = Narrow(work), source = mod ? Narrow(game + L"\\override\\" + name) : std::string();
@@ -1131,6 +1138,31 @@ bool AdaptLiveLayoutK1(const std::wstring& set, const std::wstring& folder, int 
         char line[200];
         sprintf_s(line, "[KMRP] live layout: %d screens laid out for %dx%d, %d of them from the Override folder's files",
                   written, width, height, theirs);
+        KmrpRuntimeLog(line);
+    }
+    // A mod's mouse and keyboard HUD file, given the combat cues KMRP's own carry (2026-10-30).
+    // Its places are the module's table's (K1PcHud.cpp), the cues' too; the file is copied
+    // as it is with the two labels added, into the folder the game searches before Override.
+    for (int i = 0; const char* hudName = KmrpHudFileName(i); ++i) {
+        const std::wstring name = Wide(hudName);
+        if (!OverrideHas(name)) continue;
+        const std::wstring target = folder + L"\\" + name, work = target + L".tmp" + Pid();
+        const std::string out = Narrow(work), source = Narrow(game + L"\\override\\" + name);
+        if (out.empty() || source.empty()) continue;
+        const int result = KmrpHudCues(source.c_str(), out.c_str());
+        char line[200];
+        if (result != 0) {
+            DeleteFileW(work.c_str());
+            if (result != 3) {
+                sprintf_s(line, "[KMRP] HUD cues: the Override folder's %s could not be given them (%d)", hudName, result);
+                KmrpRuntimeLog(line);
+            }
+            continue;
+        }
+        SetFileAttributesW(target.c_str(), FILE_ATTRIBUTE_NORMAL);
+        if (!MoveFileExW(work.c_str(), target.c_str(), MOVEFILE_REPLACE_EXISTING)) { DeleteFileW(work.c_str()); continue; }
+        ++written;
+        sprintf_s(line, "[KMRP] HUD cues: the Override folder's %s given the combat cues", hudName);
         KmrpRuntimeLog(line);
     }
     return written > 0;

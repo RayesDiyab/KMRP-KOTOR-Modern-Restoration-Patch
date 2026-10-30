@@ -142,6 +142,14 @@ void Apply(void* hud, int width, int height, const std::array<int, ElementCount>
         }
         SetExtent(control, r);
     }
+    // KMRP's combat cues beside Clear and Disengage, from the buttons as just placed (a
+    // file without them is given them when its set is made ready, K1RuntimeAssets.cpp).
+    const Rect disengage = PieceRect(layout, "BTN_CLEARALL");
+    for (const PcCombatCue& cue : kPcCombatCues) {
+        void* label = KmrpRuntimeControlByTagK1(hud, cue.tag);
+        const Rect button = PieceRect(layout, cue.button);
+        if (label && disengage.height > 0 && button.height > 0) SetExtent(label, CombatCueRect(disengage, button));
+    }
     // The map's window.
     int* window = &At<int>(hud, kHudMapWindow);
     window[0] = layout.window.left;

@@ -51,7 +51,8 @@ from pathlib import Path
 from pykotor.resource.formats.gff import read_gff
 
 from apply_gold_hud_proportions import action_description_extents, gold_extents, target_menu_extents
-from prepare_universal_resources import COMBAT_MESSAGE_TAGS, COMBAT_MESSAGE_WIDTHS
+from prepare_universal_resources import (COMBAT_CUE_SCALE, COMBAT_CUE_TEMPLATE, COMBAT_CUES,
+                                         COMBAT_MESSAGE_TAGS, COMBAT_MESSAGE_WIDTHS)
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "assets" / "override-3440x1440" / "mipc210x7.gui"
@@ -198,6 +199,24 @@ def table() -> str:
         lines.append('    {"%s", %d, %s, {%d, %d, %d, %d}, "%s", %d},' % (
             p["tag"], p["element"], ANCHOR_NAMES[p["anchor"]], *p["box"], p["fill"], p["flags"]))
     lines.append("};")
+    # The two combat cues the packager adds beside Clear and Disengage
+    # (prepare_universal_resources.add_combat_cues): placed again beside the buttons as
+    # they are placed, so they follow the Disengage part's size (2026-10-30).
+    lines += [
+        "",
+        "// The combat cues KMRP's packager adds (add_combat_cues): each cue's tag, picture and",
+        "// the button it stands left of; the label they are cloned from; their side as a share",
+        "// of the Disengage button's height, BTN_CLEARALL being that button.",
+        "struct PcCombatCue { const char* tag; const char* fill; const char* button; };",
+        "constexpr PcCombatCue kPcCombatCues[] = {",
+    ]
+    for tag, fill, _glyph, button in COMBAT_CUES:
+        lines.append('    {"%s", "%s", "%s"},' % (tag, fill, button))
+    lines += [
+        "};",
+        'constexpr const char* kPcCombatCueTemplate = "%s";' % COMBAT_CUE_TEMPLATE,
+        "constexpr double kPcCombatCueScale = %r;" % COMBAT_CUE_SCALE,
+    ]
     return "\n".join(lines) + "\n"
 
 

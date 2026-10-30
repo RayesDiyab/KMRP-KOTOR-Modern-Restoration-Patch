@@ -22,14 +22,23 @@ run. This:
    place, without gold's correction) and one control added under a new TAG (the default
    rule), and a file laid out for 1920x1080, which both must refuse.
 
-    python testing/regression/Test-LiveLayout.py [RESOURCES_DIR]
+    python testing/regression/Test-LiveLayout.py [RESOURCES_DIR] [--screens NAME...] [--no-cache]
+
+Each screen that passed is kept in build/test-cache/live-layout under a fingerprint of what
+it reads, and skipped while that still matches (see "the cache" below); --no-cache checks
+everything.
 """
 from __future__ import annotations
 
 import io
+import ast
 import copy
 import argparse
+import hashlib
+import importlib.metadata
+import json
 import logging
+import re
 import random
 import subprocess
 import sys
@@ -44,6 +53,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import build_live_layout as ll  # noqa: E402
 import native_helpers  # noqa: E402
+import source_fingerprint  # noqa: E402
 from pykotor.resource.formats.gff import GFFList, GFFStruct, read_gff, write_gff  # noqa: E402
 from pykotor.resource.type import ResourceType  # noqa: E402
 from pykotor.common.misc import ResRef  # noqa: E402
@@ -372,168 +382,382 @@ def check_options_mods(helper: Path, tmp: Path, rows: dict, fail) -> int:
     return checked
 
 
+def check_hud_cue_mods(helper: Path, tmp: Path, fail) -> int:
+    """The combat cues given to a mod's HUD file (KmrpHudCues) against the build's own
+    add_combat_cues (build_live_layout.hud_cues), on the game's eight HUD files and on
+    variants a mod could have: buttons moved, a cue already there, the template gone, a cue
+    that would leave the panel, a template label without a picture field."""
+    checked = 0
+    for name in ll.HUD_FILES:
+        for variant in ("plain", "moved", "existing", "no-template", "offscreen", "no-fill"):
+            gff = read_gff(ll.VANILLA / name)
+            controls = gff.root.acquire("CONTROLS", None, GFFList)
+            by_tag = {c.get_string("TAG"): c for c in controls}
+            if variant == "moved":
+                for tag, shift in (("BTN_CLEARONE", 37), ("BTN_CLEARALL", -11)):
+                    box = ll.child(by_tag[tag], "EXTENT")
+                    box.set_int32("LEFT", box.get_int32("LEFT") + shift)
+                    box.set_int32("HEIGHT", box.get_int32("HEIGHT") + 3)
+            elif variant == "existing":
+                cue = copy.deepcopy(by_tag[ll.COMBAT_CUE_TEMPLATE])
+                cue.set_string("TAG", ll.COMBAT_CUES[1][0])
+                controls.append(cue)
+            elif variant == "no-template":
+                by_tag[ll.COMBAT_CUE_TEMPLATE].set_string("TAG", "MOD_QUEUE")
+            elif variant == "offscreen":
+                ll.child(by_tag["BTN_CLEARALL"], "EXTENT").set_int32("LEFT", 3)
+            elif variant == "no-fill":
+                ll.child(by_tag[ll.COMBAT_CUE_TEMPLATE], "BORDER")._fields.pop("FILL", None)
+            source = tmp / f"hud-{variant}-{name}"
+            write_gff(gff, source, ResourceType.GUI)
+            out = tmp / "hud-out.gui"
+            out.unlink(missing_ok=True)
+            code = subprocess.run([str(helper), "hudcues", native_helpers.arg(source), native_helpers.arg(out)],
+                                  stdout=subprocess.DEVNULL).returncode
+            expected = ll.hud_cues(read_gff(source).root)
+            if expected is None:
+                if code != 0 or out.exists():
+                    fail(f"{name} {variant}: the build adds no cues, the helper wrote a file (code {code})")
+            elif code != 0 or not out.exists() or flat(read_gff(out).root) != flat(expected):
+                fail(f"{name} {variant}: the combat cues differ between C and Python (code {code})")
+            elif variant == "plain":
+                tags = [c.get_string("TAG") for c in read_gff(out).root.acquire("CONTROLS", None, GFFList)]
+                if any(tags.count(tag) != 1 for tag, *_ in ll.COMBAT_CUES):
+                    fail(f"{name}: the combat cues were not each added once")
+            if variant in ("existing", "no-template", "no-fill") and expected is not None:
+                fail(f"{name} {variant}: the build was expected to add nothing")
+            checked += 1
+    return checked
+
+
+# ----------------------------------------------------------------------------- the cache
+# Each screen's checks (the Python against the 66 sets, the C against the Python) and each
+# mod suite are skipped while a fingerprint of everything they read still matches the one
+# kept from their last pass (2026-10-30, the maintainer: "cache each one screen being
+# tested ... with a fingerprint"). A full run had grown past ten minutes with 65 screens,
+# almost all of it checking screens nothing had touched. The fingerprint holds the code
+# (Python by its parsed code, comments and docstrings out, as build_kmrp.ps1's step cache
+# counts it, tools/source_fingerprint.py; build_live_layout.py without its FILES list, so
+# adding a screen leaves the others cached), the C, the table's shared part and the
+# screen's own rows, the screen's files (the game's, gold's, upstream's 48, each set's copy
+# and prompt manifest by CRC), and the Python and pykotor versions. Written only for a
+# screen that passed. --no-cache runs everything.
+CACHE = ROOT / "build" / "test-cache" / "live-layout"
+CACHE_FORMAT = "1"
+SHARED_CODE = [ROOT / "tools" / f for f in ("scale_listbox_padding.py", "prepare_universal_resources.py",
+                                             "build_controller_layout.py", "build_controller_prompt_textures.py")]
+SHARED_CODE += [Path(__file__).resolve(), Path(native_helpers.__file__).resolve()]
+GUIADAPT = ROOT / "macos" / "tools" / "kmrp-guiadapt.c"
+ROWS_BLOCK = re.compile(r"static const LLRow LL_ROWS_\d+\[\] = \{  /\* (\S+) \*/\n(.*?)\n\};\n", re.S)
+FILES_LIST = re.compile(r"static const LLFile LL_FILES\[\] = \{.*?\};\n", re.S)
+
+
+def sha(*parts) -> str:
+    h = hashlib.sha256()
+    for part in parts:
+        h.update(part if isinstance(part, bytes) else str(part).encode("utf-8"))
+        h.update(b"\0")
+    return h.hexdigest()
+
+
+def layout_code() -> str:
+    """build_live_layout.py's code without its FILES list (source_fingerprint's rule)."""
+    tree = ast.parse(Path(ll.__file__).read_bytes())
+    tree.body = [n for n in tree.body if not (isinstance(n, ast.Assign) and any(
+        isinstance(t, ast.Name) and t.id == "FILES" for t in n.targets))]
+    return sha(ast.dump(source_fingerprint.without_docstrings(tree)))
+
+
+class Fingerprints:
+    def __init__(self, resources: Path, sizes: list[str]):
+        table = ll.TABLE.read_text(encoding="ascii")
+        self.rows = {m.group(1): m.group(2) for m in ROWS_BLOCK.finditer(table)}
+        shared_table = FILES_LIST.sub("", ROWS_BLOCK.sub("", table))
+        try:
+            pykotor = importlib.metadata.version("pykotor")
+        except importlib.metadata.PackageNotFoundError:
+            pykotor = "unknown"
+        self.code = sha(CACHE_FORMAT, sys.version, pykotor, layout_code(),
+                        *(source_fingerprint.code_hash(p) for p in SHARED_CODE), GUIADAPT.read_bytes(), shared_table)
+        self.table = table
+        self.upstream = ll.upstream_sets()
+        self.sets = {}
+        for size in sizes:
+            with zipfile.ZipFile(resources / f"gui-{size}.zip") as z:
+                self.sets[size] = {i.filename.rsplit("/", 1)[-1].lower(): (i.CRC, i.file_size) for i in z.infolist()}
+
+    def files(self, name: str) -> str:
+        """The screen's own inputs: the game's file, gold's, upstream's."""
+        def read(path: Path) -> bytes:
+            return path.read_bytes() if path.is_file() else b"missing"
+        return sha(read(ll.VANILLA / name), read(ll.GOLD / name),
+                   *(read(folder / name) for _, folder in self.upstream))
+
+    def screen(self, name: str) -> str:
+        built = [(size, entries.get(name), entries.get("kmrp_prompts.txt")) for size, entries in sorted(self.sets.items())]
+        return sha(self.code, self.rows.get(name, "none"), self.files(name), built)
+
+    def rules(self, name: str) -> str:
+        return sha(CACHE_FORMAT, layout_code(), self.files(name))
+
+    def suites(self) -> str:
+        return sha(self.code, self.table, *(self.files(n) for n in ll.FILES), *(self.files(n) for n in ll.HUD_FILES))
+
+
+def cached(kind: str, name: str, fingerprint: str) -> dict | None:
+    path = CACHE / kind / f"{name}.json"
+    try:
+        record = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return record if record.get("fingerprint") == fingerprint else None
+
+
+def keep(kind: str, name: str, fingerprint: str, record: dict) -> None:
+    path = CACHE / kind / f"{name}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({**record, "fingerprint": fingerprint}), encoding="utf-8")
+
+
+def cache_rules(prints: Fingerprints) -> None:
+    """build_live_layout.choose_rules, kept per screen: the table check and table_by_file
+    otherwise choose every screen's rules from upstream's 48 sets twice a run."""
+    choose = ll.choose_rules
+
+    def rules(name, sets):
+        fingerprint = prints.rules(name)
+        record = cached("rules", name, fingerprint)
+        if record is not None:
+            return {tuple(key): value for key, value in record["rules"]}
+        chosen = choose(name, sets)
+        keep("rules", name, fingerprint, {"rules": [[list(key), value] for key, value in chosen.items()]})
+        return chosen
+    ll.choose_rules = rules
+
+
 def main() -> int:
     global RESOURCES
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("resources", type=Path, nargs="?", default=RESOURCES)
     parser.add_argument("--screens", nargs="+", choices=ll.FILES, default=ll.FILES,
                         help="check selected screens; table and cue/options mod checks still run")
+    parser.add_argument("--no-cache", action="store_true", help="check every screen, whatever passed before")
     args = parser.parse_args()
     RESOURCES = args.resources
     files = args.screens
     logging.disable(logging.DEBUG)
     failed = False
+    failures = 0
 
     def fail(message: str) -> None:
-        nonlocal failed
+        nonlocal failed, failures
         failed = True
+        failures += 1
         print("FAIL", message)
+
+    sizes = sorted(p.name[4:-4] for p in RESOURCES.glob("gui-*.zip"))
+    if len(sizes) < 66:
+        fail(f"{RESOURCES} has {len(sizes)} sets, expected 66")
+    prints = Fingerprints(RESOURCES, sizes)
+    if not args.no_cache:
+        cache_rules(prints)
 
     # 1. The table.
     if ll.TABLE.read_text(encoding="ascii") != ll.render():
         fail(f"{ll.TABLE} is out of date: run python tools/build_live_layout.py")
     rows = ll.table_by_file()
 
-    # 2. The Python against KMRP's sets.
-    sizes = sorted(p.name[4:-4] for p in RESOURCES.glob("gui-*.zip"))
-    if len(sizes) < 66:
-        fail(f"{RESOURCES} has {len(sizes)} sets, expected 66")
+    tmp_dir = tempfile.TemporaryDirectory(prefix="kmrp-livelayout-test-")
+    tmp = Path(tmp_dir.name)
+    helper_path: list[Path] = []
+
+    def helper() -> Path:
+        """The C helper, built the first time something is not taken from the cache."""
+        if not helper_path:
+            if native_helpers.WINDOWS:
+                helper_path.append(native_helpers.build(GUIADAPT, tmp, "kmrp-guiadapt")["x64"])
+            else:
+                helper_path.append(tmp / "kmrp-guiadapt")
+                subprocess.run(["clang", "-O2", "-o", str(helper_path[0]), str(GUIADAPT), "-lm"], check=True)
+        return helper_path[0]
+
     diffs = Counter()
+    checked = 0
+    reused = 0
+    rng = random.Random(20261028)
+    extra = [(rng.randint(640, 15360), 0) for _ in range(200)]
+    extra = [(w, rng.randint(max(480, w // 4), min(8640, w * 3 // 4 + 1))) for w, _ in extra]
     for name in files:
-        for size in sizes:
-            w, h = (int(x) for x in size.split("x"))
-            caption = ll.manifest_caption(built_manifest(size))
-            ours = python_layout(name, ll.VANILLA / name, w, h, rows[name], caption)
-            theirs = built_file(size, name)
-            a, b = numbers(ours), numbers(theirs)
-            if a.keys() != b.keys():
-                fail(f"{name} {size}: the structures differ from the set's")
-                continue
-            for k in a:
-                d = abs(a[k] - b[k])
-                if k[1] == "PADDING":
-                    if d and size != "3440x1440" and centred_padding(name, size, k, ours, theirs):
-                        print(f"note {name} {size} {k}: PADDING {a[k]}, the set has {b[k]} (its own list centred)")
-                    elif d:
-                        fail(f"{name} {size} {k}: PADDING {a[k]}, the set has {b[k]}")
-                    continue
-                diffs["exact" if d == 0 else "1 px" if d <= 1 else "more"] += 1
-                # A list's scroll bar takes only its WIDTH from the file: the list puts it on
-                # its own edge as it loads (docs/live-adaptive-layout.md, section 1), so its
-                # other three are noted, not held (Equipment's LB_ITEMS, 2026-10-28).
-                engine_placed = k[0][1] == "SCROLLBAR" and k[1] in ("LEFT", "TOP", "HEIGHT")
-                # A value gold moved far is carried to each size by gold's ratio, and so is
-                # the rounding of the place it is carried from: the Galaxy Map's LBL_Live01,
-                # 760 in upstream's 3440x1440 set and 2039 in gold, 2.7 times, is 6 px from
-                # the set at 15360x8640 (2026-10-28). Its allowance grows by that ratio.
-                if (d > limit(w) and not engine_placed and size != "3440x1440"
-                        and d <= limit(w) * moved_ratio(name, k)):
-                    print(f"note {name} {size} {k}: {a[k]}, the set has {b[k]} (gold moved it)")
-                    continue
-                if (d > limit(w) and size != "3440x1440"
-                        and row_threshold(name, size, k, rows[name], caption)):
-                    print(f"note {name} {size} {k}: {a[k]}, the set has {b[k]} (a row count crossed by the rounding pixel)")
-                    continue
-                if (size == "3440x1440" and d) or (d > limit(w) and not engine_placed):
-                    fail(f"{name} {size} {k}: {a[k]}, the set has {b[k]}")
-                elif d > 1:
-                    print(f"note {name} {size} {k}: {a[k]}, the set has {b[k]}")
-            # Every other field at every size (until 2026-10-28 at 3440x1440 only, which
-            # hid that Character's LBL_LEVEL alignment, gold's at every size, was not carried).
-            fa, fb = flat(ours), flat(theirs)
-            for k in fa.keys() | fb.keys():
-                if ".EXTENT." in k or k.endswith(".PADDING"):
-                    continue
-                x, y = fa.get(k), fb.get(k)
-                if x == y:
-                    continue
-                if hasattr(x, "x") and hasattr(y, "x") and all(
-                        abs(getattr(x, c) - getattr(y, c)) <= COLOUR_TOLERANCE for c in "xyz"):
-                    continue
-                fail(f"{name} {size} {k}: {x!r}, the set has {y!r}")
+        fingerprint = prints.screen(name)
+        record = None if args.no_cache else cached("screens", name, fingerprint)
+        if record is not None:
+            for line in record["notes"]:
+                print(line)
+            diffs.update(record["diffs"])
+            checked += record["checked"]
+            reused += 1
+            continue
+        before = failures
+        notes: list[str] = []
+        screen_diffs, screen_checked = check_screen(name, sizes, rows, extra, helper, tmp, fail, notes)
+        diffs.update(screen_diffs)
+        checked += screen_checked
+        if failures == before:
+            keep("screens", name, fingerprint, {"notes": notes, "diffs": dict(screen_diffs), "checked": screen_checked})
     total = sum(diffs.values())
     print(f"against KMRP's {len(sizes)} sets, {len(files)} screens: {total} EXTENT fields, "
           f"{100 * diffs['exact'] / total:.2f}% exact, {100 * diffs['1 px'] / total:.2f}% 1 px off, "
           f"{diffs['more']} further; 3440x1440 identical, every other field the set's at every "
           f"size, but for colour precision")
+    print(f"C against Python: {checked} layouts, {len(files)} refused mods' files")
 
-    # 3 and 4. The C against the Python.
-    with tempfile.TemporaryDirectory(prefix="kmrp-livelayout-test-") as tmp:
-        tmp = Path(tmp)
-        if native_helpers.WINDOWS:
-            helper = native_helpers.build(ROOT / "macos" / "tools" / "kmrp-guiadapt.c", tmp, "kmrp-guiadapt")["x64"]
-        else:
-            helper = tmp / "kmrp-guiadapt"
-            subprocess.run(["clang", "-O2", "-o", str(helper), str(ROOT / "macos" / "tools" / "kmrp-guiadapt.c"),
-                           "-lm"], check=True)
-        rng = random.Random(20261028)
-        extra = [(rng.randint(640, 15360), 0) for _ in range(200)]
-        extra = [(w, rng.randint(max(480, w // 4), min(8640, w * 3 // 4 + 1))) for w, _ in extra]
-        checked = 0
-        for name in files:
-            mod, hires, moved_tag = mod_files(name, tmp)
-            cases = [(int(s.split("x")[0]), int(s.split("x")[1]), None) for s in sizes]
-            cases += [(w, h, None) for w, h in extra]
-            if mod:
-                cases += [(w, h, mod) for w, h in ((1920, 1080), (3440, 1440), (2560, 1600), (1024, 768))]
-            for w, h, source in cases:
-                out = tmp / "out.gui"
-                out.unlink(missing_ok=True)
-                # The size's prompt manifest, as the run time reads it from the set: the set's
-                # own at a set's size, else one giving a caption that may or may not need the
-                # Container widened.
-                size = f"{w}x{h}"
-                manifest = (built_manifest(size) if size in sizes else
-                            f"prompt {ll.CAPTION_ROW} 1 1 {rng.uniform(100, 900):.2f} -\n")
-                prompts = tmp / "kmrp_prompts.txt"
-                prompts.write_text(manifest, encoding="utf-8")
-                args = [str(helper), "live", native_helpers.arg(ll.VANILLA / name), name, str(w), str(h),
-                        native_helpers.arg(out), native_helpers.arg(source) if source else "-",
-                        native_helpers.arg(prompts)]
-                code = subprocess.run(args, stdout=subprocess.DEVNULL).returncode
-                ours = python_layout(name, source or ll.VANILLA / name, w, h, rows[name],
-                                     ll.manifest_caption(manifest))
-                if code != 0 or not out.is_file():
-                    fail(f"{name} {w}x{h}{' (mod)' if source else ''}: the helper returned {code}")
-                    continue
-                a, b = flat(read_gff(out.read_bytes()).root), flat(ours)
-                if a != b:
-                    bad = sorted(k for k in a.keys() | b.keys() if a.get(k) != b.get(k))[:5]
-                    fail(f"{name} {w}x{h}{' (mod)' if source else ''}: C and Python differ at "
-                         + ", ".join(f"{k} {a.get(k)} / {b.get(k)}" for k in bad))
-                checked += 1
-            # The mod's moved control keeps the mod's place: no gold correction on it.
-            if mod:
-                ours = numbers(python_layout(name, mod, 3440, 1440, rows[name]))
-                gold = numbers(read_gff(ll.GOLD / name).root)
-                key = (moved_tag, "")
-                if ours[(key, "LEFT")] == gold[(key, "LEFT")] or ours[(key, "TOP")] == gold[(key, "TOP")]:
-                    fail(f"{name}: {moved_tag}, moved by the mod, took gold's place")
-                if ((("LBL_MOD_ADDED", ""), "LEFT")) not in ours:
-                    fail(f"{name}: the mod's own control was not laid out")
-                if name == "classsel.gui":
-                    root = python_layout(name, mod, 1920, 1080, rows[name])
-                    controls = {c.get_string("TAG"): c for c in root.acquire("CONTROLS", None, GFFList)}
-                    if ll.extent(controls["BTN_SEL1"])[2] != 269:
-                        fail("classsel.gui: the mod's widened button did not retain its 20 px frame")
-                    if str(ll.child(controls["BTN_SEL1"], "BORDER").get_resref("CORNER")) != "mod_frame":
-                        fail("classsel.gui: the mod's own corner art was cleared")
-                    if str(ll.child(controls["BTN_SEL1"], "BORDER").get_resref("EDGE")):
-                        fail("classsel.gui: the game's original edge art was not cleared")
-            # A file laid out for another size: refused by both.
-            out = tmp / "refused.gui"
-            out.unlink(missing_ok=True)
-            code = subprocess.run([str(helper), "live", native_helpers.arg(ll.VANILLA / name), name, "1920", "1080",
-                                   native_helpers.arg(out), native_helpers.arg(hires)],
-                                  stdout=subprocess.DEVNULL).returncode
-            if code != 0 or out.exists() or python_layout(name, hires, 1920, 1080, rows[name]) is not None:
-                fail(f"{name}: a file laid out for 1920x1080 was not refused")
-        print(f"C against Python: {checked} layouts, {len(files)} refused mods' files")
-        print(f"Cue mods: {check_cue_mods(helper, tmp, rows, fail)} layouts")
-        print(f"Options mods: {check_options_mods(helper, tmp, rows, fail)} layouts")
+    # The mod suites, kept together.
+    fingerprint = prints.suites()
+    record = None if args.no_cache else cached("suites", "mods", fingerprint)
+    if record is None:
+        before = failures
+        record = {"cue": check_cue_mods(helper(), tmp, rows, fail),
+                  "options": check_options_mods(helper(), tmp, rows, fail),
+                  "hud": check_hud_cue_mods(helper(), tmp, fail)}
+        if failures == before:
+            keep("suites", "mods", fingerprint, record)
+    else:
+        reused += 1
+    print(f"Cue mods: {record['cue']} layouts")
+    print(f"Options mods: {record['options']} layouts")
+    print(f"HUD cue mods: {record['hud']} files")
+    tmp_dir.cleanup()
+    if reused:
+        print(f"from the cache ({CACHE.relative_to(ROOT)}): {reused} of {len(files) + 1} checks unchanged since they passed")
 
     print("FAILED" if failed else "PASSED")
     return 1 if failed else 0
+
+
+def check_screen(name, sizes, rows, extra, helper, tmp, fail, notes) -> tuple[Counter, int]:
+    """One screen's checks: the Python against KMRP's sets (2), the C against the Python (3),
+    a mod's file (4). Returns the EXTENT field counts and the C layouts checked."""
+    def note(line: str) -> None:
+        notes.append(line)
+        print(line)
+
+    # 2. The Python against KMRP's sets.
+    diffs = Counter()
+    for size in sizes:
+        w, h = (int(x) for x in size.split("x"))
+        caption = ll.manifest_caption(built_manifest(size))
+        ours = python_layout(name, ll.VANILLA / name, w, h, rows[name], caption)
+        theirs = built_file(size, name)
+        a, b = numbers(ours), numbers(theirs)
+        if a.keys() != b.keys():
+            fail(f"{name} {size}: the structures differ from the set's")
+            continue
+        for k in a:
+            d = abs(a[k] - b[k])
+            if k[1] == "PADDING":
+                if d and size != "3440x1440" and centred_padding(name, size, k, ours, theirs):
+                    note(f"note {name} {size} {k}: PADDING {a[k]}, the set has {b[k]} (its own list centred)")
+                elif d:
+                    fail(f"{name} {size} {k}: PADDING {a[k]}, the set has {b[k]}")
+                continue
+            diffs["exact" if d == 0 else "1 px" if d <= 1 else "more"] += 1
+            # A list's scroll bar takes only its WIDTH from the file: the list puts it on
+            # its own edge as it loads (docs/live-adaptive-layout.md, section 1), so its
+            # other three are noted, not held (Equipment's LB_ITEMS, 2026-10-28).
+            engine_placed = k[0][1] == "SCROLLBAR" and k[1] in ("LEFT", "TOP", "HEIGHT")
+            # A value gold moved far is carried to each size by gold's ratio, and so is
+            # the rounding of the place it is carried from: the Galaxy Map's LBL_Live01,
+            # 760 in upstream's 3440x1440 set and 2039 in gold, 2.7 times, is 6 px from
+            # the set at 15360x8640 (2026-10-28). Its allowance grows by that ratio.
+            if (d > limit(w) and not engine_placed and size != "3440x1440"
+                    and d <= limit(w) * moved_ratio(name, k)):
+                note(f"note {name} {size} {k}: {a[k]}, the set has {b[k]} (gold moved it)")
+                continue
+            if (d > limit(w) and size != "3440x1440"
+                    and row_threshold(name, size, k, rows[name], caption)):
+                note(f"note {name} {size} {k}: {a[k]}, the set has {b[k]} (a row count crossed by the rounding pixel)")
+                continue
+            if (size == "3440x1440" and d) or (d > limit(w) and not engine_placed):
+                fail(f"{name} {size} {k}: {a[k]}, the set has {b[k]}")
+            elif d > 1:
+                note(f"note {name} {size} {k}: {a[k]}, the set has {b[k]}")
+        # Every other field at every size (until 2026-10-28 at 3440x1440 only, which
+        # hid that Character's LBL_LEVEL alignment, gold's at every size, was not carried).
+        fa, fb = flat(ours), flat(theirs)
+        for k in fa.keys() | fb.keys():
+            if ".EXTENT." in k or k.endswith(".PADDING"):
+                continue
+            x, y = fa.get(k), fb.get(k)
+            if x == y:
+                continue
+            if hasattr(x, "x") and hasattr(y, "x") and all(
+                    abs(getattr(x, c) - getattr(y, c)) <= COLOUR_TOLERANCE for c in "xyz"):
+                continue
+            fail(f"{name} {size} {k}: {x!r}, the set has {y!r}")
+
+    # 3 and 4. The C against the Python, at every set's size, 200 random sizes and for a
+    # mod's file. The random captions come from the screen's own stream, so a screen's
+    # cases are the same whether or not the screens before it ran.
+    rng = random.Random(f"captions {name}")
+    checked = 0
+    mod, hires, moved_tag = mod_files(name, tmp)
+    cases = [(int(s.split("x")[0]), int(s.split("x")[1]), None) for s in sizes]
+    cases += [(w, h, None) for w, h in extra]
+    if mod:
+        cases += [(w, h, mod) for w, h in ((1920, 1080), (3440, 1440), (2560, 1600), (1024, 768))]
+    for w, h, source in cases:
+        out = tmp / "out.gui"
+        out.unlink(missing_ok=True)
+        # The size's prompt manifest, as the run time reads it from the set: the set's
+        # own at a set's size, else one giving a caption that may or may not need the
+        # Container widened.
+        size = f"{w}x{h}"
+        manifest = (built_manifest(size) if size in sizes else
+                    f"prompt {ll.CAPTION_ROW} 1 1 {rng.uniform(100, 900):.2f} -\n")
+        prompts = tmp / "kmrp_prompts.txt"
+        prompts.write_text(manifest, encoding="utf-8")
+        args = [str(helper()), "live", native_helpers.arg(ll.VANILLA / name), name, str(w), str(h),
+                native_helpers.arg(out), native_helpers.arg(source) if source else "-",
+                native_helpers.arg(prompts)]
+        code = subprocess.run(args, stdout=subprocess.DEVNULL).returncode
+        ours = python_layout(name, source or ll.VANILLA / name, w, h, rows[name],
+                             ll.manifest_caption(manifest))
+        if code != 0 or not out.is_file():
+            fail(f"{name} {w}x{h}{' (mod)' if source else ''}: the helper returned {code}")
+            continue
+        a, b = flat(read_gff(out.read_bytes()).root), flat(ours)
+        if a != b:
+            bad = sorted(k for k in a.keys() | b.keys() if a.get(k) != b.get(k))[:5]
+            fail(f"{name} {w}x{h}{' (mod)' if source else ''}: C and Python differ at "
+                 + ", ".join(f"{k} {a.get(k)} / {b.get(k)}" for k in bad))
+        checked += 1
+    # The mod's moved control keeps the mod's place: no gold correction on it.
+    if mod:
+        ours = numbers(python_layout(name, mod, 3440, 1440, rows[name]))
+        gold = numbers(read_gff(ll.GOLD / name).root)
+        key = (moved_tag, "")
+        if ours[(key, "LEFT")] == gold[(key, "LEFT")] or ours[(key, "TOP")] == gold[(key, "TOP")]:
+            fail(f"{name}: {moved_tag}, moved by the mod, took gold's place")
+        if ((("LBL_MOD_ADDED", ""), "LEFT")) not in ours:
+            fail(f"{name}: the mod's own control was not laid out")
+        if name == "classsel.gui":
+            root = python_layout(name, mod, 1920, 1080, rows[name])
+            controls = {c.get_string("TAG"): c for c in root.acquire("CONTROLS", None, GFFList)}
+            if ll.extent(controls["BTN_SEL1"])[2] != 269:
+                fail("classsel.gui: the mod's widened button did not retain its 20 px frame")
+            if str(ll.child(controls["BTN_SEL1"], "BORDER").get_resref("CORNER")) != "mod_frame":
+                fail("classsel.gui: the mod's own corner art was cleared")
+            if str(ll.child(controls["BTN_SEL1"], "BORDER").get_resref("EDGE")):
+                fail("classsel.gui: the game's original edge art was not cleared")
+    # A file laid out for another size: refused by both.
+    out = tmp / "refused.gui"
+    out.unlink(missing_ok=True)
+    code = subprocess.run([str(helper()), "live", native_helpers.arg(ll.VANILLA / name), name, "1920", "1080",
+                           native_helpers.arg(out), native_helpers.arg(hires)],
+                          stdout=subprocess.DEVNULL).returncode
+    if code != 0 or out.exists() or python_layout(name, hires, 1920, 1080, rows[name]) is not None:
+        fail(f"{name}: a file laid out for 1920x1080 was not refused")
+    return diffs, checked
 
 
 if __name__ == "__main__":

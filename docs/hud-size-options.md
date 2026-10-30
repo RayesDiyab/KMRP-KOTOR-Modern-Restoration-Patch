@@ -102,6 +102,15 @@ widescreen mods"). The file still gives the controls their art and fonts.
 - **The target menu**: its buttons grow about their top centre and the name strip widens
   to their span when they are wider, so the name stays centred over the target's circle
   and the buttons under the name (seen at 2.5 times, a door and a Sith soldier).
+- **The combat cues** (since 2026-10-30): the Y and B badges KMRP adds left of Clear and
+  Disengage (`LBL_KMRPY`, `LBL_KMRPX`, `add_combat_cues`) are placed beside the buttons as
+  placed, by the packager's rule (`CombatCueRect`, `K1PcHudLayout.h`: a square of 0.8 of
+  Disengage's height, a quarter of it to the left, centred on the button). Until then only
+  the packager placed them, at 50%, so with the Disengage part at another size they stayed
+  behind (not seen in the game: they show only while the pad is in use). At 3440x1440 and
+  50% the rule gives the shipped 1520, 1307 and 1520, 1375, 56 square
+  (`hud_options_harness.cpp`). A mod's `mipc*.gui` without them is given them
+  (`KmrpHudCues`, [live-adaptive-layout.md](live-adaptive-layout.md), section 3).
 - **Beside the Xbox-style HUD**: while that HUD has the screen (the pad in use), KMRP's
   module leaves the HUD alone (`KmrpXboxHudOwnsK1`, exported by the controller patch's
   module) and places it again once it is given back. The Xbox-style HUD now keeps the

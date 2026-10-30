@@ -106,7 +106,29 @@ int main() {
         assert(l.window.width == l.window.height && l.window.width == 270);
         const Rect arrow = l.rect[Find("LBL_ARROW")];
         assert(arrow.left == (270 - 48) / 2 && arrow.top == (270 - 48) / 2 && arrow.width == 48);
+        // The combat cues beside the placed buttons are those KMRP ships in mipc210x7.gui
+        // at 3440x1440 (read from build/kmrp/resources/gui-3440x1440.zip, 2026-10-30).
+        const Rect disengage = l.rect[Find("BTN_CLEARALL")];
+        const Rect y = CombatCueRect(disengage, l.rect[Find("BTN_CLEARONE")]);
+        const Rect b = CombatCueRect(disengage, disengage);
+        assert(y.left == 1520 && y.top == 1307 && y.width == 56 && y.height == 56);
+        assert(b.left == 1520 && b.top == 1375 && b.width == 56 && b.height == 56);
     }
+    // At any size the cues stay just left of their buttons and grow with the Disengage
+    // part (until 2026-10-30 they kept the 50% place).
+    for (const int size : {25, 50, 75, 100}) {
+        std::array<int, ElementCount> each{};
+        each.fill(size);
+        const Layout l = Lay(1920, 1080, each);
+        const Rect disengage = l.rect[Find("BTN_CLEARALL")];
+        for (const char* tag : {"BTN_CLEARONE", "BTN_CLEARALL"}) {
+            const Rect button = l.rect[Find(tag)], cue = CombatCueRect(disengage, button);
+            assert(cue.left + cue.width < button.left && cue.left + cue.width >= button.left - 1 - cue.width / 2);
+            assert(cue.width == cue.height && cue.width >= 8);
+            assert(cue.top + cue.height / 2 >= button.top && cue.top + cue.height / 2 <= button.top + button.height);
+        }
+    }
+    std::cout << "PASS: the combat cues beside the placed Clear and Disengage buttons, the shipped ones at 50%\n";
     // On every screen and at every size: each part on the screen, its corner where the
     // 50% part has it, and at 50% no two parts overlapping. Overlaps at other sizes are
     // the player's to choose (a 100% HUD on a 4:3 screen is crowded) and are counted.

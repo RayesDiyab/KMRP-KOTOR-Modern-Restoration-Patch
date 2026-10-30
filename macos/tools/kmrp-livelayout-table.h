@@ -81,6 +81,18 @@ static const LLRowList LL_ROW_LISTS[] = {
 #define LL_WIDEN_TAG "BTN_GIVEITEMS"
 #define LL_WIDEN_CAPTION_ROW "kmrpx_contgive"
 static const char *const LL_WIDENED[] = { "LBL_MESSAGE", "LB_ITEMS", "BTN_OK", "BTN_GIVEITEMS", "BTN_CANCEL" };
+/* The combat cues KMRP adds to every mipc*.gui (add_combat_cues): tag, picture and the
+ * button each stands left of; cloned from TEMPLATE, sized by SCALE of the first's button. */
+typedef struct { const char *tag, *fill, *button; } LLCombatCue;
+static const LLCombatCue LL_COMBAT_CUES[] = {
+    { "LBL_KMRPY", "kmrpy_cmbt", "BTN_CLEARONE" },
+    { "LBL_KMRPX", "kmrpb_cmbt", "BTN_CLEARALL" },
+};
+#define LL_COMBAT_TEMPLATE "LBL_QUEUE1"
+#define LL_COMBAT_SCALE 0.8
+#define LL_COMBAT_SIZE_BUTTON "BTN_CLEARALL"
+static const char *const LL_HUD_FILES[] = { "mipc10x7.gui", "mipc12x9.gui", "mipc16x12.gui", "mipc210x7.gui", "mipc212x9.gui", "mipc216x12.gui", "mipc28x6.gui", "mipc8x6.gui", 0 };
+
 #define LL_BADGE_RADIUS 0.29
 #define LL_BADGE_RADIUS_SHORT 0.4
 #define LL_BADGE_SHORT_BELOW 60
@@ -1338,6 +1350,74 @@ static const LLRow LL_ROWS_57[] = {  /* upgradeitems.gui */
     { "BTN_UPGRADEITEM", "", { 1, 0, 1, 0 }, { 607, 1230, 978, 84 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
     { "BTN_BACK", "", { 1, 0, 1, 0 }, { 1849, 1230, 978, 84 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
 };
+static const LLRow LL_ROWS_58[] = {  /* pause.gui */
+    { "", "", { 1, 0, 1, 0 }, { 1727, 288, 540, 210 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_PAUSEREASON", "", { 1, 0, 1, 0 }, { 27, 15, 490, 78 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_PRESS", "", { 1, 0, 1, 0 }, { 27, 78, 490, 120 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_UNPAUSE", "", { 1, 0, 1, 0 }, { 11, 6, 518, 204 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+};
+static const LLRow LL_ROWS_59[] = {  /* partyselection.gui */
+    { "", "", { 1, 0, 1, 0 }, { 0, 0, 3440, 1440 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_CHAR8", "", { 3, 0, 0, 0 }, { 1370, 855, 255, 255 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_CHAR7", "", { 3, 0, 0, 0 }, { 880, 855, 255, 255 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_CHAR6", "", { 3, 0, 0, 0 }, { 391, 855, 255, 255 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_CHAR3", "", { 3, 0, 0, 0 }, { 391, 591, 255, 255 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_CHAR4", "", { 3, 0, 0, 0 }, { 880, 591, 255, 255 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_CHAR5", "", { 3, 0, 0, 0 }, { 1370, 591, 255, 255 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_CHAR2", "", { 3, 0, 0, 0 }, { 1370, 327, 255, 255 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_CHAR1", "", { 3, 0, 0, 0 }, { 880, 327, 255, 255 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_CHAR0", "", { 3, 0, 0, 0 }, { 391, 327, 255, 255 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_NPC0", "", { 3, 0, 0, 0 }, { 391, 327, 255, 255 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_NPC1", "", { 3, 0, 0, 0 }, { 880, 327, 255, 255 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_NPC2", "", { 3, 0, 0, 0 }, { 1370, 327, 255, 255 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_NPC3", "", { 3, 0, 0, 0 }, { 391, 591, 255, 255 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_NPC4", "", { 3, 0, 0, 0 }, { 880, 591, 255, 255 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_NPC5", "", { 3, 0, 0, 0 }, { 1370, 591, 255, 255 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_NPC6", "", { 3, 0, 0, 0 }, { 391, 855, 255, 255 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_NPC7", "", { 3, 0, 0, 0 }, { 880, 855, 255, 255 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_NPC8", "", { 3, 0, 0, 0 }, { 1370, 855, 255, 255 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_NA8", "", { 3, 0, 0, 0 }, { 1370, 855, 255, 255 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_NA5", "", { 3, 0, 0, 0 }, { 1370, 591, 255, 255 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_NA2", "", { 3, 0, 0, 0 }, { 1370, 327, 255, 255 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_NA6", "", { 3, 0, 0, 0 }, { 391, 855, 255, 255 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_NA3", "", { 3, 0, 0, 0 }, { 391, 591, 255, 255 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_NA0", "", { 3, 0, 0, 0 }, { 391, 327, 255, 255 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_NA1", "", { 3, 0, 0, 0 }, { 880, 327, 255, 255 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_NA4", "", { 3, 0, 0, 0 }, { 880, 591, 255, 255 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_NA7", "", { 3, 0, 0, 0 }, { 880, 855, 255, 255 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_3D", "", { 1, 0, 1, 0 }, { 1752, 327, 1387, 639 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_TITLE", "", { 1, 0, 1, 0 }, { 731, 120, 1967, 63 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_AVAILABLE", "", { 1, 0, 1, 0 }, { 1091, 204, 1263, 90 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_COUNT", "", { 3, 0, 0, 0 }, { 955, 204, 90, 90 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_BEVEL_M", "", { 1, 0, 1, 0 }, { 1747, 321, 1398, 93 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_NPC_NAME", "", { 1, 0, 1, 0 }, { 1801, 1017, 1312, 57 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_NPC_LEVEL", "", { 1, 0, 1, 0 }, { 1801, 1074, 1312, 60 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_BEVEL_R", "", { 1, 0, 1, 0 }, { 2903, 387, 167, 555 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "LBL_BEVEL_L", "", { 1, 0, 1, 0 }, { 1806, 387, 167, 555 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_DONE", "", { 1, 0, 1, 0 }, { 1328, 1230, 784, 84 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_BACK", "", { 1, 0, 1, 0 }, { 2112, 1230, 785, 84 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "BTN_ACCEPT", "", { 1, 0, 1, 0 }, { 392, 1116, 1263, 99 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+};
+static const LLRow LL_ROWS_60[] = {  /* tooltip6x4.gui */
+    { "", "", { 1, 0, 1, 0 }, { 0, 0, 2560, 1600 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "tooltip", "", { 1, 0, 1, 0 }, { 210, 176, 146, 29 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+};
+static const LLRow LL_ROWS_61[] = {  /* tooltip8x6.gui */
+    { "", "", { 1, 0, 1, 0 }, { 0, 0, 3440, 1440 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "tooltip", "", { 1, 0, 1, 0 }, { 1062, 535, 628, 70 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+};
+static const LLRow LL_ROWS_62[] = {  /* tooltip10x8.gui */
+    { "", "", { 1, 0, 1, 0 }, { 0, 0, 3440, 1440 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "tooltip", "", { 1, 0, 1, 0 }, { 863, 461, 490, 54 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+};
+static const LLRow LL_ROWS_63[] = {  /* tooltip12x9.gui */
+    { "", "", { 1, 0, 1, 0 }, { 0, 0, 3440, 1440 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "tooltip", "", { 1, 0, 1, 0 }, { 699, 308, 392, 44 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+};
+static const LLRow LL_ROWS_64[] = {  /* tooltip16x12.gui */
+    { "", "", { 1, 0, 1, 0 }, { 0, 0, 3440, 1440 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+    { "tooltip", "", { 1, 0, 1, 0 }, { 593, 302, 314, 35 }, LL_NO_PADDING, LL_NO_ALIGN, LL_NO_FILL, 0 },
+};
 
 static const LLFile LL_FILES[] = {
     { "optionsmain.gui", LL_ROWS_0, 11 },
@@ -1398,6 +1478,13 @@ static const LLFile LL_FILES[] = {
     { "skillinfo.gui", LL_ROWS_55, 6 },
     { "store.gui", LL_ROWS_56, 20 },
     { "upgradeitems.gui", LL_ROWS_57, 10 },
+    { "pause.gui", LL_ROWS_58, 4 },
+    { "partyselection.gui", LL_ROWS_59, 40 },
+    { "tooltip6x4.gui", LL_ROWS_60, 2 },
+    { "tooltip8x6.gui", LL_ROWS_61, 2 },
+    { "tooltip10x8.gui", LL_ROWS_62, 2 },
+    { "tooltip12x9.gui", LL_ROWS_63, 2 },
+    { "tooltip16x12.gui", LL_ROWS_64, 2 },
 };
 
 #endif

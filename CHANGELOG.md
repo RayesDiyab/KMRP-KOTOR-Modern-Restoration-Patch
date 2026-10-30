@@ -117,6 +117,31 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **The HUD's combat cues follow the HUD and reach a mod's HUD** (2026-10-30). The Y and B
+  badges beside Clear and Disengage are now placed beside the buttons wherever the HUD
+  table puts them, so they follow the Disengage part at any HUD Size; before, they kept
+  the default size's place. A widescreen mod's `mipc*.gui` in Override is now given the
+  two badges KMRP's own files carry. The HUD files are recorded in the layout inventory:
+  the two the game loads with KMRP are placed at run time by the HUD's table, and seven
+  are never loaded. Not seen in the game: the badges show only with the pad in use.
+
+- **The tooltips use Live Adaptive Layout** (2026-10-30): the five tooltip files, one
+  per base size, laid out by the shared rules and gold alone, a mod's file included,
+  bringing coverage to 65 of 85 layout files. The remaining main menu, HUD and
+  confirmation files were measured the same day: each needs a step of its own first
+  (`docs/live-adaptive-layout.md`, coverage inventory). Seen in the Steam game at
+  3440x1440 on the HUD's hover tooltips: "it works".
+
+- **The pause notice and party selection use Live Adaptive Layout** (2026-10-30),
+  bringing coverage to 60 of 85 layout files. Both are made by the shared rules and
+  gold alone, a mod's file included. The pause notice is still placed under the menu
+  row by the module, which reads its margins from the laid-out file. Party selection
+  is left to the 32-slot roster's own layout while that is active. `dialog.gui`,
+  `map.gui` and `statussummary.gui` were audited and stay on the sets for now: the
+  dialog needs KMRP's added control and has no upstream sets, the map's rectangle is
+  computed per size, and the status summary has no set to compare against. Seen in the
+  Steam game at 3440x1440: "looks good".
+
 - **Screens with KMRP's art open without the CPU mipmap stall** (2026-10-30). With
   K1 Modern Driver Compatibility installed, the game believed it ran on a 2003 ATI driver
   and built every uncompressed texture's mipmaps on the CPU each time it loaded: the

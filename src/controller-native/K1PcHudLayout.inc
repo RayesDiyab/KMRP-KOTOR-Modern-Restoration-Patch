@@ -114,3 +114,14 @@ constexpr PcPiece kPcPieces[] = {
     {"BTN_TARGETDOWN2", 4, kPcMenuSpace, {296, 173, 80, 27}, "lbl_miarr_1", 8},
     {"LBL_TARGET2", 4, kPcMenuSpace, {299, 98, 72, 72}, "", 8},
 };
+
+// The combat cues KMRP's packager adds (add_combat_cues): each cue's tag, picture and
+// the button it stands left of; the label they are cloned from; their side as a share
+// of the Disengage button's height, BTN_CLEARALL being that button.
+struct PcCombatCue { const char* tag; const char* fill; const char* button; };
+constexpr PcCombatCue kPcCombatCues[] = {
+    {"LBL_KMRPY", "kmrpy_cmbt", "BTN_CLEARONE"},
+    {"LBL_KMRPX", "kmrpb_cmbt", "BTN_CLEARALL"},
+};
+constexpr const char* kPcCombatCueTemplate = "LBL_QUEUE1";
+constexpr double kPcCombatCueScale = 0.8;

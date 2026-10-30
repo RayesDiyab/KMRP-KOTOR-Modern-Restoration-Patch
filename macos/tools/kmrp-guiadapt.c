@@ -3,6 +3,7 @@
  *   kmrp-guiadapt galaxy KEY SET_GUI OUT_GUI [SOURCE_GUI]
  *   kmrp-guiadapt mainmenu SET_GUI OUT_GUI
  *   kmrp-guiadapt live KEY|GAME_GUI NAME WIDTH HEIGHT OUT_GUI [SOURCE_GUI|- [PROMPTS]]
+ *   kmrp-guiadapt hudcues SOURCE_GUI OUT_GUI
  *
  * Three things, sharing the reading and writing of a layout's EXTENTs: the galaxy map's
  * planets (KmrpGalaxyMap, below), the main menu's buttons on the bars of their art
@@ -1099,6 +1100,47 @@ static int ll_tab_cues(const Gff *g, Buffer *out) {
     return done;
 }
 
+/* prepare_universal_resources.add_combat_cues on `g`: the Y and B cues left of Clear and
+ * Disengage, clones of LBL_QUEUE1, square at SCALE of Disengage's height (at least 8), a
+ * quarter of that apart (at least 2), centred on each button. 0 where the build would leave
+ * the file as it is (a cue is there) or stop (a control missing, a cue off the panel's top or
+ * left, the two overlapping). Their places on screen are K1PcHud.cpp's, by the same rule. */
+static int ll_combat_cues(const Gff *g, Buffer *out) {
+    enum { CUES = sizeof LL_COMBAT_CUES / sizeof *LL_COMBAT_CUES };
+    for (int i = 0; i < CUES; i++)
+        if (ll_control(g, LL_COMBAT_CUES[i].tag, 1) >= 0) return 0;
+    const long template = ll_control(g, LL_COMBAT_TEMPLATE, 1), sizing = ll_control(g, LL_COMBAT_SIZE_BUTTON, 1);
+    Extent se;
+    if (template < 0 || sizing < 0 || !extent_of(g, (uint32_t)sizing, &se)) return 0;
+    int size = (int)nearbyint(ev(&se, 3) * LL_COMBAT_SCALE);   /* Python's round, half to even */
+    if (size < 8) size = 8;
+    int gap = size / 4;
+    if (gap < 2) gap = 2;
+    int at[CUES][2];
+    for (int i = 0; i < CUES; i++) {
+        const long button = ll_control(g, LL_COMBAT_CUES[i].button, 1);
+        Extent be;
+        if (button < 0 || !extent_of(g, (uint32_t)button, &be)) return 0;
+        at[i][0] = ev(&be, 0) - gap - size;
+        at[i][1] = ev(&be, 1) + ll_floordiv(ev(&be, 3) - size, 2);
+        if (at[i][0] < 0 || at[i][1] < 0) return 0;
+    }
+    if (!(at[0][1] + size <= at[1][1] || at[1][1] + size <= at[0][1] ||
+          at[0][0] + size <= at[1][0] || at[1][0] + size <= at[0][0])) return 0;
+    CueValues values = { 0, { at[0][0], at[0][1], size, size }, LL_COMBAT_CUES[0].tag, LL_COMBAT_CUES[0].fill };
+    if (!ll_next_id(g, &values.id) || values.id == INT32_MAX) return 0;
+    Buffer first = { NULL, 0 };
+    if (!ll_append_cue(g, template, &values, &first)) return 0;
+    Gff next;
+    int done = 0;
+    values.id++;
+    values.box[0] = at[1][0]; values.box[1] = at[1][1];
+    values.tag = LL_COMBAT_CUES[1].tag; values.fill = LL_COMBAT_CUES[1].fill;
+    if (gff_open(&next, first.data, first.size)) done = ll_append_cue(&next, template, &values, out);
+    free(first.data);
+    return done;
+}
+
 /* The Gameplay entry, cloned before lifting the original buttons. Publish the new
  * file only after every needed field has been found, so failure leaves the source intact. */
 static int ll_gameplay_entry(const Gff *g, Buffer *out) {
@@ -1206,6 +1248,34 @@ int KmrpLiveLayout(const char *key_path, const char *name, const char *source_gu
     return KmrpLiveLayoutPrompts(key_path, name, source_gui, width, height, out_gui, NULL);
 }
 
+/* A HUD file (a mod's mipc*.gui) with KMRP's combat cues added into OUT_GUI, laid out as it
+ * is: KMRP's module places the HUD and the cues itself (K1PcHud.cpp). 0: written. 1: the file
+ * could not be read. 2: could not write. 3: nothing to add (it has them, or the build would
+ * refuse it); nothing written. */
+int KmrpHudCues(const char *source_gui, const char *out_gui) {
+    Buffer file = read_file(source_gui), with = { NULL, 0 };
+    Gff g;
+    int result = 1;
+    if (file.data && gff_open(&g, file.data, file.size)) {
+        result = 3;
+        if (ll_combat_cues(&g, &with)) {
+            FILE *f = fopen(out_gui, "wb");
+            result = 2;
+            if (f) {
+                int ok = fwrite(with.data, 1, with.size, f) == with.size;
+                if (fclose(f) == 0 && ok) result = 0;
+            }
+        }
+    }
+    free(file.data); free(with.data);
+    return result;
+}
+
+/* Whether a name is one of the HUD files KmrpHudCues is for, and the i-th of them. */
+const char *KmrpHudFileName(int i) {
+    return i >= 0 && i < (int)(sizeof LL_HUD_FILES / sizeof *LL_HUD_FILES) - 1 ? LL_HUD_FILES[i] : NULL;
+}
+
 /* How many layouts KmrpLiveLayout lays out, and the name of one. */
 int KmrpLiveLayoutCount(void) { return (int)(sizeof LL_FILES / sizeof *LL_FILES); }
 #include "../../src/controller-native/K1GuiPreloadData.h"
@@ -1264,6 +1334,14 @@ int main(int argc, char **argv) {
         if (result == 2) fprintf(stderr, "kmrp-guiadapt: %s: %s\n", argv[6], strerror(errno));
         if (result == 3) printf("%s is not laid out for the game's size; nothing written\n", argv[7]);
         if (result == 4) fprintf(stderr, "kmrp-guiadapt: %s is not a layout this lays out\n", argv[3]);
+        return result == 3 ? 0 : result;
+    }
+    if (argc == 4 && strcmp(argv[1], "hudcues") == 0) {
+        int result = KmrpHudCues(argv[2], argv[3]);
+        if (result == 0) printf("%s written: %s with the combat cues\n", argv[3], argv[2]);
+        if (result == 1) fprintf(stderr, "kmrp-guiadapt: %s could not be read\n", argv[2]);
+        if (result == 2) fprintf(stderr, "kmrp-guiadapt: %s: %s\n", argv[3], strerror(errno));
+        if (result == 3) printf("%s: nothing to add; nothing written\n", argv[2]);
         return result == 3 ? 0 : result;
     }
     if (argc >= 4 && strcmp(argv[1], "mainmenu") == 0) {

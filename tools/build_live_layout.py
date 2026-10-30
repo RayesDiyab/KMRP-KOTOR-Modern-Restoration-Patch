@@ -77,6 +77,8 @@ from pykotor.common.misc import ResRef
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
+from prepare_universal_resources import (COMBAT_CUE_SCALE, COMBAT_CUE_TEMPLATE, COMBAT_CUES,  # noqa: E402
+                                         add_combat_cues)
 from prepare_universal_resources import (CONTAINER_FIT_TAG, CONTAINER_SCREEN,  # noqa: E402
                                          CONTAINER_WIDENED, DESCRIPTION_LISTBOXES, FONT_HEIGHT_DIVISOR,
                                          FONT_SCALE_OFFSET, HAND_TUNED_GUTTERS, LIST_LISTBOXES,
@@ -133,11 +135,29 @@ FILES = (
     # caption, whose width the size's prompt manifest carries.
     "computer.gui", "container.gui", "ftchrgen.gui", "journal.gui", "pwrlvlup.gui",
     "scriptselect.gui", "skillinfo.gui", "store.gui", "upgradeitems.gui",
+    # The pause notice (2026-10-30): rules and gold alone make every set's file. The
+    # module's Pause (K1TextLayout.cpp) then places it under the live menu row, taking its
+    # margins from the loaded file, so it reads the same numbers either way.
+    "pause.gui",
+    # Party selection: laid out here unless the 32-slot roster is active, whose file
+    # AdaptPartyRosterK1 builds from the set's and keeps (K1RuntimeAssets.cpp skips it).
+    "partyselection.gui",
+    # The tooltips, one file per base size (2026-10-30): rules and gold alone make every
+    # set's file, and nothing else in KMRP changes them.
+    "tooltip6x4.gui", "tooltip8x6.gui", "tooltip10x8.gui", "tooltip12x9.gui", "tooltip16x12.gui",
 )
 
 # The prompt manifest row whose caption width the Container is widened for.
 CAPTION_ROW = next(t.resref for t in prompts.PROMPT_TARGETS
                    if (t.gui, t.tag) == (CONTAINER_SCREEN, CONTAINER_FIT_TAG))
+
+# The mouse and keyboard HUD's files (2026-10-30): not laid out here, because KMRP's module
+# places that HUD from a table of its own whichever file was loaded (K1PcHud.cpp, since
+# 2026-10-18), but a mod's file is given the combat cues the build adds to KMRP's
+# (add_combat_cues), which that table then places beside the buttons (hud_cues below).
+HUD_FILES = tuple(sorted(p.name.lower() for p in VANILLA.glob("mipc*.gui")))
+# add_combat_cues sizes both cues by the Disengage button's height, BTN_CLEARALL.
+assert COMBAT_CUES[1][3] == "BTN_CLEARALL", "add_combat_cues sizes the cues by BTN_CLEARALL"
 
 FIELDS = ("LEFT", "TOP", "WIDTH", "HEIGHT")
 # Rule numbers, as kmrp-guiadapt.c has them.
@@ -448,6 +468,21 @@ def render() -> str:
     lines.append(f"#define LL_WIDEN_TAG {c_string(CONTAINER_FIT_TAG)}")
     lines.append(f"#define LL_WIDEN_CAPTION_ROW {c_string(caption_row)}")
     lines.append("static const char *const LL_WIDENED[] = { " + ", ".join(map(c_string, CONTAINER_WIDENED)) + " };")
+    # The HUD's combat cues (prepare_universal_resources.add_combat_cues), given to a mod's
+    # mipc*.gui that lacks them (KmrpHudCues): the HUD's places come from the module's
+    # table (K1PcHud.cpp), which places these cues too, so only the controls are added.
+    lines.append("/* The combat cues KMRP adds to every mipc*.gui (add_combat_cues): tag, picture and the")
+    lines.append(" * button each stands left of; cloned from TEMPLATE, sized by SCALE of the first's button. */")
+    lines.append("typedef struct { const char *tag, *fill, *button; } LLCombatCue;")
+    lines.append("static const LLCombatCue LL_COMBAT_CUES[] = {")
+    for tag, fill, _glyph, button in COMBAT_CUES:
+        lines.append(f"    {{ {c_string(tag)}, {c_string(fill)}, {c_string(button)} }},")
+    lines.append("};")
+    lines.append(f"#define LL_COMBAT_TEMPLATE {c_string(COMBAT_CUE_TEMPLATE)}")
+    lines.append(f"#define LL_COMBAT_SCALE {COMBAT_CUE_SCALE!r}")
+    lines.append(f"#define LL_COMBAT_SIZE_BUTTON {c_string(COMBAT_CUES[1][3])}")
+    lines.append("static const char *const LL_HUD_FILES[] = { " + ", ".join(c_string(n) for n in HUD_FILES) + ", 0 };")
+    lines.append("")
     for key, number in (("BADGE_RADIUS", prompts.BADGE_RADIUS), ("BADGE_RADIUS_SHORT", prompts.BADGE_RADIUS_SHORT),
                         ("BADGE_SHORT_BELOW", prompts.BADGE_SHORT_BELOW), ("BADGE_GAP", prompts.BADGE_GAP),
                         ("BADGE_EDGE", prompts.BADGE_EDGE), ("FIT_MARGIN", prompts.FIT_MARGIN)):
@@ -649,6 +684,30 @@ def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height:
                 add_entry(path, path)
             except (ValueError, AttributeError):
                 pass
+        return read_gff(path).root
+
+
+def hud_cues(source: GFFStruct) -> GFFStruct | None:
+    """A HUD file with the build's combat cues added (add_combat_cues), or None where the
+    build would leave it as it is or stop with an error. What KmrpHudCues
+    (kmrp-guiadapt.c) does, in Python. The C changes fields in place and adds none, so a
+    template label without a field the cue sets gives no cues on either side."""
+    by_tag = {c.get_string("TAG"): c for c in source.acquire("CONTROLS", GFFList(), GFFList) if c.exists("TAG")}
+    template = by_tag.get(COMBAT_CUE_TEMPLATE)
+    border = child(template, "BORDER") if template is not None else None
+    if (template is None or not template.exists("ID") or extent(template) is None or border is None
+            or not border.exists("FILL")):
+        return None
+    with tempfile.TemporaryDirectory(prefix="kmrp-hudcues-") as tmp:
+        path = Path(tmp) / "hud.gui"
+        gff = GFF(GFFContent.GUI)
+        gff.root = source
+        write_gff(gff, path, ResourceType.GUI)
+        try:
+            if not add_combat_cues(path, path):
+                return None
+        except (ValueError, AttributeError, KeyError):
+            return None
         return read_gff(path).root
 
 
