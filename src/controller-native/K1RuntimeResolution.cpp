@@ -14,7 +14,6 @@
 #include "K1RuntimeEngine.h"
 #include "K1RuntimeAssets.h"
 #include "K1RuntimeLayout.h"
-#include "K1RuntimeNvidia.h"
 #endif
 
 namespace {
@@ -323,11 +322,6 @@ extern "C" void __cdecl KmrpResolutionRequestedK1(void*, const int* widthSlot, c
 }
 extern "C" void __cdecl KmrpResolutionObservedK1(void* manager)
 {
-#ifdef KMRP_NATIVE_RUNTIME
-    // The first GUI frame: the game's window and its OpenGL context exist, so the
-    // driver is loaded. The installer makes this check at install time.
-    KmrpNvidiaPresentOnce();
-#endif
     Dimensions actual;
     if (!ReadViewport(manager, actual)) return;
     if (actual.width == g_observed.width && actual.height == g_observed.height) return;

@@ -11,6 +11,8 @@ inline bool KmrpRuntimeDimensions(int width, int height)
 
 // One row per resolution and refresh rate in the Screen Resolution dialog.
 void KmrpInstallModeListFilter();
+// K1OffscreenFrame.cpp: the frame drawn offscreen, shown when finished.
+void KmrpInstallOffscreenFrame();
 // Where the display has no mode of swkotor.ini's size, the game starts at the
 // display's own size, not at 800x600.
 void KmrpStartAtDisplaySize();

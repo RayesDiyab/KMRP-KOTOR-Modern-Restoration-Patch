@@ -222,6 +222,7 @@ BOOL WINAPI DllMain(HINSTANCE module, DWORD reason, LPVOID)
         SetProcessDPIAware();
         InitializeEngine();
         KmrpInstallModeListFilter();
+        KmrpInstallOffscreenFrame();
         KmrpStartAtDisplaySize();
     }
     return TRUE;

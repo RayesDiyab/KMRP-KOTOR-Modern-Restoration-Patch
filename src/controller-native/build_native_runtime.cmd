@@ -51,7 +51,7 @@ cl /nologo /MP /Brepro /std:c++17 /O2 /fp:strict /EHsc /MT /LD /DKMRP_NATIVE_RUN
   src\controller-native\K1RuntimeLayout.cpp ^
   src\controller-native\K1TextLayout.cpp src\controller-native\K1TextRows.cpp ^
   src\controller-native\K1TextOptions.cpp src\controller-native\K1HudOptions.cpp src\controller-native\K1PcHud.cpp ^
-  src\controller-native\K1RuntimeNvidia.cpp ^
+  src\controller-native\K1OffscreenFrame.cpp ^
   src\controller-native\K1NativeJoystick.cpp src\controller-native\K1ControllerBackend.cpp ^
   src\controller-native\K1ControllerLayout.cpp src\controller-native\K1Rumble.cpp src\controller-native\K1ButtonRemap.cpp ^
   src\controller-native\K1PopupFit.cpp src\controller-native\K1GrantedPopup.cpp ^

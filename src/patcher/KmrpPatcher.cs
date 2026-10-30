@@ -2095,31 +2095,21 @@ namespace Kmrp
         }
     }
 
-    internal sealed class NvidiaPresentEditState
-    {
-        internal string ExecutablePath;
-        internal bool Changed;
-    }
-
-    /// <summary>Keeps NVIDIA from presenting KOTOR through a DXGI swap chain.
+    /// <summary>Removes the NVIDIA present method older KMRP installs set.
     ///
-    /// NVIDIA's "Vulkan/OpenGL present method" can route an OpenGL game's frames through
-    /// a Direct3D swap chain ("Prefer layered on DXGI Swapchain"). On that path KOTOR
-    /// shows frames it has not finished drawing whenever one stalls: the white flash in
-    /// the menus, a menu backdrop drawn alone, a half-drawn world. On NVIDIA's own
-    /// default, Auto, the driver presents KOTOR natively and none of that appears.
+    /// From 2026-09-19 to 2026-10-30 KMRP set NVIDIA's "Vulkan/OpenGL present method"
+    /// for swkotor.exe to "Prefer native" wherever the game would inherit "Prefer layered
+    /// on DXGI Swapchain", because that path showed half-drawn frames (issue 14). That also
+    /// took Windows Auto HDR and RTX HDR away from players who chose layered for them
+    /// (issue 73). Since 2026-10-30 KMRP's module draws each frame offscreen and shows it
+    /// finished (K1OffscreenFrame.cpp), so KMRP sets nothing. The installer and the module
+    /// both wrote the value, and both recorded it in KMRP's nvidia.manifest.
     ///
-    /// So this acts only when swkotor.exe would inherit "Prefer layered" -- from the
-    /// global profile, with nothing set for the game itself -- and then sets the game's
-    /// own profile to "Prefer native", which outranks the global one. A value set for the
-    /// game deliberately, by NVIDIA or by the player, is left alone. NVIDIA matches
-    /// profiles by executable name, so the setting reaches every swkotor.exe on the
-    /// machine, which is also true of the same change made in the NVIDIA Control Panel.
-    ///
-    /// A sidecar records what KMRP did; restore undoes it only while the setting is still
-    /// KMRP's. None of this may fail an install: an error is reported with the manual
-    /// equivalent and patching continues.
-    /// See reverse-engineering/experiments/white-flash-video-capture.md.</summary>
+    /// Restore runs at every install and every restore. With a record, it removes KMRP's
+    /// value while the game's profile still holds it (the whole profile when KMRP made it
+    /// and nothing was added since) and drops the record; a value the player changed since
+    /// is left. Without a record nothing is touched. None of this may fail an install.
+    /// See docs/nvidia-present-method.md.</summary>
     internal static class NvidiaPresentOperations
     {
         // NvApiDriverSettings.h: OGL_CPL_PREFER_DXPRESENT, "Vulkan/OpenGL present method".
@@ -2129,116 +2119,11 @@ namespace Kmrp
         private const uint PresentAuto = 2;     // OGL_CPL_PREFER_DXPRESENT_AUTO, the default
         internal const string ProfileName = "KMRP - Star Wars: Knights of the Old Republic";
         private const string ManifestHeader = "KMRPNV1";
-        private const string ManualFix = " To do it by hand: NVIDIA Control Panel -> Manage 3D settings -> " +
-            "Program Settings -> swkotor.exe -> Vulkan/OpenGL present method -> Prefer native.";
 
         // KMRP\nvidia.manifest (KmrpFolder); KMRP_NVIDIA.manifest in the game folder until 2026-10-20.
         private static string ManifestPath(string executablePath)
         {
             return KmrpFolder.PathOf(executablePath, KmrpFolder.NvidiaManifest);
-        }
-
-        internal static NvidiaPresentEditState Install(string executablePath, Action<string> report)
-        {
-            executablePath = Path.GetFullPath(executablePath);
-            NvidiaPresentEditState state = new NvidiaPresentEditState();
-            state.ExecutablePath = executablePath;
-            if (File.Exists(ManifestPath(executablePath)))
-                return state;   // already KMRP's, from an earlier install
-
-            try
-            {
-                string unavailable;
-                using (NvDrsSession drs = NvDrsSession.TryOpen(out unavailable))
-                {
-                    if (drs == null)
-                        return state;   // not an NVIDIA machine: nothing to do
-
-                    IntPtr profile = drs.FindApplicationProfile(executablePath);
-                    uint value;
-                    int location;
-                    bool found = drs.TryGetDword(profile != IntPtr.Zero ? profile : drs.GlobalProfile(),
-                        PresentMethodId, out value, out location);
-                    if (profile != IntPtr.Zero && found && location == NvDrsSession.LocationCurrentProfile)
-                    {
-                        if (value == PreferLayered)
-                            SafeReport(report, "NVIDIA is set to present swkotor.exe through a DXGI swap chain in the " +
-                                "game's own profile; left as chosen. If menus flash or show half-drawn frames, set its " +
-                                "Vulkan/OpenGL present method to Auto or Prefer native.");
-                        return state;
-                    }
-                    if (!found || value != PreferLayered)
-                        return state;   // Auto or native, inherited: already right
-
-                    if (profile != IntPtr.Zero)
-                    {
-                        string existingName;
-                        int applications, settings;
-                        drs.ProfileInfo(profile, out existingName, out applications, out settings);
-                        if (applications != 1)
-                        {
-                            SafeReport(report, "Left the shared NVIDIA profile " + existingName +
-                                " alone; its present method also affects other applications." + ManualFix);
-                            return state;
-                        }
-                    }
-
-                    bool createdProfile = false;
-                    if (profile == IntPtr.Zero)
-                    {
-                        profile = drs.FindProfile(ProfileName);
-                        if (profile != IntPtr.Zero)
-                        {
-                            SafeReport(report, "Left the existing NVIDIA profile named " +
-                                ProfileName + " alone: it is not associated with this game." + ManualFix);
-                            return state;
-                        }
-                        profile = drs.CreateProfile(ProfileName);
-                        createdProfile = true;
-                        drs.AddApplication(profile, Path.GetFileName(executablePath));
-                    }
-                    drs.SetDword(profile, PresentMethodId, PreferNative);
-                    // The record first: a saved value with no record could never be
-                    // restored, while a record whose save failed is recognised as not
-                    // KMRP's and simply dropped.
-                    string manifestPath = ManifestPath(executablePath);
-                    WriteManifest(manifestPath, executablePath, createdProfile);
-                    int saved = drs.Save();
-                    if (saved != NvDrsSession.Ok)
-                        File.Delete(manifestPath);
-                    if (saved == NvDrsSession.InvalidUserPrivilege)
-                    {
-                        SafeReport(report, "NVIDIA would show half-drawn frames in KOTOR (its global present method " +
-                            "prefers DXGI), and Windows did not allow the patcher to change that." + ManualFix);
-                        return state;
-                    }
-                    if (saved != NvDrsSession.Ok)
-                        throw new IOException("NvAPI_DRS_SaveSettings returned " +
-                            saved.ToString(CultureInfo.InvariantCulture) + ".");
-                    // A successful save needs rollback even if the fresh-session
-                    // verification below fails (for example during a driver reset).
-                    state.Changed = true;
-                }
-
-                if (!IsKmrpValue(executablePath))
-                    throw new IOException("the setting did not read back after saving.");
-                state.Changed = true;
-                SafeReport(report, "Set NVIDIA's present method for swkotor.exe to Prefer native. It was inheriting " +
-                    "Prefer layered on DXGI Swapchain, which shows half-drawn frames in KOTOR.");
-            }
-            catch (Exception ex)
-            {
-                SafeReport(report, "NVIDIA's present method for swkotor.exe could not be checked or set: " +
-                    ex.Message + ManualFix);
-            }
-            return state;
-        }
-
-        internal static void Rollback(NvidiaPresentEditState state)
-        {
-            if (state == null || !state.Changed)
-                return;
-            Restore(state.ExecutablePath, null);
         }
 
         internal static void Restore(string executablePath, Action<string> report)
@@ -2340,22 +2225,6 @@ namespace Kmrp
             }
         }
 
-        private static bool IsKmrpValue(string executablePath)
-        {
-            string unavailable;
-            using (NvDrsSession drs = NvDrsSession.TryOpen(out unavailable))
-            {
-                if (drs == null)
-                    return false;
-                IntPtr profile = drs.FindApplicationProfile(executablePath);
-                uint value;
-                int location;
-                return profile != IntPtr.Zero &&
-                    drs.TryGetDword(profile, PresentMethodId, out value, out location) &&
-                    location == NvDrsSession.LocationCurrentProfile && value == PreferNative;
-            }
-        }
-
         private static string Name(uint value)
         {
             switch (value)
@@ -2377,14 +2246,6 @@ namespace Kmrp
                 case 3: return "the driver default";
                 default: return "location " + location.ToString(CultureInfo.InvariantCulture);
             }
-        }
-
-        private static void WriteManifest(string path, string executablePath, bool createdProfile)
-        {
-            string text = ManifestHeader + "\r\n" +
-                Convert.ToBase64String(Encoding.UTF8.GetBytes(executablePath)) + "\r\n" +
-                (createdProfile ? "1" : "0") + "\r\n";
-            File.WriteAllText(path, text, new UTF8Encoding(false));
         }
 
         private static string ReadManifest(string path, out bool createdProfile)

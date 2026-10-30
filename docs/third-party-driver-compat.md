@@ -264,6 +264,17 @@ D3M0's High FPS Fixes (36 hooks), which the installer can install beside it. **0
 28 sites collide, and 0 of the 9 import slots.** All 28 sites hold the original bytes
 K1DC declares in the unmodified 1.03 executable. KMRP's movie fixes call through a
 different Bink import (`BinkBufferSetScale`, `0x0073D484`) than the one K1DC takes over.
+
+**Since 2026-10-30 one slot is shared, on purpose:** `SwapBuffers`, `0x0073D00C`. KMRP's
+offscreen frame (`K1OffscreenFrame.cpp`) points it at its own function, which copies the
+finished frame to the window, binds the window, calls whatever the slot held (K1DC's
+function when K1DC took the slot first), and then binds its own buffer again. So K1DC's
+brightness pass still draws into the window. KMRP also redirects opengl32's
+`wglGetProcAddress` and `wglMakeCurrent` and three of its read functions in memory. K1DC
+reaches `glBindFramebuffer` through `wglGetProcAddress`, so its offscreen effect targets
+(`offscreen.rs`, which stand in for the game's pbuffers) return to KMRP's buffer when they
+return to the window. Seen together in the maintainer's game that day, on NVIDIA's layered
+path, with K1DC's effects drawn.
 **Run beside KMRP on 2026-10-19** in the test game (`build/party-roster-kpm-check/game`,
 3440x1440, KMRP and the controller patch, NVIDIA): three starts of up to 48 s, two with
 this build and one with a Windows 7 build of the same source (section 3). Each logged

@@ -238,6 +238,10 @@ Done since 1.5.1 and not yet released. Some of it has not been seen in play yet;
   "(empty)" (ShaeMyName's mod, on by default, with the author's permission).
 - **K1 Modern Driver Compatibility 2.0.0**, left out where it would keep the game from
   starting.
+- **Every frame drawn offscreen and shown only when finished**, an engine change: menus
+  no longer flash on NVIDIA's "Prefer layered on DXGI Swapchain" path (issue 14), so KMRP
+  no longer changes that NVIDIA setting, and Windows Auto HDR and RTX HDR keep working
+  (issue 73). An install removes the "Prefer native" earlier versions set.
 - **Shops, the galaxy map and the 32-slot party roster:** the item list stays on the
   screen (issue 61), the planets sit where the game has them and mods' destinations
   are kept (issue 67), and KOTOR Patch Manager's 32-slot roster has a layout (issue
@@ -377,7 +381,7 @@ the [Linux, Proton, and Steam Deck guide](docs/linux-proton-steam-deck.md).
 | `swkotor.exe` | On GOG's and the editable build, the standard Large Address Aware flag: one bit, with a backup of the unmodified file in KPM's own format. **Steam's is never changed.** |
 | `Override` | Nothing. |
 | Windows | A per-user compatibility value that marks the game DPI-aware ([details](docs/windows-dpi-scaling.md)). |
-| NVIDIA driver | Only where the global present method would show half-drawn frames: **Prefer native** for `swkotor.exe` ([details](docs/nvidia-present-method.md)). |
+| NVIDIA driver | Nothing set since 1.6. The **Prefer native** for `swkotor.exe` that 1.5 set where the global present method would show half-drawn frames is removed again, if it is still KMRP's ([details](docs/nvidia-present-method.md)). |
 | Optional | *Modern Driver Compatibility* adds its loader (`dinput8.dll`) and payload beside the game. |
 
 Every change is recorded with hashes in manifests in the `KMRP` folder (beside the

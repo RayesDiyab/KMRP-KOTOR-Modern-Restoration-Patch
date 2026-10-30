@@ -429,6 +429,15 @@ half the time; the player watching saw none either, and the engine's own delta
 
 ## What ships
 
+**Superseded on 2026-10-30.** The two points below were what shipped from 2026-09-19. Since
+2026-10-30 KMRP's module draws each frame into a framebuffer object of its own and writes
+the window's buffer only at `SwapBuffers`: the finished frame is copied in and swapped, and
+copied into the next back buffer as well (`src/controller-native/K1OffscreenFrame.cpp`).
+The layered path then never holds an unfinished frame to show, so the installer stops
+forcing Prefer native ([`docs/nvidia-present-method.md`](../../docs/nvidia-present-method.md)).
+Seen on this machine that day, on the layered path, with no flash. Not measured with this
+page's 60 fps captures.
+
 **1. The installer sets the present method, only where it is needed.**
 `NvidiaPresentOperations` in `src/patcher/KmrpPatcher.cs` asks NvAPI which
 profile the driver applies to the installed `swkotor.exe` (by full path) and

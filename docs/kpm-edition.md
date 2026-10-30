@@ -62,9 +62,10 @@ a file in `KMRP\` since the same day (`IsOwnedName`, `KpmEdition.cs`).
 `KMRP.log` and the backup beside `swkotor.ini`, so those two folders usually remain.
 
 **Two places that still use an old name (read from the source on 2026-10-20):**
-- the module's own NVIDIA step writes `KMRP_NVIDIA.manifest` beside the game
+- the module's own NVIDIA step wrote `KMRP_NVIDIA.manifest` beside the game
   (`K1RuntimeNvidia.cpp`, [NVIDIA present method](nvidia-present-method.md)), which the
-  next install or restore moves;
+  next install or restore moves. That step was removed on 2026-10-30 with the file; a
+  record it left is still found, and the value it records removed, at the next install;
 - the standalone installer's restore (`ControllerOperations`) looks for
   `kmrp-controller.ini`, the name its `KMRP_Controller.manifest` records. An install
   over a standalone one migrates first, so that file is already `KMRP\controller.ini`

@@ -390,7 +390,7 @@ unreachable sizes, the Options layout after a switch. Open:
 
 | Gap | Effect |
 | --- | --- |
-| NVIDIA present method (issue #14) | Closed 2026-10-04 at the maintainer's decision ("log a warning and then set it"): the module makes the installer's check at the first frame, logs a warning and sets Prefer native in the game's profile (`K1RuntimeNvidia.cpp`, [reference](../docs/nvidia-present-method.md#the-standalone-module)). Until then it was left out on purpose, as a machine-wide driver profile that a KPM patch has no uninstall step to restore; that still holds, and the log line says how to undo it by hand |
+| NVIDIA present method (issue #14) | Closed 2026-10-04 at the maintainer's decision ("log a warning and then set it"): the module makes the installer's check at the first frame, logs a warning and sets Prefer native in the game's profile (`K1RuntimeNvidia.cpp`, [reference](../docs/nvidia-present-method.md#the-standalone-module)). Until then it was left out on purpose, as a machine-wide driver profile that a KPM patch has no uninstall step to restore; that still holds, and the log line says how to undo it by hand. **Removed 2026-10-30:** the module draws each frame offscreen (`K1OffscreenFrame.cpp`), so the layered path no longer shows unfinished frames, and the step and its file are deleted; the installer removes a value it left |
 | K1 Modern Driver Compatibility is not included | The player adds Synchro's own patch in KPM |
 | Movies are always on | No opt-out |
 | No controller in the 0.7.1 package | KPM 0.7.1 has one module per patch and no options. The options package has it |

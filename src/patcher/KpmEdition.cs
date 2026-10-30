@@ -459,13 +459,17 @@ namespace Kmrp
             List<string[]> records = new List<string[]>();
             IniEditState iniState = null;
             DpiCompatibilityEditState dpiState = null;
-            NvidiaPresentEditState nvidiaState = null;
             string kpatchFolder = null;
             try
             {
                 SafeProgress(progress, 6, "Updating display settings…");
                 dpiState = DpiCompatibilityOperations.Install(targetPath, report);
-                nvidiaState = NvidiaPresentOperations.Install(targetPath, report);
+                // NVIDIA's present method is the player's (2026-10-30): the module draws each
+                // frame offscreen and shows it finished (K1OffscreenFrame.cpp), so the layered
+                // path no longer flashes, and Windows Auto HDR and RTX HDR need that path
+                // (issue 73). Until then KMRP set Prefer native wherever the game would
+                // inherit layered; a value it set that way, with its record, is removed here.
+                NvidiaPresentOperations.Restore(targetPath, report);
                 iniState = IniOperations.Configure(targetPath, width, height, report);
 
                 SafeProgress(progress, 10, engine ? "Installing KMRP's patch…" : "Preparing the patch for KPM…");
@@ -509,7 +513,6 @@ namespace Kmrp
                 catch { }
                 try { DpiCompatibilityOperations.Rollback(dpiState); }
                 catch { }
-                NvidiaPresentOperations.Rollback(nvidiaState);
                 throw;
             }
             // Every size the display offers made now, from the pack just written, so the

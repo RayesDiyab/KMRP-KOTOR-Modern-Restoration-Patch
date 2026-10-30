@@ -117,6 +117,22 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Windows Auto HDR and RTX HDR stay on with KMRP (issue 73), and menus no longer flash on
+  NVIDIA's layered path (issue 14)** (2026-10-30). KOTOR is an OpenGL game, and NVIDIA's
+  "Prefer layered on DXGI Swapchain" present method is the only way Auto HDR or RTX HDR
+  reaches it. That path showed frames the game had not finished drawing: the white flash.
+  So since 2026-09-19 KMRP set the game to "Prefer native", which also switched off HDR
+  for players who had chosen layered for it. Now KMRP draws each frame offscreen and shows
+  it only when finished, always, as one of its engine changes (`K1OffscreenFrame.cpp`), so
+  the layered path is clean. KMRP no longer touches NVIDIA's setting at all: the module's
+  own check and the installer's are removed (`K1RuntimeNvidia.cpp` deleted). An install
+  finds the "Prefer native" an earlier KMRP install or module wrote, by its record
+  `KMRP\nvidia.manifest`, and removes it while it is still KMRP's. Seen in the
+  maintainer's game on the layered path: "it works perfectly", "the smoothest this game
+  has ever played". Not seen with HDR on, since that display has none, nor on AMD or
+  Intel. The NVIDIA self-test (`Test-NvidiaPresentMethod.ps1`) is rewritten for the
+  removal and passes all six cases on the maintainer's PC.
+
 - **The controller patch on its own gives a GUI mod's screens its button prompts**
   (2026-10-30, Controller Live Adaptive Layout). The controller patch used to carry 16 of the
   game's layout files with its prompts added (the party, swap-tabs, LT and RT cues, the

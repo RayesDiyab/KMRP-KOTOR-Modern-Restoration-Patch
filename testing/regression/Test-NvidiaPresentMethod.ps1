@@ -1,24 +1,29 @@
 <#
 .SYNOPSIS
-    Regression tests for the patcher's NVIDIA "Vulkan/OpenGL present method" step.
+    Regression tests for the patcher's removal of the NVIDIA present method older KMRP
+    installs set.
 
 .DESCRIPTION
-    Compiles NvidiaPresentSelfTest.cs together with the patcher source, so the test
-    runs exactly the NvidiaPresentOperations code the patcher ships, then:
+    Since 2026-10-30 KMRP sets no NVIDIA "Vulkan/OpenGL present method": its module
+    draws each frame offscreen (K1OffscreenFrame.cpp), so NVIDIA's layered path no longer
+    shows half-drawn frames. Every install and restore removes the Prefer native that KMRP
+    set from 2026-09-19, while KMRP's record of it exists and the game's profile still
+    holds it (NvidiaPresentOperations.Restore).
+
+    Compiles NvidiaPresentSelfTest.cs together with the patcher source, so the test runs
+    exactly the code the patcher ships, then:
 
       1. describes what NVIDIA applies to the game executable given (read-only);
-      2. runs install -> verify -> restore -> verify three ways, on a throwaway
-         executable named kmrp-nvapi-selftest.exe: with no profile naming it, with a
-         stand-in profile that inherits the setting, and with one that holds Prefer
-         layered deliberately.
+      2. on a throwaway executable named kmrp-nvapi-selftest.exe, plants what an older
+         install left and checks Restore: KMRP's own profile removed; KMRP's value removed
+         from an existing profile; a value the player changed since left; a profile that
+         became shared kept; Prefer native with no record left; a profile with KMRP's name
+         that does not hold the game left.
 
     No real game's profile is written: NVIDIA matches profiles by executable name, and
-    the throwaway name matches nothing. Every profile the test creates is removed in
-    a finally block, and the global profile is only read.
-
-    The cycle needs an NVIDIA driver whose global present method is "Prefer layered
-    on DXGI Swapchain" -- the only state in which the patcher changes anything. On any
-    other machine it reports SKIP and exits 0.
+    the throwaway name matches nothing. Every profile the test creates is removed in a
+    finally block, and the global profile is only read. Without an NVIDIA driver it
+    reports SKIP and exits 0.
 
 .EXAMPLE
     .\testing\regression\Test-NvidiaPresentMethod.ps1 -GameExe "C:\Star Wars - KotOR\swkotor.exe"
@@ -69,11 +74,12 @@ try {
         & $harness describe $GameExe
         if ($LASTEXITCODE -ne 0) { $failed = $true }
     }
-    Write-Host "== install / restore cycles on a throwaway executable"
+    Write-Host "== restore of what older installs left, on a throwaway executable"
     & $harness cycle (Join-Path $WorkRoot "cycle")
     switch ($LASTEXITCODE) {
         0 { }
-        2 { Write-Host "SKIP: no NVIDIA driver, or its global present method is not Prefer layered." }
+        2 { Write-Host "SKIP: no NVIDIA driver." }
+        3 { Write-Host "BLOCKED: see above."; $failed = $true }
         default { $failed = $true }
     }
 }

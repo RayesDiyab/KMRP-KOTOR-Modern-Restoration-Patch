@@ -6,6 +6,39 @@
 
 **Kind: reference.**
 
+**Since 2026-10-30 KMRP never sets the present method.** KMRP's module draws each frame
+offscreen and copies it to the window only when it is finished, always
+(`src/controller-native/K1OffscreenFrame.cpp`). On the layered path the driver then has no
+unfinished frame to show. Both places that set Prefer native are gone: the installer's
+`NvidiaPresentOperations.Install` and the module's `K1RuntimeNvidia.cpp`
+(`KmrpNvidiaPresentOnce`, deleted with its harness `Test-RuntimeNvidia.cpp`). What is left
+is the removal: every install and every restore runs `NvidiaPresentOperations.Restore`.
+It finds KMRP's record (`KMRP\nvidia.manifest`, which both the installer and the module
+wrote) and removes the value while the game's profile still holds it (section
+"Restore"). The reason is issue 73: Windows Auto HDR and RTX HDR reach an OpenGL game only
+through the layered path, and a player who set it globally for them lost both in KOTOR.
+For one day the offscreen frame was an option, `offscreen-frame`, which KMRP no longer
+reads.
+
+Seen in the maintainer's game on 2026-10-30 (RTX 3080, 3440x1440, anti-aliasing 8, K1DC
+2.0.0). The game inherited Prefer layered from the global profile; `d3d11.dll` and
+`nvwgf2um.dll` were loaded, and the log read `offscreen frame: on, 3440x1440, 8 samples`.
+Menus were opened, filtered and closed: "it works perfectly", "the smoothest this game has
+ever played". Not measured frame by frame as issue 14 was. Not seen: Windows HDR or RTX HDR
+themselves (that display has no HDR), AMD, Intel. `Test-NvidiaPresentMethod.ps1` now plants
+what an older install left on a throwaway executable and checks the removal in six cases.
+It passed on 2026-10-30 on the maintainer's PC (RTX 3080, global Prefer layered): KMRP's
+own profile removed; KMRP's value removed from an existing profile; a value changed since
+left; a profile that became shared kept with only KMRP's value removed; Prefer native with
+no record left; a profile with KMRP's name not holding the game left. Its first run was
+blocked: a leftover profile named "KMRP - Star Wars: Knights of the Old Republic" (one
+application, Prefer native, holding none of the test's executables) was already there.
+It was deleted at the maintainer's word, as one was on 2026-10-04, and the test now
+reports such a profile as BLOCKED instead of stopping with NvAPI's -164.
+
+The sections below describe what KMRP did until then. They are kept because the removal
+undoes exactly that.
+
 NVIDIA's driver can present an OpenGL game through a Direct3D (DXGI) swap chain
 instead of natively: **NVIDIA Control Panel → Manage 3D settings → Vulkan/OpenGL
 present method → Prefer layered on DXGI Swapchain**. On that path KOTOR shows
