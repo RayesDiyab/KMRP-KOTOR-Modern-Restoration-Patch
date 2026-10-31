@@ -10,6 +10,9 @@ use more memory, patched for a widescreen resolution, or unpacked from a store's
 install checks only the places in the game that the patch changes, so other modifications don't
 stop it.
 
+It is also the install for Windows 7 and 8. The Patch Manager needs Windows 10 or later, so on
+those versions this is the only way to install the patch.
+
 The install adds two files to your game folder and renames nothing. If your game folder already
 has a `dinput8.dll`, copying replaces it. If that file is another mod's copy of Ultimate ASI
 Loader, you can keep it and copy only the `.asi` file.
@@ -18,7 +21,7 @@ Loader, you can keep it and copy only the `.asi` file.
 
 1. Download the standalone zip file from the
    [releases page](https://codeberg.org/Synchro/kotor-modern-driver-compatibility/releases), and
-   unzip it.
+   unzip it. On Windows 7 or 8, download the one whose name ends in `-standalone-win7.zip`.
 2. Copy both files from the `Copy into game folder` folder into your game folder, which is the
    folder that contains `swkotor.exe`. The files are `dinput8.dll` and
    `k1-modern-driver-compatibility.asi`.
@@ -57,7 +60,7 @@ your game folder. Look for these two lines, in this order. Each line in the log 
 the time since the game started and a level, such as `[INFO]`.
 
 ```
-hooks installed=21/21 waited=0.000
+hooks installed=28/28 waited=0.000
 capability ati_fragment_shader=accepted
 ```
 

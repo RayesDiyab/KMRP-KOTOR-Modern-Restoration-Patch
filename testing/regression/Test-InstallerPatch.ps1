@@ -26,11 +26,16 @@
          High FPS Fixes is the third patch in patch_config.toml with its 36 hooks,
          its module and its .kpatch are the bundled file's, and restore removes them.
 
-    Case 8 (2026-10-19): Modern Driver Compatibility on, off in every case above: the
-    installer writes Synchro's two files, byte for byte the vendored 2.0.0 standalone
-    build, beside the game with their manifest, and Restore Original removes them.
-    Case 9 (2026-10-19): the same on a PC that lacks a function K1DC imports (Windows 7,
-    faked with KMRP_TEST_MISSING_IMPORT): the install succeeds and writes neither file.
+    Case 8 (2026-10-19, rewritten 2026-10-31 for issue 44): Modern Driver Compatibility
+    on, off in every case above, over an older KMRP's standalone K1DC: the two old files
+    and their manifest are gone, Synchro's patch is the third in patch_config.toml with
+    its 28 hooks and their parameters, its module and its .kpatch are the bundled file's,
+    and Restore Original removes all of it.
+    Case 9 (2026-10-19, rewritten 2026-10-31): the same on a PC that lacks a function the
+    module imports (Windows 7, faked with KMRP_TEST_MISSING_IMPORT): the install writes
+    the vendored Windows 7 and 8 build's two files beside the game with their manifest and
+    no .kpatch, and Restore Original removes them. (Until 2026-10-31 case 8 checked the
+    2.0.0 standalone files and case 9 that neither was written.)
     Case 10 (2026-10-19): Marked Empty Containers on, off in every case above (its default
     is on): ShaeMyName's patch is the third in patch_config.toml with its one hook and no
     DLL, nothing of it goes into patches\, its .kpatch is the bundled file, and Restore
@@ -355,36 +360,66 @@ try {
     $game = New-Fixture "driver-compat"
     $folder = Split-Path -Parent $game
     $before = Get-Listing $folder
-    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the install succeeds"
-    $vendored = Join-Path $projectRoot "third_party\Included\k1-modern-driver-compatibility-2.0.0 by Synchro"
-    foreach ($name in @("dinput8.dll", "k1-modern-driver-compatibility.asi")) {
-        $installed = Join-Path $folder $name
-        Assert ((Test-Path -LiteralPath $installed) -and (Get-Sha $installed) -eq (Get-Sha (Join-Path $vendored $name))) "$name is the vendored K1 Modern Driver Compatibility 2.0.0 file"
+    # An older KMRP's standalone K1DC, as it left one: the two files beside the game and
+    # their manifest. The install takes them out and puts the .kpatch in (issue 44).
+    $oldFiles = @{ "dinput8.dll" = [byte[]](65..96); "k1-modern-driver-compatibility.asi" = [byte[]](97..122) }
+    $oldManifest = "version`t2.0.0`r`n"
+    foreach ($name in $oldFiles.Keys) {
+        [IO.File]::WriteAllBytes((Join-Path $folder $name), $oldFiles[$name])
+        $oldManifest += $name + "`t" + (Get-Sha (Join-Path $folder $name)) + "`r`n"
     }
-    $manifest = Join-Path $folder "KMRP\driver-compat.manifest"
-    Assert ((Test-Path -LiteralPath $manifest) -and ([IO.File]::ReadAllText($manifest) -match '(?m)^version\t2\.0\.0\r?$')) "KMRP\driver-compat.manifest records version 2.0.0"
+    New-Item -ItemType Directory -Force -Path (Join-Path $folder "KMRP") | Out-Null
+    [IO.File]::WriteAllText((Join-Path $folder "KMRP\driver-compat.manifest"), $oldManifest, [Text.UTF8Encoding]::new($false))
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the install succeeds"
+    foreach ($name in @("dinput8.dll", "k1-modern-driver-compatibility.asi", "KMRP\driver-compat.manifest")) {
+        Assert (-not (Test-Path -LiteralPath (Join-Path $folder $name))) "the older standalone $name is gone"
+    }
+    $config = Get-Config $folder
+    Assert (($config.Ids -join ",") -eq "kmrp,kmrp-controller,k1-modern-driver-compatibility") "patch_config.toml holds KMRP's patch, the controller patch and K1 Modern Driver Compatibility, in that order"
+    $bundled = Join-Path $projectRoot "third_party\Included\k1-modern-driver-compatibility-2.0.1 by Synchro\k1-modern-driver-compatibility.kpatch"
+    $zip = [IO.Compression.ZipFile]::OpenRead($bundled)
+    try {
+        $dcHooks = [regex]::Matches((New-Object IO.StreamReader ($zip.GetEntry("kotor1.hooks.toml").Open())).ReadToEnd(), '(?m)^\[\[hooks\]\]').Count
+        $moduleStream = $zip.GetEntry("binaries/windows_x86.dll").Open()
+        $dcModuleHash = [BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash($moduleStream)).Replace("-", "")
+        $moduleStream.Dispose()
+    } finally { $zip.Dispose() }
+    Assert ($dcHooks -eq 28 -and $config.Hooks -eq ($allHooks + $controllerHooks + $dcHooks)) "every hook of the three patches is in the config ($allHooks + $controllerHooks + $dcHooks)"
+    $section = [regex]::Match($config.Text, '(?s)id = "k1-modern-driver-compatibility"\r?\ndll = "([^"]*)"\r?\n(.*)$')
+    Assert ($section.Success -and ([regex]::Matches($section.Groups[2].Value, '(?m)^\[\[patches\.hooks\.parameters\]\]').Count -ge 1)) "its hook parameters are in the config ([[patches.hooks.parameters]])"
+    $dcModule = Join-Path $folder "patches\k1-modern-driver-compatibility.dll"
+    Assert ((Test-Path -LiteralPath $dcModule) -and (Get-Sha $dcModule) -eq $dcModuleHash) "patches\k1-modern-driver-compatibility.dll is the module inside the bundled patch"
+    $dcKpatch = Join-Path $kpmPatches "k1-modern-driver-compatibility.kpatch"
+    Assert ((Test-Path -LiteralPath $dcKpatch) -and (Get-Sha $dcKpatch) -eq (Get-Sha $bundled)) "k1-modern-driver-compatibility.kpatch in KOTOR Patch Manager's patch folder is the bundled file, unchanged"
     Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the restore succeeds"
     $after = Get-Listing $folder | Where-Object { $_ -notmatch $kept }
-    Assert (($after -join "`n") -eq ($before -join "`n")) "the folder is as it was, file for file: both files and the manifest are gone"
+    Assert (($after -join "`n") -eq ($before -join "`n")) "the folder is as it was before the older KMRP, file for file"
+    Assert (-not (Test-Path -LiteralPath $dcKpatch)) "the .kpatch this install created is removed"
 
-    Write-Host "Case 9  Modern Driver Compatibility on, on a PC that cannot run it"
-    # KMRP_TEST_MISSING_IMPORT counts one of K1DC's Windows 8 functions as missing, the
-    # answer Windows 7 gives (DriverCompatOperations.MissingImport). Start-Process passes
-    # the variable to the installer.
+    Write-Host "Case 9  Modern Driver Compatibility on, on a PC that cannot run its .kpatch"
+    # KMRP_TEST_MISSING_IMPORT counts one of the functions K1DC's module imports as
+    # missing, the answer Windows 7 gives (DriverCompatOperations.MissingImport).
+    # Start-Process passes the variable to the installer. Since 2026-10-31 such a PC gets
+    # its author's build for Windows 7 and 8 beside the game; until then, no K1DC.
     Set-KmrpSettings $true $true "" "" $false $true
     $game = New-Fixture "driver-compat-windows7"
     $folder = Split-Path -Parent $game
     $before = Get-Listing $folder
-    $env:KMRP_TEST_MISSING_IMPORT = "CreateFile2"
-    try { Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the install succeeds without it" }
+    $env:KMRP_TEST_MISSING_IMPORT = "WaitOnAddress"
+    try { Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the install succeeds" }
     finally { Remove-Item Env:KMRP_TEST_MISSING_IMPORT -ErrorAction SilentlyContinue }
-    foreach ($name in @("dinput8.dll", "k1-modern-driver-compatibility.asi", "KMRP\driver-compat.manifest")) {
-        Assert (-not (Test-Path -LiteralPath (Join-Path $folder $name))) "no $name beside the game"
+    $vendored = Join-Path $projectRoot "third_party\Included\k1-modern-driver-compatibility-2.0.1 by Synchro\standalone-win7"
+    foreach ($name in @("dinput8.dll", "k1-modern-driver-compatibility.asi")) {
+        $installed = Join-Path $folder $name
+        Assert ((Test-Path -LiteralPath $installed) -and (Get-Sha $installed) -eq (Get-Sha (Join-Path $vendored $name))) "$name is the vendored Windows 7 and 8 build's file"
     }
-    Assert (((Get-Config $folder).Ids -join ",") -eq "kmrp,kmrp-controller") "KMRP's patch and the controller patch are installed as usual"
+    $manifest = Join-Path $folder "KMRP\driver-compat.manifest"
+    Assert ((Test-Path -LiteralPath $manifest) -and ([IO.File]::ReadAllText($manifest) -match '(?m)^version\t2\.0\.1-win7\r?$')) "KMRP\driver-compat.manifest records version 2.0.1-win7"
+    Assert (((Get-Config $folder).Ids -join ",") -eq "kmrp,kmrp-controller") "KMRP's patch and the controller patch, without K1DC's .kpatch"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $folder "patches\k1-modern-driver-compatibility.dll"))) "no K1DC module in patches\"
     Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the restore succeeds"
     $after = Get-Listing $folder | Where-Object { $_ -notmatch $kept }
-    Assert (($after -join "`n") -eq ($before -join "`n")) "the folder is as it was, file for file"
+    Assert (($after -join "`n") -eq ($before -join "`n")) "the folder is as it was, file for file: both files and the manifest are gone"
 
     Write-Host "Case 10 Marked Empty Containers on"
     Set-KmrpSettings $true $true "" "" $false $false $true

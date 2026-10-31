@@ -115,9 +115,9 @@ optional components are installed.
 
 ## K1 Modern Driver Compatibility
 
-**K1 Modern Driver Compatibility 2.0.0** (1.2.0 until 2026-10-19) by **Synchro** is redistributed inside the
-patcher, with the author's permission, and installed into the game folder unless the
-user turns it off under *Advanced Settings*.
+**K1 Modern Driver Compatibility 2.0.1** (2.0.0 until 2026-10-31, 1.2.0 until 2026-10-19) by
+**Synchro** is redistributed inside the Windows and Linux installers, with the author's
+permission, and installed unless the user turns it off under *Advanced Settings*.
 
 https://codeberg.org/Synchro/kotor-modern-driver-compatibility
 https://deadlystream.com/files/file/3048-k1-modern-driver-compatibility-patch
@@ -125,12 +125,21 @@ https://deadlystream.com/files/file/3048-k1-modern-driver-compatibility-patch
 Licensed under the **Mozilla Public License 2.0**. The licence text ships inside the
 patcher and a copy is preserved at:
 
-`third_party/Included/k1-modern-driver-compatibility-2.0.0 by Synchro/LICENSE`
+`third_party/Included/k1-modern-driver-compatibility-2.0.1 by Synchro/LICENSE`
 
-The two shipped binaries -- `dinput8.dll` and `k1-modern-driver-compatibility.asi` --
-are the author's released standalone build, unmodified and byte-for-byte identical to
-the published release, so they can be hashed against it. No KMRP code is derived from
-K1DC, and none of its code is altered. It does not modify `swkotor.exe`.
+Two of the author's 2.0.1 downloads are shipped, unmodified and byte-for-byte identical to
+the published release, so they can be hashed against it:
+
+- `k1-modern-driver-compatibility.kpatch`, the KOTOR Patch Manager release, installed
+  beside KMRP's patch where it can run (Windows 10 or later, and Linux through Proton);
+- `standalone-win7/dinput8.dll` and `standalone-win7/k1-modern-driver-compatibility.asi`,
+  the standalone build for Windows 7 and 8, written beside the game there instead.
+  `dinput8.dll` is Ultimate ASI Loader; its licence terms and those of everything built
+  into it are in `standalone-win7/THIRD-PARTY-NOTICES`.
+
+No KMRP code is derived from K1DC, and none of its code is altered. It does not modify
+`swkotor.exe`. (Until 2026-10-31 the installer shipped the 2.0.0 standalone build for
+Windows 8 and later, and Windows 7 had no K1DC.)
 
 What it writes, and the check showing it does not collide with anything KMRP writes,
 is documented in [`docs/third-party-driver-compat.md`](docs/third-party-driver-compat.md).

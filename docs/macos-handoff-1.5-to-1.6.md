@@ -1680,6 +1680,7 @@ throttled re-check there if so. Not built or run on a Mac.
 | The Save Editor, now KMSE in its own repository; the Font Converter's own folder | ec98f1c to 3615c7e, 3fac29d, 87547b0 | separate programs, not KMRP |
 | README coverage and cover image; `.gitignore` for local tooling folders | 3fc008c, f1d0e0a, 8686a75, a0068d0, c7d015e | documents and repository housekeeping |
 | Restore Original with the game running: a plain message when `dinput8.dll` is locked (issue 75, `FileGuard.Delete`) | 22f2c9b | the Mac ships no `dinput8.dll` and has its own installer |
+| K1 Modern Driver Compatibility 2.0.1 as a bundled `.kpatch` on Windows and Linux, its Windows 7 and 8 build there (issue 44) | 2026-10-31 | the Mac ships no K1DC; its module is a Windows DLL |
 
 ## Working on Live Adaptive Layout (from the Codex handoff of 2026-10-29)
 

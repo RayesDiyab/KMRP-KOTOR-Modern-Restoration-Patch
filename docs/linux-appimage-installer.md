@@ -80,8 +80,10 @@ Checked:
     carried (`src/installer-linux/fonts/README.md`).
   - **Its first size** follows `FitInitialSizeToWorkingArea`: 1772 x 969 on the 3440x1440
     display, where the Windows window opens at 1633 x 923 with its frame.
-  - **K1DC's tile is disabled**, noted "Windows only": this installer does not install it
-    (issue 44).
+  - **K1DC's tile works** since 2026-10-31 (issue 44): K1DC is installed as its `.kpatch`,
+    a bundled patch beside KMRP's that KOTOR Patch Manager's proxy loads, which is its
+    author's route under Proton and needs no `WINEDLLOVERRIDES`. Until then the tile was
+    disabled, noted "Windows only", because the standalone `dinput8.dll` needed one.
 - **The AppImage** (`tools/build_linux_appimage.sh`, run by `tools/build_linux_installer.ps1`
   in WSL): `dist/KMRP-Linux-<version>-x86_64.AppImage`, packed by appimagetool 1.9.1 (its
   SHA-256 checked). It holds the program, Skia's and HarfBuzz's libraries, a launcher, a
@@ -109,7 +111,8 @@ Not done:
 - Ubuntu, SteamOS, Bazzite and a Steam Deck (issue 76's list); Wayland without XWayland, where
   only DRM's list answers.
 - A game whose existing files differ only in case from KMRP's names.
-- K1DC on Linux (issue 44 decides whether it should be installed there).
+- K1DC under Proton in a real game: installed by this installer since 2026-10-31, its
+  `logs/K1DriverCompat.log` not yet seen from a Proton run.
 - The window's step texts are a second copy of `MainForm.RefreshStatus`'s, in the same words.
   Moving them into the core for both windows is left for later.
 
@@ -165,7 +168,7 @@ for WinForms, the registry, P/Invoke, NvAPI and process control
 | Game facts | `GameExecutable`, `PeCompatibility`, `GoldPatch`, `WindowsEnginePatch`, `ResolutionChoice`, `ResolutionCatalog`, `ResolutionPatch`, `ResolutionSelection`, `GuiBlend` | portable (PE reading and tables) |
 | Art made at install | `GameArtGenerator`, `AbilityIconGenerator` | portable; `ControllerPromptGenerator` draws with GDI+ |
 | Art prebuilt by the module | `ArtPreparation` (loads `kmrp.dll` with `LoadLibraryEx` and runs `KmrpRuntimeAssetsPrepare` for every display size) | **Windows only**: an x86 Windows DLL |
-| Driver checks | `DriverCompatOperations` (loads K1DC's `dinput8.dll` to read it) | **Windows only** as written |
+| Driver checks | `DriverCompatOperations` (asks Windows for the functions K1DC's module imports) | **Windows only**; under Proton the `.kpatch` is always the route (since 2026-10-31) |
 | Windows settings | `DpiCompatibilityOperations` (AppCompat registry flags), `NvDrsSession`, `NvidiaPresentOperations` (NvAPI) | **Windows only**, and not meaningful under Proton |
 | Finding the game | `GameFolders` (Steam and GOG from the registry) | **Windows only** |
 | User interface | `MainForm` (2,083 lines), `UiTheme`, the custom controls, `KmrpSettings`, `UpdateDialog`, `Program` | WinForms |

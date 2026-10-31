@@ -52,7 +52,9 @@ builds that became 1.5.1:
 | Back on the pad | no longer shows the keyboard and mouse HUD | his report, after five of five before |
 
 **Not in that record:** a Steam Deck, any other distribution, AMD or Intel graphics,
-Modern Driver Compatibility (inert without `WINEDLLOVERRIDES="dinput8=n,b"`, issue 44),
+Modern Driver Compatibility (then its standalone build, inert without
+`WINEDLLOVERRIDES="dinput8=n,b"`; since 2026-10-31 its `.kpatch`, loaded by KPM's proxy
+with no override, issue 44, and not yet run under Proton),
 the released 1.5.1 file itself (it is the last test build with the version number).
 
 **Correction, 2026-10-11: released 1.5.0 does not start under Proton.** Its modules
@@ -319,7 +321,8 @@ been tested on a physical pad under Proton. The virtual Xbox menu and gameplay
 coverage above is now established. Under Proton the component also depends on:
 - KOTOR Patch Manager's runtime and its `binkw32.dll` proxy, since 2026-09-29
   (until then, the `dinput8.dll` ASI loader, which needed Wine's
-  `dinput8=n,b` override; K1DC still does);
+  `dinput8=n,b` override; K1DC did until 2026-10-31, when it became a bundled
+  `.kpatch` loaded by the same proxy, issue 44);
 - Proton's XInput translation, or the SDL backend for other controllers.
 
 The following remain gameplay tests under Proton, not automated claims:

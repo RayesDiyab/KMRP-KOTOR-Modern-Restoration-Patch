@@ -7,7 +7,7 @@ namespace Kmrp
     /// The install and restore rules (KpmEdition.cs, InstallCore.cs) are shared by the Windows
     /// installer and the native Linux installer (docs/linux-appimage-installer.md). The steps
     /// below exist only on Windows: the per-user DPI value, K1 Modern Driver Compatibility's
-    /// check, removing the NVIDIA present method older KMRP versions set, and making every
+    /// Windows 7 check, removing the NVIDIA present method older KMRP versions set, and making every
     /// display size's art with kmrp.dll before the game first starts; and the display's highest
     /// refresh rate, which each system reads its own way. Each is a partial method:
     /// the Windows installer implements them in InstallPlatform.Windows.cs, calling the classes
@@ -22,8 +22,7 @@ namespace Kmrp
         static partial void OnInstallDpi(string executablePath, Action<string> report, ref object state);
         static partial void OnRollbackDpi(object state);
         static partial void OnRestoreDpi(string executablePath, Action<string> report);
-        static partial void OnInstallDriverCompat(string executablePath, Action<string> report);
-        static partial void OnRestoreDriverCompat(string executablePath, Action<string> report);
+        static partial void OnDriverCompatMissing(ref string missing);
         static partial void OnRemoveOldNvidiaSetting(string executablePath, Action<string> report);
         static partial void OnHighestRefresh(int[] size, ref int rate);
         static partial void OnKpmSettingsPath(ref string path);
@@ -82,8 +81,22 @@ namespace Kmrp
 
         internal static void RollbackDpi(object state) { OnRollbackDpi(state); }
         internal static void RestoreDpi(string executablePath, Action<string> report) { OnRestoreDpi(executablePath, report); }
-        internal static void InstallDriverCompat(string executablePath, Action<string> report) { OnInstallDriverCompat(executablePath, report); }
-        internal static void RestoreDriverCompat(string executablePath, Action<string> report) { OnRestoreDriverCompat(executablePath, report); }
+        /// <summary>The first function K1 Modern Driver Compatibility's module needs that this
+        /// PC lacks (Windows 7), or null where it can run: always under Proton, whose Wine has
+        /// them all.</summary>
+        internal static string DriverCompatMissing()
+        {
+            string missing = null;
+            OnDriverCompatMissing(ref missing);
+            return missing;
+        }
+
+        /// <summary>Takes out the standalone K1DC files an older KMRP installed; the same on
+        /// both systems (DriverCompatStandalone, InstallCore.cs).</summary>
+        internal static void RestoreDriverCompat(string executablePath, Action<string> report)
+        {
+            DriverCompatStandalone.Restore(executablePath, report);
+        }
         internal static void RemoveOldNvidiaSetting(string executablePath, Action<string> report) { OnRemoveOldNvidiaSetting(executablePath, report); }
     }
 }

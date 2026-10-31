@@ -1866,11 +1866,129 @@ namespace Kmrp
         }
     }
 
+    /// <summary>The standalone K1 Modern Driver Compatibility, two files beside the game:
+    /// Ultimate ASI Loader's dinput8.dll and K1DC's .asi, recorded in
+    /// KMRP\driver-compat.manifest.
+    ///
+    /// Since 2026-10-31 (issue 44) KMRP installs K1DC as its .kpatch (KpmEdition.cs),
+    /// except where that module cannot run: on Windows 7 and 8 this installs its author's
+    /// build for them (2.0.1's -standalone-win7 download), since KOTOR Patch Manager's
+    /// route needs Windows 10. Windows loads a dinput8.dll beside the game by itself, so no
+    /// setting is needed there; under Wine it would be (WINEDLLOVERRIDES), which is why
+    /// the .kpatch is everyone else's. Until then this was the only route, with the build
+    /// for Windows 8 and later, and Windows 7 had no K1DC. Restore takes the two files out
+    /// on both systems, an older KMRP's too, and leaves a file someone changed since, and
+    /// says so.</summary>
+    internal static class DriverCompatStandalone
+    {
+        internal const string Version = "2.0.1-win7";
+
+        // Resource name and file name in the game folder.
+        private static readonly string[,] Files =
+        {
+            { "Kmrp.drivercompat.win7.dinput8", "dinput8.dll" },
+            { "Kmrp.drivercompat.win7.asi", "k1-modern-driver-compatibility.asi" },
+        };
+
+        /// <summary>Writes the two files, unless one of those names already holds a file
+        /// KMRP did not put there: a player may run another ASI loader, or K1DC installed
+        /// by hand, and replacing either would be destructive and undiagnosable. Returns
+        /// whether it installed them.</summary>
+        internal static bool Install(string executablePath, Action<string> report)
+        {
+            string folder = Path.GetDirectoryName(Path.GetFullPath(executablePath));
+            for (int i = 0; i < Files.GetLength(0); i++)
+            {
+                if (File.Exists(GamePath.Combine(folder, Files[i, 1])))
+                {
+                    if (report != null)
+                        report("Left the existing " + Files[i, 1] + " alone; the driver compatibility patch was not installed.");
+                    return false;
+                }
+            }
+            StringBuilder manifest = new StringBuilder();
+            manifest.Append("version\t").Append(Version).Append("\r\n");
+            Directory.CreateDirectory(Path.GetDirectoryName(KmrpFolder.PathOf(executablePath, KmrpFolder.DriverCompatManifest)));
+            for (int i = 0; i < Files.GetLength(0); i++)
+            {
+                string target = GamePath.Combine(folder, Files[i, 1]);
+                using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(Files[i, 0]))
+                {
+                    if (stream == null)
+                        throw new InvalidDataException("The installer is missing " + Files[i, 0] + ".");
+                    using (FileStream output = File.Create(target))
+                        stream.CopyTo(output);
+                }
+                manifest.Append(Files[i, 1]).Append('\t').Append(GoldPatch.HashFile(target)).Append("\r\n");
+                // Recorded file by file, so a failure on the second still lets Restore take
+                // out the first.
+                File.WriteAllText(KmrpFolder.PathOf(executablePath, KmrpFolder.DriverCompatManifest),
+                    manifest.ToString(), new UTF8Encoding(false));
+            }
+            if (report != null)
+                report("Installed K1 Modern Driver Compatibility " + Version + " (by Synchro), its build for " +
+                    "Windows 7 and 8. swkotor.exe was not modified.");
+            return true;
+        }
+
+        internal static void Restore(string executablePath, Action<string> report)
+        {
+            string manifestPath = KmrpFolder.PathOf(executablePath, KmrpFolder.DriverCompatManifest);
+            if (!File.Exists(manifestPath))
+                return;
+
+            string folder = Path.GetDirectoryName(Path.GetFullPath(executablePath));
+            int removed = 0;
+            int kept = 0;
+            foreach (string[] record in ReadManifest(manifestPath))
+            {
+                string target = GamePath.Combine(folder, record[0]);
+                if (!File.Exists(target))
+                    continue;
+                if (GoldPatch.HashFile(target) != record[1])
+                {
+                    // Changed since we wrote it -- upgraded by hand, most likely. Leave
+                    // it, and say so, rather than deleting someone else's newer copy.
+                    kept++;
+                    continue;
+                }
+                // A running game holds dinput8.dll: a plain message, not a stack trace.
+                FileGuard.Delete(target);
+                removed++;
+            }
+
+            File.Delete(manifestPath);
+            if (removed > 0 && report != null)
+                report("Removed the standalone driver compatibility files.");
+            if (kept > 0 && report != null)
+                report("Left " + kept + " driver compatibility file(s) in place because they changed after install.");
+        }
+
+        // One file per line, name and SHA-256, after a "version" line.
+        private static List<string[]> ReadManifest(string manifestPath)
+        {
+            List<string[]> records = new List<string[]>();
+            try
+            {
+                foreach (string line in File.ReadAllLines(manifestPath, Encoding.UTF8))
+                {
+                    string[] parts = line.Split('\t');
+                    if (parts.Length == 2 && parts[0] != "version")
+                        records.Add(parts);
+                }
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            return records;
+        }
+    }
+
     /// <summary>KMRP's own files in a game folder, in one folder of their own, KMRP: the
     /// logs in KMRP\logs and what a restore puts back in KMRP\backups (the maintainer,
     /// 2026-10-20: "we shouldnt clutter the folder like this"). What the game or KOTOR
     /// Patch Manager loads from the game folder itself stays there: KPM's runtime,
-    /// patch_config.toml, patches\ and configs\, and K1DC's dinput8.dll and .asi.
+    /// patch_config.toml, patches\ and configs\ (K1DC's module among them since
+    /// 2026-10-31; its standalone dinput8.dll and .asi until then).
     ///
     /// Until 2026-10-20 these files were loose in the game folder, under the names in
     /// Legacy's second column. Migrate moves an earlier install's into place, and PathOf

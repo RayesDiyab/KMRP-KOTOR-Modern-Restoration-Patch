@@ -90,6 +90,8 @@ as it starts.
   use the standalone download and follow
   [the standalone install guide](https://synchro.codeberg.page/kotor-modern-driver-compatibility/installing-standalone.html). That download includes the
   guide as `INSTALLING-STANDALONE.md`. Use the standard install wherever it works.
+- On Windows 7 or 8, where the Patch Manager doesn't run, use the `-standalone-win7` download
+  and the same standalone install guide.
 
 ## Documentation
 

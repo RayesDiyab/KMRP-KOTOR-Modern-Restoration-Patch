@@ -80,7 +80,7 @@ The historical 2026-09-25 build (`4EF3C181…`, 145,208,320 bytes) embedded
 | `Kmrp.override.common` | the common Override archive: shared textures, icons, portraits and prompt art, but no font atlas |
 | `Kmrp.bundled` | the list of bundled third-party Override files, which yield to the player's own |
 | `Kmrp.license.highresolutionmenus`, `Kmrp.license.drivercompat` | the KOTOR High Resolution Menus GPL notice and K1DC's MPL licence |
-| `Kmrp.drivercompat.dinput8`, `Kmrp.drivercompat.asi` | K1 Modern Driver Compatibility and its ASI loader |
+| `Kmrp.drivercompat.dinput8`, `Kmrp.drivercompat.asi` | K1 Modern Driver Compatibility and its ASI loader, until 2026-10-31; since then `KmrpDriverCompat.kpatch` and `KmrpDriverCompat.engine.hooks` (its `.kpatch` and hooks, issue 44) and `Kmrp.drivercompat.win7.dinput8`, `Kmrp.drivercompat.win7.asi` (the Windows 7 and 8 build) |
 | `Kmrp.controller.module`, `.runtime`, `.sdl`, `.sdllicense`, `.kpmlicense` | the controller component: KMRP's module, the KPM runtime, SDL 3 and its licence, and KPM's MIT licence. Since 2026-09-29 `.runtime` and `.kpmlicense` are gone; see below |
 | `Kmrp.brand`, seven `Kmrp.icon.*` | the brand artwork and the UI icons: folder, missing, monitor, Settings, shield, tools, verified |
 

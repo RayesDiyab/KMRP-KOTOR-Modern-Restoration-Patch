@@ -127,11 +127,12 @@ third_party/Included/Xelu_Free_Controller&Key_Prompts/*
 # KMRP derives from and ships. See THIRD_PARTY_NOTICES.md.
 !third_party/Included/kotor-high-resolution-menus-1.5/
 
-# K1 Modern Driver Compatibility standalone build (Synchro, MPL-2.0), shipped inside
-# the patcher with the author's permission. The negations for the binaries are needed
+# K1 Modern Driver Compatibility (Synchro, MPL-2.0): its .kpatch, and the standalone
+# build for Windows 7 and 8 in standalone-win7/, shipped inside the patcher with the
+# author's permission. The negations for the binaries are needed
 # because the global *.dll rule above would otherwise drop the proxy DLL from the
 # release we distribute. See docs/third-party-driver-compat.md.
-!third_party/Included/k1-modern-driver-compatibility-2.0.0 by Synchro/
+!third_party/Included/k1-modern-driver-compatibility-2.0.1 by Synchro/
 # High FPS Fixes 1.0.1 (D3M0, MIT), the release's own .kpatch and the repository's
 # licence: the installer carries the file unchanged as an option, off by default
 # (2026-10-09). Its module is inside the .kpatch, so no *.dll negation is needed.
@@ -177,6 +178,8 @@ third_party/Included/K1-Area-Map-Fixes-*/More info/source/data/*
 
 !third_party/Included/k1-modern-driver-compatibility-*/dinput8.dll
 !third_party/Included/k1-modern-driver-compatibility-*/*.asi
+!third_party/Included/k1-modern-driver-compatibility-*/standalone-win7/dinput8.dll
+!third_party/Included/k1-modern-driver-compatibility-*/standalone-win7/*.asi
 
 # Optional Xbox Controls integration. The controller module is built from the
 # author-approved source; the runtime is the MIT KOTOR Patch Manager hook engine.

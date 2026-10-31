@@ -3,20 +3,29 @@ Third party notices
 
 The standalone release of this patch redistributes one binary that is not built from
 this repository: the `dinput8.dll` beside the patch, which in this archive is under
-"Copy into game folder" and which the source tree keeps at vendor/dinput8.dll.
+"Copy into game folder".
 
 It is Ultimate ASI Loader, taken unmodified from its own release. The patch itself is
 under the Mozilla Public License 2.0 and is unaffected by anything below; these terms
-apply to that one file.
+apply to that one file. The Windows 7 download carries an older release of the loader,
+the newest one that still runs on Windows 7. Each download carries one of these:
 
     Component:  Ultimate ASI Loader
-    Version:    v9.7.4
+    Version:    v9.7.4, in the standalone download
     Source:     https://github.com/ThirteenAG/Ultimate-ASI-Loader
     Obtained:   https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases/download/v9.7.4/Ultimate-ASI-Loader-NoPDB.zip
     SHA-256:    ec2f4824eca58dd40f425756a4a7cec77b8e381f21d11d7c846ec4b339b617ab
+    Path:       vendor/dinput8.dll
 
-That file links several other projects into itself, so their terms travel with it. Each
-was confirmed present in the binary rather than assumed: the loader exports
+    Component:  Ultimate ASI Loader
+    Version:    v9.7.0, in the Windows 7 standalone download
+    Source:     https://github.com/ThirteenAG/Ultimate-ASI-Loader
+    Obtained:   https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases/download/v9.7.0/Ultimate-ASI-Loader.zip
+    SHA-256:    ad5d8d449ce305caf62cb17d8698ebf17e94f9120ee993d0dd85211dfe14f8dd
+    Path:       vendor/win7/dinput8.dll
+
+Both releases link several other projects into themselves, so their terms travel with
+them. Each was confirmed present in both binaries: the loader exports
 Direct3DCreate8, and MemoryModule names itself in the image.
 
 

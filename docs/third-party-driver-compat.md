@@ -8,11 +8,49 @@
 
 **Kind: reference.**
 
-KMRP ships **K1 Modern Driver Compatibility (K1DC) 2.0.0** by **Synchro**, MPL-2.0,
-with the author's permission (since 2026-10-19, at the maintainer's request; 1.2.0 until
-then). This document records what it is, exactly what it
+KMRP ships **K1 Modern Driver Compatibility (K1DC) 2.0.1** by **Synchro**, MPL-2.0,
+with the author's permission (since 2026-10-31; 2.0.0 from 2026-10-19, at the
+maintainer's request; 1.2.0 until then). This document records what it is, exactly what it
 writes, the check that proves it does not collide with anything KMRP writes, and how
 a user turns it off.
+
+## How it is installed, since 2026-10-31 (issue 44)
+
+| PC | What KMRP installs | Loaded by |
+| --- | --- | --- |
+| Windows 10 or later | the `.kpatch` (`k1-modern-driver-compatibility.kpatch`), a bundled patch beside KMRP's: its module as `patches\k1-modern-driver-compatibility.dll`, its 28 hooks in `patch_config.toml` | KOTOR Patch Manager's `binkw32.dll` proxy, as KMRP's own patch |
+| Linux, through Proton (the AppImage) | the same | the same; no `WINEDLLOVERRIDES`, which is the author's documented route under Proton |
+| Windows 7 and 8 | the author's standalone build for them (2.0.1's `-standalone-win7.zip`): `dinput8.dll` and `k1-modern-driver-compatibility.asi` beside the game, recorded in `KMRP\driver-compat.manifest` | Windows, which loads a `dinput8.dll` beside the game itself |
+
+Which one is decided by asking the PC for the four functions the `.kpatch`'s module
+imports that Windows 7 lacks (`WaitOnAddress`, `WakeByAddressAll`, `WakeByAddressSingle`,
+`ProcessPrng`; `DriverCompatOperations.NewerImports`, `KpmEdition.DriverCompatRoute`).
+The Windows 7 build imports none of them, nor any API set, which
+`testing/regression/Test-DriverCompatImports.py` checks from the vendored files. A
+standalone `.asi` of the player's own beside the game means neither is installed, and
+the install says so: the author says to use only one of his two installs.
+
+**Why the `.kpatch`.** Until 2026-10-31 KMRP installed the standalone build everywhere.
+Wine uses its own `dinput8.dll` over the one in the game folder, so under Proton that
+build loads only with `WINEDLLOVERRIDES="dinput8=n,b" %command%` in the game's launch
+options, which an installer cannot set, and the Linux installer left K1DC out. The
+`.kpatch` needs KOTOR Patch Manager 0.7.2 or later for its hook parameters
+(`[[hooks.parameters]]`, `source = "const:0"`). KMRP's runtime is built from the
+`third_party/Kotor-Patch-Manager` submodule at `5c8d451`, whose `src/KotorPatcher` and
+`src/KProxy` are identical to KPM 0.8.0's (`git diff 5c8d451 0.8.0` is empty there;
+0.7.2 to 0.8.0 changed only KPM's own C# manager, which KMRP does not use), and
+`tools/build_bundled_kpatch_config.py` writes the parameters into `patch_config.toml`.
+So nothing in the runtime had to change. 2.0.1's `kotor1.hooks.toml` is identical to
+2.0.0's, so the overlap checks below still hold; the build holds it against KMRP's
+patches again.
+
+**An older install's standalone files** are removed by the next install or restore
+(`DriverCompatStandalone.Restore` in `InstallCore.cs`, shared by both installers), unless
+someone changed them since, which is said.
+
+**Not tested:** any of it in a running game. `Test-InstallerPatch.ps1` cases 8 and 9
+cover what is written and removed, on Windows, the Windows 7 route faked with
+`KMRP_TEST_MISSING_IMPORT`. Not run on Windows 7 or 8, not under Proton.
 
 It is **not** a KMRP fix. Every line of it is Synchro's work. KMRP's only
 contribution is installing it, removing it again, and the compatibility check below.
@@ -33,7 +71,8 @@ See the [dated compatibility record](mod-build-compatibility.md#issue-15-driver-
 | --- | --- |
 | K1DC | 2.0.0 standalone, `k1-modern-driver-compatibility-v2.0.0-standalone.zip`, 1,309,453 bytes, SHA-256 `97E2586E89B26EDB4A8EB260F13BDC2ACD5EAAD5E2AFA25372F33FD560FBDCE3`, released 2026-10-11 |
 | its hook list | from the same release's `k1-modern-driver-compatibility-v2.0.0.zip`, 333,926 bytes, SHA-256 `CA088F91684ACD9875BF9E3D36C96A5A580CAED3389F0BADF9A423B78BBFD673` (the `.kpatch` inside, `kotor1.hooks.toml`) |
-| vendored at | `third_party/Included/k1-modern-driver-compatibility-2.0.0 by Synchro/` |
+| since 2026-10-31 | 2.0.1, released 2026-10-25, the same hooks: `k1-modern-driver-compatibility-v2.0.1.zip`, 333,999 bytes, SHA-256 `EE1B0DB126124493B8F512DE4BA2403CA2908DCE692C8CF41AFF444427E772AB` (its `.kpatch`, module SHA-256 `5AA8D31DF06E01D9C540068F1DC7E923404D958EC020BB38A3A5F7810A500C55`), and `k1-modern-driver-compatibility-v2.0.1-standalone-win7.zip`, 1,342,004 bytes, SHA-256 `9D74E078C791705EA6D26518D6FD186C044CAEB9D15739C764158E403A65EDAB` |
+| vendored at | `third_party/Included/k1-modern-driver-compatibility-2.0.1 by Synchro/` (the `.kpatch`, and the Windows 7 build in `standalone-win7/`); 2.0.0 was in `...-2.0.0 by Synchro/` until 2026-10-31 |
 | until 2026-10-19 | 1.2.0 standalone, `k1-modern-driver-compatibility-v1.2.0-standalone.zip`, 1,631,672 bytes, SHA-256 `E35E7DA022DC859E10A2C5F29FDE101B846F5789B2A14BB5D297FB57777F24A8`; checked against KMRP gold `swkotor_gold_v24_movieaspect.exe`, `9DD81A75F4888FD67242B682BEE0AB4392EA8923CDF4A020CA3EDD2464C05E0A` |
 | source | <https://codeberg.org/Synchro/kotor-modern-driver-compatibility> |
 | release page | <https://deadlystream.com/files/file/3048-k1-modern-driver-compatibility-patch> |
@@ -63,7 +102,8 @@ grass tears across the sky **even on NVIDIA**, where the lighting has always wor
 
 ### 2.0.0 (since 2026-10-19)
 
-Read out of `third_party/Included/k1-modern-driver-compatibility-2.0.0 by Synchro/kotor1.hooks.toml`, which the
+Read out of `kotor1.hooks.toml` (in `third_party/Included/k1-modern-driver-compatibility-2.0.0 by Synchro/` until
+2026-10-31, and since then inside the vendored 2.0.1 `.kpatch`, byte for byte the same table), which the
 author publishes for exactly this purpose: 28 sites, 18 detours and 10 byte patches, the
 eight of 1.2.0 among them. What each does is in the author's comments in that file; the
 new ones carry the release's bump lighting on every card, the lighting paths the game
@@ -153,9 +193,13 @@ Two files go beside `swkotor.exe`:
 `swkotor.exe` is never written to. KMRP's own install, backup, sidecar and restore
 paths are therefore completely untouched by it.
 
-`DriverCompatOperations` in `src/patcher/KmrpPatcher.cs` writes both files from
-embedded resources (`Kmrp.drivercompat.dinput8`, `Kmrp.drivercompat.asi`) and records
-their names and SHA-256 in **`KMRP\driver-compat.manifest`**: `KMRP` is the folder
+This paragraph describes the standalone route, which since 2026-10-31 is Windows 7 and
+8's only (section "How it is installed"): `DriverCompatStandalone.Install` in
+`src/patcher/InstallCore.cs` writes both files from embedded resources
+(`Kmrp.drivercompat.win7.dinput8`, `Kmrp.drivercompat.win7.asi`; until then
+`DriverCompatOperations` in `src/patcher/KmrpPatcher.cs` wrote the Windows 8 build's, as
+`Kmrp.drivercompat.dinput8` and `.asi`) and records their names and SHA-256 in
+**`KMRP\driver-compat.manifest`**: `KMRP` is the folder
 beside the executable where KMRP keeps its own files since 2026-10-20 (`KmrpFolder` in
 the same file). Until then it was `KMRP_DriverCompat.manifest` beside the executable; the next
 install or restore moves an earlier install's into place, and finds it at the old
@@ -488,20 +532,24 @@ spans = bundled.spans_of_kmrp()   # KMRP's patch, the controller patch, the engi
 spans += [(0x0073D3E4, 4, "import slot"), (0x005F0FB2, 12, "start size"), (0x005F5B84, 10, "start size"),
           (0x0074D708, 4, "deadzone")]
 clean = open("build-inputs/swkotornopatch.exe", "rb").read()
-hooks = tomllib.load(open("third_party/Included/k1-modern-driver-compatibility-2.0.0 by Synchro/kotor1.hooks.toml", "rb"))["hooks"]
+import zipfile
+kpatch = zipfile.ZipFile("third_party/Included/k1-modern-driver-compatibility-2.0.1 by Synchro/k1-modern-driver-compatibility.kpatch")
+hooks = tomllib.loads(kpatch.read("kotor1.hooks.toml").decode())["hooks"]
 for h in hooks:
     a, n = h["address"], len(h["original_bytes"])
     hit = [o for b, m, o in spans if a < b + m and b < a + n]
     print(f"0x{a:08X} len {n:2}  collides={bool(hit)}  bytes_intact={clean[a - 0x400000:a - 0x400000 + n] == bytes(h['original_bytes'])}")
 ```
 
-Expected on 2026-10-19: 28 lines, `collides=False` and `bytes_intact=True` on each.
+Expected on 2026-10-19 (from 2.0.0's file) and the same table since: 28 lines,
+`collides=False` and `bytes_intact=True` on each.
 
 Confirm the shipped binaries match the author's release:
 
 ```bash
-sha256sum "third_party/Included/k1-modern-driver-compatibility-2.0.0 by Synchro/dinput8.dll"
-sha256sum "third_party/Included/k1-modern-driver-compatibility-2.0.0 by Synchro/k1-modern-driver-compatibility.asi"
+sha256sum "third_party/Included/k1-modern-driver-compatibility-2.0.1 by Synchro/k1-modern-driver-compatibility.kpatch"
+sha256sum "third_party/Included/k1-modern-driver-compatibility-2.0.1 by Synchro/standalone-win7/dinput8.dll"
+sha256sum "third_party/Included/k1-modern-driver-compatibility-2.0.1 by Synchro/standalone-win7/k1-modern-driver-compatibility.asi"
 ```
 
 Confirm an install did what it claims — the manifest lists both files and their
@@ -521,8 +569,9 @@ Get-FileHash "C:\Star Wars - KotOR\swkotor.exe"   # unchanged by K1DC: still wha
 
 K1DC is **MPL-2.0**. The licence text ships inside the patcher
 (`Kmrp.license.drivercompat`) and is vendored at
-`third_party/Included/k1-modern-driver-compatibility-2.0.0 by Synchro/LICENSE`, alongside the
-author's `README.md`, `THIRD-PARTY-NOTICES` and `INSTALLING-STANDALONE.md`.
+`third_party/Included/k1-modern-driver-compatibility-2.0.1 by Synchro/LICENSE`, alongside the
+author's `README.md` and `INSTALLING.md`, and in `standalone-win7/` the Windows 7 build's
+`THIRD-PARTY-NOTICES` (Ultimate ASI Loader's terms) and `INSTALLING-STANDALONE.md`.
 
 **K1 Modern Driver Compatibility is by Synchro.** Bundled with permission. No KMRP
 code is derived from it, and none of its code is modified.

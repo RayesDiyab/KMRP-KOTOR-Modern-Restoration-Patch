@@ -652,13 +652,13 @@ namespace Kmrp
             ToggleView controller = Tile(tiles, 0, 0, tileWidth, tileHeight, "Native Controller Support", "RaymanGT",
                 "Xbox, PlayStation, Switch and Steam Deck pads: prompts, rumble and the Xbox-style HUD.",
                 KmrpSettings.ControllerSupport, v => KmrpSettings.ControllerSupport = v);
-            // K1 Modern Driver Compatibility is installed by the Windows installer only: under
-            // Proton it is untested (issue 44), and this installer does not install it.
+            // K1 Modern Driver Compatibility is a bundled .kpatch since 2026-10-31 (issue 44),
+            // loaded by KOTOR Patch Manager's proxy like KMRP's own patch, which is its
+            // author's route under Proton: no Wine DLL override. Until then this tile was off
+            // and marked "Windows only", because the standalone dinput8.dll needed one.
             ToggleView driver = Tile(tiles, 1, 0, tileWidth, tileHeight, "Modern Driver Compatibility", "Synchro",
-                "Fixes lighting, fog, reflections, soft shadows and grass on modern graphics cards.", false, null);
-            driver.IsEnabled = false;
-            driver.Note = "Windows only";
-            driver.NoteInk = Ui.Warning;
+                "Fixes lighting, fog, reflections, soft shadows and grass on modern graphics cards.",
+                KmrpSettings.DriverCompatibility, v => KmrpSettings.DriverCompatibility = v);
             ToggleView marker = Tile(tiles, 2, 0, tileWidth, tileHeight, "Area Map Marker Fixes", "Derslok",
                 "Corrects misplaced area-map marker positions across the game.", KmrpSettings.MarkerFixes, v => KmrpSettings.MarkerFixes = v);
             ToggleView icons = Tile(tiles, 0, 1, tileWidth, tileHeight, "HD Item Icons", "JackInTheBox",
@@ -684,6 +684,7 @@ namespace Kmrp
                 icons.Checked = true;
                 empty.Checked = true;
                 controller.Checked = true;
+                driver.Checked = true;
                 fps.Checked = KmrpSettings.HighFpsFixAuto;
                 KmrpSettings.ResetHighFpsFix();
                 debug.Checked = false;

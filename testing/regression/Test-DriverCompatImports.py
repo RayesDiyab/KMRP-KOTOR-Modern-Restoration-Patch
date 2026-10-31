@@ -1,22 +1,29 @@
 #!/usr/bin/env python3
-"""Modern Driver Compatibility is left out where it would keep the game from starting.
+"""Modern Driver Compatibility goes in by a route that lets the game start.
 
-K1DC's dinput8.dll and .asi import functions Windows 7 does not have. Windows will not
-load a DLL whose imports it cannot find, and the game loads dinput8.dll as it starts,
-so on Windows 7 an installed K1DC stops the game (the reporter of issue 41 met this with
-1.0). Since 2026-10-19 the installer asks the PC for each of those functions first
-(DriverCompatOperations.NewerImports in src/patcher/KmrpPatcher.cs) and installs K1DC
-only where all are present. This checks, from the vendored files themselves:
+K1DC's module imports functions Windows 7 does not have. Windows will not load a DLL
+whose imports it cannot find, and KOTOR Patch Manager's runtime loads the module as the
+game starts, so on Windows 7 that K1DC stops the game (the reporter of issue 41 met this
+with 1.0). Since 2026-10-19 the installer asks the PC for each of those functions first
+(DriverCompatOperations.NewerImports in src/patcher/KmrpPatcher.cs). Since 2026-10-31
+(issue 44) K1DC is installed as its .kpatch, the module binaries/windows_x86.dll inside
+it, where all are present, and as its author's standalone build for Windows 7 and 8
+where one is missing (until then Windows 7 had no K1DC). This checks, from the vendored
+files themselves:
 
-  1. the two files are the ones whose import tables were read for that list (their
-     SHA-256s). A new K1DC fails here on purpose: read its imports again against
-     Windows 7, then update NewerImports and these hashes;
-  2. every function in NewerImports is imported by one of the two files, so the list
-     holds nothing stale;
+  1. the module is the one whose import table was read for that list (its SHA-256). A
+     new K1DC fails here on purpose: read its imports again against Windows 7, then
+     update NewerImports and this hash;
+  2. every function in NewerImports is imported by the module, so the list holds
+     nothing stale;
   3. every import from a DLL Windows 7 lacks altogether (the api-ms-win-* API sets)
      and from bcryptprimitives.dll is in the list;
-  4. the installer asks before it writes either file, and the Advanced Settings tile
-     is disabled where K1DC cannot run.
+  4. the Windows 7 and 8 build's two files are the ones read (their SHA-256s) and
+     import none of those: no function in NewerImports, no API set, nothing from
+     bcryptprimitives.dll;
+  5. the installer asks the PC before it picks the route (KpmEdition.cs,
+     DriverCompatRoute), and the Advanced Settings tile stays enabled where the .kpatch
+     cannot run.
 
 Reads files only; it starts no game and no installer, and runs on any system.
 
@@ -28,29 +35,35 @@ import hashlib
 import re
 import struct
 import sys
+import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-VENDORED = ROOT / "third_party/Included/k1-modern-driver-compatibility-2.0.0 by Synchro"
+KPATCH = ROOT / "third_party/Included/k1-modern-driver-compatibility-2.0.1 by Synchro/k1-modern-driver-compatibility.kpatch"
+MODULE = "binaries/windows_x86.dll"
 SOURCE = ROOT / "src/patcher/KmrpPatcher.cs"
+CHOOSER = ROOT / "src/patcher/KpmEdition.cs"
 
-# The files NewerImports was read from (2.0.0, 2026-10-19).
-REVIEWED = {
-    "dinput8.dll": "EC2F4824ECA58DD40F425756A4A7CEC77B8E381F21D11D7C846EC4B339B617AB",
-    "k1-modern-driver-compatibility.asi": "BB58F426D5C3EC5D52C21D99F089F5979E4C30934C246F7C740AB269C932735E",
+# The module NewerImports was read from (2.0.1, 2026-10-31).
+REVIEWED = "5AA8D31DF06E01D9C540068F1DC7E923404D958EC020BB38A3A5F7810A500C55"
+
+# The Windows 7 and 8 build (2.0.1's -standalone-win7 download), read 2026-10-31.
+WINDOWS7 = KPATCH.parent / "standalone-win7"
+WINDOWS7_REVIEWED = {
+    "dinput8.dll": "AD5D8D449CE305CAF62CB17D8698EBF17E94F9120EE993D0DD85211DFE14F8DD",
+    "k1-modern-driver-compatibility.asi": "ABA0D9DF267FB4E87D22D13F780AC5F559AFD4302FC2D67468463FEE8F38B507",
 }
 
 
-def imports(path: Path) -> set[tuple[str, str]]:
+def imports(name: str, data: bytes) -> set[tuple[str, str]]:
     """(dll in lower case, function) for each import by name of a PE32 file."""
-    data = path.read_bytes()
     pe = struct.unpack_from("<I", data, 0x3C)[0]
     if data[pe:pe + 4] != b"PE\0\0":
-        raise SystemExit(f"{path.name} is not a PE file")
+        raise SystemExit(f"{name} is not a PE file")
     sections, optional_size = struct.unpack_from("<H", data, pe + 6)[0], struct.unpack_from("<H", data, pe + 20)[0]
     optional = pe + 24
     if struct.unpack_from("<H", data, optional)[0] != 0x10B:
-        raise SystemExit(f"{path.name} is not 32-bit")
+        raise SystemExit(f"{name} is not 32-bit")
     import_rva = struct.unpack_from("<I", data, optional + 96 + 8)[0]   # data directory 1
     table = optional + optional_size
     spans = []
@@ -62,7 +75,7 @@ def imports(path: Path) -> set[tuple[str, str]]:
         for address, size, raw in spans:
             if address <= rva < address + size:
                 return rva - address + raw
-        raise SystemExit(f"{path.name}: RVA 0x{rva:X} is in no section")
+        raise SystemExit(f"{name}: RVA 0x{rva:X} is in no section")
 
     def text(offset: int) -> str:
         return data[offset:data.index(b"\0", offset)].decode("ascii")
@@ -90,21 +103,19 @@ def main() -> int:
         failed |= not ok
         print(("ok    " if ok else "FAIL  ") + what)
 
-    for name, expected in REVIEWED.items():
-        actual = hashlib.sha256((VENDORED / name).read_bytes()).hexdigest().upper()
-        check(actual == expected, f"{name} is the file NewerImports was read from"
-              + ("" if actual == expected else f" (now {actual}: read its imports again)"))
+    with zipfile.ZipFile(KPATCH) as kpatch:
+        module = kpatch.read(MODULE)
+    actual = hashlib.sha256(module).hexdigest().upper()
+    check(actual == REVIEWED, f"{MODULE} is the module NewerImports was read from"
+          + ("" if actual == REVIEWED else f" (now {actual}: read its imports again)"))
 
     source = SOURCE.read_text(encoding="utf-8")
     block = re.search(r"NewerImports =\s*\{(.*?)\};", source, re.S)
     listed = {(dll.lower(), fn) for dll, fn in re.findall(r'\{ "([^"]+)", "([^"]+)" \}', block.group(1))} if block else set()
-    check(len(listed) == 6, f"NewerImports lists {len(listed)} functions")
+    check(len(listed) == 4, f"NewerImports lists {len(listed)} functions")
 
-    imported = set()
-    for name in REVIEWED:
-        found = imports(VENDORED / name)
-        print(f"      {name}: {len(found)} functions imported by name")
-        imported |= found
+    imported = imports(MODULE, module)
+    print(f"      {MODULE}: {len(imported)} functions imported by name")
     stale = sorted(listed - imported)
     check(not stale, "every function in NewerImports is imported" + (f"; not imported: {stale}" if stale else ""))
     newer = {(dll, fn) for dll, fn in imported if dll.startswith("api-ms-win-") or dll == "bcryptprimitives.dll"}
@@ -112,14 +123,24 @@ def main() -> int:
     check(not unlisted, "every API-set and bcryptprimitives import is in NewerImports"
           + (f"; missing: {unlisted}" if unlisted else ""))
 
-    install = re.search(r"internal static void Install\(string executablePath, Action<string> report\)(.*?)\n        \}",
-                        source, re.S)
-    body = install.group(1) if install else ""
-    asks, writes = body.find("if (!CanRunHere)"), body.find("File.Create(target)")
-    check(0 <= asks < writes, "Install asks CanRunHere before it writes a file")
-    tile = re.search(r"if \(!DriverCompatOperations\.CanRunHere\)\s*\{(.*?)\}", source, re.S)
-    check(bool(tile) and "driverToggle.Enabled = false;" in tile.group(1),
-          "the Advanced Settings tile is disabled where K1DC cannot run")
+    for name, expected in WINDOWS7_REVIEWED.items():
+        data = (WINDOWS7 / name).read_bytes()
+        actual = hashlib.sha256(data).hexdigest().upper()
+        check(actual == expected, f"standalone-win7/{name} is the file read"
+              + ("" if actual == expected else f" (now {actual}: read its imports again)"))
+        found = imports(name, data)
+        newer = sorted(f"{dll}!{fn}" for dll, fn in found
+                       if (dll, fn) in listed or dll.startswith("api-ms-win-") or dll == "bcryptprimitives.dll")
+        check(not newer, f"standalone-win7/{name} imports nothing Windows 7 lacks ({len(found)} functions)"
+              + (f"; it imports {newer}" if newer else ""))
+
+    chooser = CHOOSER.read_text(encoding="utf-8")
+    route = re.search(r"private static int DriverCompatRoute\(.*?\n        \}", chooser, re.S)
+    body = route.group(0) if route else ""
+    check("InstallPlatform.DriverCompatMissing() == null ? DriverCompatKpatch : DriverCompatWindows7" in body,
+          "DriverCompatRoute asks the PC, the .kpatch where it can run, the Windows 7 build where not")
+    check("DriverCompatStandalone.Install(" in chooser, "the install writes the Windows 7 build on that route")
+    check("driverToggle.Enabled = false;" not in source, "the Advanced Settings tile stays enabled on Windows 7")
 
     print()
     print("a check failed" if failed else "all checks passed")

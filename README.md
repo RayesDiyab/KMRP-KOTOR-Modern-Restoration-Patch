@@ -236,8 +236,9 @@ Done since 1.5.1 and not yet released. Some of it has not been seen in play yet;
   `[Movies]` in `configs\kmrp.ini` to bring back the 640x480 switch.
 - **Marked Empty Containers:** a footlocker or body with nothing left in it says
   "(empty)" (ShaeMyName's mod, on by default, with the author's permission).
-- **K1 Modern Driver Compatibility 2.0.0**, left out where it would keep the game from
-  starting.
+- **K1 Modern Driver Compatibility 2.0.1**, installed as its KOTOR Patch Manager patch, so
+  it also works on Linux through Proton with no launch option (issue 44), and as its
+  author's Windows 7 and 8 build on those systems.
 - **Every frame drawn offscreen and shown only when finished**, an engine change: menus
   no longer flash on NVIDIA's "Prefer layered on DXGI Swapchain" path (issue 14), so KMRP
   no longer changes that NVIDIA setting, and Windows Auto HDR and RTX HDR keep working
@@ -374,7 +375,7 @@ the [Linux, Proton, and Steam Deck guide](docs/linux-proton-steam-deck.md).
 | Where | What |
 | --- | --- |
 | Beside `swkotor.exe` | KOTOR Patch Manager's runtime, laid out as KPM's own proxy deployment: KPM's `binkw32.dll` proxy in place of the game's (renamed `binkw32Hooked.dll`), `KotorPatcher.dll` and `patch_config.toml`. |
-| `patches\` | `kmrp.dll`, KMRP's module, with the engine changes and every resolution's interface files; `kmrp-controller.dll` while Native Controller Support is on; and `high-fps-fixes.dll` while High FPS Fix is on. |
+| `patches\` | `kmrp.dll`, KMRP's module, with the engine changes and every resolution's interface files; `kmrp-controller.dll` while Native Controller Support is on; `high-fps-fixes.dll` while High FPS Fix is on; and `k1-modern-driver-compatibility.dll` while Modern Driver Compatibility is on (except on Windows 7 and 8). |
 | `configs\` | `kmrp.ini` and `kmrp-controller.ini`, the options the patches were installed with. |
 | `KMRP\` | KMRP's own files, in one folder since 2026-10-20 (until then loose beside the game; patching again moves them): `controller.ini`, the rumble, HUD style and button layout, yours to edit and written only when it is not there; `logs\`, the installer's `install.log` and the game's diagnostic logs; `backups\`, the verified copy of `swkotor.ini`; the manifests Restore Original works from; and KOTOR Patch Manager's licence. |
 | `swkotor.ini` | The starting resolution, and the game's own frame-rate lines: `AllowHighMonitorFrequency` and `RefreshRate` (the display's highest with High FPS Fix; 60 without it, with `V-Sync=1`). Its prior contents are kept in a verified backup, `KMRP\backups\swkotor.ini`. |
@@ -382,7 +383,7 @@ the [Linux, Proton, and Steam Deck guide](docs/linux-proton-steam-deck.md).
 | `Override` | Nothing. |
 | Windows | A per-user compatibility value that marks the game DPI-aware ([details](docs/windows-dpi-scaling.md)). |
 | NVIDIA driver | Nothing set since 1.6. The **Prefer native** for `swkotor.exe` that 1.5 set where the global present method would show half-drawn frames is removed again, if it is still KMRP's ([details](docs/nvidia-present-method.md)). |
-| Optional | *Modern Driver Compatibility* adds its loader (`dinput8.dll`) and payload beside the game. |
+| Optional | *Modern Driver Compatibility* adds its patch to `patches\` and `patch_config.toml`; on Windows 7 and 8, its loader (`dinput8.dll`) and payload beside the game. |
 
 Every change is recorded with hashes in manifests in the `KMRP` folder (beside the
 game until 2026-10-20), and **Restore Original** reverses each from those records. In a game folder where KOTOR Patch
@@ -556,7 +557,7 @@ overwrites a mod you installed yourself.
 
 | Component | Author | Licence | Optional |
 | --- | --- | --- | --- |
-| [K1 Modern Driver Compatibility](https://codeberg.org/Synchro/kotor-modern-driver-compatibility) 2.0.0 | Synchro | MPL-2.0 | **Yes** -- Advanced Settings |
+| [K1 Modern Driver Compatibility](https://codeberg.org/Synchro/kotor-modern-driver-compatibility) 2.0.1 | Synchro | MPL-2.0 | **Yes** -- Advanced Settings |
 | Area map marker corrections (250 notes) | Derslok | GPL-3.0 | **Yes** -- Advanced Settings |
 | Controller support, based on [KPM – Xbox Controls for KOTOR 1](https://github.com/scopeking0117-alt/KPM-Xbox-Controls-K1) 1.2 | Saul0097 / KMRP | MIT, inherited from KOTOR Patch Manager, with each author's permission (his own licence file pending); SDL zlib | **Yes, on by default** -- Advanced Settings |
 | Party Portraits | MadDerp | -- | No |
@@ -583,10 +584,10 @@ KMRP has been released. If one has, it offers the Deadly Stream page or a skip.
 request sends is in
 [SECURITY.md](SECURITY.md).
 
-**Driver compatibility** is two files dropped beside `swkotor.exe`; it never
-edits the executable, and KMRP removes them on restore. What it changes, and the
-check showing its eight patch sites do not collide with any of the 742 byte
-positions KMRP's installer writes at any resolution, is in
+**Driver compatibility** is its author's KOTOR Patch Manager patch, installed beside
+KMRP's (on Windows 7 and 8, his standalone build's two files beside `swkotor.exe`); it
+never edits the executable, and KMRP removes it on restore. What it changes, and the
+check showing its 28 patch sites do not collide with anything KMRP writes, is in
 [docs/third-party-driver-compat.md](docs/third-party-driver-compat.md).
 
 **KMRP's runtime** is KOTOR Patch Manager's (MIT), built from the

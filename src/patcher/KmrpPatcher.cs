@@ -919,52 +919,34 @@ namespace Kmrp
         }
     }
 
-    /// <summary>Installs and removes the bundled K1 Modern Driver Compatibility patch.
+    /// <summary>Whether K1 Modern Driver Compatibility can run on this PC.
     ///
-    /// K1DC is by Synchro, MPL-2.0, and is shipped here as the standalone build the
-    /// author publishes for exactly this case: an executable another patcher has already
-    /// modified, which his Patch Manager will not recognise. See
-    /// docs/third-party-driver-compat.md.
-    ///
-    /// It is two files dropped beside swkotor.exe -- a `dinput8.dll` proxy that Windows
-    /// loads at startup, and the `.asi` payload it loads in turn. **The executable is
-    /// never touched.** K1DC patches its sites in memory at run time and checks only
-    /// those, which is why it does not care that KMRP changes bytes elsewhere. Version
-    /// 2.0.0 since 2026-10-19 (1.2.0 until then): its 28 sites (8 in 1.2.0) hold the
-    /// exact bytes his `kotor1.hooks.toml` declares in the unmodified 1.03 executable, and
-    /// none overlaps a hook of KMRP's patch or of the controller patch, a byte KMRP's
-    /// engine recipe writes, or a hook of D3M0's High FPS Fixes.
-    ///
-    /// A separate manifest from the Override one because these files live in the game
-    /// folder rather than Override, and because the choice to install them is the user's
-    /// and can differ between two installs of the same KMRP build.</summary>
+    /// K1DC is by Synchro, MPL-2.0. Since 2026-10-31 (issue 44) it is installed as the
+    /// .kpatch its author releases, a bundled patch beside KMRP's (KpmEdition.cs,
+    /// DriverCompatPatchId), so KOTOR Patch Manager's proxy loads it on Windows and under
+    /// Proton alike; until then this class wrote its standalone dinput8.dll and .asi into
+    /// the game folder, which Wine ignores without a DLL override. Where the module cannot
+    /// run, Windows 7 and 8, its author's standalone build for them goes in instead, and
+    /// removing standalone files is the same class's (DriverCompatStandalone, InstallCore.cs).
+    /// What is left here is Windows': asking the PC for the functions the module imports,
+    /// which decides between the two.</summary>
     internal static class DriverCompatOperations
     {
-        private sealed class InstalledFile
-        {
-            internal string Name;
-            internal string Hash;
-        }
+        internal const string Version = "2.0.1";
 
-        // Resource name -> file name in the game folder.
-        private static readonly string[] ResourceNames = { "Kmrp.drivercompat.dinput8", "Kmrp.drivercompat.asi" };
-        private static readonly string[] FileNames = { "dinput8.dll", "k1-modern-driver-compatibility.asi" };
-
-        internal const string Version = "2.0.0";
-
-        // What K1DC's two files import that Windows 7 does not have, from their import
-        // tables (2.0.0, read 2026-10-19; everything else they import is Windows Vista's or
-        // Windows 7's): dinput8.dll the first two, the .asi the other four. Windows will
-        // not load a DLL whose imports it cannot find, and the game loads dinput8.dll as
-        // it starts, so on such a PC K1DC would keep the game from starting at all. The
-        // reporter of issue 41 met this with 1.0 on Windows 7. Asked of the PC rather than
-        // of its version number, so Wine and Proton answer for themselves.
-        // testing/regression/Test-DriverCompatImports.py fails when the vendored files
-        // change, so that this list is read again then.
+        // What K1DC's module (binaries/windows_x86.dll in its .kpatch) imports that Windows 7
+        // does not have, from its import table (2.0.1, read 2026-10-31; everything else it
+        // imports is Windows Vista's or Windows 7's). Windows will not load a DLL whose
+        // imports it cannot find, and KOTOR Patch Manager's runtime loads the module as the
+        // game starts. The reporter of issue 41 met this with 1.0 on Windows 7. A PC missing
+        // one gets the Windows 7 and 8 build, which imports none of them. Asked of the
+        // PC rather than of its version number, so Wine and Proton answer for themselves.
+        // testing/regression/Test-DriverCompatImports.py fails when the vendored .kpatch
+        // changes, so that this list is read again then. (Until 2026-10-31 the list also held
+        // CreateFile2 and GetSystemTimePreciseAsFileTime, which only the standalone build's
+        // dinput8.dll imports.)
         private static readonly string[,] NewerImports =
         {
-            { "kernel32.dll", "CreateFile2" },
-            { "kernel32.dll", "GetSystemTimePreciseAsFileTime" },
             { "api-ms-win-core-synch-l1-2-0.dll", "WaitOnAddress" },
             { "api-ms-win-core-synch-l1-2-0.dll", "WakeByAddressAll" },
             { "api-ms-win-core-synch-l1-2-0.dll", "WakeByAddressSingle" },
@@ -987,7 +969,8 @@ namespace Kmrp
         private static string missing;
 
         /// <summary>The first function K1DC needs that this PC lacks, as
-        /// "CreateFile2 in kernel32.dll", or null when it has them all.</summary>
+        /// "WaitOnAddress in api-ms-win-core-synch-l1-2-0.dll", or null when it has them
+        /// all.</summary>
         internal static string MissingImport
         {
             get
@@ -1014,168 +997,12 @@ namespace Kmrp
             }
         }
 
-        /// <summary>Whether K1DC can run on this PC: Windows 8 or later, or a Wine with
-        /// the same functions.</summary>
+        /// <summary>Whether K1DC's .kpatch can run on this PC: Windows 10 or later, as its
+        /// author states, or a Wine with the same functions. Elsewhere the install uses
+        /// the Windows 7 and 8 build.</summary>
         internal static bool CanRunHere
         {
             get { return MissingImport == null; }
-        }
-
-        // KMRP\driver-compat.manifest (KmrpFolder); KMRP_DriverCompat.manifest in the game
-        // folder until 2026-10-20.
-        private static string ManifestPath(string executablePath)
-        {
-            return KmrpFolder.PathOf(executablePath, KmrpFolder.DriverCompatManifest);
-        }
-
-        internal static bool Available
-        {
-            get
-            {
-                for (int i = 0; i < ResourceNames.Length; i++)
-                    using (Stream stream = Assembly.GetExecutingAssembly()
-                               .GetManifestResourceStream(ResourceNames[i]))
-                        if (stream == null)
-                            return false;
-                return true;
-            }
-        }
-
-        /// <summary>Write the loader and K1DC's payload into the game folder, unless
-        /// something already occupies one of those names that we did not put there.
-        ///
-        /// Until 2026-09-29 the loader also installed on its own, with driver
-        /// compatibility off, because KMRP's runtime was an .asi it loaded. KMRP's
-        /// runtime is KOTOR Patch Manager's now, loaded by KPM's binkw32.dll proxy
-        /// (KpmEditionOperations), so K1DC's two files install together or not at
-        /// all.</summary>
-        internal static void Install(string executablePath, Action<string> report)
-        {
-            if (!Available)
-                return;
-            if (!CanRunHere)
-            {
-                SafeReport(report, "Modern Driver Compatibility was not installed: it needs Windows 8 or " +
-                    "later, and on this PC it would keep the game from starting (" + MissingImport + " is missing).");
-                return;
-            }
-            string folder = Path.GetDirectoryName(Path.GetFullPath(executablePath));
-            List<InstalledFile> installed = new List<InstalledFile>();
-            int count = FileNames.Length;
-
-            for (int i = 0; i < count; i++)
-            {
-                string target = Path.Combine(folder, FileNames[i]);
-                // Never clobber a file we did not write. A user may already run a
-                // different ASI loader, or K1DC installed by hand, and silently replacing
-                // either would be both destructive and undiagnosable.
-                if (File.Exists(target) && !WasInstalledByUs(executablePath, FileNames[i], target))
-                {
-                    SafeReport(report, "Left the existing " + FileNames[i] +
-                        " alone; the driver compatibility patch was not installed.");
-                    return;
-                }
-            }
-
-            for (int i = 0; i < count; i++)
-            {
-                string target = Path.Combine(folder, FileNames[i]);
-                using (Stream stream = Assembly.GetExecutingAssembly()
-                           .GetManifestResourceStream(ResourceNames[i]))
-                using (FileStream output = File.Create(target))
-                    stream.CopyTo(output);
-                InstalledFile record = new InstalledFile();
-                record.Name = FileNames[i];
-                record.Hash = GoldPatch.HashFile(target);
-                installed.Add(record);
-            }
-
-            WriteManifest(executablePath, installed);
-            SafeReport(report, "Installed K1 Modern Driver Compatibility " + Version +
-                " (by Synchro). swkotor.exe was not modified.");
-        }
-
-        /// <summary>Remove both files, if we installed them and nothing has changed them
-        /// since. Always safe to call: no manifest means nothing to do.</summary>
-        internal static void Restore(string executablePath, Action<string> report)
-        {
-            string manifestPath = ManifestPath(executablePath);
-            if (!File.Exists(manifestPath))
-                return;
-
-            string folder = Path.GetDirectoryName(Path.GetFullPath(executablePath));
-            List<InstalledFile> records = ReadManifest(manifestPath);
-            int removed = 0;
-            int kept = 0;
-            foreach (InstalledFile record in records)
-            {
-                string target = Path.Combine(folder, record.Name);
-                if (!File.Exists(target))
-                    continue;
-                if (GoldPatch.HashFile(target) != record.Hash)
-                {
-                    // Changed since we wrote it -- upgraded by hand, most likely. Leave
-                    // it, and say so, rather than deleting someone else's newer copy.
-                    kept++;
-                    continue;
-                }
-                // A running game holds dinput8.dll: a plain message, not a stack trace.
-                FileGuard.Delete(target);
-                removed++;
-            }
-
-            File.Delete(manifestPath);
-            if (removed > 0)
-                SafeReport(report, "Removed the bundled driver compatibility patch.");
-            if (kept > 0)
-                SafeReport(report, "Left " + kept +
-                    " driver compatibility file(s) in place because they changed after install.");
-        }
-
-        private static bool WasInstalledByUs(string executablePath, string name, string target)
-        {
-            string manifestPath = ManifestPath(executablePath);
-            if (!File.Exists(manifestPath))
-                return false;
-            foreach (InstalledFile record in ReadManifest(manifestPath))
-                if (String.Equals(record.Name, name, StringComparison.OrdinalIgnoreCase))
-                    return GoldPatch.HashFile(target) == record.Hash;
-            return false;
-        }
-
-        private static void WriteManifest(string executablePath, List<InstalledFile> files)
-        {
-            StringBuilder text = new StringBuilder();
-            text.Append("version\t").Append(Version).Append("\r\n");
-            foreach (InstalledFile record in files)
-                text.Append(record.Name).Append('\t').Append(record.Hash).Append("\r\n");
-            File.WriteAllText(ManifestPath(executablePath), text.ToString(), new UTF8Encoding(false));
-        }
-
-        private static List<InstalledFile> ReadManifest(string manifestPath)
-        {
-            List<InstalledFile> records = new List<InstalledFile>();
-            try
-            {
-                foreach (string line in File.ReadAllLines(manifestPath, Encoding.UTF8))
-                {
-                    string[] parts = line.Split('\t');
-                    if (parts.Length != 2 || parts[0] == "version")
-                        continue;
-                    InstalledFile record = new InstalledFile();
-                    record.Name = parts[0];
-                    record.Hash = parts[1];
-                    records.Add(record);
-                }
-            }
-            catch { }
-            return records;
-        }
-
-        private static void SafeReport(Action<string> report, string message)
-        {
-            if (report != null)
-                report(message);
         }
     }
 
@@ -3459,22 +3286,17 @@ namespace Kmrp
             driverToggle.Author = "Synchro";
             driverToggle.Detail =
                 "Fixes lighting, fog, reflections, soft shadows and grass on modern graphics cards.";
-            driverToggle.Checked = KmrpSettings.DriverCompatibility && DriverCompatOperations.CanRunHere;
+            driverToggle.Checked = KmrpSettings.DriverCompatibility;
             driverToggle.SetBounds(optionColumn2, optionFirstTop, optionWidth, optionRowHeight);
             driverToggle.Anchor = AnchorStyles.Top | AnchorStyles.Left;
-            // Off and disabled where K1DC cannot run (Windows 7): installed there, it
-            // would keep the game from starting. Set before the handler below, so the
-            // player's saved choice is kept for a PC that can run it.
+            // Where K1DC's .kpatch cannot run (Windows 7 and 8) the install uses its author's
+            // build for them (DriverCompatStandalone), and the tile says so. Until 2026-10-31
+            // the tile was off and disabled there, "Needs Windows 8".
             if (!DriverCompatOperations.CanRunHere)
-            {
-                driverToggle.Enabled = false;
-                driverToggle.Note = "Needs Windows 8";
-                driverToggle.NoteColor = UiTheme.Warning;
-            }
-            // Independent of the controller since 2026-09-24. This option installs
-            // K1DC's ASI loader and its .asi together (DriverCompatOperations.Install);
-            // KMRP's runtime needs neither since 2026-09-29, when it moved to KOTOR
-            // Patch Manager's binkw32.dll proxy.
+                driverToggle.Note = "Windows 7 and 8 build";
+            // Independent of the controller since 2026-09-24. This option installs K1DC's
+            // .kpatch beside KMRP's patch (KpmEdition.cs, DriverCompatPatchId) since
+            // 2026-10-31; until then its ASI loader and .asi.
             driverToggle.CheckedChanged += delegate
             {
                 KmrpSettings.DriverCompatibility = driverToggle.Checked;
@@ -3589,7 +3411,7 @@ namespace Kmrp
             {
                 // The documented defaults: the three components on, debug logs off
                 // (KmrpSettings).
-                driverToggle.Checked = DriverCompatOperations.CanRunHere;
+                driverToggle.Checked = true;
                 markerToggle.Checked = true;
                 iconsToggle.Checked = true;
                 emptyToggle.Checked = true;

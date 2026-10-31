@@ -4,7 +4,7 @@ using System.IO;
 namespace Kmrp
 {
     // The Linux installer's half of InstallPlatform (src/patcher/InstallPlatform.cs). Windows' DPI
-    // value, K1DC's check, the NVIDIA setting and the art prebuild through kmrp.dll have no Linux
+    // value, K1DC's Windows 7 check (Proton's Wine has every function its module needs), the NVIDIA setting and the art prebuild through kmrp.dll have no Linux
     // counterpart and stay unimplemented: their calls compile away, and the game makes each size's
     // art the first time it is used. What Linux does answer is where KPM, running under Proton,
     // keeps its settings and how its Windows paths map to Linux folders.

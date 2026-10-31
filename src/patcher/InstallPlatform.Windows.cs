@@ -36,14 +36,9 @@ namespace Kmrp
             DpiCompatibilityOperations.Restore(executablePath, report);
         }
 
-        static partial void OnInstallDriverCompat(string executablePath, Action<string> report)
+        static partial void OnDriverCompatMissing(ref string missing)
         {
-            DriverCompatOperations.Install(executablePath, report);
-        }
-
-        static partial void OnRestoreDriverCompat(string executablePath, Action<string> report)
-        {
-            DriverCompatOperations.Restore(executablePath, report);
+            missing = DriverCompatOperations.MissingImport;
         }
 
         static partial void OnRemoveOldNvidiaSetting(string executablePath, Action<string> report)

@@ -117,6 +117,37 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **K1 Modern Driver Compatibility 2.0.1 as its KOTOR Patch Manager patch: on Linux too,
+  and on Windows 7 and 8 with its author's build for them (issue 44)** (2026-10-31,
+  [`docs/third-party-driver-compat.md`](docs/third-party-driver-compat.md)). Until now the
+  installer wrote K1DC's standalone `dinput8.dll` and `.asi` beside the game. Under Proton
+  Wine uses its own `dinput8.dll`, so that build loaded only with a launch option an
+  installer cannot set, and the Linux installer left K1DC out ("Windows only"). Windows 7
+  had none at all: the build imports functions it lacks. Now:
+  - **Windows 10 or later, and Linux through Proton:** Synchro's `.kpatch` is a fifth
+    bundled patch beside KMRP's (`KpmEdition.cs`, as High FPS Fixes is): its module in
+    `patches\`, its 28 hooks with their parameters in `patch_config.toml`, loaded by KOTOR
+    Patch Manager's proxy with no Wine override, his documented route under Proton. The
+    patch needs KPM 0.7.2's hook parameters; KMRP's runtime, built from the KPM submodule,
+    is byte for byte KPM 0.8.0's runtime source, so nothing in it changed.
+  - **Windows 7 and 8:** his 2.0.1 build for them (`-standalone-win7`), beside the game,
+    since Windows loads a `dinput8.dll` there by itself (`DriverCompatStandalone`,
+    `InstallCore.cs`). The PC is asked for the four functions the `.kpatch`'s module needs,
+    as before; the tile stays on, noted "Windows 7 and 8 build", instead of disabled.
+  - **An older install's standalone files** are removed by the next install or restore, on
+    both systems; a standalone K1DC of the player's own means KMRP installs neither, and
+    says so (the two would change the same places).
+  - The Linux installer's tile is on by default, like Windows'.
+
+  Vendored unchanged from his 2.0.1 release (2026-10-25), in
+  `third_party/Included/k1-modern-driver-compatibility-2.0.1 by Synchro`; 2.0.1's hooks are
+  2.0.0's, byte for byte, so the overlap checks hold. Tested: both installers build,
+  `Test-DriverCompatImports.py` (the module's imports, the Windows 7 build importing nothing
+  Windows 7 lacks, the route), `Test-ProtonResourceCompatibility.py`, `Test-KpatchSource.py`,
+  `Test-RuntimeKpatch.py`, `Test-ControllerKpatch.py`, and `Test-InstallerPatch.ps1` with
+  cases 8 (over an older standalone install) and 9 (Windows 7 faked) rewritten, 115 checks
+  passed. **Not seen in a game, not run on Windows 7 or 8 or under Proton.**
+
 - **Fixed: with a controller, the mouse cursor could stay visible at the top of the screen
   (issue 85)** (2026-10-31). When the pad takes over, KMRP parks the cursor at the top
   centre and sets its own reason in KOTOR's mouse-hide mask. KOTOR's HideMouse hides the

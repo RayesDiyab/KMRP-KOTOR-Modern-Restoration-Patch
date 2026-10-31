@@ -382,13 +382,7 @@ $compilerArgs = @(
     "/resource:$engineSource,Kmrp.engine.source",
     "/resource:$(Join-Path $resourceDir 'resolutions.tsv'),Kmrp.resolutions",
     "/resource:$(Join-Path $projectRoot 'src\patcher\brand.png'),Kmrp.brand",
-    "/resource:$(Join-Path $resourceDir 'GPL-3.0-KOTOR-High-Resolution-Menus.txt'),Kmrp.license.highresolutionmenus",
-    # The bundled K1 Modern Driver Compatibility standalone build (Synchro, MPL-2.0),
-    # written into the game folder when the user leaves that option on. Two files, and
-    # neither touches swkotor.exe -- see docs/third-party-driver-compat.md.
-    "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-2.0.0 by Synchro\dinput8.dll'),Kmrp.drivercompat.dinput8",
-    "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-2.0.0 by Synchro\k1-modern-driver-compatibility.asi'),Kmrp.drivercompat.asi",
-    "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-2.0.0 by Synchro\LICENSE'),Kmrp.license.drivercompat"
+    "/resource:$(Join-Path $resourceDir 'GPL-3.0-KOTOR-High-Resolution-Menus.txt'),Kmrp.license.highresolutionmenus"
     # KMRP's module, its SDL and its patch are embedded in step 7 as one file, the
     # .kpatch (Kmrp.kpatch): the installer takes the module out of it.
 )
@@ -553,6 +547,15 @@ $emptyContainersKpatch = Join-Path $projectRoot "third_party\Included\K1MarkedEm
 Invoke-Tool -Exe $Python -Label "Marked Empty Containers" -FailureMessage "The bundled Marked Empty Containers patch cannot be installed beside KMRP" -Arguments @(
     (Join-Path $projectRoot "tools\build_bundled_kpatch_config.py"), $emptyContainersKpatch,
     "--config-dir", $kpmConfigDir, "--id", "k1-marked-empty-containers")
+# Synchro's K1 Modern Driver Compatibility (MPL-2.0), the .kpatch as its author releases
+# it, installed while Modern Driver Compatibility is on in Advanced Settings, the default:
+# KOTOR Patch Manager's proxy loads it, so it needs no Wine override under Proton (issue
+# 44). Until 2026-10-31 the installer wrote its standalone dinput8.dll and .asi instead,
+# which it still does on Windows 7 and 8, with its author's build for them (step 7).
+$driverCompatKpatch = Join-Path $projectRoot "third_party\Included\k1-modern-driver-compatibility-2.0.1 by Synchro\k1-modern-driver-compatibility.kpatch"
+Invoke-Tool -Exe $Python -Label "Modern Driver Compatibility" -FailureMessage "The bundled K1 Modern Driver Compatibility patch cannot be installed beside KMRP" -Arguments @(
+    (Join-Path $projectRoot "tools\build_bundled_kpatch_config.py"), $driverCompatKpatch,
+    "--config-dir", $kpmConfigDir, "--id", "k1-modern-driver-compatibility")
 Complete-Step
 
 # ---------------------------------------------------------------- 7. the installer
@@ -587,6 +590,13 @@ $engineArgs += "/resource:$(Join-Path $projectRoot 'third_party\Included\HighFps
 $engineArgs += "/resource:$emptyContainersKpatch,KmrpEmptyContainers.kpatch"
 $engineArgs += "/resource:$(Join-Path $kpmConfigDir 'k1-marked-empty-containers.hooks.toml'),KmrpEmptyContainers.engine.hooks"
 $engineArgs += "/resource:$(Join-Path $projectRoot 'third_party\Included\K1MarkedEmptyContainers-1.0.0 by ShaeMyName\LICENSE'),Kmrp.license.emptycontainers"
+$engineArgs += "/resource:$driverCompatKpatch,KmrpDriverCompat.kpatch"
+$engineArgs += "/resource:$(Join-Path $kpmConfigDir 'k1-modern-driver-compatibility.hooks.toml'),KmrpDriverCompat.engine.hooks"
+$engineArgs += "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-2.0.1 by Synchro\LICENSE'),Kmrp.license.drivercompat"
+# Its author's standalone build for Windows 7 and 8, where the .kpatch's module cannot run:
+# written beside the game there instead (DriverCompatStandalone, InstallCore.cs).
+$engineArgs += "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-2.0.1 by Synchro\standalone-win7\dinput8.dll'),Kmrp.drivercompat.win7.dinput8"
+$engineArgs += "/resource:$(Join-Path $projectRoot 'third_party\Included\k1-modern-driver-compatibility-2.0.1 by Synchro\standalone-win7\k1-modern-driver-compatibility.asi'),Kmrp.drivercompat.win7.asi"
 $engineArgs += "/resource:$(Join-Path $projectRoot 'src\patcher\KPM-PATCHES-README.txt'),Kmrp.kpatch.readme"
 # The installer's embedded resources, one per line as "name<TAB>path", for the native Linux
 # installer's build (tools/build_linux_installer.ps1), which embeds the same files under the

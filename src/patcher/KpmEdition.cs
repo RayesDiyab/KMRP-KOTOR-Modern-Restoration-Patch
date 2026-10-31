@@ -176,6 +176,21 @@ namespace Kmrp
         // into patches\.
         private const string EmptyContainersPatchId = "k1-marked-empty-containers";
         private const string EmptyContainersKpatchResource = "KmrpEmptyContainers.kpatch";
+        // Synchro's K1 Modern Driver Compatibility (MPL-2.0), a fifth patch since 2026-10-31
+        // (issue 44), installed while Modern Driver Compatibility is on in Advanced Settings,
+        // the default, where its module can run (InstallPlatform.DriverCompatMissing). The
+        // .kpatch as its author releases it (third_party/Included/k1-modern-driver-
+        // compatibility-2.0.1 by Synchro), its hooks made for patch_config.toml and held
+        // against KMRP's patches by tools/build_bundled_kpatch_config.py like the two above.
+        // Loaded by KOTOR Patch Manager's proxy, it needs no Wine DLL override under Proton,
+        // which its standalone dinput8.dll, what KMRP installed until then, did.
+        private const string DriverCompatPatchId = "k1-modern-driver-compatibility";
+        private const string DriverCompatKpatchResource = "KmrpDriverCompat.kpatch";
+        private const string DriverCompatVersion = "2.0.1";
+        // The standalone build's payload: one of these beside the game that KMRP did not
+        // put there means the player runs K1DC their own way, and the two would patch the
+        // same places, so KMRP leaves its copy out (its author: use only one of the two).
+        private const string StandaloneDriverCompatName = "k1-modern-driver-compatibility.asi";
         private const string KpatchModuleEntry = "binaries/windows_x86.dll";
         // KMRP's art pack (tools/kmrp_pack.py), embedded as Kmrp.assets.pack and written
         // into patches\ beside the module, which reads it there. KOTOR Patch Manager
@@ -193,6 +208,8 @@ namespace Kmrp
             { "HighFpsFixes.kpatch", HighFpsPatchId, HighFpsKpatchResource, "KmrpHighFps.engine.hooks" },
             { "K1MarkedEmptyContainers.kpatch", EmptyContainersPatchId, EmptyContainersKpatchResource,
               "KmrpEmptyContainers.engine.hooks" },
+            { "k1-modern-driver-compatibility.kpatch", DriverCompatPatchId, DriverCompatKpatchResource,
+              "KmrpDriverCompat.engine.hooks" },
         };
         private static readonly string[] RetiredKpatchNames =
             { "KMRP Controller.kpatch", "KMRP Movies.kpatch", "KMRP Map Notes.kpatch" };
@@ -203,7 +220,8 @@ namespace Kmrp
         // an install made before 2026-10-04 has. Restore recognises an install that
         // KOTOR Patch Manager took over by these (KpmHoldsOnlyKmrp, RemoveKpmRuntime).
         private static readonly string[] EnginePatches =
-            { "kmrp", "kmrp-movies", "kmrp-map-notes", "kmrp-controller", "high-fps-fixes", "k1-marked-empty-containers" };
+            { "kmrp", "kmrp-movies", "kmrp-map-notes", "kmrp-controller", "high-fps-fixes", "k1-marked-empty-containers",
+              "k1-modern-driver-compatibility" };
         // ------------------------------------------------------------ state
 
         // KMRP\kpm.manifest (KmrpFolder); KMRP_KPM.manifest in the game folder until 2026-10-20.
@@ -480,15 +498,20 @@ namespace Kmrp
                 if (!File.Exists(settings))
                     WriteOwned(folder, KmrpFolder.ControllerSettings,
                         new UTF8Encoding(false).GetBytes(ControllerOperations.DefaultSettings), records);
+                // An older KMRP's standalone K1DC (dinput8.dll and the .asi) out first: K1DC
+                // is one of the patches now, and both at once would change the same places.
+                InstallPlatform.RestoreDriverCompat(targetPath, report);
                 if (engine)
                 {
-                    List<string> patches = ChosenPatches();
+                    List<string> patches = ChosenPatches(folder, report);
                     InstallEngine(folder, Path.GetFileName(targetPath), exe, patches, records, report);
                     SafeProgress(progress, 16, "Setting the 4 GB flag…");
                     if (!steam && SetLargeAddressAware(targetPath, exe, patches, records, report))
                         records.Add(new[] { "laa", "set" });
-                    if (KmrpSettings.DriverCompatibility)
-                        InstallPlatform.InstallDriverCompat(targetPath, report);
+                    // Windows 7 and 8, where K1DC's .kpatch cannot run: its author's build
+                    // for them, beside the game (DriverCompatStandalone, InstallCore.cs).
+                    if (!patches.Contains(DriverCompatPatchId) && DriverCompatRoute(folder, null) == DriverCompatWindows7)
+                        DriverCompatStandalone.Install(targetPath, report);
                 }
                 SafeProgress(progress, 18, "Adding the patch to KPM…");
                 kpatchFolder = DeliverKpatches(folder, !engine, records, report);
@@ -499,11 +522,8 @@ namespace Kmrp
             }
             catch
             {
-                if (engine)
-                {
-                    try { InstallPlatform.RestoreDriverCompat(targetPath, null); }
-                    catch { }
-                }
+                try { InstallPlatform.RestoreDriverCompat(targetPath, null); }
+                catch { }
                 RemoveKpatches(records, null);
                 RemoveOwned(folder, records, null);
                 RemovePatchOptions(folder, records);
@@ -896,10 +916,11 @@ namespace Kmrp
         }
 
         /// <summary>The patches this install puts in: KMRP's, the controller patch
-        /// unless Controller Support is off, High FPS Fixes while High FPS Fix is on, and
-        /// Marked Empty Containers while that is on. KMRP's options are chosen separately
+        /// unless Controller Support is off, High FPS Fixes while High FPS Fix is on,
+        /// Marked Empty Containers while that is on, and K1 Modern Driver Compatibility
+        /// while that is on (DriverCompatChosen). KMRP's options are chosen separately
         /// (PatchOptions).</summary>
-        private static List<string> ChosenPatches()
+        private static List<string> ChosenPatches(string folder, Action<string> report)
         {
             List<string> patches = new List<string> { PatchId };
             if (KmrpSettings.ControllerSupport)
@@ -908,7 +929,32 @@ namespace Kmrp
                 patches.Add(HighFpsPatchId);
             if (KmrpSettings.MarkedEmptyContainers)
                 patches.Add(EmptyContainersPatchId);
+            if (DriverCompatRoute(folder, report) == DriverCompatKpatch)
+                patches.Add(DriverCompatPatchId);
             return patches;
+        }
+
+        // How K1 Modern Driver Compatibility goes in (DriverCompatRoute).
+        private const int DriverCompatNone = 0, DriverCompatKpatch = 1, DriverCompatWindows7 = 2;
+
+        /// <summary>How K1 Modern Driver Compatibility goes in, with the option on: as its
+        /// .kpatch where the PC has every function that module imports, and as its author's
+        /// standalone build for Windows 7 and 8 where it does not
+        /// (DriverCompatStandalone.Install); not at all with a standalone copy of the
+        /// player's own beside the game, which would change the same places, and that is
+        /// said.</summary>
+        private static int DriverCompatRoute(string folder, Action<string> report)
+        {
+            if (!KmrpSettings.DriverCompatibility)
+                return DriverCompatNone;
+            // An older KMRP's standalone copy is gone by now (InstallPlatform.RestoreDriverCompat).
+            if (File.Exists(GamePath.Combine(folder, StandaloneDriverCompatName)))
+            {
+                SafeReport(report, "Left the existing " + StandaloneDriverCompatName + " alone and did not " +
+                    "install KMRP's copy of Modern Driver Compatibility: the two would change the same places.");
+                return DriverCompatNone;
+            }
+            return InstallPlatform.DriverCompatMissing() == null ? DriverCompatKpatch : DriverCompatWindows7;
         }
 
 
@@ -1080,6 +1126,7 @@ namespace Kmrp
             bool controller = patches.Contains(ControllerPatchId);
             bool highFps = patches.Contains(HighFpsPatchId);
             bool emptyContainers = patches.Contains(EmptyContainersPatchId);
+            bool driverCompat = patches.Contains(DriverCompatPatchId);
             // The bundled patches of others have no options.
             KeyValuePair<string, bool>[] none = new KeyValuePair<string, bool>[0];
             for (int i = 0; i < Kpatches.GetLength(0); i++)
@@ -1117,6 +1164,7 @@ namespace Kmrp
                 (controller ? " and the controller patch" : ", without controller support") +
                 (highFps ? ", and D3M0's High FPS Fixes" : "") +
                 (emptyContainers ? ", and ShaeMyName's Marked Empty Containers" : "") +
+                (driverCompat ? ", and Synchro's K1 Modern Driver Compatibility " + DriverCompatVersion : "") +
                 (off.Count == 0 ? ", every option on." : ", without: " + String.Join(", ", off.ToArray()) + "."));
         }
 
@@ -1516,10 +1564,15 @@ namespace Kmrp
                     continue;
                 if (Kpatches[i, 1] == EmptyContainersPatchId && !KmrpSettings.MarkedEmptyContainers)
                     continue;
+                // K1DC's only with Modern Driver Compatibility on. Not asked of this PC: the
+                // file is for KOTOR Patch Manager, which checks the game itself.
+                if (Kpatches[i, 1] == DriverCompatPatchId && !KmrpSettings.DriverCompatibility)
+                    continue;
                 // A copy of KMRP's own patches is brought up to this version. The other
-                // two are their authors': a file of that name already in the folder is
+                // three are their authors': a file of that name already in the folder is
                 // the player's and is left as it is (no id to match).
-                bool theirs = Kpatches[i, 1] == HighFpsPatchId || Kpatches[i, 1] == EmptyContainersPatchId;
+                bool theirs = Kpatches[i, 1] == HighFpsPatchId || Kpatches[i, 1] == EmptyContainersPatchId ||
+                              Kpatches[i, 1] == DriverCompatPatchId;
                 WriteKpatch(GamePath.Combine(folder, Kpatches[i, 0]), ReadResource(Kpatches[i, 2]),
                     theirs ? null : Kpatches[i, 1], records, report);
             }
