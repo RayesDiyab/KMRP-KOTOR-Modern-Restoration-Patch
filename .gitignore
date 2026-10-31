@@ -212,3 +212,11 @@ macos/tools/kpm-cli/obj/
 # The Linux installer project's build output (dotnet), beside its sources.
 src/installer-linux/bin/
 src/installer-linux/obj/
+
+# Local AI tooling: Claude Code settings and installed agent/skill bundles (the
+# "impeccable" design tool for Claude and Copilot). Machine-local, not KMRP code.
+# .github/ itself holds the project's CI and templates, which stay tracked.
+.claude/
+.github/agents/
+.github/hooks/
+.github/skills/
