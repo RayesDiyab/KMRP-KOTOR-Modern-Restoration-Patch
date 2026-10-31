@@ -6,6 +6,7 @@
 #include "K1TextOptions.h"
 #include "K1HudOptions.h"
 #include "K1TextLayout.h"
+#include "../../macos/tools/kmrp-iconsize.h"
 #include <windows.h>
 #include <map>
 #include <vector>
@@ -502,11 +503,118 @@ extern "C" void __cdecl KmrpListAddRowsK1(void* list, void** slot)
     }
 }
 
+// The Icon Size slider's icons (issue 80, kmrp-iconsize.h), drawn by the engine at the
+// slider's size from the icon files there are (KMRP's, a mod's or the game's), so nothing is
+// made per size. Read from swkotor1-reconstruction (matching/src/d/gui_parts_load.cpp,
+// matching/include/l/sw_gui_in_game_abilities.h, src/units/0880 gui_m48_controls.cpp):
+//
+//   CSWGuiInGameSkillEntry (vtable 0x00755ED0), a skill row: SetExtent (0x006AB8E0, slot +04)
+//     puts its three icon borders on a square as tall as the row at its left (the 42 the
+//     engine recipe makes 50 x scale, 0x006AB8EF); the icon is the border at +0x29C, whose
+//     fill (CSWGuiBorderParams at +0x14) is drawn at its own size, centred, where it is the
+//     smaller, and at the border's size where its flags (+0x1C) have bit 2 (as the HUD Size
+//     preview's pictures are drawn).
+//   CSWGuiAbilityChain (vtable 0x007578A8), a feat or power chart row: SetExtent
+//     (0x006CCE30, slot +04) makes three square cells of the row's height (from +0x5C,
+//     0x128 apart); each cell's icon (a CSWGuiImage at +0x74, its CSWGuiImageParams at
+//     +0x28) is given the cell's inner box and drawn at its own size, centred, with
+//     SetScaled(1) (0x004159C0); with 0 it is drawn at its box's size (CSWGuiImage::SetExtent,
+//     0x00415B70).
+//
+// Both slots are called through the vtable only. Each is given a wrapper that calls the
+// game's routine and then, once the slider has left its default this session, draws the
+// icon at its box's size in a centred square of the slider's size for that icon: its own
+// texture's width (CAurGUIImage::GetWidth, vtable +0x10; the chart icon's image at +0x24,
+// the skill icon border's fill at +0x70) is what the game draws today, and is 50%
+// (kmrp_icon_drawn). So at the default the square is exactly the one the game centred the
+// icon in, whatever its size: KMRP's 64 and 96 px icons at 1440 lines, a mod's, the
+// game's. Rows grow with the icons through the engine recipe (FieldValue,
+// K1RuntimeEngine.cpp).
+using RowSetExtent = void(__thiscall*)(void*, const Extent*);
+RowSetExtent g_skillRowExtent = nullptr, g_chainRowExtent = nullptr;
+int g_iconScreenHeight = 0;
+bool g_iconsScaled = false;     // the slider has left its default this session
+
+Extent CentredSquare(const Extent& box, int side)
+{
+    if (side > box.width) side = box.width;
+    if (side > box.height) side = box.height;
+    return {box.left + (box.width - side) / 2, box.top + (box.height - side) / 2, side, side};
+}
+
+// An icon's side at the slider's size, from its texture (a CAurGUIImage), or 0 for none.
+int IconSide(void* image)
+{
+    if (!image) return 0;
+    const int today = reinterpret_cast<int(__thiscall*)(void*)>(Field<void**>(image, 0)[4])(image);
+    if (today <= 0 || today > 4096) return 0;
+    return kmrp_icon_drawn(today, kmrp_icon_scale(g_iconScreenHeight), KmrpIconSizePercentK1());
+}
+
+void SetBoxExtent(void* drawable, const Extent& box)
+{
+    auto table = Field<void**>(drawable, 0);
+    if (table) reinterpret_cast<RowSetExtent>(table[1])(drawable, &box);
+}
+
+void __fastcall SkillRowExtent(void* self, void*, const Extent* extent)
+{
+    g_skillRowExtent(self, extent);
+    if (!(g_iconsScaled = g_iconsScaled || KmrpIconSizePercentK1() != KMRP_ICON_DEFAULT)) return;
+    // The game places nothing for a row no wider than its icon square (it returns before
+    // setting the row's extent): its icon's box is then still the last one this gave it.
+    if (std::memcmp(&Field<Extent>(self, 4), extent, sizeof(Extent))) return;
+    void* icon = static_cast<char*>(self) + 0x29C;
+    const int side = IconSide(Field<void*>(icon, 0x70));
+    if (!side) return;
+    unsigned& flags = Field<unsigned>(icon, 0x14 + 0x1C);
+    flags = (flags & ~3u) | 2u;   // the fill drawn at its area's size (CSWGuiBorder::Draw, style 2)
+    SetBoxExtent(icon, CentredSquare(Field<Extent>(icon, 4), side));
+}
+
+void __fastcall ChainRowExtent(void* self, void*, const Extent* extent)
+{
+    g_chainRowExtent(self, extent);
+    if (!(g_iconsScaled = g_iconsScaled || KmrpIconSizePercentK1() != KMRP_ICON_DEFAULT)) return;
+    for (int i = 0; i < 3; ++i) {
+        void* icon = static_cast<char*>(self) + 0x5C + i * 0x128 + 0x74;
+        const int side = IconSide(Field<void*>(icon, 0x24));
+        if (!side) continue;   // an empty cell
+        const Extent box = Field<Extent>(icon, 4);
+        reinterpret_cast<void(__thiscall*)(void*, int)>(0x004159C0)(static_cast<char*>(icon) + 0x28, 0);
+        SetBoxExtent(icon, CentredSquare(box, side));
+    }
+}
+
+// The two slots, swapped once (as K1OffscreenFrame.cpp swaps SwapBuffers' import): each
+// only where it still holds the game's routine.
+void InstallIconRows()
+{
+    static bool tried = false;
+    if (tried) return;
+    tried = true;
+    struct Slot { std::uintptr_t at, game; RowSetExtent* original; void* wrapper; };
+    const Slot slots[] = {
+        {0x00755ED0 + 4, 0x006AB8E0, &g_skillRowExtent, reinterpret_cast<void*>(&SkillRowExtent)},
+        {0x007578A8 + 4, 0x006CCE30, &g_chainRowExtent, reinterpret_cast<void*>(&ChainRowExtent)},
+    };
+    for (const Slot& s : slots) {
+        auto* slot = reinterpret_cast<std::uintptr_t*>(s.at);
+        DWORD old = 0;
+        if (*slot != s.game || !VirtualProtect(slot, sizeof *slot, PAGE_READWRITE, &old)) continue;
+        *s.original = reinterpret_cast<RowSetExtent>(s.game);
+        *slot = reinterpret_cast<std::uintptr_t>(s.wrapper);
+        VirtualProtect(slot, sizeof *slot, old, &old);
+    }
+}
+
 // Every GUI frame (KmrpCoreGuiWorkK1): the lists of newly loaded panels.
 void KmrpListRowsFrame(void* manager)
 {
     if (!manager) return;
     const int width = Field<short>(manager, kManagerWidth), height = Field<short>(manager, kManagerHeight);
+    g_iconScreenHeight = height;
+    InstallIconRows();
     if (width > 0 && height > 0) PlaceLists(manager, width, height);
 }
 

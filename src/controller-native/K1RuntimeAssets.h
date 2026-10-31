@@ -17,6 +17,10 @@ extern "C" void __cdecl KmrpFontMetricsLoadedK1(void* texture);
 bool KmrpRuntimeApplyTextPreferencesK1();
 // Known GUI font resource names; do not rebuild unrelated texture metadata.
 bool KmrpRuntimeIsFontK1(const char* name);
+// The Icon Size slider (issue 80): its percent (K1TextOptions.cpp, swkotor.ini [KMRP Text]
+// IconSize), and the rows sized for a new one.
+int KmrpIconSizePercentK1();
+bool KmrpRuntimeApplyIconSizeK1();
 // Told before each part of KmrpRuntimeAssetsPrepare: parts done, parts in all, and the
 // size about to be made (0, 0 for the common files and at the end). Nonzero stops.
 typedef int (__stdcall* KmrpPrepareStep)(int done, int total, int width, int height, void* context);

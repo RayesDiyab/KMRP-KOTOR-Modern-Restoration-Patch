@@ -118,6 +118,8 @@ keeps the table of every Windows change and its state on the Mac.
 | 126 | A mod's copy of a file KMRP changes is merged with KMRP's change, by format (issue 79) |
 | 127 | Live Adaptive Layout on a mod's file: moves carried, line-ups kept, already-scaled files (issue 79) |
 | 128 | `kmrp-path.h`'s library pragma only for MSVC |
+| 129 | Two fonts: Original Font and HD Font; the old HD font removed |
+| 130 | An Icon Size slider for feat, power and skill icons (issue 80) |
 
 Items 46 and 47 are in the 1.5.1 group below (46: the controller events log; 47: a Linux
 pad's own key, Windows and Wine only).
@@ -1615,6 +1617,30 @@ section 3 has the rules.
 `#ifdef _MSC_VER`: clang does not know it, and `Test-GameArt.py` builds the C with
 `-Werror`, so the test had failed under clang since ccf4641. On the Mac the line was never
 reached (`_WIN32` only); nothing changes there.
+
+## 129. Two fonts: Original Font and HD Font; the old HD font removed (Windows 2026-10-31, uncommitted)
+
+At the maintainer's request the Text Size and Font page offers **Original Font** and **HD
+Font** (HD Original, the default; "(New) Original HD Font" until now) only.
+`K1TextOptionsPolicy.h`: `FontStyle` keeps its numbers (1 HD Font, 2 Original Font), and a
+saved `0`, the old HD font, reads as HD Font. Windows' art pack leaves out the old font's
+atlases (`kmrfhd*.tga`, 591 KB) and keeps its `.txi` files, every style's size reference
+(`FontSizes`); `ASSETS_VERSION` 9. **The Mac:** its page is item 56, not ported yet; when it
+is, it offers these two choices, and the Mac's assets need not carry the old atlases
+either.
+
+## 130. An Icon Size slider for feat, power and skill icons (issue 80; Windows 2026-10-31, uncommitted)
+
+The Text Size and Font page gained "Feat & Skill Icons" (25% the game's icon, 50% KMRP's
+size, 100% three times that) with a preview, saved as `[KMRP Text] IconSize`
+([`ingame-text-options.md`](ingame-text-options.md)). The arithmetic is shared C,
+`macos/tools/kmrp-iconsize.h`. Windows draws the icons at the size in the engine: the skill
+row's and the feat and power chart row's `SetExtent` are wrapped (their vtable slots) to draw
+each icon at its box's size in a centred square of the slider's size, and the engine
+recipe makes the rows grow with the icons (`FieldValue`). No icon file is made per size.
+**The Mac:** its page is item 56, not ported; when it is, the same two wrappers (the
+addresses are the same program's) and its own row constants made the same way. Not built
+or run on a Mac.
 
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 

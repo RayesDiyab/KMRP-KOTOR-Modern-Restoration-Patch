@@ -41,6 +41,7 @@
 // independent"). Until then the helper measured captions with the fonts at the text
 // size in use, which made a set's helper-made files differ from the build's.
 #include "K1RuntimeAssets.h"
+#include "K1RuntimeEngine.h"
 #include "NativeAssets.generated.h"
 #include "KmrpOptions.h"
 #include "K1AssetPack.h"
@@ -854,9 +855,9 @@ bool FitAtlas(std::vector<unsigned char>& tga, float factor, int& newWidth)
     return true;
 }
 
-// The two HD styles are baked at six times the original fonts' size
-// (tools/build_font_from_ttf.py for Old HD, tools/build_hd_original_fonts.py for HD
-// Original), the size 100% text is drawn at on a 2160-line screen; each atlas is
+// HD Font is baked at six times the original fonts' size (tools/build_hd_original_fonts.py;
+// the old HD font, removed 2026-10-31, by tools/build_font_from_ttf.py, whose TXI files
+// stay the size reference, FontSizes), the size 100% text is drawn at on a 2160-line screen; each atlas is
 // fitted to its drawn size here, so it is drawn one texel to one pixel and is as sharp
 // at the largest text size as at the smallest (2026-10-18, the maintainer's
 // direction). The sizes text is drawn at are those of the 3x bake they replace.
@@ -972,8 +973,7 @@ bool ApplyTextPreferences(bool preserveOverride)
 {
     const int style = KmrpTextFontStyleK1();
     const bool fitted = style != KmrpTextOptions::Original;
-    const char* prefix = style == KmrpTextOptions::Original ? "kmrfog" :
-                         style == KmrpTextOptions::HdOriginal ? "kmrfho" : "kmrfhd";
+    const char* prefix = style == KmrpTextOptions::Original ? "kmrfog" : "kmrfho";
     const Group* common = CommonGroup();
     if (!common || fontsView.empty()) return false;
     // Every source there before anything changes.
@@ -1014,8 +1014,7 @@ void PrefitFonts(int height)
 {
     const int style = KmrpTextFontStyleK1();
     const bool fitted = style != KmrpTextOptions::Original;
-    const char* prefix = style == KmrpTextOptions::Original ? "kmrfog" :
-                         style == KmrpTextOptions::HdOriginal ? "kmrfho" : "kmrfhd";
+    const char* prefix = style == KmrpTextOptions::Original ? "kmrfog" : "kmrfho";
     for (unsigned i = 0; i < 18; ++i) {
         float target, sized;
         if (!FontSizes(i, height, target, sized)) return;
@@ -1975,6 +1974,14 @@ bool KmrpRuntimeAssetsDimensions(int width, int height)
 }
 
 const std::wstring& KmrpRuntimeLayoutDirectory() { return setView; }
+
+// The Icon Size slider moved (K1TextOptions.cpp): the rows sized for the icons
+// (KmrpRuntimeEngineRefreshK1). The engine draws the icons at the size itself
+// (K1RuntimeLayout.cpp, SkillRowExtent and ChainRowExtent); nothing is made.
+bool KmrpRuntimeApplyIconSizeK1()
+{
+    return KmrpRuntimeEngineRefreshK1();
+}
 
 // A layout as the game reads it at the size in use: the adapted party roster from its
 // own folder when there is one, else the set's.

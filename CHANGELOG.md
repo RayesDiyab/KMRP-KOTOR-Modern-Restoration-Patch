@@ -117,6 +117,25 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **An Icon Size slider for feat, Force power and skill icons (issue 80)** (2026-10-31,
+  [`docs/ingame-text-options.md`](docs/ingame-text-options.md)). On the Text Size and Font
+  page, with a preview of a feat, a power and a skill icon beside it. 25% is the game's own
+  icon, 50% (the default) KMRP's size until now, 100% three times that (192 px at 1440
+  lines). The list rows grow where the icons outgrow them; at the default nothing changes.
+  The engine draws the icons at the size (KMRP, a mod's or the game's files alike), so the
+  slider moves as smoothly as the text sliders; the first build made icon files at every
+  step and stalled the game. Tested with the page's 70 measured layouts and the rows at
+  every height. **Not seen in the game.**
+
+- **Two fonts: Original Font and HD Font** (2026-10-31,
+  [`docs/ingame-text-options.md`](docs/ingame-text-options.md)). At the maintainer's request
+  the old HD font is gone from the Text Size and Font page, which offers **Original Font**
+  and **HD Font** (until now "(New) Original HD Font", still the default). A saved choice of
+  the old HD font reads as HD Font. Its atlases are left out of the art pack (591 KB
+  smaller, `ASSETS_VERSION` 9); its TXI files stay, as every style's size reference. Tested:
+  `Test-TextOptions`, `Test-OverrideFontMetrics`, `Test-NativeAssetsBank`, the module
+  builds. **Not seen in the game.**
+
 - **A mod's copy of a file KMRP changes keeps both the mod's changes and KMRP's, by its
   format (issue 79)** (2026-10-31, [`docs/mod-file-inventory.md`](docs/mod-file-inventory.md)).
   Until now a file a mod put in `Override` won whole over KMRP's copy of it, so KMRP's change

@@ -66,11 +66,12 @@ ROOT = Path(__file__).resolve().parents[1]
 # The art pack (tools/kmrp_pack.py), which the installer writes beside the module.
 PACK = 'kmrp-assets.pack'
 # build_native_runtime.cmd makes the pack again when this differs from the
-# font-style-assets.version it wrote: 8 the sets without Live Adaptive Layout's screens
+# font-style-assets.version it wrote: 9 the old HD font's atlases left out, its TXI
+# files kept as the size reference (2026-10-31), 8 the sets without Live Adaptive Layout's screens
 # (2026-10-30), 7 HD Original's atlases drawn from the KMRP Original HD
 # fonts (fonts/otf, 2026-10-22), 6 the round o in HD Original's body and light fonts
 # (2026-10-21), 5 the pack (2026-10-19), 4 the last bank.
-ASSETS_VERSION = 8
+ASSETS_VERSION = 9
 # What the bank, KNAST002, used until 2026-10-19 (still the controller patch's,
 # tools/build_controller_assets.py): the Windows Compression API's XPRESS with Huffman.
 MAGIC = b'KNAST002'
@@ -288,9 +289,13 @@ def build(resources, out, helper=None, every_object=False):
             # private names, which K1RuntimeAssets selects from at runtime.
             for index, name in enumerate(FONT_RESREFS):
                 for extension in ('.tga', '.txi'):
-                    for prefix, path in (('kmrfog', original_fonts / f'kmrfog{index:02d}{extension}'),
-                                         ('kmrfho', hd_original(name, extension)),
-                                         ('kmrfhd', ROOT / 'assets/hd-fonts' / (name + extension))):
+                    # The old HD font (removed 2026-10-31): its TXI only, every style's size
+                    # reference (K1RuntimeAssets.cpp, FontSizes); its atlases are not shipped.
+                    sources = [('kmrfog', original_fonts / f'kmrfog{index:02d}{extension}'),
+                               ('kmrfho', hd_original(name, extension))]
+                    if extension == '.txi':
+                        sources.append(('kmrfhd', ROOT / 'assets/hd-fonts' / (name + extension)))
+                    for prefix, path in sources:
                         data = path.read_bytes()
                         digest = hashlib.sha256(data).digest()
                         objects.setdefault(digest, data)

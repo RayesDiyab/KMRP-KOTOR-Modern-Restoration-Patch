@@ -8,6 +8,7 @@
 #include "K1RuntimeLayout.h"
 #include "K1SliderGrip.h"
 #include "KmrpOptions.h"
+#include "../../macos/tools/kmrp-iconsize.h"
 #include <windows.h>
 #include <algorithm>
 #include <cstdint>
@@ -66,11 +67,26 @@ void* sliders[TextGroupCount]{};
 void* linkSizes=nullptr;
 void* previews[TextGroupCount]{};
 void* help=nullptr;
+// The Icon Size slider (issue 80, kmrp-iconsize.h): its caption and slider the left
+// column's fifth pair, under HUD Text (the maintainer, 2026-10-31: not in the right-hand
+// column, where the first build had it); on the right, under the text previews, one feat,
+// one Force power and one skill icon at the size the lists show them. Saved as
+// [KMRP Text] IconSize.
+void* iconLabel=nullptr;
+void* iconSlider=nullptr;
+void* iconPreviews[3]{};
+const char* const iconPreviewNames[]={"i_flurry01","ip_push","isk_stealth"};
+int iconSize=KMRP_ICON_DEFAULT, requestedIcon=KMRP_ICON_DEFAULT, displayedIcon=-1, screenHeight=0;
+Rect iconArea{};
+// The engine draws the icons at the slider's size (K1RuntimeLayout.cpp), so a step costs
+// four row heights written (KmrpRuntimeApplyIconSizeK1) and is applied at once, as a text
+// size is. The first build made the icon files at every step: the game stalled at each 1%
+// and the slider could not be dragged (the maintainer, 2026-10-31).
 const wchar_t* const groupKeys[]={L"MenuSize",L"BodySize",L"SmallSize",L"HudSize"};
 const char* const groupLabels[]={"Menus & Replies","Subtitles & Body","Small Text","HUD Text"};
 const char* const previewFonts[]={"dialogfont16x16","fnt_d16x16","dialogfont10x10","fnt_console"};
 const char* const previewTexts[]={"Menus and reply choices","Subtitles and descriptions","Small text preview","HUD: 0123456789"};
-void* fontChoices[FontStyleCount]{};
+void* fontChoices[FontChoiceCount]{};
 bool initialized=false, dirty=false;
 int style=HdOriginal, requestedStyle=HdOriginal;
 Sizes sizing, requestedSizing;
@@ -107,11 +123,12 @@ void Initialize() {
             sizing.values[i]=Percent(static_cast<int>(GetPrivateProfileIntW(L"KMRP Text",groupKeys[i],legacySize,path)));
         }
         sizing.Link(GetPrivateProfileIntW(L"KMRP Text",L"LinkSizes",1,path)!=0);
-        // OriginalFont, before FontStyle (pre-release builds only): 0 was the HD font.
-        const int legacy=GetPrivateProfileIntW(L"KMRP Text",L"OriginalFont",-1,path)==0?OldHd:HdOriginal;
-        style=Style(GetPrivateProfileIntW(L"KMRP Text",L"FontStyle",legacy,path));
+        // OriginalFont, before FontStyle (pre-release builds only), named HD fonts only,
+        // which are HD Font now (K1TextOptionsPolicy.h).
+        style=Style(GetPrivateProfileIntW(L"KMRP Text",L"FontStyle",HdOriginal,path));
+        iconSize=kmrp_icon_percent(static_cast<int>(GetPrivateProfileIntW(L"KMRP Text",L"IconSize",KMRP_ICON_DEFAULT,path)));
     }
-    requestedSizing=sizing;requestedStyle=style;
+    requestedSizing=sizing;requestedStyle=style;requestedIcon=iconSize;
 }
 bool Save() {
     wchar_t path[MAX_PATH],value[16];
@@ -123,9 +140,11 @@ bool Save() {
         if(!WritePrivateProfileStringW(L"KMRP Text",groupKeys[i],value,path))return false;
     }
     if(!WritePrivateProfileStringW(L"KMRP Text",L"LinkSizes",sizing.linked?L"1":L"0",path))return false;
+    swprintf_s(value,L"%d",iconSize);
+    if(!WritePrivateProfileStringW(L"KMRP Text",L"IconSize",value,path))return false;
     swprintf_s(value,L"%d",style);
     return WritePrivateProfileStringW(L"KMRP Text",L"FontStyle",value,path) &&
-        WritePrivateProfileStringW(L"KMRP Text",L"OriginalFont",style==OldHd?L"0":L"1",path);
+        WritePrivateProfileStringW(L"KMRP Text",L"OriginalFont",L"1",path);
 }
 void Extent(void* control,const Rect& rect) {
     reinterpret_cast<SetExtent>(Vtable(control)[1])(control,&rect);
@@ -201,9 +220,8 @@ void __fastcall ToggleLink(void*,void*,void*) {
 }
 void __fastcall SelectOriginal(void*,void*,void*) {Choose(Original);}
 void __fastcall SelectHdOriginal(void*,void*,void*) {Choose(HdOriginal);}
-void __fastcall SelectHd(void*,void*,void*) {Choose(OldHd);}
 void __fastcall Defaults(void*,void*,void*) {
-    if(Armed()){requestedSizing=Sizes{};requestedStyle=HdOriginal;Dirty();releasedFrames=0;}
+    if(Armed()){requestedSizing=Sizes{};requestedStyle=HdOriginal;requestedIcon=KMRP_ICON_DEFAULT;Dirty();releasedFrames=0;}
 }
 // A slider's events, as the graphics screen gives Brightness its own
 // (CSWGuiOptionsGraphics's constructor, 0x006E2E70, through CSWGuiControl::AddEvent):
@@ -241,6 +259,7 @@ void* __fastcall Destroy(void* self,void*,unsigned flags) {
     for(void*& p:sliders)p=nullptr;
     for(void*& p:previews)p=nullptr;
     for(void*& choice:fontChoices)choice=nullptr;
+    iconLabel=iconSlider=nullptr;for(void*& icon:iconPreviews)icon=nullptr;displayedIcon=-1;
     Fn<Simple>(0x40CF70)(self);
     current=nullptr;
     if(parent && manager && Fn<Exists>(0x40BD70)(manager,parent))
@@ -262,16 +281,39 @@ void UpdateCaptions() {
         Fn<void(__thiscall*)(void*,int)>(0x417EE0)(sliders[i],(requestedSizing.values[i]-Minimum)/Step);
         displayedSizes[i]=requestedSizing.values[i];
     }
+    if(displayedIcon!=requestedIcon && iconLabel && iconSlider) {
+        char caption[64];sprintf_s(caption,"Feat & Skill Icons: %d%%",requestedIcon);
+        Text(iconLabel,caption);
+        Fn<void(__thiscall*)(void*,int)>(0x417EE0)(iconSlider,(requestedIcon-Minimum)/Step);
+        displayedIcon=requestedIcon;
+    }
     if(displayedLinked!=int(requestedSizing.linked)) {
         Fn<void(__thiscall*)(void*,unsigned)>(0x685540)(linkSizes,requestedSizing.linked);
         displayedLinked=requestedSizing.linked;
     }
     if(displayedStyle!=requestedStyle) {
-        for(int i=0;i<FontStyleCount;++i)
-            Fn<void(__thiscall*)(void*,unsigned)>(0x685540)(fontChoices[i],i==requestedStyle);
+        for(int i=0;i<FontChoiceCount;++i)
+            Fn<void(__thiscall*)(void*,unsigned)>(0x685540)(fontChoices[i],FontChoices[i]==requestedStyle);
         displayedStyle=requestedStyle;
         // Right (or left) from "Link Text Sizes" goes to the font chosen.
-        if(linkSizes)At<void*>(linkSizes,0x60)=At<void*>(linkSizes,0x68)=fontChoices[requestedStyle];
+        if(linkSizes)At<void*>(linkSizes,0x60)=At<void*>(linkSizes,0x68)=fontChoices[ChoiceOf(requestedStyle)];
+    }
+}
+// The preview's three icons at the size in force, side by side and centred in their area:
+// the size the lists draw them at, one texel a pixel (kmrp-iconsize.h), smaller only where
+// the area is shorter than the icon.
+void PlaceIconPreviews(int percent) {
+    if(!iconPreviews[0])return;
+    // The preview's three icons are 32 px in the game, as kmrp_icon_drawn reads them.
+    const double scale=kmrp_icon_scale(screenHeight);
+    const int feat=kmrp_icon_drawn(kmrp_icon_feat_today(scale,KMRP_ICON_NATIVE),scale,percent);
+    const int skill=kmrp_icon_drawn(kmrp_icon_skill_today(scale,KMRP_ICON_NATIVE),scale,percent);
+    const int sizes[3]={(std::min)(feat,iconArea.height),(std::min)(feat,iconArea.height),(std::min)(skill,iconArea.height)};
+    const int gap=(std::max)(4,iconArea.width/48);
+    int left=iconArea.left+(iconArea.width-(sizes[0]+sizes[1]+sizes[2]+2*gap))/2;
+    for(int i=0;i<3;++i) {
+        Extent(iconPreviews[i],{left,iconArea.top+(iconArea.height-sizes[i])/2,sizes[i],sizes[i]});
+        left+=sizes[i]+gap;
     }
 }
 void MakeScreen(void* manager,void* owner) {
@@ -307,15 +349,22 @@ void MakeScreen(void* manager,void* owner) {
     }
     help=Bind(p,"LBL_GAMMA",0x140,0x41ACD0);
     for(void*& preview:previews)preview=Bind(p,"LBL_GAMMA",0x140,0x41ACD0);
+    iconLabel=Bind(p,"LBL_GAMMA",0x140,0x41ACD0);
+    iconSlider=Bind(p,"SLI_GAMMA",0x1B8,0x41BAA0);
+#ifndef KMRP_TEXT_OPTIONS_TEST
+    KmrpSliderTakeMouseK1(iconSlider);
+#endif
+    for(void*& icon:iconPreviews)icon=Bind(p,"LBL_GAMMA",0x140,0x41ACD0);
     void* defaults=Bind(p,"BTN_DEFAULT",0x1C4,0x41C0F0);
     void* back=Bind(p,"BTN_BACK",0x1C4,0x41C0F0);
     // The pad's Y and B beside Default's and Close's captions (K1OptionsPad.h).
     void* defaultsMark=Bind(p,"LBL_GAMMA",0x140,0x41ACD0);
     void* backMark=Bind(p,"LBL_GAMMA",0x140,0x41ACD0);
     Fn<Simple>(0x40B8F0)(p);
-    bool complete=title && linkSizes && fontChoices[0] && fontChoices[1] && fontChoices[2] && help && defaults && back &&
+    bool complete=title && linkSizes && fontChoices[0] && fontChoices[1] && help && defaults && back &&
         defaultsMark && backMark;
     for(int i=0;i<TextGroupCount;++i)complete=complete && sizeLabels[i] && sliders[i] && previews[i];
+    complete=complete && iconLabel && iconSlider && iconPreviews[0] && iconPreviews[1] && iconPreviews[2];
     if(!complete) {
         Destroy(p,nullptr,1);return;
     }
@@ -323,6 +372,7 @@ void MakeScreen(void* manager,void* owner) {
     // controller patch reaches it through the graphics screen's own table) and
     // Brightness's events.
     for(void* slider:sliders){SelectableAs(slider,owner,"SLI_GAMMA");At<unsigned>(slider,0x44)|=8u;SliderEvents(slider,p);}
+    SelectableAs(iconSlider,owner,"SLI_GAMMA");At<unsigned>(iconSlider,0x44)|=8u;SliderEvents(iconSlider,p);
     SelectableAs(linkSizes,owner,"CB_SHADOWS");
     for(void* choice:fontChoices)SelectableAs(choice,owner,"CB_SHADOWS");
     SelectableAs(defaults,owner,"BTN_DEFAULT");
@@ -335,18 +385,28 @@ void MakeScreen(void* manager,void* owner) {
     const int gap=(std::max)(2,track.height/3);
     const Rect advanced=rect("BTN_ADVANCED");
     const int bottom=(std::min)(advanced.top+advanced.height,rect("BTN_DEFAULT").top-gap);
-    const int step=(bottom-label.top-checkbox.height-gap)/TextGroupCount;
+    // The four text sizes and, under them, the icon size: five pairs. Where five do not fit
+    // with each slider as far under its caption as Brightness's is, the slider comes up to
+    // just under its caption (1024x576: 30 px under it there, 29 tall, 58 a pair).
+    const int step=(bottom-label.top-checkbox.height-gap)/(TextGroupCount+1);
+    // At 1400x1050 and 1680x1050 a caption's box (53) and its slider (53) are one more than a
+    // pair's share (105): there the box, taller than its text, gives up that pixel.
+    const int captionHeight=(std::min)(label.height,step-track.height);
+    const int pairOffset=(std::max)(captionHeight,(std::min)(track.top-label.top,step-track.height));
     // "Link Text Sizes" at the top of the column and the four pairs under it, so the
     // page opens on the link and right from it reaches the fonts without passing every
     // slider, whose own right moves it (the maintainer, 2026-10-19). Until then the
     // link stood under the pairs.
     Extent(linkSizes,{label.left,label.top,label.width,checkbox.height});
     const int first=checkbox.height+gap;
-    for(int i=0;i<TextGroupCount;++i) {
-        Rect l=label,t=track;l.top+=first+i*step;t.top+=first+i*step;
-        Extent(sizeLabels[i],l);Extent(sliders[i],t);
-        Fn<void(__thiscall*)(void*,int)>(0x417EC0)(sliders[i],SliderMaximum);
+    for(int i=0;i<=TextGroupCount;++i) {
+        Rect l=label,t=track;l.top+=first+i*step;l.height=captionHeight;t.top=l.top+pairOffset;
+        void* caption=i<TextGroupCount?sizeLabels[i]:iconLabel;
+        void* slider=i<TextGroupCount?sliders[i]:iconSlider;
+        Extent(caption,l);Extent(slider,t);
+        Fn<void(__thiscall*)(void*,int)>(0x417EC0)(slider,SliderMaximum);
     }
+
     Text(linkSizes,"Link Text Sizes",true);
     for(void* mark:{defaultsMark,backMark}){Text(mark,"");At<unsigned>(mark,0x44)&=~2u;}
     defaultsButton=defaults;backButton=back;
@@ -376,11 +436,21 @@ void MakeScreen(void* manager,void* owner) {
     }
     const int margin=(std::max)(2,desc.height/32);
     Rect choiceRect={desc.left,desc.top+margin,desc.width,rect("BTN_RESOLUTION").height};
-    for(int i=FontStyleCount-1;i>=0;--i) {
+    for(int i=0;i<FontChoiceCount;++i) {
         Extent(fontChoices[i],choiceRect);choiceRect.top+=choiceRect.height+gap;
     }
-    // One short sample per font group. All sizes use the same native renderer.
-    const int previewStep=(desc.top+desc.height-choiceRect.top-margin)/TextGroupCount;
+    // The icons' preview at the bottom, as tall as the largest icon (100%) and never more than
+    // half the column under the fonts; one short sample per font group above it, each in the
+    // native renderer.
+    screenHeight=At<short>(manager,0x6E);
+    {
+        const double scale=kmrp_icon_scale(screenHeight);
+        const int biggest=kmrp_icon_drawn(kmrp_icon_feat_today(scale,KMRP_ICON_NATIVE),scale,KMRP_ICON_MAXIMUM);
+        const int columnBottom=desc.top+desc.height-margin;
+        const int room=(std::min)(biggest+2*margin,(columnBottom-choiceRect.top)/2);
+        iconArea={desc.left,columnBottom-room,desc.width,room};
+    }
+    const int previewStep=(iconArea.top-choiceRect.top)/TextGroupCount;
     for(int i=0;i<TextGroupCount;++i) {
         Extent(previews[i],{desc.left,choiceRect.top+i*previewStep,desc.width,previewStep});
         char font[16]{};strcpy_s(font,previewFonts[i]);
@@ -390,15 +460,24 @@ void MakeScreen(void* manager,void* owner) {
     // Preserve a native text control for save/application errors without consuming
     // the sliders' space. Hidden until an error message needs to be displayed.
     Extent(help,{desc.left,choiceRect.top,desc.width,desc.top+desc.height-choiceRect.top});
+    for(void* icon:iconPreviews)Text(icon,"");   // a picture, not the template's "Brightness"
+    PlaceIconPreviews(iconSize);
+#ifndef KMRP_TEXT_OPTIONS_TEST   // the harness has no border images to set
+    KmrpOptionsPad::Batch(true);
+    for(int i=0;i<3;++i) {
+        unsigned& flags=At<unsigned>(iconPreviews[i],KmrpOptionsPad::kLabelParams+KmrpOptionsPad::kParamsFlags);
+        flags=(flags&~3u)|2u;   // drawn at the label's size, which is the icon's
+        KmrpOptionsPad::SetPicture(static_cast<char*>(iconPreviews[i])+KmrpOptionsPad::kLabelParams,iconPreviewNames[i],&NativeRoutine);
+    }
+    KmrpOptionsPad::Batch(false);
+#endif
     At<unsigned>(help,0x44)&=~2u;
     Text(title,"Text Size and Font");
-    Text(fontChoices[Original],"Original Font",true);
-    Text(fontChoices[HdOriginal],"(New) Original HD Font",true);
-    Text(fontChoices[OldHd],"(Old) HD Font",true);
+    Text(fontChoices[ChoiceOf(Original)],"Original Font",true);
+    Text(fontChoices[ChoiceOf(HdOriginal)],"HD Font",true);
     Fn<Event>(0x41AB20)(linkSizes,0x27,p,reinterpret_cast<void*>(&ToggleLink));
-    Fn<Event>(0x41AB20)(fontChoices[Original],0x27,p,reinterpret_cast<void*>(&SelectOriginal));
-    Fn<Event>(0x41AB20)(fontChoices[HdOriginal],0x27,p,reinterpret_cast<void*>(&SelectHdOriginal));
-    Fn<Event>(0x41AB20)(fontChoices[OldHd],0x27,p,reinterpret_cast<void*>(&SelectHd));
+    Fn<Event>(0x41AB20)(fontChoices[ChoiceOf(Original)],0x27,p,reinterpret_cast<void*>(&SelectOriginal));
+    Fn<Event>(0x41AB20)(fontChoices[ChoiceOf(HdOriginal)],0x27,p,reinterpret_cast<void*>(&SelectHdOriginal));
     Fn<Event>(0x41AB20)(defaults,0x27,p,reinterpret_cast<void*>(&Defaults));
     Fn<Event>(0x41AB20)(back,0x27,p,reinterpret_cast<void*>(&Back));
     // The pad's focus: the link and the four sliders under it, up and down and round;
@@ -406,16 +485,16 @@ void MakeScreen(void* manager,void* owner) {
     // chosen (UpdateCaptions), and nothing from a slider, whose left and right move it.
     // Default and Close are off the pad's focus (Y and B, Input); their links are the
     // keys'.
-    Navigation(linkSizes,sliders[TextGroupCount-1],sliders[0]);
+    Navigation(linkSizes,iconSlider,sliders[0]);
     for(int i=0;i<TextGroupCount;++i)
-        Navigation(sliders[i],i?sliders[i-1]:linkSizes,i+1<TextGroupCount?sliders[i+1]:linkSizes);
-    Navigation(fontChoices[Original],fontChoices[OldHd],fontChoices[HdOriginal],linkSizes,linkSizes);
-    Navigation(fontChoices[HdOriginal],fontChoices[Original],fontChoices[OldHd],linkSizes,linkSizes);
-    Navigation(fontChoices[OldHd],fontChoices[HdOriginal],fontChoices[Original],linkSizes,linkSizes);
-    Navigation(defaults,sliders[TextGroupCount-1],linkSizes,back,back);
-    Navigation(back,fontChoices[OldHd],fontChoices[Original],defaults,defaults);
+        Navigation(sliders[i],i?sliders[i-1]:linkSizes,i+1<TextGroupCount?sliders[i+1]:iconSlider);
+    Navigation(iconSlider,sliders[TextGroupCount-1],linkSizes);
+    Navigation(fontChoices[0],fontChoices[1],fontChoices[1],linkSizes,linkSizes);
+    Navigation(fontChoices[1],fontChoices[0],fontChoices[0],linkSizes,linkSizes);
+    Navigation(defaults,iconSlider,linkSizes,back,back);
+    Navigation(back,fontChoices[FontChoiceCount-1],fontChoices[0],defaults,defaults);
     Fn<Focus>(0x40A630)(p,linkSizes,0);
-    displayedSizes.fill(-1);displayedLinked=displayedStyle=-1;
+    displayedSizes.fill(-1);displayedLinked=displayedStyle=displayedIcon=-1;
     releasedFrames=0;UpdateCaptions();
     // The pad's Y and B before the page is shown, not on its next frame: they popped in
     // after it (the maintainer, 2026-10-28).
@@ -489,6 +568,7 @@ void* KmrpTextOptionsEntryK1(void* owner){
 }
 bool KmrpTextOptionsOpenK1(){return current!=nullptr;}
 int KmrpTextSizePercentK1(){Initialize();return sizing.values[Menus];}
+int KmrpIconSizePercentK1(){Initialize();return iconSize;}
 int KmrpTextSizeForFontK1(const char* font){Initialize();return sizing.values[FontGroup(font)];}
 int KmrpTextFontStyleK1(){Initialize();return style;}
 bool KmrpSetTextPreferencesK1(int size,int fontStyle) {
@@ -536,6 +616,18 @@ void KmrpTextOptionsFrameK1(void* manager) {
             const int moved=Minimum+(std::max)(0,(std::min)(SliderMaximum,At<int>(sliders[i],0x74)))*Step;
             if(moved!=requestedSizing.values[i]){requestedSizing.Set(i,moved);Dirty();break;}
         }
+    }
+    // The Icon Size slider: its caption, preview and size follow it at once.
+    if(current && iconSlider) {
+        const int moved=Minimum+(std::max)(0,(std::min)(SliderMaximum,At<int>(iconSlider,0x74)))*Step;
+        if(moved!=requestedIcon){requestedIcon=moved;UpdateCaptions();PlaceIconPreviews(requestedIcon);}
+    }
+    if(requestedIcon!=iconSize) {
+        iconSize=requestedIcon;
+        KmrpRuntimeApplyIconSizeK1();
+        if(Save())Error(nullptr);else Error("Could not save settings.\nChanges apply this session.");
+        PlaceIconPreviews(iconSize);
+        UpdateCaptions();
     }
     if(dirty) {
         const Sizes previous=sizing;const int previousFont=style;

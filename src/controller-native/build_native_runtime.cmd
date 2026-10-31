@@ -17,7 +17,7 @@ python tools\build_native_engine.py
 if errorlevel 1 exit /b %errorlevel%
 rem The art pack is made again when its version (tools\build_native_assets.py,
 rem ASSETS_VERSION) is not the one recorded, or when there is none.
-if exist build\native-runtime\font-style-assets.version findstr /x "8" build\native-runtime\font-style-assets.version >nul || del build\native-runtime\kmrp-assets.pack build\native-runtime\font-style-assets.version 2>nul
+if exist build\native-runtime\font-style-assets.version findstr /x "9" build\native-runtime\font-style-assets.version >nul || del build\native-runtime\kmrp-assets.pack build\native-runtime\font-style-assets.version 2>nul
 if not exist build\native-runtime\font-style-assets.version if exist build\native-runtime\kmrp-assets.pack del build\native-runtime\kmrp-assets.pack
 if not exist build\native-runtime\kmrp-assets.pack python tools\build_native_assets.py
 if errorlevel 1 exit /b %errorlevel%

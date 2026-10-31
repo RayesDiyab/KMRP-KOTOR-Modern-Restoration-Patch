@@ -421,6 +421,53 @@ def test_record(gameart: Path, icons: Path, tmp: Path) -> None:
     check(any(l.startswith("tutorial.2da\ttutorial") for l in lines), "record: the table's line is missing")
 
 
+ROWS_C = r"""
+#include <stdio.h>
+#include "kmrp-iconsize.h"
+int main(void) {
+    for (int height = 480; height <= 8640; height += 8) {
+        double scale = height > 720 ? height / 720.0 : 1.0;
+        int row = (int)nearbyint(50 * scale);
+        for (int percent = 25; percent <= 100; percent += 25)
+            printf("%d %d %d %d %d\n", height, percent, row, kmrp_icon_chain_row(row, scale, percent),
+                   kmrp_icon_skill_row(row, scale, percent));
+    }
+    /* An icon at the size it is drawn today: KMRP's 64 (a 32 px original) and 96 (a 64 px
+     * one) at 1440 lines, at 25, 50 and 100%. */
+    double s = kmrp_icon_scale(1440);
+    printf("drawn %d %d %d %d %d %d\n", kmrp_icon_drawn(64, s, 25), kmrp_icon_drawn(64, s, 50),
+           kmrp_icon_drawn(64, s, 100), kmrp_icon_drawn(96, s, 25), kmrp_icon_drawn(96, s, 50),
+           kmrp_icon_drawn(96, s, 100));
+    return 0;
+}
+"""
+
+
+def test_icon_size(tmp: Path) -> None:
+    """The Icon Size slider (issue 80, kmrp-iconsize.h): the engine draws the icons at the
+    slider's size (K1RuntimeLayout.cpp), so only its arithmetic and the rows are checked
+    here: the rows growing only where the icons outgrow them, never at the default."""
+    source = tmp / "rows.c"
+    source.write_text(ROWS_C, encoding="ascii")
+    rows = native_helpers.build(source, tmp, "icon-rows", ("-I", str(TOOLS)))
+    printed = subprocess.run([str(next(iter(rows.values())))], capture_output=True, text=True).stdout.splitlines()
+    drawn = [l for l in printed if l.startswith("drawn")]
+    check(drawn and drawn[0].split()[1:] == ["32", "64", "192", "64", "96", "288"],
+          f"drawn sizes: {drawn[:1]}, wanted a 32 px original 32/64/192 and a 64 px one 64/96/288")
+    out = " ".join(l for l in printed if not l.startswith("drawn")).split()
+    values = [tuple(map(int, out[i:i + 5])) for i in range(0, len(out), 5)]
+    check(len(values) > 1000, "rows: the check printed nothing")
+    for height, percent, row, chain, skill in values:
+        if percent == 50 and (chain, skill) != (row, row):
+            fail(f"rows at {height}: the default changes them ({row} to {chain}, {skill})")
+            break
+        if chain < row or skill < row:
+            fail(f"rows at {height} {percent}%: a row became shorter")
+            break
+    big = {(h, p): (c, s) for h, p, r, c, s in values}
+    check(big.get((1440, 100)) == (292, 252), f"rows at 1440 100%: {big.get((1440, 100))}, wanted chain 292 (3 x 96 + 4) and skill 252")
+
+
 def test_model(swoop: Path, tmp: Path) -> None:
     key = GAME / "chitin.key"
     if not key.is_file():
@@ -624,6 +671,7 @@ def main() -> int:
                           ("pictures", lambda: test_pictures(first(gameart), tmp)),
                           ("record", lambda: test_record(first(gameart), first(icons), tmp)),
                           ("models", lambda: test_model(first(swoop), tmp)),
+                          ("icon size", lambda: test_icon_size(tmp)),
                           ("layouts", lambda: test_layouts(first(guiadapt), tmp))):
             before = len(failures)
             run()

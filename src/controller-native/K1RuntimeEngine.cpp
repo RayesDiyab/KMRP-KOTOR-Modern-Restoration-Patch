@@ -8,6 +8,7 @@
 #include "K1RuntimeResolution.h"
 #include "K1RuntimeAssets.h"
 #include "NativeEngine.generated.h"
+#include "../../macos/tools/kmrp-iconsize.h"
 #include <cmath>
 #include <array>
 
@@ -47,7 +48,17 @@ std::array<std::uint8_t, 4> FieldValue(const NativeField& f, int width, int heig
     switch (f.kind) {
     case 1: value = width; break;
     case 2: value = height; break;
-    case 3: value = RoundEven(static_cast<float>(f.base) * scale); break;
+    case 3:
+        value = RoundEven(static_cast<float>(f.base) * scale);
+        // The Icon Size slider (issue 80, kmrp-iconsize.h): the feat and power chart rows
+        // (CSWGuiSkillFlowChart::AddPowerSet, AddFeatSet) and the Skills tab's rows
+        // (CSWGuiInGameSkillEntry) grow with their icons where the icons outgrow them. At
+        // the default (50%) every value is as before.
+        if (f.va == 0x006CD8D9 || f.va == 0x006CDB79)
+            value = kmrp_icon_chain_row(value, scale, KmrpIconSizePercentK1());
+        else if (f.va == 0x006AB8EF || f.va == 0x006ACB20)
+            value = kmrp_icon_skill_row(value, scale, KmrpIconSizePercentK1());
+        break;
     case 4: value = -width; break;
     case 5: value = -height; break;
     case 6: value = RoundEven((width / 2) * 512 / 440.0); break;
@@ -149,6 +160,8 @@ bool KmrpRuntimeEngineReady() { return g_nativeBlock != nullptr; }
 bool KmrpControllerOptionK1() { return g_controllerOption; }
 void KmrpRuntimeLog(const char* line) { Log("%s", line); }
 
+bool CommitEngineAt(int width, int height);
+
 bool KmrpRuntimeEngineDimensions(int width, int height)
 {
     if (!KmrpRuntimeDimensions(width, height) || !KmrpRuntimeAssetsCovers(width, height)) return false;
@@ -157,6 +170,23 @@ bool KmrpRuntimeEngineDimensions(int width, int height)
         return g_nativeBlock != nullptr;
     }
     if (width == g_engineWidth && height == g_engineHeight) return true;
+    return CommitEngineAt(width, height);
+}
+
+// The engine's values written again at the size in force, for a setting that changes one
+// of them (the Icon Size slider's rows). The same transaction as a change of size.
+bool KmrpRuntimeEngineRefreshK1()
+{
+    if (!g_nativeBlock || g_engineWidth <= 0) return false;
+    // Nothing changed (the slider between 25% and 50%, where no row does): no transaction.
+    bool same = g_engineValues.size() == std::size(kNativeFields);
+    for (std::size_t i = 0; same && i < std::size(kNativeFields); ++i)
+        same = FieldValue(kNativeFields[i], g_engineWidth, g_engineHeight) == g_engineValues[i];
+    return same || CommitEngineAt(g_engineWidth, g_engineHeight);
+}
+
+bool CommitEngineAt(int width, int height)
+{
     std::vector<std::array<std::uint8_t, 4>> next;
     std::vector<std::pair<std::uint32_t, std::uint32_t>> ranges;
     for (const auto& field : kNativeFields) {

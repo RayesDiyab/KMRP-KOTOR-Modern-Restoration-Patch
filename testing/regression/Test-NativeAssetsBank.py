@@ -99,14 +99,17 @@ def main() -> int:
         entries = dict(groups.get(size, {}))
         if size == "0x0":
             entries.pop("kmrp-sdl3.dll", None)
-            # The three font styles' sources (K1RuntimeAssets.cpp ApplyTextPreferences):
-            # the original atlases, HD Original and Old HD, under private names.
+            # The two font styles' sources (K1RuntimeAssets.cpp ApplyTextPreferences): the
+            # original atlases and HD Original, under private names; and the old HD font's
+            # TXI files alone, the size reference (FontSizes; its atlases gone 2026-10-31).
             original = ROOT / 'build/native-runtime/original-fonts'
             for index, name in enumerate(builder.FONT_RESREFS):
                 for extension in ('.tga', '.txi'):
-                    for prefix, source in (('kmrfog', original / f'kmrfog{index:02d}{extension}'),
-                                           ('kmrfho', builder.hd_original(name, extension)),
-                                           ('kmrfhd', ROOT / 'assets/hd-fonts' / (name + extension))):
+                    sources = [('kmrfog', original / f'kmrfog{index:02d}{extension}'),
+                               ('kmrfho', builder.hd_original(name, extension))]
+                    if extension == '.txi':
+                        sources.append(('kmrfhd', ROOT / 'assets/hd-fonts' / (name + extension)))
+                    for prefix, source in sources:
                         check(entries.pop(f'{prefix}{index:02d}{extension}', None) == hashlib.sha256(source.read_bytes()).digest(),
                               f"{prefix} font {name}{extension} has its source's hash")
         if entries != expected:

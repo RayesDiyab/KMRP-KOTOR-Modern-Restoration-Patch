@@ -10,10 +10,16 @@ constexpr int Minimum = 25, Maximum = 100, Step = 1, Default = 50;
 // 2026-10-18 1 was "Original Sharpened" (the original atlases enlarged and sharpened)
 // and 0 "New HD": the maintainer had HD Original take 1's place, as the default
 // ("(New) Original HD Font"), and 0 renamed "(Old) HD Font", so a saved choice keeps
-// its number.
-enum FontStyle { OldHd=0, HdOriginal=1, Original=2 };
-constexpr int FontStyleCount=3;
-inline int Style(int value) {return value>=0 && value<FontStyleCount?value:HdOriginal;}
+// its number. On 2026-10-31 the maintainer removed the old HD font: the page offers
+// "Original Font" and "HD Font" (HD Original) only, and a saved 0 (or anything else
+// unknown) is read as HD Font, the default. Its TXI files stay in the art pack as every
+// style's size reference (K1RuntimeAssets.cpp, FontSizes); its atlases are gone.
+enum FontStyle { HdOriginal=1, Original=2 };
+// The choices on the page, top to bottom.
+constexpr FontStyle FontChoices[]={Original,HdOriginal};
+constexpr int FontChoiceCount=2;
+inline int Style(int value) {return value==Original?Original:HdOriginal;}
+inline int ChoiceOf(int style) {return style==Original?0:1;}
 constexpr int SliderMaximum = (Maximum - Minimum) / Step;
 inline int Percent(int value) {
     value = (std::max)(Minimum, (std::min)(Maximum, value));

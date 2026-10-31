@@ -24,6 +24,9 @@ metrics only; it does not establish the new page's rendered result or interactio
 
 On 2026-10-18 the second font choice became **(New) Original HD Font**, the default,
 in place of Original Sharpened, and New HD was renamed **(Old) HD Font** (section 5).
+**On 2026-10-31 the maintainer removed the old HD font:** the page offers **Original
+Font** and **HD Font** (HD Original, the default) only; a saved old-HD choice reads as
+HD Font, and the art pack no longer carries the old font's atlases (section 4).
 That change is verified by source, native mock tests and the bank test; its font is
 described, with its measurements, in [HD original font](hd-original-font.md). It had
 not been seen in game when this was written.
@@ -77,7 +80,7 @@ It does not establish that every possible skin leaves that space free.
 
 The custom native panel loads the current `optgraphics` resource as a template.
 It binds twenty controls: title, four size labels, four sliders, Link Text Sizes,
-three font choices, help label, four preview labels, Defaults and Back. Templates come from `LBL_TITLE`, `LBL_GAMMA`,
+two font choices (three until 2026-10-31), help label, four preview labels, Defaults and Back. Templates come from `LBL_TITLE`, `LBL_GAMMA`,
 `SLI_GAMMA`, `CB_SHADOWS`, `BTN_DEFAULT`, and `BTN_BACK`; geometry also comes
 from `LB_DESC` and `BTN_ADVANCED`. The previews pass the unsuffixed bases `dialogfont16x16`, `fnt_d16x16`,
 `dialogfont10x10` and `fnt_console` to `SetBaseFont`; the engine selects the
@@ -92,10 +95,10 @@ is unverified.
 | Four text-size sliders | 25% through 100%, in 1-point steps; 76 positions, native maximum index 75 |
 | Link Text Sizes | On by default; moving any slider matches all four; re-enabling matches the last changed slider |
 | Initial/default size | 50%, exactly the previous actual KMRP size |
-| Font choices | `Original Font`, `(New) Original HD Font`, `(Old) HD Font`, top to bottom; exactly one selected |
+| Font choices | `Original Font`, `HD Font`, top to bottom; exactly one selected. Until 2026-10-31 three: `Original Font`, `(New) Original HD Font`, `(Old) HD Font` |
 | Link Text Sizes | Since 2026-10-19 above the four sliders; the page opens on it, and right or left from it reaches the font chosen |
 | With a pad | Y is Default and B is Close wherever the focus is; the two buttons wear the pad's glyph and are never its focus (`K1OptionsPad.h`). Left and right on a slider move it |
-| Defaults | All four groups 50%, Link Text Sizes on, (New) Original HD Font |
+| Defaults | All four groups 50%, Link Text Sizes on, HD Font |
 | Previews | One native text sample from each font group |
 | Right-hand column | The font choices and previews run from a 32nd of `LB_DESC`'s width in from its left to as far inside the frame's right line as they are from its left one; the frame ends short of the list's scrollbar strip (since 2026-10-19; until then they ran past the frame at 1440x1080) |
 | Back / native B event | Requests native panel close; previous parent focus is restored if still alive |
@@ -183,6 +186,43 @@ a style change resets/reloads image state, while a size change reloads metrics.
 control's existing extent so native strings re-wrap. Whether every live control
 class redraws correctly is not established by the mock tests.
 
+### The Icon Size slider (issue 80, 2026-10-31)
+
+At the maintainer's request the page also sizes the feat, Force power and skill icons the
+Abilities screen, the level-up screens and character creation show in their lists.
+
+| | |
+| --- | --- |
+| Where | the left column's fifth pair, under HUD Text: "Feat & Skill Icons: N%" and its slider; on the right, under the text previews, one feat (`i_flurry01`), one Force power (`ip_push`) and one skill (`isk_stealth`) icon at the size the lists draw them, stretched to it. Five pairs fit with each slider as far under its caption as Brightness's is, except where they do not (1024x576 and some others), where the slider comes up to just under its caption, and at 1400x1050 and 1680x1050 the caption's box gives up one pixel (`pairOffset`, `captionHeight`) |
+| Scale | 25% the game's own 32 px icon, 50% (the default) the size KMRP has always made, 100% three times that; straight lines between (`macos/tools/kmrp-iconsize.h`, the one copy). At 1440 lines: 32, 64, 128 at 75%, 192 px |
+| Icons | drawn by the engine at the size, from the icon files there are (KMRP's 50% ones, a mod's, the game's): nothing is made per size. Each row class's `SetExtent` (vtable slot +04) is wrapped (`InstallIconRows`, `K1RuntimeLayout.cpp`, as `K1OffscreenFrame.cpp` swaps an import): `CSWGuiInGameSkillEntry` (`0x00755ED0`, `0x006AB8E0`) gets its icon border (`+0x29C`) drawn at its box's size (fill flags `+0x14+0x1C`, bit 2) in a centred square of the slider's size; `CSWGuiAbilityChain` (`0x007578A8`, `0x006CCE30`) gets each cell's icon (`+0x5C + n * 0x128 + 0x74`) set to `SetScaled(0)` (`0x004159C0`: 0 the box's size, 1, the game's, its own size centred; `CSWGuiImage::SetExtent`, `0x00415B70`) in the same square. The square's side is the icon's own texture width (`GetWidth`, the chart icon's image at `+0x24`, the skill icon border's fill at `+0x70`) at the slider's size (`kmrp_icon_drawn`): what the game draws today is 50%, so KMRP's icons, a mod's and the game's all keep their size at the default; the game's ability icons are 32 px (148 feats, 52 powers, all 8 skills) and 64 px (28 feats, 71 powers), and KMRP draws them at 64 and 96 px at 1440 lines. A skill row the game does not place (no wider than its icon square) is left alone. Read from swkotor1-reconstruction (the fill styles: `CSWGuiBorder::Draw`, 0 tiled, 1 centred, 2 stretched). Until the slider leaves its default in a session nothing is changed |
+| Rows | the feat and power chart rows (`0x006CD8D9`, `0x006CDB79`) and the Skills tab's rows (`0x006AB8EF`, `0x006ACB20`, also the skill icon square's side), which the engine recipe writes as 50 x scale, grow where the icons outgrow them: a chart row to its largest icon (a 64 px original's) plus 4, a skill row to the icon times 42/32. At the default and below they are as before, and a step that changes no row rewrites nothing. `FieldValue` (`K1RuntimeEngine.cpp`), rewritten without a change of size by `KmrpRuntimeEngineRefreshK1`; rows already made take the new height as they are added (`KmrpListAddRowsK1`). At 1440 lines and 100%: chart rows 292, skill rows 252 |
+| Applied | at once, as a text size: a step writes four row heights |
+| Saved | `[KMRP Text] IconSize`, 25 to 100, default 50; Default sets it back to 50 |
+| Pad | the left column's loop: the link, the four text sliders, the icon slider; left and right move a slider |
+
+**Corrected the same day, by an audit before the first test:** the icons' size came from a
+formula for 32 px originals, so the 99 icons with 64 px originals (most Force powers) would
+have shrunk from 96 to 64 px at 1440 lines once the slider moved, and the chart rows were
+sized for 32 px icons; the skill wrapper also acted after the game's early return; and
+between 25% and 50%, where no row changes, every step suspended the game's threads to
+rewrite the rows. All four fixed as above; the scale is now computed once, in single
+precision as the icon tool and the engine recipe compute it (`kmrp_icon_scale`), for the
+rows, the icons and the preview alike.
+
+**Corrected earlier the same day.** The first build made the icon files at every step (the game's
+texture pack read, some 300 files resized, a folder registered, the textures reloaded):
+the game stalled at each 1% and the slider could not be dragged, and its slider stood in
+the right-hand column (the maintainer, 2026-10-31). Both replaced by the above.
+
+Tested: `Test-TextOptions` (the 70 measured Graphics Options layouts: five pairs in the
+left column, none overlapping, above Default; the icons inside the frame under the text
+previews with no caption; the caption, size and save at once), `Test-ModCompatibility` part
+"icon size" (the rows at every height from 480 to 8640 unchanged at the default, never
+shorter, 292 and 252 at 1440 and 100%; an icon drawn 64 and one drawn 96 px at 1440 lines at 32/64/192 and 64/96/288 px for 25, 50 and 100%), the module builds. **Not seen in the game**: in
+particular how the stretched icons look and whether a chart row three icons wide at 100%
+stays inside its list (its width, 242 at `0x006CD8D1`, is not scaled).
+
 ## 2. Native ABI calls and memory changes
 
 These are **sample native calls used by the source**, not new detour sites or a
@@ -259,8 +299,8 @@ font `.tga`/`.txi` files from the offline resolution/common archives. It stores
 | Names | Style (`FontStyle`) | Source |
 | --- | --- | --- |
 | `kmrfog00..17` | Original Font (2) | the game's own atlases, [build_original_fonts.py](../tools/build_original_fonts.py) |
-| `kmrfho00..17` | (New) Original HD Font (1), the default | `assets/hd-original-fonts`, [build_hd_original_fonts.py](../tools/build_hd_original_fonts.py) |
-| `kmrfhd00..17` | (Old) HD Font (0) | `assets/hd-fonts`, [build_font_from_ttf.py](../tools/build_font_from_ttf.py) |
+| `kmrfho00..17` | HD Font (1), the default; "(New) Original HD Font" until 2026-10-31 | `assets/hd-original-fonts`, [build_hd_original_fonts.py](../tools/build_hd_original_fonts.py) |
+| `kmrfhd00..17` | the old HD font (0): since 2026-10-31 its `.txi` files only, every style's size reference (`FontSizes`), not a choice; the atlases are left out of the pack (`ASSETS_VERSION` 9, 591 KB smaller) | `assets/hd-fonts`, [build_font_from_ttf.py](../tools/build_font_from_ttf.py) |
 
 **The bank has no per-resolution font atlas sets.** Historical offline archives
 still contain their previous fonts for comparison. The runtime uses one shared
@@ -358,7 +398,9 @@ FontStyle=1
 OriginalFont=1
 ```
 
-`FontStyle=0` selects (Old) HD, `1` (New) Original HD, and `2` Original. Until
+`FontStyle=1` selects HD Font and `2` Original Font. Since 2026-10-31 `0`, the old HD font,
+and any other value read as HD Font (`Style`, K1TextOptionsPolicy.h), and the legacy
+`OriginalFont` is always written `1`. Before: `FontStyle=0` selected (Old) HD, `1` (New) Original HD, and `2` Original. Until
 2026-10-18, `1` was Original Sharpened and `0` was called New HD; the numbers were
 kept, so a saved choice keeps its slot. If `FontStyle` is missing, the legacy
 `OriginalFont=0` maps to Old HD, and any other value, or no key, to HD Original. The

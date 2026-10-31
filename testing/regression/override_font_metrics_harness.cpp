@@ -25,6 +25,9 @@ extern "C" const char* KmrpLiveLayoutName(int) {return nullptr;}
 // The mod compatibility merges (kmrp-merge.c, kmrp-gameart.c, kmrp-swoophud.c,
 // kmrp-guiadapt.c): never reached, as the harness's sets hold no kmrp_derive.txt.
 extern "C" const char* KmrpLiveLayoutNotes(void) {return "";}
+// The Icon Size slider (issue 80): at its default, nothing to apply.
+int KmrpIconSizePercentK1() {return 50;}
+bool KmrpRuntimeEngineRefreshK1() {return true;}
 extern "C" int KmrpReadKeyedResource(const char*,const char*,int,unsigned char** data,std::size_t* size) {*data=nullptr;*size=0;return 1;}
 extern "C" int KmrpMerge2da(const char*,const unsigned char*,std::size_t,const unsigned char*,std::size_t,const unsigned char*,
                             std::size_t,unsigned char** out,std::size_t* size,char** notes,int*) {*out=nullptr;*size=0;*notes=nullptr;return 3;}
@@ -47,7 +50,7 @@ bool testGrouped=false;
 const std::array<int,4> mixedSizes{{35,80,60,95}};
 int KmrpTextSizePercentK1() {return testTextPercent;}
 int KmrpTextSizeForFontK1(const char* name) {return testGrouped?mixedSizes[KmrpTextOptions::FontGroup(name)]:testTextPercent;}
-int KmrpTextFontStyleK1() {return KmrpTextOptions::OldHd;}
+int KmrpTextFontStyleK1() {return KmrpTextOptions::HdOriginal;}
 // Unrelated roster preparation is never reached by the font callback.
 bool KmrpBuildPartyRosterGui(const std::vector<unsigned char>&,const std::vector<unsigned char>&,std::vector<unsigned char>&,std::string&) {assert(false);return false;}
 bool KmrpGeneratePartyRosterGui(const std::vector<unsigned char>&,std::vector<unsigned char>&,std::string&) {assert(false);return false;}
