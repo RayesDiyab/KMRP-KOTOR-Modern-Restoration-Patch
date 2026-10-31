@@ -413,6 +413,27 @@ void PlaceBars(const Panel& panel)
     }
 }
 
+// The Party Roster Limit 32 mod's party selection page, its five buttons (KmrpPartyTagK1:
+// OK, Add/Remove, Back, the previous and next page) known by their IDs, which the portrait
+// repair (KmrpPartyPortraitsK1) and the page buttons' focus rule
+// (KmrpMirrorPartyPageFocusK1) need. Since 2026-11-01 KMRP finds them itself, in this
+// panel's own records: the binder's hook (KmrpPanelControlK1) recorded each control by its
+// tag as the panel loaded, and a control destroyed since has left them
+// (KmrpControlDestroyedK1). Until then only the controller patch found them, by binding a
+// probe per tag in its ReleaseGff hook (CapturePartyRosterBindingsK1), so KMRP alone never
+// repaired the portraits (issue 82; F1 report). Once per panel, from its first frame
+// (KmrpCapturePartyIdsK1, K1PartyRosterState.h, which the roster harness tests); a control
+// whose class is no longer the one recorded is gone, and answers nothing.
+void CapturePartyRoster(void* key, const Panel& panel)
+{
+    KmrpCapturePartyIdsK1(key, [&panel](const char* tag) -> void* {
+        const auto found = panel.controls.find(tag);
+        if (found == panel.controls.end()) return nullptr;
+        void* control = found->second.pointer;
+        return Field<std::uintptr_t>(control, 0) == found->second.table ? control : nullptr;
+    });
+}
+
 // The lists of the panels that have finished loading since the last frame, made as wide
 // as their rows need. A panel is in `panels` from the start of its loading, which is over
 // before the next frame is drawn.
@@ -421,6 +442,7 @@ void PlaceLists(void* manager, int width, int height)
     for (auto& item : panels) {
         Panel& panel = item.second;
         if (Field<void*>(item.first, kPanelManager) != manager) continue;
+        CapturePartyRoster(item.first, panel);
         KmrpMirrorPartyPageFocusK1(item.first);
         KmrpPartyPortraitsK1(item.first);
         PlaceBars(panel);
@@ -695,6 +717,7 @@ extern "C" void __cdecl KmrpPanelDestroyedK1(void* panel)
     KmrpHudOptionsDestroyedK1(panel);
     KmrpPcHudForgetK1(panel);
     KmrpTextLayoutForgetPanelK1(panel);
+    KmrpPartyBindingsK1().erase(panel);   // CapturePartyRoster's, so a panel made at this address finds its own
     const auto found = panels.find(panel);
     if (found == panels.end()) return;
     for (const auto& item : found->second.controls) {

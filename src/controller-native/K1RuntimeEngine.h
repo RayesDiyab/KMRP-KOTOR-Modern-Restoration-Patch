@@ -4,6 +4,3 @@ bool KmrpRuntimeEngineDimensions(int width, int height);
 bool KmrpRuntimeEngineReady();
 // The engine's values written again at the size in force (the Icon Size slider's rows).
 bool KmrpRuntimeEngineRefreshK1();
-// Whether controller support is on: the options package with its controller option
-// on, or left at its default by a KOTOR Patch Manager that has no options.
-bool KmrpControllerOptionK1();

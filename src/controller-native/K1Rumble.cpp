@@ -32,9 +32,9 @@
 #include "K1Rumble.h"
 #include "KmrpOptions.h"
 
+#include "K1EngineMemory.h"   // LooksLikePointerK1, IsReadableK1
+
 // Shared with K1NativeJoystick.cpp.
-bool LooksLikePointerK1(const void* p);
-bool IsReadableK1(const void* p, std::size_t size);
 void* ClientExoAppK1();
 int InputClassK1();
 std::uint32_t CurrentTargetK1();

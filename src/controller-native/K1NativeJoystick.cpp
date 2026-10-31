@@ -17,29 +17,19 @@
 // engine's own PollInput.
 
 #include "K1NativeJoystick.h"
+#include "K1EngineMemory.h"
+#include "K1MovieWindow.h"
+#include "K1CursorConfinement.h"
+#include "K1GuiControls.h"
 #include "K1ControllerBackend.h"
 #include "K1ButtonRemap.h"
 #include "K1ControllerLayout.h"
-#ifdef KMRP_NATIVE_RUNTIME
-#include "K1TextOptions.h"
-#include "K1HudOptions.h"
-#endif
 #include "K1Rumble.h"
 #include "KmrpOptions.h"
 #include "K1PartyRosterState.h"
 #include "K1CaptionInk.h"
 #include "K1ClassSelectArt.h"
-#ifdef KMRP_CONTROLLER_STANDALONE
 #include "K1ControllerPreload.h"
-#endif
-#ifdef KMRP_NATIVE_RUNTIME
-#include "K1RuntimeResolution.h"
-#include "K1RuntimeLayout.h"
-#include "K1TextLayout.h"
-#include "K1RuntimeEngine.h"
-extern "C" void __cdecl NativeGuiFrameK1(void* guiManager);
-extern "C" void __cdecl NativeMovieFrameK1(void* moviePlayer);
-#endif
 
 #include <windows.h>
 #include <xinput.h>
@@ -77,7 +67,6 @@ constexpr std::uintptr_t K1_OPERATOR_DELETE    = 0x006FA390;
 // The CRT free, distinct from operator delete above. Named `_free` in the
 // symbol archive, and the same address KPM's grass patch documents as the one
 // that guards NULL explicitly.
-constexpr std::uintptr_t K1_FREE               = 0x006FB7B2;
 constexpr std::uintptr_t K1_VECTOR_NORMALIZE   = 0x004AB130;
 
 // GetMinUseable returns this float for a joystick axis, and ScaledValue treats
@@ -563,29 +552,6 @@ constexpr std::uintptr_t K1_CANCEL_MOVIE       = 0x00404C40;
 constexpr std::size_t K1_MOVIE_PLAYING     = 0x30;   // CExoMoviePlayerInternal::movie_playing
 constexpr std::size_t K1_MOVIE_ENTRY_SKIPPABLE = 0x9C;   // skippable_flags[current entry]
 
-// Movie geometry, for diagnosing the crash reported from play: a vision movie
-// that rendered zoomed, ended on a black frame with only the HUD, and died.
-//
-// The engine sizes the picture at 0x004057AC, which KMRP replaces with the
-// aspect-fit stub in .kmv. Vanilla derives the height from the requested width
-// and the movie's aspect and never checks it against the window, which is the
-// zoom bug the stub exists to fix. The stub instead picks its own target
-// rectangle, and then the untouched tail at 0x0040581F-0x0040582C turns the
-// result into the blit offsets:
-//
-//   00405819  mov [esi+0x84], eax    ; horizontal offset
-//   0040582C  mov [esi+0x88], eax    ; vertical offset
-//   00405867  call BinkBufferSetOffset
-//
-// Both are (window - picture)/2, so a picture computed LARGER than the window
-// makes them negative and Bink blits outside its buffer. That is the shape of
-// the reported failure, so these are what to measure. Read rather than assumed:
-// this logs the engine's own numbers on the first frame of every movie.
-constexpr std::size_t K1_MOVIE_INFO            = 0x48;   // -> {width, height}
-constexpr std::size_t K1_MOVIE_WINDOW          = 0x50;   // the HWND Bink blits to
-
-constexpr std::size_t K1_MOVIE_OFFSET_X        = 0x84;
-constexpr std::size_t K1_MOVIE_OFFSET_Y        = 0x88;
 
 // A and Start only. Both are conventional "skip" buttons and neither means
 // anything else while a movie is on screen. B and LB are equally safe -- nothing
@@ -642,7 +608,6 @@ using CreateNewEventFn = int(__thiscall*)(void*, int, int, int, int, int);
 using AddEventFn       = int(__thiscall*)(void*, int, int);
 using PollInputFn      = float(__thiscall*)(void*, int, int);
 using OperatorNewFn    = void*(__cdecl*)(std::size_t);
-using FreeFn           = void(__cdecl*)(void*);
 using OperatorDeleteFn = void(__cdecl*)(void*);
 using NormalizeFn      = void(__thiscall*)(void*);
 using RotateCameraFn   = void(__thiscall*)(void*, float, float);
@@ -650,10 +615,6 @@ using PitchCameraFn    = void(__thiscall*)(void*, float);
 using CancelMovieFn    = void(__thiscall*)(void*, int, int);
 
 
-template <typename T> T EngineFn(std::uintptr_t address)
-{
-    return reinterpret_cast<T>(address);
-}
 
 float* FloatAt(void* base, std::size_t offset)
 {
@@ -795,7 +756,6 @@ struct StickState {
     unsigned long lastGuiFrameTick = 0;        // for our own frame delta
     unsigned long slowFrames = 0;              // frames over K1_SLOW_FRAME_MS
     unsigned long worstFrameMs = 0;            // the longest one seen
-    unsigned long saveBuffersFreed = 0;        // leaked save buffers reclaimed
     unsigned long guiCuesInstalled = 0;        // cue controls bound
     unsigned long guiCuesRejected = 0;       // binds that did not take
     unsigned long guiCueToggles = 0;         // show/hide flips performed
@@ -837,9 +797,6 @@ struct StickState {
     unsigned long hudReleases = 0;             // focus handed back to the world
     unsigned long menuOpenRequested = 0;       // Start in gameplay
     unsigned long menuOpens = 0;               // the last menu screen opened by Start
-    int           cursorConfined = 0;          // is the mouse clipped right now
-    unsigned long cursorConfinements = 0;      // times the clip was taken
-    unsigned long cursorReleases = 0;          // times it was given back
     int           startRoute = 0;              // K1_START_*, decided on the press
     int           glyphFamily = 0;             // K1_GLYPH_*, what the badges show
     int           glyphSlot = -2;              // the slot it was decided for; -2 never
@@ -1314,9 +1271,6 @@ void EnsureNativeJoystickK1(void* exoInputInternal)
 // Defined further down with the focus-navigation layer; declared here because
 // the record emitter feeds them.
 bool KmrpOwnsDirectionsK1(bool vertical);
-template <typename T> T* FieldAt(void* base, std::size_t offset);
-bool LooksLikePointerK1(const void* p);
-bool IsReadableK1(const void* p, std::size_t size);
 void* ClientInternalK1();
 int InputClassK1();
 void EnsureDeviceCountK1();
@@ -1336,11 +1290,9 @@ constexpr std::uintptr_t K1_MAIN_INTERFACE_VTABLE = 0x00753F50;
 constexpr std::size_t    K1_HUD_CLEAR_ONE         = 0x6CD0;      // BTN_CLEARONE
 constexpr std::size_t    K1_HUD_CLEAR_ALL         = 0x7058;      // BTN_CLEARALL, "Disengage"
 constexpr std::size_t    K1_HUD_COMBAT_MESSAGE    = 0x735C;      // LBL_CMBTMODEMSG
-#ifdef KMRP_CONTROLLER_STANDALONE
 bool KmrpXboxHudEnabledK1();                                     // K1XboxHud.cpp
 void KmrpXboxHudForgetK1(void* panel);
 void KmrpForgetBadgeOverlaysK1(void* panel);                     // K1XboxControls.cpp
-#endif
 constexpr std::uintptr_t K1_ON_CLEAR_ONE          = 0x0068B050;  // CSWGuiMainInterface::OnClearOneButtonPressed
 constexpr std::uintptr_t K1_ON_CLEAR_ALL          = 0x0068B0A0;  // CSWGuiMainInterface::OnClearAllButtonPressed
 void ForgetGuiCuesK1(void* panel);
@@ -1348,7 +1300,6 @@ void UpdateGuiCuesK1();
 void InstallPazaakTableK1(void* panel);
 void UpdatePazaakTableK1();
 void ForgetPazaakTableK1(void* panel);
-#ifdef KMRP_CONTROLLER_STANDALONE
 void InstallClassSelectPadK1(void* panel);   // class selection's Select, with the pad in use
 void UpdateClassSelectPadK1();
 void ForgetClassSelectPadK1(void* panel);
@@ -1356,7 +1307,6 @@ void QueueGuiModelPreloadK1(void* panel);
 void InstallPazaakSetupPadK1(void* panel);   // Pazaak's side deck screen, with the pad in use
 void UpdatePazaakSetupPadK1();
 void ForgetPazaakSetupPadK1(void* panel);
-#endif
 void* ClientExoAppK1();
 void EnsureRumbleTableK1(void* owner);
 void UpdateStickNavigationK1(float x, float y);
@@ -2059,83 +2009,7 @@ extern "C" void __cdecl NativeJoystickInitK1(void* exoInputInternal)
 // is still only on the stack. ebx, esi and edi are all pushed by then, so the
 // consumed exit at 0x005E319B unwinds correctly, and GetEvents ignores this
 // function's return value.
-// Movie playback state. Separate from the pad state because the movie loop owns
-// the game loop: none of the other hooks run while it is up.
-struct MovieStateK1 {
-    void*         player = nullptr;   // the movie this state describes
-    bool          armed = false;      // a release has been seen since it started
-    unsigned long skips = 0;          // cancels actually issued
-    unsigned long frames = 0;         // loop iterations observed
-    unsigned long refused = 0;        // presses on a movie that may not be skipped
-    unsigned long windowsPainted = 0;   // black-filled windows, one per entry
-    bool          classBlackened = false;  // SWMovieWindow has a brush now
-    // The last geometry logged. PlayMovieList loops over its entries reusing one
-    // player object, so keying the log on the player alone logs the first entry
-    // of a playlist and silently skips the rest -- which is how the first run of
-    // this probe measured three startup logos and missed the movie under
-    // investigation entirely. Geometry is recomputed per entry, so watch that.
-    std::int32_t lastW = -1, lastH = -1, lastOffX = -1, lastOffY = -1;
-};
 
-MovieStateK1 g_movie;
-
-// Make the movie window black, and keep it black.
-//
-// The grey flash before and after a movie is the window CLASS, and the Ghidra
-// archive says so outright. CExoMoviePlayerInternal::InitializeMovie registers
-// "SWMovieWindow" at 0x004053E0, and the WNDCLASSA it fills in leaves
-// hbrBackground NULL:
-//
-//   0040545C  mov dword ptr [esp+0x4c], ebx   ; ebx is 0 here -- no brush
-//   00405464  mov dword ptr [esp+0x54], 0x73d7fc   ; "SWMovieWindow"
-//
-// Its window procedure at 0x00405190 handles WM_ACTIVATEAPP, WM_KEYDOWN,
-// WM_SYSKEYDOWN and the mouse messages and hands everything else to
-// DefWindowProc, so WM_ERASEBKGND is never handled either -- and with a NULL
-// brush DefWindowProc erases nothing. The window is created WS_POPUP |
-// WS_VISIBLE over the whole screen at 0x00405536, so from that moment until
-// Bink's first blit, and again from the last blit until DestroyWindow in
-// ShutDown at 0x00404C01, what is on screen is whatever was already in that
-// memory. That is the flash, and it is grey because nothing ever painted it.
-//
-// The main game window does not have this problem: InitOpenGLWindow asks for
-// GetStockObject(4) -- BLACK_BRUSH -- at 0x00403779. The movie window is the
-// one class BioWare left without one.
-//
-// So give the class a brush. That is the whole fix rather than a patch over it:
-// the class is registered once, on the first movie of the session, and every
-// movie window afterwards is created with it. The FillRect is for the window
-// that already exists by the time this first runs, since a class brush only
-// affects the next erase.
-//
-// A stock brush is process-wide, is never deleted, and may be handed to a
-// window class safely even though the class outlives every window on it.
-void BlackenMovieWindowK1(void* player)
-{
-    if (!LooksLikePointerK1(player)) {
-        return;
-    }
-    HWND const window = *FieldAt<HWND>(player, K1_MOVIE_WINDOW);
-    if (!IsWindow(window)) {
-        return;
-    }
-    HBRUSH const black = static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH));
-    if (!g_movie.classBlackened) {
-        SetClassLongPtrA(window, GCLP_HBRBACKGROUND,
-                         reinterpret_cast<LONG_PTR>(black));
-        g_movie.classBlackened = true;
-    }
-    HDC const dc = GetDC(window);
-    if (!dc) {
-        return;
-    }
-    RECT client;
-    if (GetClientRect(window, &client)) {
-        FillRect(dc, &client, black);
-        ++g_movie.windowsPainted;
-    }
-    ReleaseDC(window, dc);
-}
 
 // ------------------------------------------------------ the rumble pattern table
 //
@@ -2580,68 +2454,6 @@ extern "C" void __cdecl NativeRumbleK1(int envelopeBBits, int envelopeABits,
         ++g_stick.rumbleSent;
 }
 
-// The movie window has just been created, inside InitializeMovie and before the
-// message pump has had a chance to show anything. This is the earliest point the
-// handle exists -- CreateWindowExA returns at 0x00405536 and the handle is
-// stored to player+0x50 immediately after.
-extern "C" void __cdecl NativeMovieWindowOpenK1(void* player)
-{
-    g_movie.lastW = -1;                // a fresh window: repaint on frame one
-    BlackenMovieWindowK1(player);
-}
-
-// CExoMoviePlayerInternal::ShutDown, before it closes the Bink buffer and
-// destroys the window. Bink has stopped drawing by now, so without this the
-// window shows its last frame or nothing at all until it goes away.
-extern "C" void __cdecl NativeMovieWindowCloseK1(void* player)
-{
-    BlackenMovieWindowK1(player);
-}
-
-// Has this playlist entry's geometry changed since the last frame?
-//
-// MoviePlaybackWorker (0x00405B30) loops over its entries reusing one player
-// object, and each entry gets its own InitializeMovie: a new window, buffer and
-// picture size. NativeMovieWindowOpenK1 resets lastW for each, so this repaints
-// on the first frame of every entry, and again only if the size or offsets
-// change (reverse-engineering/movies.md, "How the window is made").
-void PaintMovieWindowK1(void* player)
-{
-    const void* const info = *FieldAt<void*>(player, K1_MOVIE_INFO);
-    if (!LooksLikePointerK1(info)) {
-        return;
-    }
-    const std::int32_t movieW = *FieldAt<std::int32_t>(const_cast<void*>(info), 0);
-    const std::int32_t movieH = *FieldAt<std::int32_t>(const_cast<void*>(info), 4);
-    const std::int32_t offX = *FieldAt<std::int32_t>(player, K1_MOVIE_OFFSET_X);
-    const std::int32_t offY = *FieldAt<std::int32_t>(player, K1_MOVIE_OFFSET_Y);
-    if (movieW == g_movie.lastW && movieH == g_movie.lastH &&
-        offX == g_movie.lastOffX && offY == g_movie.lastOffY) {
-        return;                        // same entry still playing
-    }
-    g_movie.lastW = movieW;
-    g_movie.lastH = movieH;
-    g_movie.lastOffX = offX;
-    g_movie.lastOffY = offY;
-
-    // Black the WINDOW, not the Bink buffer.
-    //
-    // Two earlier attempts got this wrong and both are worth remembering:
-    //
-    //   * Clearing the Bink buffer does nothing. The buffer is allocated at the
-    //     MOVIE's size, so it holds only pixels BinkCopyToBuffer rewrites every
-    //     frame. The bars are screen OUTSIDE the blit, which the buffer cannot
-    //     reach.
-    //   * Padding the buffer to the window's aspect and centring the picture
-    //     inside it broke playback outright. The engine blits dirty rectangles
-    //     from BinkGetRects, and those are in the movie's coordinate space --
-    //     so offsetting the picture desynced the blit from it, and the intro
-    //     logos rendered with only their left portion on screen.
-    //
-    // The bars are unpainted window, and so is the flash at either end. Both
-    // are the same defect, so both get the same answer.
-    BlackenMovieWindowK1(player);
-}
 
 // One iteration of CExoMoviePlayerInternal::PlayMovieLoop, with esi holding the
 // player. This is the only place a controller can be read during a movie.
@@ -2652,97 +2464,11 @@ void PaintMovieWindowK1(void* player)
 // that follows. So a new player pointer disarms, and the first frame with the
 // skip buttons released arms it. Without that, the startup logos skipped
 // themselves the instant a held button carried over.
-// True in the KPM edition when KMRP Movies is not installed (K1KpmApplier.cpp).
-bool KpmMoviesOffK1();
 
-// The half of a movie frame that has nothing to do with the pad: follow the
-// player, and black the window's bars. False when there is no movie.
-bool TrackMovieFrameK1(void* moviePlayer)
-{
-    if (!LooksLikePointerK1(moviePlayer)) {
-        g_movie.player = nullptr;      // no movie: nothing can be pending
-        g_movie.armed = false;
-        return false;
-    }
-    ++g_movie.frames;
-    if (moviePlayer != g_movie.player) {
-        g_movie.player = moviePlayer;  // a different movie: start again
-        g_movie.armed = false;
-        g_movie.lastW = -1;            // a new player: report its first entry
-    }
-    // Every frame, not just on a new player: the function itself suppresses
-    // repeats, and only a per-frame check catches the second and later entries
-    // of a playlist. Before the pad is read, so a movie is measured whether or
-    // not a controller is connected. The bars are KMRP Movies' in the KPM
-    // edition: without it, KMRP leaves the movie window as the game draws it.
-    if (!KpmMoviesOffK1()) {
-        PaintMovieWindowK1(moviePlayer);
-    }
-    return true;
-}
-
-// The KPM edition's KMRP Controller: the same module again, as KPM installs every
-// patch's DLL, patches\<id>.dll. KPM allows one patch per hook address, so the
-// core patch holds the GUI and movie frame sites with its stand-ins, and calls the
-// controller copy's frames from them when that copy is loaded (kpm_patch = "" on
-// NativeGuiFrameK1 and NativeMovieFrameK1 in kotor1.hooks.toml). KPM loads every
-// patch DLL before the game runs, so one look, at the first frame, is enough. The
-// standalone edition never has such a module: there the site holds the controller
-// frame itself, or the stand-in alone.
-using FrameFnK1 = void(__cdecl*)(void*);
-
-FrameFnK1 ControllerFrameK1(const char* name)
-{
-    HMODULE controller = GetModuleHandleW(L"kmrp-controller.dll");
-    HMODULE self = nullptr;
-    GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
-                       GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                       reinterpret_cast<LPCWSTR>(&ControllerFrameK1), &self);
-    if (!controller || controller == self) {
-        return nullptr;
-    }
-    return reinterpret_cast<FrameFnK1>(GetProcAddress(controller, name));
-}
-
-// The same site without controller support (installed as "no-controller" in
-// kotor1.hooks.toml): the bars beside a narrow movie are the static aspect fit's
-// (.kmv), not the pad's, so they are painted either way. In the KPM edition, with
-// KMRP Controller installed, its frame runs instead: it tracks and paints too,
-// and adds the pad's movie skip.
-extern "C" void __cdecl CoreMovieFrameK1(void* moviePlayer)
-{
-#ifdef KMRP_NATIVE_RUNTIME
-    // A few of the heavy pages' textures each movie frame, on the game's thread (the
-    // maintainer, 2026-10-28), so HUD Size's first opening does not load them.
-    KmrpPreloadHudPagesK1();
-#endif
-    static bool looked = false;
-    static FrameFnK1 controllerFrame = nullptr;
-    if (!looked) {
-        controllerFrame = ControllerFrameK1("NativeMovieFrameK1");
-        looked = true;
-    }
-    if (controllerFrame) {
-        controllerFrame(moviePlayer);
-        return;
-    }
-#ifdef KMRP_NATIVE_RUNTIME
-    // The standalone module holds the controller's frame itself, and one hook
-    // serves both states of its controller option (see CoreGuiFrameK1).
-    if (KmrpControllerOptionK1()) {
-        NativeMovieFrameK1(moviePlayer);
-        return;
-    }
-#endif
-    TrackMovieFrameK1(moviePlayer);
-}
 
 extern "C" void __cdecl NativeMovieFrameK1(void* moviePlayer)
 {
-#ifdef KMRP_CONTROLLER_STANDALONE
     KmrpControllerGuiMovieK1();
-#endif
-#ifndef KMRP_NATIVE_RUNTIME
     // Beside KMRP this patch holds the movie site, so KMRP's preload of its heavy pages'
     // textures is asked for here (KmrpMovieFrameK1, K1HudOptions.cpp); without KMRP, nothing.
     static bool asked = false;
@@ -2753,7 +2479,6 @@ extern "C" void __cdecl NativeMovieFrameK1(void* moviePlayer)
             kmrpMovieFrame = reinterpret_cast<void(__cdecl*)()>(GetProcAddress(kmrp, "KmrpMovieFrameK1"));
     }
     if (kmrpMovieFrame) kmrpMovieFrame();
-#endif
     if (!TrackMovieFrameK1(moviePlayer)) {
         return;
     }
@@ -2817,20 +2542,6 @@ extern "C" void __cdecl NativeNoteMouseK1(void* manager, int mouseX, int mouseY)
     KmrpNoteMouseK1(mouseX, mouseY);
 }
 
-// Every save leaks one buffer per resource written.
-//
-// CERFFile::WriteResource hands a buffer to CExoFile::Write (0x005E69A0) and
-// then abandons it -- the pointer in esi is never freed. Adopted from the Kotor
-// Patch Manager project's SaveGameMemoryLeak patch (Lane Dibello); the
-// ownership analysis is theirs and was reviewed there, not re-derived here.
-extern "C" void __cdecl NativeFreeSaveBufferK1(void* buffer)
-{
-    if (!buffer) {
-        return;
-    }
-    EngineFn<FreeFn>(K1_FREE)(buffer);
-    ++g_stick.saveBuffersFreed;
-}
 
 // CSWGuiPanel::ReleaseGff, with ecx holding the panel. Every one of the 68 panel
 // constructors calls this as its last act, and it is the last instant at which a
@@ -2866,11 +2577,7 @@ void Write(const char* text)
     HANDLE file = KmrpAppendLog(L"kmrp-frame-timing.log");
     if (file == INVALID_HANDLE_VALUE) return;
     char line[1200];
-#ifdef KMRP_CONTROLLER_STANDALONE
     const char* module = "controller";
-#else
-    const char* module = "kmrp";
-#endif
     const int length = std::snprintf(line, sizeof line, "%lu %s %s\r\n", GetTickCount(), module, text);
     DWORD done = 0;
     if (length > 0) WriteFile(file, line, static_cast<DWORD>(length < static_cast<int>(sizeof line) ? length : sizeof line - 1), &done, nullptr);
@@ -3096,22 +2803,16 @@ extern "C" void __cdecl NativePanelReleaseGffK1(void* panel)
     const double timingStart = timed ? FrameTimingK1::Now() : 0;
     CapturePartyRosterBindingsK1(panel);
     ControllerLayoutReleaseGffK1(panel);
-#ifdef KMRP_CONTROLLER_STANDALONE
     KmrpXboxHudForgetK1(panel);
-#endif
     ForgetGuiCuesK1(panel);
     ForgetPazaakTableK1(panel);
-#ifdef KMRP_CONTROLLER_STANDALONE
     ForgetClassSelectPadK1(panel);
     ForgetPazaakSetupPadK1(panel);
-#endif
     InstallGuiCuesK1(panel);
     InstallPazaakTableK1(panel);
-#ifdef KMRP_CONTROLLER_STANDALONE
     QueueGuiModelPreloadK1(panel);
     InstallClassSelectPadK1(panel);
     InstallPazaakSetupPadK1(panel);
-#endif
     if (timed) FrameTimingK1::PanelBuilt(panel, timingStart);
 }
 
@@ -3435,8 +3136,6 @@ constexpr int K1_GUI_CUE_COUNT =
     sizeof(K1_GUI_CUES) / sizeof(K1_GUI_CUES[0]);
 
 constexpr std::size_t K1_PANEL_ACTIVE        = 0x1C;
-constexpr std::size_t K1_PANEL_CONTROL_ARRAY = 0x20;
-constexpr std::size_t K1_PANEL_CONTROL_COUNT = 0x24;
 constexpr std::size_t K1_PANEL_FLAGS         = 0x44;
 
 constexpr std::size_t K1_CTL_X     = 0x04;
@@ -3563,42 +3262,7 @@ constexpr std::uintptr_t K1_NATIVE_DIRECTION_CONTROLS[] = {
 
 using SetActiveControlFn = void(__thiscall*)(void*, void*, int);
 
-template <typename T> T* FieldAt(void* base, std::size_t offset)
-{
-    return reinterpret_cast<T*>(reinterpret_cast<std::uint8_t*>(base) + offset);
-}
 
-bool LooksLikePointerK1(const void* p)
-{
-    const std::uintptr_t v = reinterpret_cast<std::uintptr_t>(p);
-    return v >= 0x00010000u && v < 0x7FFF0000u;
-}
-
-// Is [p, p + size) committed, readable memory right now? LooksLikePointerK1 only
-// says an address is in range, and a remembered object can outlive itself:
-// loading a save destroys every in-game screen, and once a freed page is
-// released, reading it faults. That was the Load Game crash of 2026-09-24,
-// kmrp-controller.module+0x3CC8, in the cue loop. VirtualQuery answers without
-// touching the memory.
-bool IsReadableK1(const void* p, std::size_t size)
-{
-    if (!LooksLikePointerK1(p) || size == 0) {
-        return false;
-    }
-    constexpr DWORD readable = PAGE_READONLY | PAGE_READWRITE | PAGE_WRITECOPY |
-        PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY;
-    const std::uint8_t* at = static_cast<const std::uint8_t*>(p);
-    const std::uint8_t* const end = at + size;
-    while (at < end) {
-        MEMORY_BASIC_INFORMATION info{};
-        if (!VirtualQuery(at, &info, sizeof(info)) || info.State != MEM_COMMIT ||
-            !(info.Protect & readable) || (info.Protect & (PAGE_GUARD | PAGE_NOACCESS))) {
-            return false;
-        }
-        at = static_cast<const std::uint8_t*>(info.BaseAddress) + info.RegionSize;
-    }
-    return true;
-}
 
 bool InListK1(std::uintptr_t value, const std::uintptr_t* list, std::size_t count)
 {
@@ -4263,10 +3927,8 @@ void PazaakPlayFocusedCardK1(void* panel)
 bool PazaakTableInFrontK1(void* panel);
 void PazaakEndTurnK1(void* panel);
 constexpr std::uintptr_t K1_PAZAAK_SETUP_DISPATCHER = 0x006816F0;
-#ifdef KMRP_CONTROLLER_STANDALONE
 bool PazaakSetupInFrontK1(void* panel);
 void PazaakSetupPlayK1(void* panel);
-#endif
 void PazaakStandK1(void* panel);
 void PazaakFlipFocusedCardK1(void* panel);
 
@@ -4282,12 +3944,10 @@ constexpr ButtonRemapK1 K1_BUTTON_REMAPS[] = {
       PazaakTableInFrontK1 },
     { K1_PAZAAK_GAME_DISPATCHER, 0x78, K1_EVENT_DESC_UP, "LB: flip the card (Pazaak)", PazaakFlipFocusedCardK1,
       PazaakTableInFrontK1 },
-#ifdef KMRP_CONTROLLER_STANDALONE
     // The side deck screen's A is Play, as on the Xbox; its dispatcher has no A of its own
     // (see the side deck screen below).
     { K1_PAZAAK_SETUP_DISPATCHER, 0x74, K1_EVENT_A, "A: Play (Pazaak side deck)", PazaakSetupPlayK1,
       PazaakSetupInFrontK1 },
-#endif
     { K1_FEATS_DISPATCHER,   0x74, K1_EVENT_X,     "A: OK (Feats)",       FeatsConfirmK1 },
     { K1_FEATS_DISPATCHER,   0x76, K1_EVENT_A,     "X: Add Feat (Feats)", FeatsAddK1 },
     { 0,                     0x77, K1_EVENT_Y,     "Y: Default (settings)", PressDefaultK1,
@@ -4540,7 +4200,6 @@ void BindOneCueK1(void* panel, const char* tag, std::size_t follow, const char* 
     if (reference) {
         beside = PlaceCueByReferenceK1(panel, control, reference);
     }
-#ifdef KMRP_CONTROLLER_STANDALONE
     // Two cues as the maintainer asked for them in this patch (2026-10-05, looking
     // at the Abilities screen): the sub-tab cue larger, by 1.2 about the middle of
     // its right edge, so that it stays as far from Close (1.4 was tried and was too
@@ -4639,7 +4298,6 @@ void BindOneCueK1(void* panel, const char* tag, std::size_t follow, const char* 
             reinterpret_cast<SetExtentFn>((*FieldAt<void**>(control, 0))[1])(control, &at);
         }
     }
-#endif
 
     // Hidden until the pad is the live device, the same rule the badges follow.
     *FieldAt<std::uint32_t>(control, K1_CONTROL_FLAGS) &= ~K1_CONTROL_FLAG_DRAWN;
@@ -4680,9 +4338,7 @@ void ForgetGuiCuesK1(void* panel)
         *FieldAt<void*>(panel, K1_PANEL_GFF) != nullptr) {
         return;
     }
-#ifdef KMRP_CONTROLLER_STANDALONE
     KmrpForgetBadgeOverlaysK1(panel);
-#endif
     using DeletingDtorFn = void*(__thiscall*)(void*, unsigned);
     for (int i = 0; i < K1_GUI_CUE_SLOTS; ++i) {
         GuiCueK1& cue = g_guiCues[i];
@@ -4746,54 +4402,6 @@ void CapturePartyRosterBindingsK1(void* panel)
     KmrpPartyBindingsK1()[panel]=ids;
 }
 
-// UI repair for the released external roster's empty portrait labels. Query
-// object IDs through its exported API (no mod-state offsets), then use the
-// creature's native portrait getter rather than the base object's empty field.
-void KmrpPartyPortraitsK1(void* panel)
-{
-    if(!KmrpPartyPagesBoundK1(panel))return;
-    HMODULE roster=GetModuleHandleW(L"party-roster-limit-32-k1.dll");
-    if(!roster)return;
-    using NpcObject=DWORD(__cdecl*)(void*,const int*,const int*,const int*);
-    auto objectId=reinterpret_cast<NpcObject>(GetProcAddress(roster,"GetNPCObject32"));
-    using Selectability=int(__cdecl*)(void*,const int*);
-    auto selectable=reinterpret_cast<Selectability>(GetProcAddress(roster,"GetNPCSelectability32"));
-    if(!objectId || !selectable)return;
-    // These are the supported K1 native getters, not addresses inside the mod.
-    constexpr unsigned char creatureGetter[]={0x8B,0x81,0x74,0x0A,0x00,0x00};
-    if(std::memcmp(reinterpret_cast<const void*>(0x004F8370),creatureGetter,sizeof creatureGetter))return;
-    void* app=*reinterpret_cast<void**>(0x007A39FC);
-    if(!IsReadableK1(app,12))return;
-    void* server=*FieldAt<void*>(app,8);
-    if(!IsReadableK1(server,8))return;
-    using Party=void*(__thiscall*)(void*);
-    void* party=EngineFn<Party>(0x004AEE70)(server);
-    void** controls=*FieldAt<void**>(panel,K1_PANEL_CONTROL_ARRAY);
-    const int count=*FieldAt<int>(panel,K1_PANEL_CONTROL_COUNT);
-    if(!controls || count<=0 || count>512)return;
-    for(int i=0;i<count;++i) {
-        void* record=controls[i];
-        if(!IsReadableK1(record,4) || *FieldAt<std::uintptr_t>(record,0)!=0x00756BB8 ||
-           !IsReadableK1(record,0x454))continue;
-        KmrpPresentPartyRecordK1(panel,record,
-            [&](int slot) { return selectable(party,&slot)!=0; },
-            [&](int slot,char (&portrait)[16]) {
-                const int no=0;
-                const DWORD id=objectId(party,&slot,&no,&no); // never create/recover a creature
-                if(id==0x7F000000u)return false;
-                using Creature=void*(__thiscall*)(void*,DWORD);
-                void* creature=EngineFn<Creature>(0x004AE770)(server,id);
-                if(!creature)return false;
-                using Portrait=void*(__thiscall*)(void*,void*);
-                EngineFn<Portrait>(0x004F8370)(creature,portrait);
-                return portrait[0]!=0;
-            },
-            [](void* label,const char* portrait) {
-                using Fill=void(__thiscall*)(void*,const void*,int);
-                EngineFn<Fill>(0x00414C00)(static_cast<unsigned char*>(label)+0x70,portrait,0);
-            });
-    }
-}
 
 // Build whatever cues this panel is owed, while it still has its .gui.
 void InstallGuiCuesK1(void* panel)
@@ -4809,14 +4417,12 @@ void InstallGuiCuesK1(void* panel)
     for (int i = 0; i < K1_GUI_CUE_COUNT; ++i) {
         if (K1_GUI_CUES[i].panelVtable == vtable) {
             std::size_t follow = K1_GUI_CUES[i].follow;
-#ifdef KMRP_CONTROLLER_STANDALONE
             // With the Xbox-style HUD the Disengage cue is the button in the
             // combat-mode message (K1XboxHud.cpp, the Xbox game's "[B] to
             // disengage"), so it is shown while that message is.
             if (follow == K1_HUD_CLEAR_ALL && KmrpXboxHudEnabledK1()) {
                 follow = K1_HUD_COMBAT_MESSAGE;
             }
-#endif
             BindOneCueK1(panel, K1_GUI_CUES[i].tag, follow, K1_GUI_CUES[i].reference,
                          K1_GUI_CUES[i].action);
         }
@@ -5103,7 +4709,6 @@ void ShowActionCueK1(void* label, int action)
     EngineFn<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(params, KmrpDrawnFillK1(params, wanted), 1);
 }
 
-#ifdef KMRP_CONTROLLER_STANDALONE
 // The cue label bound to a panel that follows the control at `follow`, or null.
 void* KmrpGuiCueK1(void* panel, std::size_t follow)
 {
@@ -5113,7 +4718,6 @@ void* KmrpGuiCueK1(void* panel, std::size_t follow)
     }
     return nullptr;
 }
-#endif
 
 void UpdateGuiCuesK1()
 {
@@ -5258,15 +4862,11 @@ bool NavigatePazaakHandK1(void* panel, int dx, int dy)
 // the PC's unused Play/Flip members; the displayed copies need their own pulse.
 void PazaakActionFlashK1(void* panel, bool flip)
 {
-#ifdef KMRP_CONTROLLER_STANDALONE
     if (panel != g_pazaakTable.panel) return;
     void* const button = flip ? g_pazaakTable.flipButton : g_pazaakTable.playButton;
     if (button)
         reinterpret_cast<void(__thiscall*)(void*, const float*)>(0x0067CA50)(
             button, reinterpret_cast<const float*>(0x007A23CC));
-#else
-    (void)panel; (void)flip;
-#endif
 }
 
 // RefreshDisplay can make the PC flip controls and legends visible during Draw,
@@ -5401,7 +5001,6 @@ void InstallPazaakTableK1(void* panel)
     }
 
 
-#ifdef KMRP_CONTROLLER_STANDALONE
     g_pazaakTable.playButton = AppendControlLikeK1(panel, "BTN_XTEXT", 0x1D4, 0x0041C0F0);
     g_pazaakTable.flipButton = AppendControlLikeK1(panel, "BTN_XTEXT", 0x1D4, 0x0041C0F0);
     const int strings[] = {32330, 32331}; // Play Hand Card, Flip Hand Card
@@ -5436,17 +5035,12 @@ void InstallPazaakTableK1(void* panel)
         g_pazaakTable.mouseVtables[i] = original;
         *FieldAt<void**>(control, 0) = g_pazaakTable.hiddenMouseVtables[kind];
     }
-#endif
 }
 
-#ifdef KMRP_CONTROLLER_STANDALONE
 void UpdatePazaakActionStripK1();
-#endif
 void UpdatePazaakTableK1()
 {
-#ifdef KMRP_CONTROLLER_STANDALONE
     UpdatePazaakActionStripK1();
-#endif
 }
 
 // The table's end (the base destructor's ReleaseGff, as ForgetGuiCuesK1): the
@@ -5477,10 +5071,8 @@ void ForgetPazaakTableK1(void* panel)
             continue;
         }
         KmrpPadFocusExcludeK1(label, false);
-#ifdef KMRP_CONTROLLER_STANDALONE
         KmrpBadgeCentreK1(label, false);
         KmrpPromptFillK1(label, nullptr);
-#endif
         const int id = *FieldAt<int>(label, K1_CONTROL_ID);
         // As ForgetGuiCuesK1: a leak is safer than a double free.
         if (id >= 0 && id < count && IsReadableK1(controls + id, sizeof(void*)) && controls[id] == label) {
@@ -5491,7 +5083,6 @@ void ForgetPazaakTableK1(void* panel)
     g_pazaakTable = PazaakTableK1{};
 }
 
-#ifdef KMRP_CONTROLLER_STANDALONE
 // ------------------------------------------------ class selection's Select (2026-10-28)
 //
 // Character creation's class screen has one button at its foot, Cancel, between two
@@ -6607,7 +6198,6 @@ void ForgetPazaakSetupPadK1(void* panel)
     }
     g_pazaakSetup = PazaakSetupPadK1{};
 }
-#endif
 
 int RemappedButtonEventK1(int slot)
 {
@@ -7686,198 +7276,10 @@ void UpdateDescriptionScrollK1()
 
 // The GUI's own per-frame update, hooked so focus moves happen where the engine
 // expects GUI work to happen rather than inside CExoInput's polling.
-// Keep the mouse inside the game window while KOTOR is the foreground window.
-//
-// Reported for multi-monitor setups: KOTOR turns the camera with mouse movement
-// but never clips the cursor, so a wide enough sweep walks it onto the next
-// display and the camera stops following. The game imports no ClipCursor at all
-// -- SetCapture, ShowCursor and SetCursorPos are the only cursor calls in its
-// import table -- so nothing in the engine is fighting this. Issue #20.
-//
-// The clip is re-applied every frame rather than once, because Windows drops it
-// whenever the foreground window changes: that is also what releases it on
-// Alt-Tab, on minimise, and if the process dies, so the cursor can never be
-// left trapped by a crash. The explicit release below is for the case the
-// system keeps it -- losing focus without a foreground change.
-//
-// It follows the window rather than the monitor, so a windowed game confines to
-// its own client area, and moving the window or changing resolution is picked
-// up on the next frame.
-void UpdateCursorConfinementK1()
-{
-    HWND foreground = GetForegroundWindow();
-    DWORD pid = 0;
-    if (foreground) {
-        GetWindowThreadProcessId(foreground, &pid);
-    }
-    const bool ours = foreground != nullptr
-        && pid == GetCurrentProcessId()
-        && !IsIconic(foreground);
 
-    if (!ours) {
-        if (g_stick.cursorConfined) {
-            ClipCursor(nullptr);
-            g_stick.cursorConfined = 0;
-            ++g_stick.cursorReleases;
-        }
-        return;
-    }
 
-    RECT client = {};
-    if (!GetClientRect(foreground, &client)
-            || client.right <= client.left
-            || client.bottom <= client.top) {
-        return;                      // mid-resize or zero-sized; try next frame
-    }
-    POINT corners[2] = {{client.left, client.top}, {client.right, client.bottom}};
-    if (!ClientToScreen(foreground, &corners[0])
-            || !ClientToScreen(foreground, &corners[1])) {
-        return;
-    }
-    RECT screen = {corners[0].x, corners[0].y, corners[1].x, corners[1].y};
-    // Fullscreen only: a window that does not cover its monitor is one the player
-    // must be able to leave, to reach its border or another window. Confining a
-    // windowed game trapped the cursor inside it (play-tested 2026-10-04).
-    MONITORINFO monitor = {sizeof(monitor)};
-    if (!GetMonitorInfoW(MonitorFromWindow(foreground, MONITOR_DEFAULTTONEAREST), &monitor)
-            || screen.left > monitor.rcMonitor.left || screen.top > monitor.rcMonitor.top
-            || screen.right < monitor.rcMonitor.right
-            || screen.bottom < monitor.rcMonitor.bottom) {
-        if (g_stick.cursorConfined) {
-            ClipCursor(nullptr);
-            g_stick.cursorConfined = 0;
-            ++g_stick.cursorReleases;
-        }
-        return;
-    }
-    if (ClipCursor(&screen)) {
-        if (!g_stick.cursorConfined) {
-            ++g_stick.cursorConfinements;
-        }
-        g_stick.cursorConfined = 1;
-    }
-}
 
-#ifdef KMRP_NATIVE_RUNTIME
-void KmrpRuntimeLog(const char* line);   // K1RuntimeEngine.cpp: one line into kmrp-kpm.log
 
-// Hardware mipmaps where only K1 Modern Driver Compatibility's ATI emulation turned them
-// off (2026-10-30). The game builds a texture's mipmaps on the graphics card only when
-// AurSGIMipmapAvailable (0x0045F910) says so: GL_SGIS_generate_mipmap in its extension
-// mask (0x007BB85C, that extension's bit at 0x0078E4CC) and not GL_ATI_fragment_shader
-// (bit at 0x0078E4D0), a rule for the ATI drivers of 2003. K1DC answers yes to the ATI
-// extension, which no current driver has, to emulate the ATI shader path, so the rule
-// sent every uncompressed texture through gluBuild2DMipmaps on the CPU: 93 to 96% of the
-// 0.9 s the workbench took to open, its 768x768 pictures rescaled and mipmapped each time
-// (in-process samples, Steam game at 3440x1440, NVIDIA 616.56). Where the driver itself
-// has the SGIS extension and not the ATI one, the rule's reason is absent: the cached
-// answer (0x0078E538, -1 until the game first asks) is set to 1. Nothing else changes; a
-// real ATI driver of the period, or one without the SGIS extension, keeps the game's.
-// Called after each texture upload (KmrpTextureUploadedK1), the OpenGL context current,
-// until it has decided once: from the first texture the game loads.
-// A workaround for K1DC, reported to its author on 2026-10-30: remove it once K1DC fixes
-// this, by the steps in docs/third-party-driver-compat.md, section 5.
-void CorrectHardwareMipmapsK1()
-{
-    static bool done = false;
-    static int frames = 0;   // uploads seen before the extension mask was there
-    if (done) return;
-    unsigned* const mask = reinterpret_cast<unsigned*>(0x007BB85C);
-    const unsigned* const sgis = reinterpret_cast<const unsigned*>(0x0078E4CC);
-    const unsigned* const ati = reinterpret_cast<const unsigned*>(0x0078E4D0);
-    int* const answer = reinterpret_cast<int*>(0x0078E538);
-    if (!IsReadableK1(mask, 4) || !IsReadableK1(sgis, 8) || !IsReadableK1(answer, 4)) { done = true; return; }
-    using GetString = const unsigned char*(WINAPI*)(unsigned);
-    static GetString getString = nullptr;
-    if (!getString) {
-        const HMODULE gl = GetModuleHandleA("opengl32.dll");
-        getString = gl ? reinterpret_cast<GetString>(GetProcAddress(gl, "glGetString")) : nullptr;
-    }
-    const char* const extensions = getString ? reinterpret_cast<const char*>(getString(0x1F03)) : nullptr;  // GL_EXTENSIONS
-    // Until the renderer has asked the driver: no extension mask or string yet.
-    if (*mask == 0 || !extensions) {
-        if (++frames > 600) done = true;
-        return;
-    }
-    done = true;
-    const bool gameSgis = *sgis != 0 && (*mask & *sgis) == *sgis;
-    const bool gameAti = *ati != 0 && (*mask & *ati) != 0;
-    const bool driverSgis = std::strstr(extensions, "GL_SGIS_generate_mipmap") != nullptr;
-    const bool driverAti = std::strstr(extensions, "GL_ATI_fragment_shader") != nullptr;
-    if (!(gameSgis && gameAti && driverSgis && !driverAti)) return;   // the game's own answer stands
-    const int before = *answer;
-    *answer = 1;
-    char line[200];
-    std::snprintf(line, sizeof line, "[KMRP] hardware mipmaps on: the driver has GL_SGIS_generate_mipmap and not "
-                  "GL_ATI_fragment_shader, which only K1DC's emulation reports (the game's answer was %d)", before);
-    KmrpRuntimeLog(line);
-}
-#endif
-
-// The GUI frame without controller support (installed as "no-controller" in
-// kotor1.hooks.toml): its two jobs that are not the pad's. Mouse confinement is
-// for mouse players, and fitting the status summary to KMRP's larger text is a
-// font fix, so neither may depend on the controller option. With the controller
-// on, NativeGuiFrameK1 holds this site and does both itself (the second inside
-// ControllerLayoutFrameK1). So when the KPM edition's KMRP Controller is
-// installed (see ControllerFrameK1), its frame runs instead of these two, exactly
-// as it would hold the site in the standalone edition.
-extern "C" void __cdecl CoreGuiFrameK1(void* guiManager)
-{
-    static bool looked = false;
-    static FrameFnK1 controllerFrame = nullptr;
-    if (!looked) {
-        controllerFrame = ControllerFrameK1("NativeGuiFrameK1");
-        looked = true;
-    }
-    if (controllerFrame) {
-        controllerFrame(guiManager);
-        return;
-    }
-#ifdef KMRP_NATIVE_RUNTIME
-    // The standalone module holds the controller's frame itself. This site has one
-    // hook for both states of the controller option, not a variant for each: a
-    // KOTOR Patch Manager without options installs every hook it is given, and two
-    // at one address made 0.7.1 refuse the package (2026-10-04).
-    if (KmrpControllerOptionK1()) {
-        NativeGuiFrameK1(guiManager);
-        return;
-    }
-    // Sample the viewport first, so a mode change re-lays out the panels before
-    // anything below reads them.
-    KmrpResolutionObservedK1(guiManager);
-#endif
-    UpdateCursorConfinementK1();
-    StatusSummaryFrameK1(guiManager);
-}
-
-#ifdef KMRP_NATIVE_RUNTIME
-// KMRP's own share of the GUI frame and of the movie frame, hooked at sites of
-// KMRP's own since 2026-10-05 (tools/build_native_kpatch.py, OWN_FRAME_HOOKS): the
-// controller patch has the frames' usual sites, KOTOR Patch Manager allows one patch
-// per address, and each patch must work without the other. (For some hours that day
-// the controller patch's module called these from its frames instead, which made
-// KMRP require it.) The resolution sampled, the cursor kept to the picture and the
-// status summary laid out; the movie window centred, tracked and given its bars.
-extern "C" void __cdecl KmrpCoreGuiWorkK1(void* guiManager)
-{
-    KmrpResolutionObservedK1(guiManager);
-    KmrpTextOptionsFrameK1(guiManager);
-    KmrpHudOptionsFrameK1(guiManager);  // the HUD Size page, its button above Text Size's (K1HudOptions.cpp)
-    KmrpPcHudFrameK1(guiManager);       // the mouse and keyboard HUD placed and sized (K1PcHud.cpp)
-    KmrpListRowsFrame(guiManager);      // the lists of newly loaded panels (K1RuntimeLayout.cpp, "List rows")
-    UpdateCursorConfinementK1();
-    StatusSummaryFrameK1(guiManager);
-    KmrpTextLayoutFrameK1(guiManager);
-}
-
-extern "C" void __cdecl KmrpCoreMovieWorkK1(void* moviePlayer)
-{
-    TrackMovieFrameK1(moviePlayer);
-}
-#endif
-
-#ifdef KMRP_CONTROLLER_STANDALONE
 // Whether KMRP is installed beside this patch: KOTOR Patch Manager loads every
 // patch's module as patches\<id>.dll before the game runs.
 bool KmrpIsBesideK1()
@@ -7885,7 +7287,6 @@ bool KmrpIsBesideK1()
     static const bool beside = GetModuleHandleW(L"kmrp.dll") != nullptr;
     return beside;
 }
-#endif
 
 // Debug level 2: the screens up, written whenever they change (2026-10-28, to find why the
 // Options screen's pad focus stuck after a change of resolution): each panel, its type,
@@ -7958,9 +7359,7 @@ void LogMenuSnapshotK1(void* manager)
     }
 }
 
-#ifdef KMRP_CONTROLLER_STANDALONE
 bool KmrpGuiModelsPendingK1() { return K1GuiModelPreload::Pending(); }
-#endif
 
 extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
 {
@@ -7969,25 +7368,16 @@ extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
     const double timingStart = timed ? FrameTimingK1::Now() : 0;
     if (timed) FrameTimingK1::FrameStart(timingStart);
     const FrameTimingK1::FrameGuard timingGuard{ timed ? timingStart : -1 };
-#ifdef KMRP_NATIVE_RUNTIME
-    KmrpResolutionObservedK1(guiManager);   // as CoreGuiFrameK1 does, above
-#endif
     g_stick.lastGuiTick = GetTickCount();
     LogMenuSnapshotK1(guiManager);
-#ifdef KMRP_CONTROLLER_STANDALONE
     // Beside KMRP its module confines the cursor, from its own hook (it knows the
     // sizes it adds); alone, the cursor is this module's to confine.
     if (!KmrpIsBesideK1()) UpdateCursorConfinementK1();
-#else
-    UpdateCursorConfinementK1();
-#endif
     EnsureDeviceCountK1();     // menus re-enumerate devices too
 
     // Which controller family the badges show, before they are updated.
     UpdateGlyphFamilyK1();
-#ifdef KMRP_CONTROLLER_STANDALONE
     KmrpControllerGuiPreloadFrameK1();
-#endif
     UpdateSwoopPromptK1();
     ControllerLayoutFrameK1(guiManager);
 
@@ -8010,10 +7400,8 @@ extern "C" void __cdecl NativeGuiFrameK1(void* guiManager)
 
     UpdateGuiCuesK1();
     UpdatePazaakTableK1();
-#ifdef KMRP_CONTROLLER_STANDALONE
     UpdateClassSelectPadK1();
     UpdatePazaakSetupPadK1();
-#endif
 
     // Our own frame delta, measured across this hook. Counting only; the engine
     // is not touched.
@@ -8720,7 +8108,7 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         // after. cam* are x100.
         "ovr=%d rmag=%ld amag=%ld dz=%ld dcr=%lu cls=%lu/%lu reb=%lu "
         "rx=%ld ry=%ld camrun=%lu camwr=%lu camdz=%lu camapp=%ld camcls=%lu camown=%lu "
-        "nav=%lu/%lu hud=%lu/%lu/%lu/%08lX/%d pad=%lu prm=%lu dsc=%lu gui=%lu tab=%lu tabin=%d mve=%lu/%lu/%lu move=%d->%d dir=%d rum=%lu/%lu/%08lX raw=%08lX/%08lX slot=%d rtab=%lu rmp=%lu fle=%lu drp=%lu psw=%lu cue=%lu/%lu/%lu sbf=%lu mnu=%lu hrel=%lu gly=%d/%lu frm=%lu/%lu dt=%ld/%ld tex=%ld/%ld/%ld/%ld tid=%ld/%ld dev=%08lX cur=%d/%lu/%lu\r\n",
+        "nav=%lu/%lu hud=%lu/%lu/%lu/%08lX/%d pad=%lu prm=%lu dsc=%lu gui=%lu tab=%lu tabin=%d mve=%lu/%lu/%lu move=%d->%d dir=%d rum=%lu/%lu/%08lX raw=%08lX/%08lX slot=%d rtab=%lu rmp=%lu fle=%lu drp=%lu psw=%lu cue=%lu/%lu/%lu mnu=%lu hrel=%lu gly=%d/%lu frm=%lu/%lu dt=%ld/%ld tex=%ld/%ld/%ld/%ld tid=%ld/%ld dev=%08lX cur=%d/%lu/%lu\r\n",
         g_stick.registered ? 1 : 0, g_stick.createFailed ? 1 : 0, liveCount,
         g_stick.initCalls, g_stick.bufferCalls, g_stick.recordsEmitted,
         g_stick.movementCalls, g_stick.overrideFrames,
@@ -8775,7 +8163,7 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         g_stick.rumbleTableInstalled, g_stick.remapDispatched,
         g_stick.freeLookExits, g_stick.dpadRepeats, g_stick.partySwitches,
         g_stick.guiCuesInstalled, g_stick.guiCuesRejected,
-        g_stick.guiCueToggles, g_stick.saveBuffersFreed,
+        g_stick.guiCueToggles,
         // mnu: Start reopening the last menu screen from the world; hrel: action-bar focus
         // handed back to the world by B.
         g_stick.menuOpens, g_stick.hudReleases,
@@ -8803,8 +8191,8 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         // and how many times the clip has been taken and given back.
         // Appended at the very end -- see the warning above about
         // inserting a column into the middle of the format string.
-        g_stick.cursorConfined, g_stick.cursorConfinements,
-        g_stick.cursorReleases);
+        g_cursorConfinement.confined, g_cursorConfinement.confinements,
+        g_cursorConfinement.releases);
 
     // The counters line the controller tests read; with the debug-logs option on.
     HANDLE file = !KmrpDebugLogs() ? INVALID_HANDLE_VALUE : KmrpAppendLog(L"kmrp-native-joystick.log");
@@ -8827,13 +8215,11 @@ bool ControllerConfirmHeldK1()
            (GetAsyncKeyState(VK_SPACE) & 0x8000) != 0;
 }
 
-#ifdef KMRP_CONTROLLER_STANDALONE
 // Optional read-only API for KMRP's independent native text settings screen.
 extern "C" int __cdecl KmrpControllerConfirmHeldK1()
 {
     return ControllerConfirmHeldK1()?1:0;
 }
-#endif
 
 // Swoop racing and the gun turret (issue #47): the pad steers and fires.
 //

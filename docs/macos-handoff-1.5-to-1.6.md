@@ -1681,6 +1681,7 @@ throttled re-check there if so. Not built or run on a Mac.
 | README coverage and cover image; `.gitignore` for local tooling folders | 3fc008c, f1d0e0a, 8686a75, a0068d0, c7d015e | documents and repository housekeeping |
 | Restore Original with the game running: a plain message when `dinput8.dll` is locked (issue 75, `FileGuard.Delete`) | 22f2c9b | the Mac ships no `dinput8.dll` and has its own installer |
 | K1 Modern Driver Compatibility 2.0.1 as a bundled `.kpatch` on Windows and Linux, its Windows 7 and 8 build there (issue 44) | 2026-10-31 | the Mac ships no K1DC; its module is a Windows DLL |
+| `kmrp.dll` built without the controller code; shared files for what both modules need (issue 82, F1) | 2026-11-01 | the Windows modules' file layout; the Mac's patches are their own sources (`macos/patches/`) |
 
 ## Working on Live Adaptive Layout (from the Codex handoff of 2026-10-29)
 

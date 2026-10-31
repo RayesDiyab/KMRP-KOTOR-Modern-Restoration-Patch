@@ -111,11 +111,9 @@ PARAMETERS = {
 # the game without KMRP). This patch carries no controller hook and no controller
 # option. Three sites both would want are the controller patch's: the GUI frame
 # (0x0040CE70) and the movie frame (0x00404D96), from which its module calls this
-# module's share of each (KmrpCoreGuiWorkK1 and KmrpCoreMovieWorkK1, K1NativeJoystick.cpp),
+# module's share of each (KmrpCoreGuiWorkK1 and KmrpCoreMovieWorkK1, K1CoreFrames.cpp),
 # and the resource hook, for which it has a site of its own.
 CONTROLLER = 'kmrp-controller'
-# The core's two frame hooks, which the controller patch holds instead.
-CORE_FRAMES = ('CoreGuiFrameK1', 'CoreMovieFrameK1')
 # What the controller patch's module calls in this one.
 CALLED_BY_CONTROLLER = ()
 # Later on 2026-10-05 the two patches were made independent, at the maintainer's
@@ -195,13 +193,13 @@ def option_hooks():
     """Every runtime hook of the patch with its condition, by address: (hook, None)
     for one always installed, else (hook, option id) for one installed while that
     option is on."""
-    # The core's hooks, always. The GUI and movie frame sites are among them and stay
-    # one hook each: CoreGuiFrameK1 and CoreMovieFrameK1 run the controller's frame
-    # themselves when the option is on. A variant per state would be two hooks at
-    # one address, which a manager without options installs both of and refuses.
+    # The core's hooks, always. Its GUI and movie frame work has sites of its own
+    # (OWN_FRAME_HOOKS below); the frames' usual sites are the controller patch's.
+    # (Until 2026-10-31 this left out the two "no-controller" frame stand-ins,
+    # CoreGuiFrameK1 and CoreMovieFrameK1, which kotor1.hooks.toml then still listed
+    # though no patch installed them; issue 82, F1.)
     conditioned = [(kmrp_controller.as_installed(h), None)
-                   for h in kmrp_controller.kpm_patch_hooks('kmrp')
-                   if h.get('function') not in CORE_FRAMES]
+                   for h in kmrp_controller.kpm_patch_hooks('kmrp')]
     for h in kmrp_controller.kpm_patch_hooks('kmrp-movies'):
         conditioned.append((kmrp_controller.as_installed(h), None))
     conditioned += [(h, None) for h in _table()]

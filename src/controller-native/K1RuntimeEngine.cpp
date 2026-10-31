@@ -93,7 +93,6 @@ std::uint32_t FieldAddress(const NativeField& field)
 // issue 48, black movies with sound on Windows 7 with a Radeon, where the unpatched
 // game's movies play (2026-10-20). Its own section because the installer rewrites
 // [Patch Options] at every install and leaves every other section alone.
-bool g_controllerOption = true;
 
 bool OriginalMovieMode()
 {
@@ -104,10 +103,8 @@ bool OriginalMovieMode()
 
 std::uint32_t OptionalFeatures()
 {
-    // Never, since 2026-10-05: controller support is the controller patch's, a module
-    // of its own, and this module's copy of that code is not run (its hooks are not
-    // installed; tools/build_native_kpatch.py).
-    g_controllerOption = false;
+    // Controller support is the controller patch's, a module of its own, since
+    // 2026-10-05, and since 2026-10-31 this module has no copy of its code (issue 82, F1).
     return kMovies | (OriginalMovieMode() ? 0 : kMovieMode) |
            (KmrpPatchOption(L"map-notes", 1) != 0 ? kMapNotes : 0);
 }
@@ -157,7 +154,6 @@ void InitializeEngine()
 }
 
 bool KmrpRuntimeEngineReady() { return g_nativeBlock != nullptr; }
-bool KmrpControllerOptionK1() { return g_controllerOption; }
 void KmrpRuntimeLog(const char* line) { Log("%s", line); }
 
 bool CommitEngineAt(int width, int height);

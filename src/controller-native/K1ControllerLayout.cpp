@@ -1,5 +1,7 @@
 // KOTOR 1.03 GUI ABI. See reverse-engineering/custom-gui-controls.md.
 #include "K1ControllerLayout.h"
+#include "K1GuiControls.h"
+#include "K1StatusSummary.h"
 #include <windows.h>
 #include "KmrpOptions.h"
 #include "K1ButtonRemap.h"
@@ -44,8 +46,7 @@ constexpr unsigned kOwnedSlots = 192;
 constexpr unsigned kTableControls = 2 + 2 + 2 * 10 + 2 * 5;
 static_assert(K1_LAYOUT_CONTROLS + 3 * 10 + 5 + 6 + 14 + kTableControls <= kOwnedSlots, "owned[] holds every control");
 
-template<class T> T& at(void* p, unsigned n) { return *reinterpret_cast<T*>(static_cast<char*>(p)+n); }
-template<class T> T fn(unsigned n) { return reinterpret_cast<T>(n); }
+using namespace KmrpGui;   // at, fn, readable, setExtent, the text widths, openLog (K1GuiControls.h)
 using Ctor = void*(__thiscall*)(void*);
 using Dtor = void*(__thiscall*)(void*, unsigned);
 using PanelCtor = void*(__thiscall*)(void*, void*);
@@ -93,13 +94,6 @@ bool blockReopen = false;
 
 // The screen's diagnostics, KMRP\logs\kmrp-layout-lifecycle.log (KmrpLogPath; the game
 // folder until 2026-10-20). Null when it cannot be opened.
-FILE* openLog() {
-    wchar_t path[MAX_PATH];
-    FILE* f = nullptr;
-    if (!KmrpLogPath(path, L"kmrp-layout-lifecycle.log") || _wfopen_s(&f, path, L"a")) return nullptr;
-    return f;
-}
-
 void log(const char* event) {
     // Transition-only diagnostics, written with the debug-logs option on. There are
     // no per-frame writes; a session produces only a few short records.
@@ -212,37 +206,11 @@ constexpr unsigned K1_MESSAGE_BOX_CANCEL = 0x4B8;  // provenance of both offsets
 struct ConfirmBadge { void* panel; void* label; char family; bool shown; }
     confirmBadges[8] = {};
 
-// Committed, readable memory? The badges are forgotten when their box is
-// destroyed (ReleaseGff below), and this is the second line of defence the cue
-// table lacked: a remembered object read after its pages were released faults,
-// which is how loading a save from in game crashed (2026-09-24, in the cue loop).
-bool readable(const void* p, std::size_t size) {
-    const auto v = reinterpret_cast<std::uintptr_t>(p);
-    if (v < 0x10000u || v >= 0x7FFF0000u) return false;
-    constexpr DWORD ok = PAGE_READONLY | PAGE_READWRITE | PAGE_WRITECOPY |
-        PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY;
-    const char* at = static_cast<const char*>(p);
-    const char* const end = at + size;
-    while (at < end) {
-        MEMORY_BASIC_INFORMATION info{};
-        if (!VirtualQuery(at, &info, sizeof(info)) || info.State != MEM_COMMIT ||
-            !(info.Protect & ok) || (info.Protect & (PAGE_GUARD | PAGE_NOACCESS)))
-            return false;
-        at = static_cast<const char*>(info.BaseAddress) + info.RegionSize;
-    }
-    return true;
-}
 
 void showControl(void* c, bool visible) {
     at<unsigned>(c,0x44)=(at<unsigned>(c,0x44)&~2u)|(visible?2u:0);
 }
 
-// Every control's slot 1 is SetExtent(const rect*): 0x00417780 for a label,
-// 0x00417A20 for a button, both copying {left, top, width, height} to +4.
-using SetExtent = void(__thiscall*)(void*, const int*);
-void setExtent(void* c, const int* rect) {
-    reinterpret_cast<SetExtent>(at<std::uintptr_t*>(c,0)[1])(c,rect);
-}
 
 void updateConfirmBadges() {
     const bool pad=IsControllerInputActiveK1();
@@ -528,43 +496,6 @@ void updateDialogBadges() {
     }
 }
 
-// ---------------------------------------------------------------- status summary
-//
-// The box that lists what just changed, each line beside its icon, with OK under
-// them: "Journal Entry Added", "Credits Lost: 100", "Experience Points (XP)
-// Received: 50", "Item(s) Received". Reported broken at 3440x1440 on 2026-09-25
-// from three screenshots: text past the box's right edge, OK drawn over the last
-// line as a bar, and the XP line showing only "Received: 50".
-//
-// CSWGuiStatusSummary (constructor 0x006272A0, vtable 0x0074FF68) loads
-// statussummary.gui, which High Resolution Menus does not ship, so it is the
-// game's own 640x480 file (gui.bif): a 322x332 box, 32x32 icons at x 10, lines at
-// x 52 that are 32 tall, OK 100x22. Its layout is code, 0x00625C60, in the same
-// pixels: rows from y 10 and 37 apart (0x0062622A); each line 150 wide at first
-// and widened 20 at a time (0x006261E8) until the line breaker fits it on one line,
-// but never past 440 (0x006261AE, 0x006261F4); the box that width plus 62, centred
-// on the screen (0x00626274..0x006262B4); OK 7 above where the next row would
-// start and the box 32 below that (0x0062627B, 0x00626282).
-//
-// That was right for a 16 px font. KMRP draws text at the resolution's scale --
-// 32 px a line at 3440x1440 -- so the rows collide, OK lands on the last line, the
-// XP line hits the 440 cap and wraps with only its second line in view (the box
-// measured 507 px on the screenshot, the formula gives 502), and the breaker's
-// measure, which truncates each glyph, stops the widening short of the drawn text.
-//
-// So the box is laid out again every frame after the engine's own pass: the same
-// layout scaled by the lines' font height over 16, each line as wide as the glyphs
-// the engine draws for it (the dialogue A's measure, lastReplyLine above), capped
-// only by the screen. Only the extents change, and only when they differ.
-// Seen in game at 3440x1440 on 2026-09-25 with one row, "Journal Entry Added"
-// after Trask's first conversation: box 489x144 on the screen's centre, the line
-// inside it, OK centred under it. Two or more rows have not been seen yet.
-constexpr std::uintptr_t K1_STATUS_SUMMARY_VTABLE = 0x74FF68;
-constexpr unsigned K1_SUMMARY_ICONS = 0x300;   // nine CSWGuiLabels, 0x140 apart
-constexpr unsigned K1_SUMMARY_LINES = 0xE40;   // their lines, in the same order
-constexpr unsigned K1_SUMMARY_OK = 0x1980;     // CSWGuiButton
-constexpr unsigned K1_LABEL_SIZE = 0x140;
-constexpr int K1_SUMMARY_ROWS = 9;
 
 // The pad's A beside OK, placed as the confirm boxes place theirs (2026-09-25:
 // "just add the glyph to the journal entry popup"). A is OK here: the constructor
@@ -603,72 +534,8 @@ void* bindExtraLabel(void* panel, const char* like) {
     return c;
 }
 
-// Is this control one of the panel's own? One of the nine rows, the net shift
-// (LBL_NETSHIFT and its line), has no control in statussummary.gui, so binding
-// left it out of the panel's array and the engine never draws it; such a row must
-// not take a place.
-bool boundTo(void* panel, void* control) {
-    const int id=at<int>(control,0x50), count=at<int>(panel,0x24);
-    void** const array=at<void**>(panel,0x20);
-    return id>=0 && id<count && readable(array,count*sizeof(void*)) && array[id]==control;
-}
 
-// The width of a label's whole text on one line, in pixels, from the glyphs its
-// font draws -- the measure lastReplyLine uses -- and that font's line height.
-//
-// Plus the font's spacingR after each glyph but the last, which that measure
-// leaves out: Draw adds font information +0x10 to every glyph's width before
-// scaling it (0x0045ABDF: (u width x texturewidth + spacingR) x scale), and
-// KMRP's dialogfont16x16 has spacingR 0.005, half a pixel, at 1920x1080 and
-// 3440x1440 alike (+0x10 read from the game's memory, 2026-09-25; +0x14 beside
-// it is spacingB). Without it "Journal Entry Added" measured 262 px at 1920x1080
-// and drew 273, 6 px from the box's edge (357 and 364 at 3440x1440).
-// lastReplyLine keeps the short measure: the dialogue A's gap was tuned by eye
-// on top of it.
-// The width of a control's text in its own font: a label's CSWGuiText is at +0xD0
-// (its text parameters, +0xE8, are 0x18 into it), a button's at +0x154 (parameters at
-// +0x16C, as setText writes them).
-int controlTextWidth(void* control, unsigned textAt, int& lineHeight);
-int labelTextWidth(void* label, int& lineHeight) { return controlTextWidth(label, 0xD0, lineHeight); }
-int buttonTextWidth(void* button) { int lh = 0; return controlTextWidth(button, 0x154, lh); }
-int controlTextWidth(void* control, unsigned textAt, int& lineHeight) {
-    char* const text=static_cast<char*>(control)+textAt;  // its CSWGuiText
-    if (!readable(text,0x18)) return 0;
-    char* const object=at<char*>(text,0x14);
-    if (!readable(object,0x44)) return 0;
-    const char* const string=at<const char*>(object,0x14);
-    void* const font=at<void*>(object,0x18);
-    if (!readable(string,1) || !readable(font,4)) return 0;
-    void** const vtable=at<void**>(font,0);
-    if (!readable(vtable,0x3C)) return 0;
-    using Info=char*(__thiscall*)(void*);
-    char* const info=reinterpret_cast<Info>(vtable[0x38/4])(font);
-    if (!readable(info,0x28)) return 0;
-    const char* const upperLeft=at<const char*>(info,0x18);
-    const char* const lowerRight=at<const char*>(info,0x24);
-    if (!readable(upperLeft,256*12) || !readable(lowerRight,256*12)) return 0;
-    const float texels=at<float>(info,0x0C)*100.0f;
-    const float spacing=at<float>(info,0x10)*100.0f;
-    float width=0.0f;
-    int glyphs=0;
-    for (int i=0;i<256;++i) {
-        if (!readable(string+i,1) || string[i]=='\0') break;
-        if (string[i]=='\n') continue;
-        const int glyph=static_cast<unsigned char>(string[i])*12;
-        width+=(*reinterpret_cast<const float*>(lowerRight+glyph)
-               -*reinterpret_cast<const float*>(upperLeft+glyph))*texels;
-        ++glyphs;
-    }
-    if (glyphs>1 && spacing>0.0f && spacing<8.0f) width+=spacing*(glyphs-1);
-    lineHeight=static_cast<int>(at<float>(info,0x04)*100.0f+0.5f);
-    return static_cast<int>(width+0.5f);
-}
 
-void setExtentIfChanged(void* control, const int* rect) {
-    const int* now=reinterpret_cast<const int*>(static_cast<char*>(control)+4);
-    if (now[0]!=rect[0] || now[1]!=rect[1] || now[2]!=rect[2] || now[3]!=rect[3])
-        setExtent(control,rect);
-}
 
 // Shown while a pad is in use: a disc the height of OK, a quarter of that height
 // clear of its left edge, as updateConfirmBadges does it. `ok` is OK's rect.
@@ -698,90 +565,6 @@ bool updateSummaryBadge(void* panel, const int* ok) {
     return false;
 }
 
-unsigned summaryLogs = 0;
-
-void layoutStatusSummary(void* manager, void* panel) {
-    if (!readable(panel,K1_SUMMARY_OK+0x1C4) || !readable(manager,0x70)) return;
-    char* const base=static_cast<char*>(panel);
-    int rows[K1_SUMMARY_ROWS]={};
-    int count=0, widest=0, lineHeight=0;
-    for (int i=0;i<K1_SUMMARY_ROWS;++i) {
-        void* const icon=base+K1_SUMMARY_ICONS+i*K1_LABEL_SIZE;
-        void* const line=base+K1_SUMMARY_LINES+i*K1_LABEL_SIZE;
-        // The engine shows a row by setting its icon's visible bit (0x0062604x
-        // and 0x00626245 clear it again).
-        if (!(at<unsigned>(icon,0x44)&2u) || !boundTo(panel,icon) || !boundTo(panel,line))
-            continue;
-        int height=0;
-        const int width=labelTextWidth(line,height);
-        if (width<=0 || height<=0) continue;
-        if (width>widest) widest=width;
-        if (height>lineHeight) lineHeight=height;
-        rows[count++]=i;
-    }
-    if (!count) return;
-    // The 640x480 layout, in units of its own 16 px line.
-    auto at16=[lineHeight](int v) { return (v*lineHeight+8)/16; };
-    const int screenW=at<short>(manager,0x6C), screenH=at<short>(manager,0x6E);
-    if (screenW<=0 || screenH<=0) return;
-    const int lineX=at16(52);
-    // The widest line as drawn, and a quarter of a line more: the art's border
-    // sits on the box's edge, and text touching it read as clipped.
-    int lineW=widest+lineHeight/4;
-    int boxW=lineX+lineW+at16(10);
-    if (boxW>screenW) { boxW=screenW; lineW=boxW-lineX-at16(10); }
-    // Room for OK, the pad's A left of it and as much again on the right, so OK
-    // stays centred; one short line would otherwise put the A on the box's edge.
-    const int okW=at16(100), okH=at16(22);
-    const int roomy=okW+2*(okH+okH/4+at16(4));
-    if (boxW<roomy) boxW=roomy<screenW ? roomy : screenW;
-    int y=at16(10);
-    for (int n=0;n<count;++n) {
-        void* const icon=base+K1_SUMMARY_ICONS+rows[n]*K1_LABEL_SIZE;
-        void* const line=base+K1_SUMMARY_LINES+rows[n]*K1_LABEL_SIZE;
-        const int iconRect[4]={at16(10),y,at16(32),at16(32)};
-        const int lineRect[4]={lineX,y-at16(1),lineW,at16(32)};
-        setExtentIfChanged(icon,iconRect);
-        setExtentIfChanged(line,lineRect);
-        y+=at16(37);
-    }
-    const int okY=y-at16(7);
-    const int boxH=okY+at16(32);
-    const int okRect[4]={(boxW-okW)/2,okY,okW,okH};
-    const int boxRect[4]={(screenW-boxW)/2,(screenH-boxH)/2,boxW,boxH};
-    setExtentIfChanged(base+K1_SUMMARY_OK,okRect);
-    setExtentIfChanged(panel,boxRect);
-    const bool badged=updateSummaryBadge(panel,okRect);
-    if (KmrpDebugLogs() && summaryLogs<8) {
-        ++summaryLogs;
-        FILE* f=nullptr;
-        if ((f = openLog()) != nullptr) {
-            fprintf(f,"%lu status-summary rows=%d lineHeight=%d widest=%d box=(%d,%d,%d,%d) ok=(%d,%d,%d,%d) badge=%d\n",
-                GetTickCount(),count,lineHeight,widest,boxRect[0],boxRect[1],boxRect[2],boxRect[3],
-                okRect[0],okRect[1],okRect[2],okRect[3],badged?1:0);
-            fclose(f);
-        }
-    }
-}
-
-// The status summary, wherever the manager holds it: its panel list or, while it
-// waits for OK, its modal list.
-void updateStatusSummary(void* manager) {
-    if (!readable(manager,0x9C)) return;
-    const unsigned lists[2][2]={{0x88,0x8C},{0x94,0x98}};
-    for (const auto& list: lists) {
-        void** const panels=at<void**>(manager,list[0]);
-        const int count=at<int>(manager,list[1]);
-        if (count<=0 || count>256 || !readable(panels,count*sizeof(void*))) continue;
-        for (int i=0;i<count;++i) {
-            void* const panel=panels[i];
-            if (readable(panel,4) && at<std::uintptr_t>(panel,0)==K1_STATUS_SUMMARY_VTABLE) {
-                layoutStatusSummary(manager,panel);
-                return;
-            }
-        }
-    }
-}
 
 // The Controller Layout entry's A, while it has its screen's focus and a pad is
 // in use -- FocusOnly, as Mouse and Key Mapping above it
@@ -1938,9 +1721,7 @@ void probeLayoutPictures(void* manager) {
 }
 
 void ControllerLayoutFrameK1(void* manager) {
-#ifdef KMRP_CONTROLLER_STANDALONE
     if (manager) probeLayoutPictures(manager);
-#endif
     if (pending) {
         void* owner=pending; pending=nullptr;
         if (!current && fn<Exists>(0x40BD70)(manager,owner)) {
@@ -1983,7 +1764,7 @@ void ControllerLayoutFrameK1(void* manager) {
     updateConfirmBadges();
     updateDialogBadges();
     updateEntryBadges();
-    updateStatusSummary(manager);
+    StatusSummaryFrameK1(manager);
     // Counted whether or not the screen is open: the reopen guard needs it
     // after the close as much as Back needs it after the open.
     if (ControllerConfirmHeldK1()) releasedFrames=0;
@@ -1993,10 +1774,7 @@ void ControllerLayoutFrameK1(void* manager) {
     if (current) { refresh(); remapFrame(); }
 }
 
-// The status summary's layout alone, for the GUI frame without controller support
-// (CoreGuiFrameK1): fitting the box to KMRP's larger text is a font fix, not a pad
-// one. Its A badge exists only when the controller's ReleaseGff hook added it, so
-// without the controller updateSummaryBadge finds none and draws nothing.
-void StatusSummaryFrameK1(void* manager) {
-    updateStatusSummary(manager);
+// The status summary's A, for its layout (K1StatusSummary.cpp).
+bool StatusSummaryBadgeK1(void* panel, const int* ok) {
+    return updateSummaryBadge(panel, ok);
 }

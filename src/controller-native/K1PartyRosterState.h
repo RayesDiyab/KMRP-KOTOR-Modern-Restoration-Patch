@@ -34,6 +34,9 @@ inline bool KmrpPartyRoster32ActiveK1()
 // IDs come from the native tag binder while the layout still exists. Never
 // retain a control pointer after construction: resolve within this live panel's
 // own ID array. This works with embedded and separately allocated view controls.
+// Each module keeps its own map and fills it its own way: the controller patch by
+// binding a probe per tag (CapturePartyRosterBindingsK1), KMRP from its records of the
+// panel's controls (CapturePartyRoster, K1RuntimeLayout.cpp, since 2026-11-01).
 using KmrpPartyIdsK1 = std::array<int,5>; // OK, Add/Remove, Back, previous, next
 inline std::map<void*,KmrpPartyIdsK1>& KmrpPartyBindingsK1()
 {
@@ -64,6 +67,27 @@ inline void* KmrpPartyControlK1(void* panel,unsigned index)
         return control;
     }
     return nullptr;
+}
+// KMRP's way to fill the map (CapturePartyRoster, K1RuntimeLayout.cpp): from a panel's
+// own record of the control bound to each tag, which `control(tag)` answers, null for a
+// tag it has none for or whose control is gone. Only the roster's party selection page,
+// with the Party Roster Limit 32 mod active, and once: a panel already known is left. True
+// when all five were found, and then only are they recorded.
+template<class Recorded>
+inline bool KmrpCapturePartyIdsK1(void* panel, Recorded control)
+{
+    if (!panel || KmrpPartyBindingsK1().count(panel) ||
+        *static_cast<const std::uintptr_t*>(panel)!=0x00756D28 || !KmrpPartyRoster32ActiveK1()) return false;
+    KmrpPartyIdsK1 ids{{-1,-1,-1,-1,-1}};
+    for(unsigned i=0;i<5;++i) {
+        auto bytes=static_cast<unsigned char*>(control(KmrpPartyTagK1(i)));
+        if(!bytes || *reinterpret_cast<void**>(bytes+0x34)!=panel) return false;
+        const int id=*reinterpret_cast<const int*>(bytes+0x50);
+        if(id<0 || id>=512) return false;
+        ids[i]=id;
+    }
+    KmrpPartyBindingsK1()[panel]=ids;
+    return true;
 }
 inline bool KmrpPartyPagesBoundK1(void* panel)
 {

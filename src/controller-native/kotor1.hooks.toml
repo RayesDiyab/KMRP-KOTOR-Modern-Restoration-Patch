@@ -594,21 +594,6 @@ exclude_from_restore = []
 source = "ecx"
 type = "pointer"
 
-# The same site without controller support: mouse confinement (issue #20) and the
-# status summary's layout, the GUI frame's two jobs that are not the pad's.
-[[hooks]]
-address = 0x0040CE70
-type = "detour"
-install = "no-controller"
-function = "CoreGuiFrameK1"
-original_bytes = [0x51, 0x53, 0x55, 0x56, 0x8B, 0xE9]
-skip_original_bytes = false
-exclude_from_restore = []
-
-[[hooks.parameters]]
-source = "ecx"
-type = "pointer"
-
 # Apply the right-stick camera turn, immediately after UpdateCamera has run.
 #
 # The timing is the whole point, and getting it wrong is why an earlier version
@@ -656,21 +641,6 @@ address = 0x00404D96
 type = "detour"
 kpm_patch = ""
 function = "NativeMovieFrameK1"
-original_bytes = [0x8B, 0x46, 0x48, 0x8B, 0x48, 0x08]
-skip_original_bytes = false
-exclude_from_restore = []
-
-[[hooks.parameters]]
-source = "esi"
-type = "pointer"
-
-# The same site without controller support: the movie bars only. The bars
-# beside a narrow movie come from the static aspect fit (.kmv), not the pad.
-[[hooks]]
-address = 0x00404D96
-type = "detour"
-install = "no-controller"
-function = "CoreMovieFrameK1"
 original_bytes = [0x8B, 0x46, 0x48, 0x8B, 0x48, 0x08]
 skip_original_bytes = false
 exclude_from_restore = []

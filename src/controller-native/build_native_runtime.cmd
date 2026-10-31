@@ -1,6 +1,6 @@
 @echo off
 rem Builds the standalone module, build\native-runtime\kmrp-native.dll: KMRP's core,
-rem controller, movie and memory code with the engine recipe embedded, and its art pack,
+rem movie and memory code with the engine recipe embedded, and its art pack,
 rem build\native-runtime\kmrp-assets.pack, which the installer writes beside it
 rem (tools\build_native_assets.py, tools\kmrp_pack.py). KMRP's patch carries the module
 rem (tools\build_native_kpatch.py); which of its hooks are installed is the patch's
@@ -48,6 +48,9 @@ cl /nologo /O2 /fp:strict /MT /TC /DKMRP_EMBEDDED /D_CRT_SECURE_NO_WARNINGS /c ^
 if errorlevel 1 exit /b %errorlevel%
 rem /MP compiles the sources on every core at once (2026-10-27); each source compiles
 rem the same as alone and /Brepro keeps the output byte for byte the same.
+rem No controller source since 2026-10-31 (issue 82, F1): the controller patch has its own
+rem module, and what both need is in the shared files (K1EngineMemory.h, K1GuiControls.h,
+rem K1MovieWindow, K1CursorConfinement, K1StatusSummary, K1PartyPortraits).
 cl /nologo /MP /Brepro /std:c++17 /O2 /fp:strict /EHsc /MT /LD /DKMRP_NATIVE_RUNTIME ^
   /Ibuild\native-runtime /Isrc\controller-native /Ithird_party\lzma-sdk /Ibuild\deps\SDL3-3.4.16\include ^
   src\controller-native\K1RuntimeResolution.cpp src\controller-native\K1RuntimeEngine.cpp ^
@@ -55,12 +58,11 @@ cl /nologo /MP /Brepro /std:c++17 /O2 /fp:strict /EHsc /MT /LD /DKMRP_NATIVE_RUN
   src\controller-native\K1RuntimeLayout.cpp ^
   src\controller-native\K1TextLayout.cpp src\controller-native\K1TextRows.cpp ^
   src\controller-native\K1TextOptions.cpp src\controller-native\K1HudOptions.cpp src\controller-native\K1PcHud.cpp ^
-  src\controller-native\K1OffscreenFrame.cpp ^
-  src\controller-native\K1NativeJoystick.cpp src\controller-native\K1ControllerBackend.cpp ^
-  src\controller-native\K1ControllerLayout.cpp src\controller-native\K1Rumble.cpp src\controller-native\K1ButtonRemap.cpp ^
+  src\controller-native\K1OffscreenFrame.cpp src\controller-native\K1CoreFrames.cpp ^
+  src\controller-native\K1MovieWindow.cpp src\controller-native\K1CursorConfinement.cpp ^
+  src\controller-native\K1StatusSummary.cpp src\controller-native\K1PartyPortraits.cpp ^
   src\controller-native\K1PopupFit.cpp src\controller-native\K1GrantedPopup.cpp ^
   src\controller-native\K1KeyboardNavigation.cpp ^
-  src\controller-native\vendor\K1XboxControls.cpp src\controller-native\vendor\K1XboxControlsXInput.cpp ^
   build\native-runtime\kmrp-guiblend.obj ^
   build\native-runtime\kmrp-abilityicons.obj build\native-runtime\kmrp-gameart.obj ^
   build\native-runtime\kmrp-swoophud.obj build\native-runtime\kmrp-guiadapt.obj build\native-runtime\kmrp-merge.obj ^

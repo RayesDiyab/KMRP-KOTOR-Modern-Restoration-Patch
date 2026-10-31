@@ -41,6 +41,30 @@ int main() {
     }
     int count=0;auto prompts=GetK1ControllerPrompts(panel.data(),&count);assert(count==3);
     assert(!ResolveK1PromptControl(panel.data(),prompts[0])); // active backend, not bound yet
+    // KMRP's own capture (KmrpCapturePartyIdsK1, 2026-11-01): from the control recorded for
+    // each tag, the same IDs the controller's probe finds, or nothing at all.
+    {
+        void* recorded[5];for(unsigned i=0;i<5;++i)recorded[i]=buttons[i].data();
+        auto lookup=[&recorded](const char* tag)->void*{
+            for(unsigned i=0;i<5;++i)if(!std::strcmp(tag,KmrpPartyTagK1(i)))return recorded[i];
+            return nullptr;};
+        void* const keep=recorded[3];
+        recorded[3]=nullptr;assert(!KmrpCapturePartyIdsK1(panel.data(),lookup));      // a tag with no control
+        assert(!KmrpPartyBindingsK1().count(panel.data()));recorded[3]=keep;
+        ptr(buttons[2].data(),0x34)=nullptr;assert(!KmrpCapturePartyIdsK1(panel.data(),lookup)); // not this panel's
+        ptr(buttons[2].data(),0x34)=panel.data();
+        word(buttons[4].data(),0x50)=512;assert(!KmrpCapturePartyIdsK1(panel.data(),lookup));    // an ID out of range
+        word(buttons[4].data(),0x50)=ids[4];
+        rosterLoaded=false;assert(!KmrpCapturePartyIdsK1(panel.data(),lookup));rosterLoaded=true; // the mod not active
+        word(panel.data(),0)=0x756BB8;assert(!KmrpCapturePartyIdsK1(panel.data(),lookup));        // another screen
+        word(panel.data(),0)=K1_PARTY_SELECT_PANEL_VTABLE;
+        assert(!KmrpPartyBindingsK1().count(panel.data()));
+        assert(KmrpCapturePartyIdsK1(panel.data(),lookup) && KmrpPartyBindingsK1()[panel.data()]==ids);
+        assert(KmrpPartyPagesBoundK1(panel.data()));
+        word(buttons[0].data(),0x50)=99;assert(!KmrpCapturePartyIdsK1(panel.data(),lookup));     // known: left alone
+        assert(KmrpPartyBindingsK1()[panel.data()]==ids);word(buttons[0].data(),0x50)=ids[0];
+        KmrpPartyBindingsK1().erase(panel.data());
+    }
     KmrpPartyBindingsK1()[panel.data()]=ids;
     assert(ResolveK1PromptControl(panel.data(),prompts[0])==buttons[1].data());
     assert(ResolveK1PromptControl(panel.data(),prompts[1])==buttons[0].data());

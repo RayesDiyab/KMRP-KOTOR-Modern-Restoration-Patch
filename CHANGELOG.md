@@ -117,6 +117,33 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: the Party Roster Limit 32 mod's empty portraits are repaired with KMRP alone
+  (issue 82, F5)** (2026-11-01,
+  [`docs/cleanup-1.6/F5-party-portraits-with-kmrp-alone.md`](docs/cleanup-1.6/F5-party-portraits-with-kmrp-alone.md)).
+  KMRP fills the portraits that mod leaves empty on its party selection page, and gives the
+  page buttons OK's focus rule. Both need the page's five buttons known by their IDs, and
+  until now only the controller patch found them, so without it neither fix ran. KMRP now
+  takes them from its own records of the panel's controls (the binder and destructor hooks it
+  already has), with no new hook. The controller patch keeps its own copy, so it works
+  without KMRP; with both, the second pass changes nothing. Tested with the roster harness's
+  fake page, the full build and the layout tests. **Not seen in a game, and not with the mod
+  installed.**
+
+- **KMRP's module no longer carries the controller code (issue 82, F1)** (2026-11-01,
+  [`docs/cleanup-1.6/F1-kmrp-without-controller-code.md`](docs/cleanup-1.6/F1-kmrp-without-controller-code.md)).
+  `kmrp.dll` compiled the whole controller code base, `K1NativeJoystick.cpp` and
+  `vendor/K1XboxControls.cpp` among it, for a handful of its own functions, and carried about
+  20 KB of the controller's data. Those functions are now in `K1CoreFrames.cpp` (KMRP's frame,
+  movie, save and mipmap work) and six files both modules share (`K1EngineMemory.h`,
+  `K1GuiControls.h`, `K1MovieWindow`, `K1CursorConfinement`, `K1StatusSummary`,
+  `K1PartyPortraits`); `K1NativeJoystick.cpp` and `K1ControllerLayout.cpp` are the controller's
+  alone. Dead code removed: `CoreGuiFrameK1`, `CoreMovieFrameK1` and their two hook table
+  entries (no patch hooked them since 2026-10-05), the always-false controller option, and two
+  counters nothing raised. No behaviour change: both modules export what they did, `kmrp.dll`
+  is 19,968 bytes smaller, and the code was compared function by function (118 of 124 in
+  `kmrp.dll` identical, every other difference explained in the report). Tested: the full
+  build, 16 regression tests. **Not seen in a game.**
+
 - **K1 Modern Driver Compatibility 2.0.1 as its KOTOR Patch Manager patch: on Linux too,
   and on Windows 7 and 8 with its author's build for them (issue 44)** (2026-10-31,
   [`docs/third-party-driver-compat.md`](docs/third-party-driver-compat.md)). Until now the

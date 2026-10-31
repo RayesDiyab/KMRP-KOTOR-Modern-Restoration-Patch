@@ -524,7 +524,9 @@ class Audit:
             ('Mac focus requires Selectable', 'Selectable(hud, active)' in body('macos/patches/kmrp-controller/hud.cpp','bool ActionBarFocused()')),
             ('Mac activate requires Selectable', bool(__import__('re').search(r'pending\.activate\s*&&\s*active\s*>=\s*0\s*&&\s*Selectable\(hud, active\)',(ROOT/'macos/patches/kmrp-controller/hud.cpp').read_text()))),
             ('Windows focus requires selectable action', 'IsActionButtonSelectable(' in body('src/controller-native/vendor/K1XboxControls.cpp','bool IsActionBarFocused(')),
-            ('Windows core frame calls StatusSummaryFrameK1', 'StatusSummaryFrameK1(guiManager)' in body('src/controller-native/K1NativeJoystick.cpp','extern "C" void __cdecl CoreGuiFrameK1('))]
+            # KMRP's own GUI frame (K1CoreFrames.cpp since 2026-10-31, issue 82 F1). Until then
+            # this read CoreGuiFrameK1, a frame no patch hooked any more since 2026-10-05.
+            ('Windows core frame calls StatusSummaryFrameK1', 'StatusSummaryFrameK1(guiManager)' in body('src/controller-native/K1CoreFrames.cpp','extern "C" void __cdecl KmrpCoreGuiWorkK1('))]
         for name,ok in checks:
             self.source_rows.append((name,ok)); print(f'{"ok  " if ok else "FAIL"} source gate: {name} (source inspection; untested in game)')
             if not ok: self.emit('[source]',name,'gate',(0,0),1,'source predicate absent',scope='source')
@@ -576,6 +578,7 @@ class Audit:
                 ROOT/'macos/tools/kmrp-guiblend.c',ROOT/'macos/tools/make_kmrp_patch.py',
                 *(ROOT/'macos/patches').rglob('*.cpp'),*(ROOT/'macos/patches').rglob('*.h'),
                 *(ROOT/'macos/patches').rglob('*.toml'),ROOT/'src/controller-native/K1ControllerLayout.cpp',
+                ROOT/'src/controller-native/K1StatusSummary.cpp',ROOT/'src/controller-native/K1GuiControls.h',
                 ROOT/'src/controller-native/K1NativeJoystick.cpp',ROOT/'src/controller-native/vendor/K1XboxControls.cpp',
                 ROOT/'src/patcher/GuiBlend.cs']}
         for label,paths in corpora.items():
