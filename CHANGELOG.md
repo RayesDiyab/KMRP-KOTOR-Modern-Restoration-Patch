@@ -117,6 +117,20 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: with a controller, the mouse cursor could stay visible at the top of the screen
+  (issue 85)** (2026-10-31). When the pad takes over, KMRP parks the cursor at the top
+  centre and sets its own reason in KOTOR's mouse-hide mask. KOTOR's HideMouse hides the
+  Windows cursor only if Windows says it is showing at that moment, and with no mouse
+  plugged in (a handheld booted into Steam, the Xbox app's virtual keyboard) it may not be.
+  When Steam Input's virtual mouse brought a pointer back, it stood at the park spot, and
+  KMRP saw its reason still set and never hid it again. Now, while the pad is in use, KMRP
+  looks four times a second, not every frame: a Windows cursor over KOTOR's own window
+  with KOTOR in front, or KOTOR's drawn cursor made again, is hidden again through the same
+  engine call, at most three tries in a row that change nothing, so a pointer it cannot
+  hide (the Steam overlay's) is left alone. Mouse and keyboard take the cursor back as
+  before. Each re-hide is written to `kmrp-controller-events.log` with debug logs on.
+  Tested: both modules build. **Not seen in the game, and not on a setup without a mouse.**
+
 - **Fixed: Restore Original with the game still running stopped with a stack trace (issue
   75)** (2026-10-31). The driver compatibility patch's restore deleted `dinput8.dll`
   directly, and while KOTOR runs Windows keeps that file locked: the player saw .NET's

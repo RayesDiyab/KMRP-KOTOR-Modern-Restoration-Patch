@@ -5158,6 +5158,78 @@ void SetK1CursorHidden(void* clientApp, bool hide)
         K1_CURSOR_HIDE_REASON);
 }
 
+// Issue 85. Our reason being set is not the same as the cursor being hidden.
+// The engine's HideMouse (0x005E0070) calls ShowCursor(FALSE) only when
+// GetCursorInfo says the cursor is showing at that moment, and with no mouse
+// plugged in it often is not: a handheld booted into Steam, the Xbox app's
+// virtual keyboard instead of a real one. The hide then does nothing, the
+// display count stays at 0, and when Steam Input's virtual mouse brings a
+// pointer back, Windows shows it at the park spot. SetK1CursorHidden sees our
+// bit and never asks again.
+//
+// So while parked, four times a second rather than every frame, look at what
+// is actually on screen and hide it again through the same engine path
+// (SetInputState with our reason: the OR changes nothing, HideMouse and
+// HideSoftwareMouse run again). The Windows cursor only counts while KOTOR is
+// in front and the pointer is over its own window: the display count belongs
+// to the window's thread, so a pointer over another program is not ours to
+// hide, and hiding it there would only sink the count. At most three tries in
+// a row that change nothing (the Steam overlay draws its own pointer, and a
+// non-zero mouse mode makes HideMouse a no-op), so a cursor this cannot hide is
+// left alone instead of pushed every quarter second. The tries start again
+// once the cursor is seen hidden or the input device changes.
+constexpr std::ptrdiff_t K1_CLIENT_GUI_MANAGER_OFFSET = 0x0274;
+constexpr std::ptrdiff_t K1_MANAGER_SOFTWARE_MOUSE_OFFSET = 0x0024;
+constexpr DWORD K1_CURSOR_RECHECK_MS = 250;
+constexpr int K1_CURSOR_REHIDE_TRIES = 3;
+DWORD g_cursorCheckedAt = 0;
+int g_cursorRehideTries = 0;
+
+bool K1WindowsCursorShowingOverGame()
+{
+    CURSORINFO info{};
+    info.cbSize = sizeof(info);
+    if (!GetCursorInfo(&info) || (info.flags & CURSOR_SHOWING) == 0) {
+        return false;
+    }
+    const DWORD self = GetCurrentProcessId();
+    DWORD pid = 0;
+    HWND foreground = GetForegroundWindow();
+    if (!foreground || (GetWindowThreadProcessId(foreground, &pid), pid) != self) {
+        return false;
+    }
+    pid = 0;
+    HWND under = WindowFromPoint(info.ptScreenPos);
+    return under && (GetWindowThreadProcessId(under, &pid), pid) == self;
+}
+
+void ReassertK1CursorHidden(void* clientApp)
+{
+    const DWORD now = GetTickCount();
+    if (now - g_cursorCheckedAt < K1_CURSOR_RECHECK_MS) {
+        return;
+    }
+    g_cursorCheckedAt = now;
+
+    void* gui = ReadPointer(clientApp, K1_CLIENT_GUI_MANAGER_OFFSET);
+    const bool software = gui && ReadPointer(gui, K1_MANAGER_SOFTWARE_MOUSE_OFFSET);
+    const bool windows = K1WindowsCursorShowingOverGame();
+    if (!software && !windows) {
+        g_cursorRehideTries = 0;
+        return;
+    }
+    if (g_cursorRehideTries >= K1_CURSOR_REHIDE_TRIES) {
+        return;
+    }
+    ++g_cursorRehideTries;
+    reinterpret_cast<ClientMouseFn>(K1_CLIENT_HIDE_MOUSE)(clientApp, K1_CURSOR_HIDE_REASON);
+
+    char line[128];
+    wsprintfA(line, "cursor: visible while parked (windows %d, software %d), hidden again, try %d of %d",
+              windows ? 1 : 0, software ? 1 : 0, g_cursorRehideTries, K1_CURSOR_REHIDE_TRIES);
+    ControllerLogK1(line);
+}
+
 // Set while the module is moving the cursor itself. MoveMouseToPosition
 // forwards to HandleMouseMove, which is the function KMRP hooks to notice mouse
 // activity -- so without this every park, and every re-assert of the park spot,
@@ -5227,6 +5299,7 @@ void UpdateK1CursorState(void* clientApp)
         // This also means a device change wins over a pending F9, which is the
         // right precedence: F9 is an override within a mode.
         g_pendingCursorToggle = (controllerMode != g_cursorParked);
+        g_cursorRehideTries = 0;
     }
 
     if (g_pendingCursorToggle) {
@@ -5253,6 +5326,7 @@ void UpdateK1CursorState(void* clientApp)
     // Ahead of the position work and not gated on the GUI manager, so the
     // opening hidden state lands as early as the client object exists.
     SetK1CursorHidden(clientApp, true);
+    ReassertK1CursorHidden(clientApp);
 
     void* manager = GetK1ActiveGuiManager();
     if (!manager) {

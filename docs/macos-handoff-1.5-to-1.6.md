@@ -1618,7 +1618,7 @@ section 3 has the rules.
 `-Werror`, so the test had failed under clang since ccf4641. On the Mac the line was never
 reached (`_WIN32` only); nothing changes there.
 
-## 129. Two fonts: Original Font and HD Font; the old HD font removed (Windows 2026-10-31, uncommitted)
+## 129. Two fonts: Original Font and HD Font; the old HD font removed (Windows 2026-10-31, 4321723)
 
 At the maintainer's request the Text Size and Font page offers **Original Font** and **HD
 Font** (HD Original, the default; "(New) Original HD Font" until now) only.
@@ -1629,7 +1629,7 @@ atlases (`kmrfhd*.tga`, 591 KB) and keeps its `.txi` files, every style's size r
 is, it offers these two choices, and the Mac's assets need not carry the old atlases
 either.
 
-## 130. An Icon Size slider for feat, power and skill icons (issue 80; Windows 2026-10-31, uncommitted)
+## 130. An Icon Size slider for feat, power and skill icons (issue 80; Windows 2026-10-31, 4321723)
 
 The Text Size and Font page gained "Feat & Skill Icons" (25% the game's icon, 50% KMRP's
 size, 100% three times that) with a preview, saved as `[KMRP Text] IconSize`
@@ -1641,6 +1641,21 @@ recipe makes the rows grow with the icons (`FieldValue`). No icon file is made p
 **The Mac:** its page is item 56, not ported; when it is, the same two wrappers (the
 addresses are the same program's) and its own row constants made the same way. Not built
 or run on a Mac.
+
+## 131. A cursor shown again while the pad is in use is hidden again (issue 85; Windows 2026-10-31)
+
+Setting KMRP's hide reason (0x100) does not always hide the cursor. On Windows the engine's
+HideMouse (`0x005E0070`) calls `ShowCursor(FALSE)` only when Windows says the cursor is
+showing at that moment, which with no mouse plugged in (a handheld booted into Steam) it may
+not be; when Steam Input's virtual mouse brings a pointer back, it stands at the park spot,
+and `SetK1CursorHidden` sees the bit set and never asks again. `ReassertK1CursorHidden`
+(`K1XboxControls.cpp`) now looks four times a second while parked: the Windows cursor
+showing with KOTOR in front and the pointer over its window, or the GUI manager's software
+cursor (`+0x274`, then `+0x24`) existing again, and calls HideMouse with the same reason
+again, at most three tries in a row that change nothing. **The Mac:** the same reason mask
+is in `prompts.cpp` (`+0x588`); check whether the Mac's HideMouse has the same "only when
+showing" test and whether a pointer can come back while the bit is set, and add the same
+throttled re-check there if so. Not built or run on a Mac.
 
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
@@ -1664,6 +1679,7 @@ or run on a Mac.
 | KMRP's fonts kern (pair kerning in `fonts/`) | 8a6fa87 | the font files only: the game's atlases are drawn glyph by glyph and come out as before (CHANGELOG), so nothing in the Mac's assets changes |
 | The Save Editor, now KMSE in its own repository; the Font Converter's own folder | ec98f1c to 3615c7e, 3fac29d, 87547b0 | separate programs, not KMRP |
 | README coverage and cover image; `.gitignore` for local tooling folders | 3fc008c, f1d0e0a, 8686a75, a0068d0, c7d015e | documents and repository housekeeping |
+| Restore Original with the game running: a plain message when `dinput8.dll` is locked (issue 75, `FileGuard.Delete`) | 22f2c9b | the Mac ships no `dinput8.dll` and has its own installer |
 
 ## Working on Live Adaptive Layout (from the Codex handoff of 2026-10-29)
 
