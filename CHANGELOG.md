@@ -117,6 +117,16 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: Restore Original with the game still running stopped with a stack trace (issue
+  75)** (2026-10-31). The driver compatibility patch's restore deleted `dinput8.dll`
+  directly, and while KOTOR runs Windows keeps that file locked: the player saw .NET's
+  "Access to the path is denied" and its stack trace, three times in a row in the issue's
+  log. The delete now goes through `FileGuard.Delete` (`InstallCore.cs`): it clears the
+  read-only flag, tries again for about four seconds, then says plainly which file is in
+  use and what to close. Install and restore share that one message (`KpmEdition.cs`
+  too). Tested with a held, read-only `dinput8.dll`: the plain message after 1.9 s, removed
+  once released; both installers build. **Not seen with the real game running.**
+
 - **An Icon Size slider for feat, Force power and skill icons (issue 80)** (2026-10-31,
   [`docs/ingame-text-options.md`](docs/ingame-text-options.md)). On the Text Size and Font
   page, with a preview of a feat, a power and a skill icon beside it. 25% is the game's own

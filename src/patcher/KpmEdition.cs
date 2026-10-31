@@ -1272,8 +1272,7 @@ namespace Kmrp
 
         private static string InUseMessage(string path)
         {
-            return Path.GetFileName(path) + " is being used by another program, so it could not be " +
-                "updated. Close KOTOR, Steam, and any editor with the file open, then try again.";
+            return FileGuard.InUseMessage(path);
         }
 
         /// <summary>Puts back what InstallEngine and SetLargeAddressAware changed, after

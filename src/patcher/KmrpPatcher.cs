@@ -1119,7 +1119,8 @@ namespace Kmrp
                     kept++;
                     continue;
                 }
-                File.Delete(target);
+                // A running game holds dinput8.dll: a plain message, not a stack trace.
+                FileGuard.Delete(target);
                 removed++;
             }
 

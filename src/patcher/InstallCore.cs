@@ -1823,10 +1823,45 @@ namespace Kmrp
             catch { }
         }
 
-        private static string InUseMessage(string path)
+        /// <summary>Deletes a file KMRP installed, as Replace replaces one: its read-only
+        /// flag cleared, tried again for about four seconds while something holds it, then
+        /// a plain message. Until 2026-10-31 the driver compatibility patch's restore
+        /// deleted dinput8.dll directly, and with the game still running (Windows keeps a
+        /// loaded DLL locked) the player saw .NET's "Access to the path is denied" and its
+        /// stack trace, three times in a row (issue 75's log, 2026-10-23).</summary>
+        internal static void Delete(string path)
+        {
+            int delay = 60;
+            for (int attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    ClearReadOnly(path);
+                    if (File.Exists(path))
+                        File.Delete(path);
+                    return;
+                }
+                catch (IOException error)
+                {
+                    if (attempt == Attempts)
+                        throw new IOException(InUseMessage(path, "removed"), error);
+                }
+                catch (UnauthorizedAccessException error)
+                {
+                    if (attempt == Attempts)
+                        throw new IOException(InUseMessage(path, "removed"), error);
+                }
+                System.Threading.Thread.Sleep(delay);
+                delay *= 2;
+            }
+        }
+
+        /// <summary>The one message for a game file another program holds (KpmEdition.cs
+        /// too): what to close, in the player's words.</summary>
+        internal static string InUseMessage(string path, string done = "updated")
         {
             return Path.GetFileName(path) + " is being used by another program, so it " +
-                "could not be updated. Close KOTOR, Steam, and any editor with the file " +
+                "could not be " + done + ". Close KOTOR, Steam, and any editor with the file " +
                 "open, then try again.";
         }
     }
