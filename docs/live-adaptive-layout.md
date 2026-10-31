@@ -378,13 +378,63 @@ against them and the Mac's installer copies them (handoff item 123).
 | `mipc*.gui` (the HUD) | nothing: the set's file is used, and the module's table places the HUD (`K1PcHud.cpp`) | the player's file **as it is**, with KMRP's two combat cues added when it lacks them (`KmrpHudCues`: `add_combat_cues`'s rule, clones of `LBL_QUEUE1`); not laid out, because the table places every control, the cues included |
 
 "Laid out for the game's size": its base (section 2) is the game's file's and its root lies
-inside it. A mod's file laid out for 1920x1080 is refused (`Test-LiveLayout.py` part 4).
+inside it.
+
+**A mod's file on a canvas of its own** (since 2026-10-31, `ll_canvas`, Python `canvas`):
+a file already scaled, to this screen or another, is laid out from the size it was made
+for when that size can be identified with confidence. The game's screen must fill its
+canvas from 0,0, the file's root must do the same at another size, and the file's
+top-level controls must cover that canvas as the game's cover the game's: on each axis
+between 2/3 and 1.5 times, their left or top edge within a tenth of the canvas. KMRP's own
+calibrated 1920x1080 layouts reach 0.79 (the narrowed key list); a file whose root alone
+was resized reaches about 1/3 and is still refused (`Test-LiveLayout.py` part 4: 73 such
+files, every screen). For such a file, the maintainer's three rules (2026-10-31):
+
+| Where | What happens |
+| --- | --- |
+| at the file's own size | exactly as its author left it: the rules convert a canvas to itself unchanged; KMRP's calibration of the game's layout is not applied |
+| at another size | each control **only scaled** from the game's (every field within the rounding pixel of the game's value under the same rules) is placed where KMRP places the game's, its calibration applied once; every other control keeps the file's own placing, converted from the file's canvas by the rules |
+| ambiguous (any other control) | the mod's placing wins: whether its values hold the author's move, an earlier scaling, a calibration of its own or all of them cannot be told from the values, so no correction is invented; the skipped calibration is reported |
+
+Measured on 2026-10-31 (`Test-ModCompatibility.py`, part 5): every full-screen screen laid
+out by Live Adaptive Layout for 1920x1080 and given back as a mod's file comes out
+byte-identical in every extent at 1920x1080, and at 3440x1440 each control is either where
+it was as a share of the screen (within 2%) or KMRP's own place for it (within 3 px). A
+file scaled by the rules alone gets KMRP's calibration: the key mapping list's `LEFT` is
+KMRP's 632 at 3440x1440, not the rule's 328. Before 2026-10-31 every such file was refused
+and the game showed the mod's file as it was.
+
+**A control the mod moved or resized on the game's canvas** keeps the move through KMRP's
+placing (since 2026-10-31). For each field gold calibrates:
+
+```
+placed = K(vanilla) + round(R(mod) - R(vanilla))
+K(vanilla)  where KMRP places the game's control (the rule and gold's ratio, ll_place)
+R(v)        the field's rule alone, unrounded, at W x H
+```
+
+A field the mod did not change gives K(vanilla), today's value for the game's file; a
+field gold does not calibrate gives round(R(mod)), as before. Until then a moved control
+lost gold's correction and stood where the rule alone put it. Example, the key mapping
+list moved 20 px right (`LEFT` 61 to 81) at 3440x1440: 632 + round(435.375 - 327.875) =
+740, where it used to be 435 (`Test-ModCompatibility.py`).
+
+**A line-up the mod made stays a line-up.** Two top-level controls the file has at the same
+`TOP` or the same `LEFT` that the step above would place apart are both placed by the
+rules alone, which keep every line-up the file has, and the log says KMRP's adjustment of
+them is off.
+
+**What it notes.** `KmrpLiveLayoutNotes` returns, for the file laid out last, one line for
+each of these; the run time writes them to `kmrp-kpm.log` as `[KMRP] compatibility:` lines
+for a mod's file: the canvas a file was made for, the controls whose calibration was
+applied once or skipped, the moves carried, the line-ups kept, the Feedback screen's
+checkbox height kept as the file's, and a file refused with its root's size.
 
 **Fields.** Only these change, in place; every other byte of the source is kept:
 
 | Field | Value |
 | --- | --- |
-| every `EXTENT` (root, controls, `PROTOITEM`, `SCROLLBAR`) | section 2: the table's rule and gold for a structure the game's file has with the same TAG and the same extent; the table's rule without gold where the source moved it; the default rule for a TAG the table does not have (an untagged control is keyed by its place, `#index`) |
+| every `EXTENT` (root, controls, `PROTOITEM`, `SCROLLBAR`) | section 2: the table's rule and gold for a structure the game's file has with the same TAG and the same extent; where the source moved it, the mod's move carried on gold's place (above), or the rule alone for a field gold does not calibrate or a file on a canvas of its own; the default rule for a TAG the table does not have (an untagged control is keyed by its place, `#index`) |
 | `PADDING` of a list box (CONTROLTYPE 11) | the build's gutters, at `max(1, H / 720)`: 36 per unit for `LB_DESC`, `LB_DESCRIPTION`, `LBL_ITEM_DESCRIPTION`, `LB_ITEM_DESCRIPTION`, `LB_DESC_LS`; 12.5 for `LB_ITEMS`, `LB_ABILITY`, `LB_FEATS`, `LB_POWERS`, `LB_SHOPITEMS`, `LB_INVITEMS`; never reduced; then the per-file hand-set ones, which may reduce; rounded half to even (`prepare_universal_resources.py` `DESCRIPTION_LISTBOXES`, `LIST_LISTBOXES`, `HAND_TUNED_GUTTERS`, copied into the table by the script) |
 | `PADDING` the gold file sets by hand | at 3440x1440 only, before the gutters: `optresolution.gui`'s resolution list, 20, and `optionsmain.gui LB_DESC`, 40, which the gutter then raises to 72 as in the set |
 | `TEXT.ALIGNMENT` the gold file changes | at every size, where the file has the game's own alignment there, as `transfer_gold_gui_geometry.py` carries it: Character's `LBL_LEVEL`, 12 to 10 |

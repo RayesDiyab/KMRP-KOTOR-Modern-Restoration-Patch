@@ -15,7 +15,11 @@
 #ifdef _WIN32
 #include <direct.h>
 #include <wchar.h>
+/* MSVC's way of naming the library; clang and MinGW link kernel32 by default, and a
+ * pragma they do not know fails the tests' -Werror builds (Test-GameArt.py). */
+#ifdef _MSC_VER
 #pragma comment(lib, "kernel32.lib")
+#endif
 __declspec(dllimport) int __stdcall MultiByteToWideChar(unsigned int code_page, unsigned long flags,
                                                          const char *text, int length, wchar_t *wide, int room);
 

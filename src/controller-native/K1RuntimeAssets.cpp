@@ -56,6 +56,7 @@
 #include <set>
 #include <vector>
 #include <string>
+#include <cctype>
 #include <cstring>
 #include <cstdint>
 #include <cstdlib>
@@ -95,6 +96,23 @@ extern "C" int KmrpHudCues(const char* sourceGui, const char* outGui);
 extern "C" const char* KmrpHudFileName(int i);
 extern "C" int KmrpLiveLayoutCount(void);
 extern "C" const char* KmrpLiveLayoutName(int i);
+// The same file: what Live Adaptive Layout noted about the last file it laid out, and the
+// game's chitin.key resource of a name and type (the vanilla side of a three-way merge).
+extern "C" const char* KmrpLiveLayoutNotes(void);
+extern "C" int KmrpReadKeyedResource(const char* key, const char* resref, int type, unsigned char** data, std::size_t* size);
+// macos/tools/kmrp-merge.c: any 2DA the player's Override has merged with KMRP's change of it,
+// three ways against vanilla (kmrp-2da.h). 0 merged; 3 not merged safely (the mod's is used).
+extern "C" int KmrpMerge2da(const char* name, const unsigned char* base, std::size_t baseSize, const unsigned char* ours,
+                            std::size_t oursSize, const unsigned char* theirs, std::size_t theirsSize, unsigned char** out,
+                            std::size_t* outSize, char** notes, int counts[4]);
+extern "C" void KmrpMergeFree(void* p);
+// kmrp-gameart.c: a generated picture made again from a mod's copy of its source, as its
+// kmrp_derive.txt line says. 0 written; 1 the mod's picture cannot be read.
+extern "C" int KmrpDeriveImage(const char* source, int canvas, int picture, int left, int bottom, const char* filter,
+                               const char* out);
+// kmrp-swoophud.c: the swoop HUD's change made on a mod's copy of the model. 0 written; 1 not
+// the game's model where it changes it (the fix is off); 3 not needed at this size.
+extern "C" int KmrpSwoopHudModel(const char* mdl, const char* mdx, const char* outdir, unsigned width, unsigned height);
 void KmrpRuntimeLog(const char* line);       // K1RuntimeEngine.cpp: one line into kmrp-kpm.log
 
 namespace {
@@ -1085,6 +1103,174 @@ bool AdaptPartyRosterK1(const std::wstring& set, const std::wstring& view, int w
     return true;
 }
 
+// Notes a merge or layout wrote, one a line, into the log as compatibility lines: PREFIX
+// names where the file came from ("Override's ").
+void LogCompatibilityNotes(const char* prefix, const char* notes)
+{
+    if (!notes) return;
+    for (const char* line = notes; *line;) {
+        const char* end = std::strchr(line, '\n');
+        const std::size_t length = end ? static_cast<std::size_t>(end - line) : std::strlen(line);
+        if (length) KmrpRuntimeLog(("[KMRP] compatibility: " + std::string(prefix) + std::string(line, length)).c_str());
+        line += length + (end ? 1 : 0);
+    }
+}
+
+// A file KMRP made in `folder`, put in place under its name: written beside it and moved
+// over it, never written through it, as `folder` may hold a link to the cache's file of
+// that name (Link).
+bool MoveIntoPlace(const std::wstring& work, const std::wstring& target)
+{
+    SetFileAttributesW(target.c_str(), FILE_ATTRIBUTE_NORMAL);
+    if (MoveFileExW(work.c_str(), target.c_str(), MOVEFILE_REPLACE_EXISTING)) return true;
+    DeleteFileW(work.c_str());
+    return false;
+}
+
+// Generated files made again from the player's own copy of what they are made from, by the
+// format of the file (docs/mod-file-inventory.md; 2026-10-31). The set's kmrp_derive.txt
+// (written by kmrp-gameart.c, kmrp-abilityicons.c and kmrp-swoophud.c as they make the set)
+// says, for each file KMRP generates from a game resource, which resource and how. Where the
+// player's Override has that resource, the file is made again from the mod's copy into
+// `folder`, which the game searches before Override and the set:
+//
+//   .2da        merged three ways with the mod's table, vanilla's (chitin.key) the base
+//               (KmrpMerge2da, kmrp-2da.h): KMRP's cells only where the mod left vanilla's
+//   .tga .tpc   the mod's picture drawn the way the game's was (KmrpDeriveImage); a .tpc
+//               where Override has a .tpc of the output's name, which the game prefers
+//   .mdl        KMRP's change made on the mod's model, only where the part it changes is
+//               still the game's (KmrpSwoopHudModel)
+//
+// No file name decides anything here: the record names the files, the format the strategy.
+// The sources are read from Override and chitin.key only, never from KMRP's own output, and
+// everything is made again each time a size's folders are, from the files as they are then
+// (Override is listed once a run, as the game lists it): nothing kept can go stale. What
+// cannot be made is logged with the feature it switches off, and the mod's file is used.
+bool DeriveFromOverrideK1(const std::wstring& set, const std::wstring& folder, int width, int height)
+{
+    std::vector<unsigned char> record;
+    if (!Read(set + L"\\kmrp_derive.txt", record)) return false;
+    const std::wstring game = GameFolder();
+    if (game.empty()) return false;
+    const std::wstring override = game + L"\\override\\";
+    const std::string key = Utf8Path(game + L"\\chitin.key");
+    auto exists = [](const std::wstring& path) { return GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES; };
+    int made = 0;
+    std::istringstream lines(std::string(record.begin(), record.end()));
+    std::string line;
+    while (std::getline(lines, line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        std::vector<std::string> field;
+        for (std::size_t at = 0;;) {
+            const std::size_t tab = line.find('\t', at);
+            field.push_back(line.substr(at, tab == std::string::npos ? std::string::npos : tab - at));
+            if (tab == std::string::npos) break;
+            at = tab + 1;
+        }
+        if (field.size() < 2 || field[0].size() < 5 || field[1].empty() || field[1].size() > 16) continue;
+        const std::string& output = field[0];
+        const std::string& source = field[1];
+        const std::string stem = output.substr(0, output.size() - 4);
+        std::string format = output.substr(output.size() - 4);
+        for (char& c : format) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        const std::wstring target = folder + L"\\" + Wide(output), work = target + L".tmp" + Pid();
+        char logLine[400];
+        if (format == ".2da") {
+            const std::wstring theirsPath = override + Wide(source) + L".2da";
+            if (!OverrideHas(Wide(source + ".2da"))) continue;
+            std::vector<unsigned char> theirs, ours;
+            unsigned char* base = nullptr;
+            std::size_t baseSize = 0;
+            if (!Read(theirsPath, theirs) || !Read(set + L"\\" + Wide(output), ours) || key.empty() ||
+                KmrpReadKeyedResource(key.c_str(), source.c_str(), 2017, &base, &baseSize) != 0) {
+                free(base);
+                sprintf_s(logLine, "[KMRP] compatibility: Override's %s.2da: KMRP's changes to it are off (a copy could "
+                          "not be read); the mod's table is used as it is", source.c_str());
+                KmrpRuntimeLog(logLine);
+                continue;
+            }
+            unsigned char* merged = nullptr;
+            std::size_t mergedSize = 0;
+            char* notes = nullptr;
+            int counts[4]{};
+            const std::string name = source + ".2da";
+            const int result = KmrpMerge2da(name.c_str(), base, baseSize, ours.data(), ours.size(), theirs.data(),
+                                            theirs.size(), &merged, &mergedSize, &notes, counts);
+            free(base);
+            LogCompatibilityNotes("Override's ", notes);
+            KmrpMergeFree(notes);
+            if (result == 0 && WriteNew(work, std::vector<unsigned char>(merged, merged + mergedSize)) &&
+                MoveIntoPlace(work, target)) {
+                ++made;
+                sprintf_s(logLine, "[KMRP] compatibility: Override's %s merged with KMRP's: %d changes of KMRP's made, "
+                          "%d kept the mod's, %d lost", name.c_str(), counts[3], counts[0], counts[1]);
+            } else {
+                sprintf_s(logLine, "[KMRP] compatibility: Override's %s: KMRP's changes to it are off; the mod's table "
+                          "is used as it is", name.c_str());
+            }
+            KmrpMergeFree(merged);
+            KmrpRuntimeLog(logLine);
+        } else if (format == ".tga" || format == ".tpc") {
+            if (field.size() < 7 || !OverrideHas(Wide(source + ".tga"))) continue;   // a .tga or a .tpc
+            const std::wstring tpc = override + Wide(source) + L".tpc", tga = override + Wide(source) + L".tga";
+            const std::wstring from = exists(tpc) ? tpc : tga;
+            const bool asTpc = exists(override + Wide(stem) + L".tpc");
+            const std::wstring outName = folder + L"\\" + Wide(stem) + (asTpc ? L".tpc" : L".tga");
+            const std::wstring outWork = outName + L".tmp" + Pid();
+            const int result = KmrpDeriveImage(Utf8Path(from).c_str(), std::atoi(field[2].c_str()), std::atoi(field[3].c_str()),
+                                               std::atoi(field[4].c_str()), std::atoi(field[5].c_str()), field[6].c_str(),
+                                               Utf8Path(outWork).c_str());
+            if (result == 0 && MoveIntoPlace(outWork, outName)) {
+                ++made;
+                if (KmrpDebugLogs()) {
+                    sprintf_s(logLine, "[KMRP] compatibility: %s made from Override's %s", output.c_str(), source.c_str());
+                    KmrpRuntimeLog(logLine);
+                }
+            } else {
+                DeleteFileW(outWork.c_str());
+                sprintf_s(logLine, "[KMRP] compatibility: Override's %s: KMRP's %d px copy of it (%s) is off, as the "
+                          "picture could not be read; the mod's picture is used as it is", source.c_str(),
+                          std::atoi(field[2].c_str()), output.c_str());
+                KmrpRuntimeLog(logLine);
+            }
+        } else if (format == ".mdl") {
+            const std::wstring mdl = override + Wide(source) + L".mdl", mdx = override + Wide(source) + L".mdx";
+            if (!OverrideHas(Wide(source + ".mdl"))) continue;
+            // Made in a folder of its own and moved, as the model comes with its .mdx.
+            const std::wstring workFolder = folder + L"\\model.tmp" + Pid();
+            CreateDirectoryW(workFolder.c_str(), nullptr);
+            const int result = exists(mdx) ? KmrpSwoopHudModel(Utf8Path(mdl).c_str(), Utf8Path(mdx).c_str(),
+                                                               Utf8Path(workFolder).c_str(), static_cast<unsigned>(width),
+                                                               static_cast<unsigned>(height))
+                                           : 1;
+            const std::wstring builtMdl = workFolder + L"\\" + Wide(stem) + L".mdl", builtMdx = workFolder + L"\\" + Wide(stem) + L".mdx";
+            if (result == 0 && MoveIntoPlace(builtMdl, folder + L"\\" + Wide(stem) + L".mdl") &&
+                MoveIntoPlace(builtMdx, folder + L"\\" + Wide(stem) + L".mdx")) {
+                ++made;
+                sprintf_s(logLine, "[KMRP] compatibility: Override's %s.mdl given KMRP's change", source.c_str());
+                KmrpRuntimeLog(logLine);
+            } else if (result != 3) {
+                sprintf_s(logLine, "[KMRP] compatibility: Override's %s.mdl: KMRP's change of it (%s) is off, as the "
+                          "part it changes is not the game's there; the mod's model is used as it is", source.c_str(), output.c_str());
+                KmrpRuntimeLog(logLine);
+            }
+            DeleteFileW(builtMdl.c_str());
+            DeleteFileW(builtMdx.c_str());
+            RemoveDirectoryW(workFolder.c_str());
+        } else {
+            sprintf_s(logLine, "[KMRP] compatibility: %s: no way to make a %s file again from a mod's copy; the mod's "
+                      "is used as it is", output.c_str(), format.c_str());
+            if (OverrideHas(Wide(output))) KmrpRuntimeLog(logLine);
+        }
+    }
+    if (made && KmrpDebugLogs()) {
+        char logLine[160];
+        sprintf_s(logLine, "[KMRP] compatibility: %d of KMRP's files made from the Override folder's copies", made);
+        KmrpRuntimeLog(logLine);
+    }
+    return made > 0;
+}
+
 // The galaxy map for the size: KMRP's map with every planet and Live slot where the game's
 // own 640x480 layout puts it on the galaxy, or where a mod's 640x480 galaxymap.gui in
 // Override puts it (issue 67), written into `folder`, which the game searches before the
@@ -1142,7 +1328,14 @@ bool AdaptMainMenuK1(const std::wstring& set, const std::wstring& folder)
     bool any = false;
     for (const wchar_t* name : {L"mainmenu.gui", L"mainmenu8x6.gui", L"mainmenu10x7.gui", L"mainmenu12x9.gui",
                                 L"mainmenu16x12.gui"}) {
-        if (OverrideHas(name)) continue;
+        if (OverrideHas(name)) {
+            // The bars are KMRP's art's; a mod's menu keeps its own button places.
+            char line[200];
+            sprintf_s(line, "[KMRP] compatibility: Override's %ls: the buttons are not put on the bars of KMRP's "
+                      "menu art; the mod's places are kept", name);
+            KmrpRuntimeLog(line);
+            continue;
+        }
         const std::wstring target = folder + L"\\" + name, work = target + L".tmp" + Pid();
         const std::string layout = Utf8Path(LayoutBase(folder, name)), out = Utf8Path(work);
         if (layout.empty() || out.empty() || KmrpMainMenuBars(layout.c_str(), out.c_str()) != 0) {
@@ -1186,11 +1379,14 @@ bool AdaptLiveLayoutK1(const std::wstring& set, const std::wstring& folder, int 
         if (out.empty() || (mod && source.empty())) continue;
         const int result = KmrpLiveLayoutSet(key.c_str(), KmrpLiveLayoutName(i), mod ? source.c_str() : nullptr,
                                              width, height, out.c_str(), setFolder.c_str());
+        // What it noted about a mod's file: an already-scaled canvas, moves carried, a
+        // line-up kept, or the feature that is off (KmrpLiveLayoutNotes).
+        if (mod) LogCompatibilityNotes("Override's ", KmrpLiveLayoutNotes());
         if (result != 0) {
             DeleteFileW(work.c_str());
             char line[200];
-            if (result == 3) sprintf_s(line, "[KMRP] live layout: the Override folder's %s is not laid out for the "
-                                             "game's size; it is left to the game", KmrpLiveLayoutName(i));
+            if (result == 3) sprintf_s(line, "[KMRP] compatibility: Override's %s: Live Adaptive Layout is off for "
+                                             "this screen; the mod's file is used as it is", KmrpLiveLayoutName(i));
             else sprintf_s(line, "[KMRP] live layout: %s could not be laid out (%d); the game's own is used",
                            KmrpLiveLayoutName(i), result);
             KmrpRuntimeLog(line);
@@ -1343,9 +1539,11 @@ bool BuildSet(int width, int height, std::wstring& directory)
     const std::wstring packPath = game + L"\\TexturePacks\\swpc_tex_gui.erf", keyPath = game + L"\\chitin.key";
     // "art 2": sets made before 2026-10-23 by the installer's prebuild have no tutorial
     // icons, tutorial.2da or row frames (kmrp-gameart read the key's BIF from the current
-    // folder), so they are made again.
+    // folder), so they are made again. "art 3" (2026-10-31): sets before it have no
+    // kmrp_derive.txt, the record of what each generated file is made from that
+    // DeriveFromOverrideK1 makes it again from, so they are made again too.
     const std::string stamp = std::to_string(width) + "x" + std::to_string(height) + " pack " + FileStamp(packPath) +
-                              " key " + FileStamp(keyPath) + " art 2\n";
+                              " key " + FileStamp(keyPath) + " art 3\n";
     directory = root + L"\\sets\\" + std::to_wstring(width) + L"x" + std::to_wstring(height);
     return Build(directory, stamp, [&](const std::wstring& work) {
         // Where the time goes, for the debug log: the pack's files, the blend helper, the
@@ -1724,6 +1922,7 @@ bool KmrpRuntimeAssetsDimensions(int width, int height)
         AdaptLiveLayoutK1(set, view, width, height);
         AdaptGalaxyMapK1(set, view);
         AdaptMainMenuK1(set, view);
+        DeriveFromOverrideK1(set, view, width, height);
     } else {
         ++generation;
         roster = root + L"\\roster-" + Pid() + L"-" + std::to_wstring(generation);
@@ -1734,7 +1933,10 @@ bool KmrpRuntimeAssetsDimensions(int width, int height)
             const bool live = AdaptLiveLayoutK1(set, roster, width, height);
             const bool galaxy = AdaptGalaxyMapK1(set, roster);
             const bool menu = AdaptMainMenuK1(set, roster);
-            adapted = party || galaxy || menu || live;
+            // Files made from a source Override has under another name (the tutorial
+            // popup's copies of a mod's icons), when none of the set's own names is there.
+            const bool derived = DeriveFromOverrideK1(set, roster, width, height);
+            adapted = party || galaxy || menu || live || derived;
         }
         if (!adapted) {
             RemoveFlat(roster);

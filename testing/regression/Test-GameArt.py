@@ -239,7 +239,9 @@ def main() -> int:
                 subprocess.run([str(helper), native_helpers.arg(game / "TexturePacks" / "swpc_tex_gui.erf"),
                                 native_helpers.arg(game / "chitin.key"), str(height), native_helpers.arg(out)],
                                check=True, stdout=subprocess.DEVNULL)
-                made = {p.name: p.read_bytes() for p in out.iterdir()}
+                # kmrp_derive.txt is the record of what each file is made from, for the run time
+                # to make it again from a mod's copy (docs/mod-file-inventory.md); the C# has none.
+                made = {p.name: p.read_bytes() for p in out.iterdir() if p.name != "kmrp_derive.txt"}
                 if made != cs:
                     differ = sorted(n for n in set(made) | set(cs) if made.get(n) != cs.get(n))
                     failures.append(f"{height} {arch}: differs from the C# in {differ[:4]}")

@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "kmrp-path.h"
+#include "kmrp-2da.h"
 #include <sys/stat.h>
 #ifdef _WIN32
 #include <direct.h>
@@ -65,6 +66,28 @@ static Output outputs[COUNT(FRAMES) + COUNT(TUTORIAL_ICONS) + 1];
 static size_t output_count;
 
 static int fail(const char *what) { fprintf(stderr, "kmrp-gameart: %s\n", what); return 0; }
+
+/* What each file is made from, for the run time to make it again from a mod's copy of its
+ * source (K1RuntimeAssets.cpp, DeriveFromOverrideK1): kmrp_derive.txt in OUTDIR, one line a
+ * file, added to by every tool that makes files there (kmrp-abilityicons.c too):
+ *
+ *   OUTPUT \t SOURCE \t CANVAS \t PICTURE \t LEFT \t BOTTOM \t FILTER
+ *
+ * SOURCE is the game resource OUTPUT was made from, without its extension. For a picture
+ * the rest says how: SOURCE drawn PICTURE x PICTURE at LEFT, BOTTOM (from the bottom left)
+ * on a transparent CANVAS x CANVAS, "nearest" where PICTURE is a whole multiple of a square
+ * source, else "linear". A table or a model has OUTPUT and SOURCE only: its format says
+ * how it is merged (kmrp-2da.h for a 2DA). */
+static char derivations[8192];
+static size_t derivations_length;
+static void derived(const char *output, const char *source, int canvas, int picture, int left, int bottom,
+                    const char *filter) {
+    int n = filter ? snprintf(derivations + derivations_length, sizeof derivations - derivations_length,
+                              "%s\t%s\t%d\t%d\t%d\t%d\t%s\n", output, source, canvas, picture, left, bottom, filter)
+                   : snprintf(derivations + derivations_length, sizeof derivations - derivations_length,
+                              "%s\t%s\n", output, source);
+    if (n > 0 && (size_t)n < sizeof derivations - derivations_length) derivations_length += (size_t)n;
+}
 
 static Buffer read_file(const char *path) {
     Buffer b = { NULL, 0 };
@@ -363,7 +386,62 @@ static int add_texture(const Buffer *erf, const char *resref, const char *out_na
     snprintf(o->name, sizeof o->name, "%s.tga", out_name);
     o->file = tga(out_rows, size, size);
     free(bottom_up); free(top_down); free(scaled); free(out_rows);
+    derived(o->name, resref, size, size, 0, 0, nearest_on_multiples ? "nearest" : "linear");
     return 1;
+}
+
+/* A picture made again from a mod's copy of its source: SOURCE (a .tga or .tpc, in any
+ * format the game's own preload reads: uncompressed, RLE, DXT1, DXT5) drawn as a
+ * kmrp_derive.txt line says, the same steps as the game's copy, into OUT, an uncompressed
+ * TPC when OUT ends in .tpc (so it is found before a mod's .tpc of that name, which the game
+ * prefers to a .tga wherever each is), else a TGA. 0 written; 1 SOURCE cannot be read or
+ * decoded (the mod's picture is then used as it is); 2 OUT could not be written. */
+int KmrpDeriveImage(const char *source, int canvas, int picture, int left, int bottom, const char *filter,
+                    const char *out) {
+    if (canvas < 1 || canvas > 4096 || picture < 1 || picture > canvas || left < 0 || bottom < 0 ||
+        left + picture > canvas || bottom + picture > canvas)
+        return 1;
+    Buffer file = read_file(source);
+    if (!file.data) return 1;
+    const size_t length = strlen(source);
+    const int from_tpc = length > 4 && strcasecmp(source + length - 4, ".tpc") == 0;
+    int w = 0, h = 0;
+    uint8_t *bottom_up = from_tpc ? preload_tpc(file.data, file.size, &w, &h) : preload_tga(file.data, file.size, &w, &h);
+    float alpha = 0;
+    if (from_tpc && file.size >= 8) memcpy(&alpha, file.data + 4, 4);
+    free(file.data);
+    if (!bottom_up) return 1;
+    uint8_t *top_down = flip_rows(bottom_up, w, h);
+    uint8_t *scaled = filter && strcmp(filter, "nearest") == 0 && w == h && picture % w == 0
+        ? nearest(top_down, w, h, picture / w) : resize(top_down, w, h, picture, picture);
+    uint8_t *drawn = calloc((size_t)canvas * canvas, 4);
+    const int top = canvas - bottom - picture;
+    for (int y = 0; drawn && y < picture; y++)
+        memcpy(drawn + ((size_t)(top + y) * canvas + left) * 4, scaled + (size_t)y * picture * 4, (size_t)picture * 4);
+    uint8_t *rows = drawn ? flip_rows(drawn, canvas, canvas) : NULL;
+    free(bottom_up); free(top_down); free(scaled); free(drawn);
+    if (!rows) return 2;
+    const size_t out_length = strlen(out);
+    Buffer image;
+    if (out_length > 4 && strcasecmp(out + out_length - 4, ".tpc") == 0) {
+        image.size = TPC_HEADER + (size_t)canvas * canvas * 4;
+        image.data = calloc(1, image.size);
+        if (image.data) {
+            memcpy(image.data + 4, &alpha, 4);
+            image.data[8] = canvas & 0xff; image.data[9] = (canvas >> 8) & 0xff;
+            image.data[10] = canvas & 0xff; image.data[11] = (canvas >> 8) & 0xff;
+            image.data[12] = 4;   /* RGBA, uncompressed (data size 0), one mip */
+            image.data[13] = 1;
+            memcpy(image.data + TPC_HEADER, rows, (size_t)canvas * canvas * 4);
+        }
+    } else image = tga(rows, canvas, canvas);
+    free(rows);
+    if (!image.data) return 2;
+    FILE *f = kmrp_fopen(out, "wb");
+    int ok = f && fwrite(image.data, 1, image.size, f) == image.size;
+    if (f && fclose(f) != 0) ok = 0;
+    free(image.data);
+    return ok ? 0 : 2;
 }
 
 /* ---------------------------------------------------------------- tutorial.2da */
@@ -417,102 +495,31 @@ static Buffer keyed_resource(const char *key_path, const char *resref, int type)
     return none;
 }
 
-typedef struct { char **headers, **labels, **cells; int columns, rows; } Table;
-
-static char *copy_span(const uint8_t *p, size_t n) { char *s = malloc(n + 1); memcpy(s, p, n); s[n] = 0; return s; }
-
-static int parse_2da(const Buffer *b, Table *t) {
-    const uint8_t *d = b->data;
-    size_t at = 9, start = 9;
-    if (b->size < 9 || memcmp(d, "2DA V2.b\n", 9) != 0) return 0;
-    t->headers = NULL; t->columns = 0;
-    while (at < b->size && d[at] != 0) {
-        if (d[at] == '\t') {
-            t->headers = realloc(t->headers, sizeof(char *) * (t->columns + 1));
-            t->headers[t->columns++] = copy_span(d + start, at - start);
-            start = at + 1;
-        }
-        at++;
-    }
-    if (at >= b->size || !t->columns) return 0;
-    at++;
-    if (at + 4 > b->size) return 0;
-    t->rows = (int)u32(d + at);
-    at += 4;
-    t->labels = malloc(sizeof(char *) * (t->rows ? t->rows : 1));
-    for (int r = 0; r < t->rows; r++) {
-        start = at;
-        while (at < b->size && d[at] != '\t') at++;
-        if (at >= b->size) return 0;
-        t->labels[r] = copy_span(d + start, at - start);
-        at++;
-    }
-    size_t offsets = at, data = offsets + (size_t)t->rows * t->columns * 2 + 2;
-    if (data > b->size) return 0;
-    t->cells = malloc(sizeof(char *) * ((size_t)t->rows * t->columns + 1));
-    for (int i = 0; i < t->rows * t->columns; i++) {
-        size_t cell = data + u16(d + offsets + (size_t)i * 2), end = cell;
-        while (end < b->size && d[end] != 0) end++;
-        if (end >= b->size) return 0;
-        t->cells[i] = copy_span(d + cell, end - cell);
-    }
-    return 1;
-}
-
-static void put(Buffer *b, const void *p, size_t n) {
-    b->data = realloc(b->data, b->size + n);
-    memcpy(b->data + b->size, p, n);
-    b->size += n;
-}
-static void put_text(Buffer *b, const char *s) { put(b, s, strlen(s)); }
-static void put_u16(Buffer *b, unsigned v) { uint8_t x[2] = { v & 0xff, (v >> 8) & 0xff }; put(b, x, 2); }
-static void put_u32(Buffer *b, uint32_t v) { uint8_t x[4] = { v & 0xff, (v >> 8) & 0xff, (v >> 16) & 0xff, v >> 24 }; put(b, x, 4); }
-
-/* Binary 2DA as pykotor's TwoDABinaryWriter writes it (GameArtGenerator.Write2da). */
-static Buffer write_2da(const Table *t) {
-    Buffer b = { NULL, 0 };
-    put_text(&b, "2DA V2.b\n");
-    for (int c = 0; c < t->columns; c++) { put_text(&b, t->headers[c]); put_text(&b, "\t"); }
-    put(&b, "", 1);
-    put_u32(&b, (uint32_t)t->rows);
-    for (int r = 0; r < t->rows; r++) { put_text(&b, t->labels[r]); put_text(&b, "\t"); }
-    int cells = t->rows * t->columns, values = 0;
-    const char **value = malloc(sizeof(char *) * (cells + 1));
-    unsigned *value_offset = malloc(sizeof(unsigned) * (cells + 1)), data_size = 0;
-    for (int i = 0; i < cells; i++) {
-        int found = -1;
-        for (int v = 0; v < values; v++) if (strcmp(value[v], t->cells[i]) == 0) { found = v; break; }
-        if (found < 0) {
-            value[values] = t->cells[i];
-            value_offset[values] = data_size;
-            data_size += (unsigned)strlen(t->cells[i]) + 1;
-            found = values++;
-        }
-        put_u16(&b, value_offset[found]);
-    }
-    put_u16(&b, data_size);
-    for (int v = 0; v < values; v++) put(&b, value[v], strlen(value[v]) + 1);
-    free(value); free(value_offset);
-    return b;
-}
-
+/* The game's table, its icon column pointed at the popup's own copies. The table is read and
+ * written by kmrp-2da.h, the same code that merges a mod's copy of any table with KMRP's
+ * (kmrp-merge.c); what KMRP changes in it is this alone. */
 static int add_tutorial_table(const char *key_path) {
     Buffer original = keyed_resource(key_path, "tutorial", TYPE_2DA);
     if (!original.data) return fail("tutorial.2da could not be read through chitin.key");
-    Table t;
-    if (!parse_2da(&original, &t)) return fail("tutorial.2da is not a binary 2DA");
-    int icon = -1;
-    for (int c = 0; c < t.columns; c++) if (strcasecmp(t.headers[c], "icon") == 0) icon = c;
-    if (icon < 0) return fail("tutorial.2da has no icon column");
+    Kmrp2da t;
+    const int read = kmrp_2da_parse(original.data, original.size, &t) && !t.text;
+    free(original.data);
+    if (!read) return fail("tutorial.2da is not a binary 2DA");
+    const int icon = kmrp_2da_column(&t, "icon");
+    if (icon < 0) { kmrp_2da_free(&t); return fail("tutorial.2da has no icon column"); }
     for (int r = 0; r < t.rows; r++) {
-        char **cell = &t.cells[r * t.columns + icon];
+        const char *cell = kmrp_2da_cell(&t, r, icon);
         for (size_t i = 0; i < COUNT(TUTORIAL_ICONS); i++)
-            if (strcasecmp(*cell, TUTORIAL_ICONS[i][0]) == 0) { free(*cell); *cell = strdup(TUTORIAL_ICONS[i][1]); break; }
+            if (strcasecmp(cell, TUTORIAL_ICONS[i][0]) == 0) { kmrp_2da_set(&t, r, icon, TUTORIAL_ICONS[i][1]); break; }
     }
+    Kmrp2daBytes bytes = kmrp_2da_write(&t);
+    kmrp_2da_free(&t);
+    if (!bytes.data) return fail("tutorial.2da could not be written");
     Output *o = &outputs[output_count++];
     snprintf(o->name, sizeof o->name, "tutorial.2da");
-    o->file = write_2da(&t);
-    free(original.data);
+    o->file.data = bytes.data;
+    o->file.size = bytes.size;
+    derived("tutorial.2da", "tutorial", 0, 0, 0, 0, NULL);
     return 1;
 }
 
@@ -523,7 +530,16 @@ static Buffer embedded_pack;
 #define erf embedded_pack
 #endif
 int main(int argc, char **argv) {
-    if (argc != 5) { fprintf(stderr, "usage: kmrp-gameart ERF KEY HEIGHT OUTDIR\n"); return 2; }
+#ifndef KMRP_EMBEDDED
+    if (argc == 9 && strcmp(argv[1], "derive") == 0)
+        return KmrpDeriveImage(argv[2], atoi(argv[3]), atoi(argv[4]), atoi(argv[5]), atoi(argv[6]), argv[7], argv[8]);
+#endif
+    if (argc != 5) {
+        fprintf(stderr, "usage: kmrp-gameart ERF KEY HEIGHT OUTDIR\n"
+                        "       kmrp-gameart derive SOURCE CANVAS PICTURE LEFT BOTTOM FILTER OUT\n");
+        return 2;
+    }
+    derivations_length = 0;
     int height = atoi(argv[3]);
     if (height < 480) { fprintf(stderr, "kmrp-gameart: bad height\n"); return 2; }
 #ifdef KMRP_EMBEDDED
@@ -551,6 +567,13 @@ int main(int argc, char **argv) {
             return 1;
         }
         if (fclose(f) != 0) { fprintf(stderr, "kmrp-gameart: %s: write failed\n", path); return 1; }
+    }
+    char path[4096];
+    snprintf(path, sizeof path, "%s/kmrp_derive.txt", argv[4]);
+    FILE *f = kmrp_fopen(path, "ab");
+    if (!f || fwrite(derivations, 1, derivations_length, f) != derivations_length || fclose(f) != 0) {
+        fprintf(stderr, "kmrp-gameart: %s: write failed\n", path);
+        return 1;
     }
     printf("%zu files (%d px frames, %d px tutorial icons)\n", output_count, frame_size, icon_size);
     return 0;

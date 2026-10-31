@@ -44,6 +44,7 @@
  * structure, 15 a list (a count and the structures' indices in the list indices).
  */
 #include <errno.h>
+#include <stdarg.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -500,6 +501,77 @@ static int ll_game_size(const Gff *source, const Gff *game) {
     return ev(&root, 0) >= 0 && ev(&root, 1) >= 0 && ev(&root, 0) + ev(&root, 2) <= sw && ev(&root, 1) + ev(&root, 3) <= sh;
 }
 
+/* What Live Adaptive Layout noted about the file it laid out last, one line each
+ * (KmrpLiveLayoutNotes; the run time writes them to its log). */
+static char ll_notes[4096];
+static void ll_note(const char *format, ...) {
+    const size_t used = strlen(ll_notes);
+    va_list args;
+    va_start(args, format);
+    if (used + 2 < sizeof ll_notes) {
+        vsnprintf(ll_notes + used, sizeof ll_notes - used - 1, format, args);
+        strcat(ll_notes, "\n");
+    }
+    va_end(args);
+}
+const char *KmrpLiveLayoutNotes(void) { return ll_notes; }
+
+/* The span its top-level controls cover on one axis (0: across, 1: down), or 0 when none. */
+static int ll_span(const Gff *g, int axis, int *low) {
+    uint32_t at, n = controls_of(g, &at);
+    int lo = 0, hi = 0, any = 0;
+    for (uint32_t i = 0; i < n; i++) {
+        uint32_t c = u32(g->d + g->lists + at + 4 + i * 4);
+        Extent e;
+        if (c >= g->nstructs || !extent_of(g, c, &e) || ev(&e, 2 + axis) <= 0) continue;
+        const int a = ev(&e, axis), b = a + ev(&e, 2 + axis);
+        if (!any || a < lo) lo = a;
+        if (!any || b > hi) hi = b;
+        any = 1;
+    }
+    *low = lo;
+    return any ? hi - lo : 0;
+}
+
+/* Which canvas `source` is laid out for. 1: the game's (ll_game_size). 2: a canvas of its
+ * own, a file already scaled (to this screen or another): the game's screen fills its
+ * canvas from 0,0, the file's root does the same at another size, and its controls cover
+ * that canvas as the game's cover the game's (each axis between 2/3 and 1.5 times; KMRP's own
+ * calibrated layouts reach 0.79, a root resized alone 1/3), so the root's size
+ * is the size they were laid out for. 0: neither, or not certain (a root resized alone, a
+ * popup, a canvas the controls do not fill): the file is left to the game. */
+static int ll_canvas(const Gff *source, const Gff *game) {
+    if (ll_game_size(source, game)) return 1;
+    int sw, sh, gw, gh;
+    Extent root, own;
+    ll_base(source, &sw, &sh);
+    ll_base(game, &gw, &gh);
+    if (!extent_of(game, 0, &own) || ev(&own, 0) || ev(&own, 1) || ev(&own, 2) != gw || ev(&own, 3) != gh) return 0;
+    if (!extent_of(source, 0, &root) || ev(&root, 0) || ev(&root, 1) || ev(&root, 2) != sw || ev(&root, 3) != sh ||
+        (sw == gw && sh == gh) || sw > 16384 || sh > 16384)
+        return 0;
+    for (int axis = 0; axis < 2; axis++) {
+        int slow, glow;
+        const int s = ll_span(source, axis, &slow), g = ll_span(game, axis, &glow);
+        const double sc = axis ? sh : sw, gc = axis ? gh : gw;
+        if (!s || !g) return 0;
+        const double ratio = (s / sc) / (g / gc);
+        if (ratio < 2.0 / 3 || ratio > 1.5 || fabs(slow / sc - glow / gc) > 0.1) return 0;
+    }
+    return 2;
+}
+
+/* The game's chitin.key resource RESREF of TYPE, for the run time's merges (the vanilla
+ * side of a three-way merge; K1RuntimeAssets.cpp). 0 and *DATA (free with free) when found. */
+int KmrpReadKeyedResource(const char *key_path, const char *resref, int type, unsigned char **data, size_t *size) {
+    Buffer key = read_file(key_path);
+    Buffer found = keyed_resource(&key, key_path, resref, type);
+    free(key.data);
+    *data = found.data;
+    *size = found.size;
+    return found.data ? 0 : 1;
+}
+
 static void ll_fit_rows(Gff *g, const LLRowList *list, int height);
 static void ll_centre_rows(Gff *g, int width);
 static void ll_fit_journal(Gff *g, int height);
@@ -538,47 +610,174 @@ static void ll_clear_border(Gff *source, const Gff *game, uint32_t s, long own, 
 
 /* `source` laid out in place for width x height. `caption`: the Container's caption width
  * from the size's prompt manifest, or below 0 for none (the Container is then not widened). */
+/* Where KMRP places a structure of these values (V4) on a canvas of BW x BH: each field's
+ * rule, carried by gold's ratio where GOLD (a vanilla control's own values only). */
+static void ll_place(const LLRow *row, const int rules[4], const int v4[4], int gold, int width, int height, int bw,
+                     int bh, int out[4]) {
+    for (int f = 0; f < 4; f++) out[f] = ll_placed(f, rules[f], v4, gold ? row->gold[f] : LL_NO_GOLD, width, height, bw, bh);
+    /* build_live_layout.aspect_left: an aspect_centre control gold differs from the rule
+     * by, by gold's centre carried by the rule's centre (which grows with the width
+     * alone), less half its width. The table chooses the rule (aspect_centre_fits). */
+    if (gold && row->rule[0] == LL_ASPECT_CENTRE && row->gold[0] != LL_NO_GOLD && row->gold[2] != LL_NO_GOLD) {
+        const double rule_left = ll_value(LL_ASPECT, 0, v4[0], v4[2], LL_GOLD_WIDTH, LL_GOLD_HEIGHT, bw, bh);
+        const double centre_at_gold = rule_left + ll_value(row->rule[2], 2, v4[2], v4[2], LL_GOLD_WIDTH, LL_GOLD_HEIGHT, bw, bh) / 2;
+        if (row->gold[0] != ll_rhalf(rule_left) && centre_at_gold != 0) {
+            const double centre = ll_value(LL_ASPECT, 0, v4[0], v4[2], width, height, bw, bh) +
+                                  ll_value(row->rule[2], 2, v4[2], v4[2], width, height, bw, bh) / 2;
+            out[0] = ll_rhalf((row->gold[0] + row->gold[2] / 2.0) * (centre / centre_at_gold) - out[2] / 2.0);
+        }
+    }
+}
+
+/* One structure's geometry, worked out before any is written (ll_layout). */
+typedef struct { uint32_t s; int v4[4], out[4], rules[4], top_level, carried; char tag[64]; } LLGeometry;
+enum { LL_MAX_GEOMETRY = 1600 };
+static LLGeometry ll_geometry[LL_MAX_GEOMETRY];
+
 static void ll_layout(const char *name, const LLFile *file, Gff *source, const Gff *game, int width, int height,
                       double caption) {
-    int bw, bh;
+    int bw, bh, gw, gh;
     ll_base(source, &bw, &bh);
+    ll_base(game, &gw, &gh);
+    const int own_canvas = bw != gw || bh != gh;
+    if (own_canvas)
+        ll_note("%s: a file made for %dx%d; laid out from that canvas to %dx%d, not scaled twice", name, bw, bh, width, height);
     /* Gold's geometry (extents, PADDING) only at its own size for the files the build never
      * carries it from (GOLD_GEOMETRY_EXCLUDED): confirm.gui, map.gui. Alignment and the
      * rest stay gold's, as upstream's own files have them there too. */
     const int gold_here = !file->gold_size_only || (width == LL_GOLD_WIDTH && height == LL_GOLD_HEIGHT);
+    /* 1. Every structure's place. A structure still the game's (unmoved) is placed as the
+     * game's always was. One the mod moved or resized keeps the mod's change, converted to
+     * this screen by the same rules (R), on top of where KMRP places the game's (K):
+     *     placed = K(vanilla) + round(R(mod) - R(vanilla))
+     * for each field gold corrects; where it corrects none, placed = round(R(mod)), as
+     * before. A file already scaled (own_canvas), the maintainer's three rules (2026-10-31):
+     * at its own size exactly as its author left it; at another, a control only scaled from
+     * the game's gets KMRP's calibration once (K(vanilla)), and any other keeps the file's
+     * placing, converted from its canvas (round(R(mod))); where that is ambiguous the mod's
+     * placing wins and the skipped calibration is reported. */
     LLStruct st;
+    int count = 0, carried = 0, calibrated = 0, kept_own = 0;
+    for (int i = 0; ll_struct(source, i, &st) && count < LL_MAX_GEOMETRY; i++) {
+        Extent e;
+        if (!extent_of(source, st.s, &e)) continue;
+        LLGeometry *g = &ll_geometry[count++];
+        g->s = st.s;
+        g->top_level = i > 0 && !*st.sub;
+        g->carried = 0;
+        memcpy(g->tag, st.tag, sizeof g->tag);
+        for (int f = 0; f < 4; f++) g->v4[f] = ev(&e, f);
+        const LLRow *row = ll_row(file, st.tag, st.sub);
+        for (int f = 0; f < 4; f++) g->rules[f] = row ? row->rule[f] : ll_default(f, st.sub, st.type, g->v4[2], g->v4[3]);
+        long own = row ? ll_find(game, st.tag, st.sub) : -1;
+        Extent oe;
+        int vanilla[4] = { 0, 0, 0, 0 }, unmoved = own >= 0 && extent_of(game, (uint32_t)own, &oe);
+        for (int f = 0; f < 4 && unmoved; f++) vanilla[f] = ev(&oe, f);
+        int calibration = 0;   /* does KMRP calibrate any of this control's fields? */
+        for (int f = 0; row && f < 4; f++) calibration |= row->gold[f] != LL_NO_GOLD;
+        const int have_vanilla = unmoved && gold_here;
+        /* Not for a file on a canvas of its own: how its values differ from the rules is its
+         * author's placing, any calibration it carries already, or both, which the values
+         * alone cannot tell apart, so gold's correction could be counted twice (measured
+         * 2026-10-31 on KMRP's own layouts given back at 1920x1080: lists 3 to 13 px off).
+         * Such a file is handled below. */
+        const int counterpart = have_vanilla && !own_canvas;
+        for (int f = 0; f < 4 && unmoved; f++) unmoved = !own_canvas && vanilla[f] == g->v4[f];
+        unmoved = unmoved && gold_here;
+        ll_place(row, g->rules, g->v4, unmoved, width, height, bw, bh, g->out);
+        if (own_canvas && have_vanilla && calibration && (bw != width || bh != height)) {
+            /* A file already scaled, at another size than its own (at its own size it stays
+             * exactly as its author left it: the rules alone give it back unchanged). Where
+             * this control is the game's, only scaled to the file's canvas (every field
+             * within the rounding pixel of the game's value under the same rules), there is
+             * nothing of the author's to keep and no calibration in it: KMRP places the
+             * game's control, its calibration applied once. Anything else is ambiguous: the
+             * mod's placing is kept, converted from the file's canvas, and the skipped
+             * calibration is counted for the log. */
+            int scaled_only = 1;
+            for (int f = 0; f < 4 && scaled_only; f++)
+                scaled_only = abs(ll_placed(f, g->rules[f], vanilla, LL_NO_GOLD, bw, bh, gw, gh) - g->v4[f]) <= 1;
+            if (scaled_only) {
+                ll_place(row, g->rules, vanilla, 1, width, height, gw, gh, g->out);
+                g->carried = 1;
+                ++calibrated;
+            } else ++kept_own;
+        } else if (!unmoved && counterpart) {
+            int k[4];
+            ll_place(row, g->rules, vanilla, 1, width, height, gw, gh, k);
+            for (int f = 0; f < 4; f++) {
+                if (row->gold[f] == LL_NO_GOLD) continue;
+                const double r_mod = ll_value(g->rules[f], f, g->v4[f], g->v4[2], width, height, bw, bh);
+                const double r_vanilla = ll_value(g->rules[f], f, vanilla[f], vanilla[2], width, height, gw, gh);
+                g->out[f] = k[f] + ll_rhalf(r_mod - r_vanilla);
+                g->carried = 1;
+            }
+            carried += g->carried;
+        }
+    }
+    /* 2. A line-up the mod's author made stays a line-up. Gold's corrections were made for
+     * the game's arrangement; carried onto a mod's, two controls the file has at the same
+     * top or the same left could come out apart. Then each of them is placed by the rules
+     * alone (round(R(mod))), which keep every line-up the file has. */
+    int released = 0;
+    for (int pass = 0; pass < 4; pass++) {
+        int changed = 0;
+        for (int a = 0; a < count; a++) {
+            LLGeometry *x = &ll_geometry[a];
+            if (!x->top_level) continue;
+            for (int b = 0; b < count; b++) {
+                LLGeometry *y = &ll_geometry[b];
+                if (a == b || !y->top_level || !(x->carried || y->carried)) continue;
+                const int broken = (x->v4[1] == y->v4[1] && x->out[1] != y->out[1]) ||
+                                   (x->v4[0] == y->v4[0] && x->out[0] != y->out[0]);
+                if (!broken) continue;
+                LLGeometry *pair[2] = { x, y };
+                for (int z = 0; z < 2; z++) {
+                    if (!pair[z]->carried) continue;
+                    for (int f = 0; f < 4; f++)
+                        pair[z]->out[f] = ll_placed(f, pair[z]->rules[f], pair[z]->v4, LL_NO_GOLD, width, height, bw, bh);
+                    pair[z]->carried = 0;
+                    released++;
+                    changed = 1;
+                    ll_note("%s: %s keeps the line-up the mod gave it; KMRP's adjustment of it is off", name, pair[z]->tag);
+                }
+            }
+        }
+        if (!changed) break;
+    }
+    if (own_canvas && (bw == width && bh == height))
+        ll_note("%s: kept exactly as made for %dx%d; KMRP's calibration of the game's layout is not applied to it",
+                name, bw, bh);
+    else if (own_canvas) {
+        if (calibrated - released > 0)
+            ll_note("%s: %d controls only scaled from the game's: KMRP's calibration applied once", name, calibrated - released);
+        if (kept_own + released > 0)
+            ll_note("%s: %d controls keep the file's own placing, converted; KMRP's calibration of them is skipped, as "
+                    "whether the file holds one already cannot be told", name, kept_own + released);
+    } else if (carried - released > 0)
+        ll_note("%s: %d controls the mod moved or resized: the mod's change kept, converted to %dx%d, on KMRP's placing",
+                name, carried - released, width, height);
+    for (int i = 0; i < count; i++) {
+        Extent e;
+        if (extent_of(source, ll_geometry[i].s, &e))
+            for (int f = 0; f < 4; f++) put_u32(e.v[f], (uint32_t)(int32_t)ll_geometry[i].out[f]);
+    }
+    /* 3. The rest of each structure's fields, three ways: gold's value only where the
+     * file still has the game's. */
     for (int i = 0; ll_struct(source, i, &st); i++) {
         Extent e;
         if (!extent_of(source, st.s, &e)) continue;
-        int v4[4];
-        for (int f = 0; f < 4; f++) v4[f] = ev(&e, f);
         const LLRow *row = ll_row(file, st.tag, st.sub);
         int unmoved = 0;
-        if (row) {
+        if (row && !own_canvas) {
             long own = ll_find(game, st.tag, st.sub);
             Extent oe;
             unmoved = own >= 0 && extent_of(game, (uint32_t)own, &oe);
-            for (int f = 0; f < 4 && unmoved; f++) unmoved = ev(&oe, f) == v4[f];
+            for (int g = 0; g < count && unmoved; g++)
+                if (ll_geometry[g].s == st.s)
+                    for (int f = 0; f < 4 && unmoved; f++) unmoved = ev(&oe, f) == ll_geometry[g].v4[f];
             unmoved = unmoved && gold_here;
         }
-        int out[4];
-        for (int f = 0; f < 4; f++) {
-            const int rule = row ? row->rule[f] : ll_default(f, st.sub, st.type, v4[2], v4[3]);
-            out[f] = ll_placed(f, rule, v4, unmoved ? row->gold[f] : LL_NO_GOLD, width, height, bw, bh);
-        }
-        /* build_live_layout.aspect_left: an aspect_centre control gold differs from the rule
-         * by, by gold's centre carried by the rule's centre (which grows with the width
-         * alone), less half its width. The table chooses the rule (aspect_centre_fits). */
-        if (row && unmoved && row->rule[0] == LL_ASPECT_CENTRE && row->gold[0] != LL_NO_GOLD && row->gold[2] != LL_NO_GOLD) {
-            const double rule_left = ll_value(LL_ASPECT, 0, v4[0], v4[2], LL_GOLD_WIDTH, LL_GOLD_HEIGHT, bw, bh);
-            const double centre_at_gold = rule_left + ll_value(row->rule[2], 2, v4[2], v4[2], LL_GOLD_WIDTH, LL_GOLD_HEIGHT, bw, bh) / 2;
-            if (row->gold[0] != ll_rhalf(rule_left) && centre_at_gold != 0) {
-                const double centre = ll_value(LL_ASPECT, 0, v4[0], v4[2], width, height, bw, bh) +
-                                      ll_value(row->rule[2], 2, v4[2], v4[2], width, height, bw, bh) / 2;
-                out[0] = ll_rhalf((row->gold[0] + row->gold[2] / 2.0) * (centre / centre_at_gold) - out[2] / 2.0);
-            }
-        }
-        for (int f = 0; f < 4; f++) put_u32(e.v[f], (uint32_t)(int32_t)out[f]);
         uint8_t *padding = int_field(source, st.s, "PADDING");
         if (unmoved && row->gold_padding != LL_NO_PADDING && width == LL_GOLD_WIDTH && height == LL_GOLD_HEIGHT && padding)
             put_u32(padding, (uint32_t)(int32_t)row->gold_padding);
@@ -627,8 +826,13 @@ static void ll_layout(const char *name, const LLFile *file, Gff *source, const G
      * Container widened. */
     if (strcasecmp(name, LL_CENTRE_SCREEN) == 0) ll_centre_rows(source, width);
     if (strcasecmp(name, LL_JOURNAL_SCREEN) == 0) ll_fit_journal(source, height);
-    /* Checkbox rows are built at their own template height, unlike text rows. */
-    if (strcasecmp(name, LL_FEEDBACK_SCREEN) == 0) {
+    /* Checkbox rows are built at their own template height, unlike text rows. The height
+     * is scaled from the game's own template, so not for a file already scaled: its
+     * template is its author's, and scaling it again doubled it (64 to 96 at 1920x1080,
+     * 2026-10-31). */
+    if (strcasecmp(name, LL_FEEDBACK_SCREEN) == 0 && own_canvas)
+        ll_note("%s: a file made for %dx%d keeps its own checkbox row height", name, bw, bh);
+    else if (strcasecmp(name, LL_FEEDBACK_SCREEN) == 0) {
         long c = ll_control(source, LL_FEEDBACK_TAG, 0);
         long proto = c < 0 ? -1 : gff_child(source, (uint32_t)c, "PROTOITEM");
         Extent e;
@@ -1387,6 +1591,7 @@ int KmrpLiveLayoutSet(const char *key_path, const char *name, const char *source
 
 static int ll_live(const char *key_path, const char *name, const char *source_gui, int width, int height,
                    const char *out_gui, const char *prompts, const char *donor) {
+    ll_notes[0] = 0;
     const LLFile *file = ll_file(name);
     if (!file) return 4;
     double caption = -1;
@@ -1413,8 +1618,13 @@ static int ll_live(const char *key_path, const char *name, const char *source_gu
     Gff own, source;
     if (game.data && theirs.data && width > 0 && height > 0 && gff_open(&own, game.data, game.size) &&
         gff_open(&source, theirs.data, theirs.size)) {
-        if (!ll_game_size(&source, &own)) result = 3;
-        else {
+        if (!ll_canvas(&source, &own)) {
+            int sw, sh;
+            ll_base(&source, &sw, &sh);
+            ll_note("%s: laid out for a canvas KMRP cannot identify (its root says %dx%d); the mod's file is used as it "
+                    "is, and the screen is not laid out for this display", name, sw, sh);
+            result = 3;
+        } else {
             ll_layout(name, file, &source, &own, width, height, caption);
             ll_add_cues(name, &theirs);
             ll_add_badge(name, donor, &theirs);
@@ -1596,6 +1806,7 @@ int main(int argc, char **argv) {
         if (result == 2) fprintf(stderr, "kmrp-guiadapt: %s: %s\n", argv[6], strerror(errno));
         if (result == 3) printf("%s is not laid out for the game's size; nothing written\n", argv[7]);
         if (result == 4) fprintf(stderr, "kmrp-guiadapt: %s is not a layout this lays out\n", argv[3]);
+        fputs(KmrpLiveLayoutNotes(), stdout);
         return result == 3 ? 0 : result;
     }
     if (argc == 4 && strcmp(argv[1], "hudcues") == 0) {

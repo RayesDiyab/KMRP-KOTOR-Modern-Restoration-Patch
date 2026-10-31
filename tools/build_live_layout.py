@@ -705,6 +705,43 @@ def game_size(source: GFFStruct, vanilla: GFFStruct) -> bool:
             and root[0] + root[2] <= base[0] and root[1] + root[3] <= base[1])
 
 
+def span(root: GFFStruct, axis: int) -> tuple[int, int]:
+    """(low, span) its top-level controls cover on one axis (0 across, 1 down); span 0 for none."""
+    lo = hi = None
+    if root.exists("CONTROLS"):
+        for control in root.acquire("CONTROLS", None, GFFList):
+            e = extent(control)
+            if e is None or e[2 + axis] <= 0:
+                continue
+            a, b = e[axis], e[axis] + e[2 + axis]
+            lo = a if lo is None or a < lo else lo
+            hi = b if hi is None or b > hi else hi
+    return (0, 0) if lo is None else (lo, hi - lo)
+
+
+def canvas(source: GFFStruct, vanilla: GFFStruct) -> int:
+    """Which canvas `source` is laid out for, as kmrp-guiadapt.c's ll_canvas: 1 the game's
+    (game_size); 2 a canvas of its own (a file already scaled), its root filling it from 0,0
+    and its controls covering it as the game's cover the game's, each axis 2/3 to 1.5 times;
+    0 neither, or not certain."""
+    if game_size(source, vanilla):
+        return 1
+    (sw, sh), (gw, gh) = base_of(source), base_of(vanilla)
+    own, root = extent(vanilla), extent(source)
+    if own is None or own != [0, 0, gw, gh] or root is None or root != [0, 0, sw, sh]:
+        return 0
+    if (sw, sh) == (gw, gh) or sw > 16384 or sh > 16384:
+        return 0
+    for axis, (sc, gc) in enumerate(((sw, gw), (sh, gh))):
+        (slow, s), (glow, g) = span(source, axis), span(vanilla, axis)
+        if not s or not g:
+            return 0
+        ratio = (s / sc) / (g / gc)
+        if ratio < 2 / 3 or ratio > 1.5 or abs(slow / sc - glow / gc) > 0.1:
+            return 0
+    return 2
+
+
 def manifest_caption(manifest: str) -> float | None:
     """The Container's caption width a prompt manifest (kmrp_prompts.txt) gives, or None."""
     for line in manifest.splitlines():
@@ -722,9 +759,10 @@ def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height:
     size's prompt manifest; without it the Container is not widened. `donor`: the size's
     kmrplayout.gui, whose LBL_TITLE the controller badge labels are cloned from; without it
     none is added."""
-    if not game_size(source, vanilla):
+    if not canvas(source, vanilla):
         return None
-    base = base_of(source)
+    base, game_base = base_of(source), base_of(vanilla)
+    own_canvas = base != game_base
     own = {key: extent(s) for key, s, _ in structures(vanilla)}
     own_align = {key: alignment(s) for key, s, _ in structures(vanilla)}
     own_fill = {key: fill_style(s) for key, s, _ in structures(vanilla)}
@@ -737,17 +775,71 @@ def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height:
     # (map.gui's two labels, 18 where the game's file has 10).
     if gold_size_only(name) and (width, height) != GOLD_SIZE:
         rows = {key: (row[0], None, None, *row[3:]) for key, row in rows.items()}
+    # 1. Every structure's place, as ll_layout's first pass: a structure still the game's is
+    # placed as before; one the mod moved or resized keeps the mod's change, converted by the
+    # same rules, on top of where KMRP places the game's: placed = K(vanilla) +
+    # round(R(mod) - R(vanilla)) for each field gold corrects. A file already scaled is
+    # converted from its own canvas by the rules alone.
+    geometry = []
     for key, struct, ctype in structures(source):
         v4 = extent(struct)
         row = rows.get(key)
-        unmoved = row is not None and own.get(key) == v4
         rules = row[0] if row else [default_rule(f, key[1], ctype, v4) for f in range(4)]
+        vanilla_v4 = own.get(key) if row is not None else None
+        unmoved = vanilla_v4 is not None and not own_canvas and vanilla_v4 == v4
         gold = row[1] if unmoved and row[1] is not None else [None] * 4
-        e = child(struct, "EXTENT")
         out = [placed(f, rules[f], v4, gold[f], width, height, base) for f in range(4)]
         out[0] = aspect_left(rules, v4, gold, out, width, height, base)
+        carried = False
+        if (own_canvas and vanilla_v4 is not None and row[1] is not None and any(x is not None for x in row[1])
+                and base != (width, height)):
+            # A file already scaled, at another size than its own (ll_layout): a control only
+            # scaled from the game's is placed as KMRP places the game's, its calibration
+            # applied once; any other keeps the file's placing, converted.
+            if all(abs(placed(f, rules[f], vanilla_v4, None, *base, game_base) - v4[f]) <= 1 for f in range(4)):
+                out = [placed(f, rules[f], vanilla_v4, row[1][f], width, height, game_base) for f in range(4)]
+                out[0] = aspect_left(rules, vanilla_v4, row[1], out, width, height, game_base)
+                carried = True
+        # Not for a file on a canvas of its own (ll_layout says why).
+        elif not unmoved and not own_canvas and vanilla_v4 is not None and row[1] is not None:
+            k = [placed(f, rules[f], vanilla_v4, row[1][f], width, height, game_base) for f in range(4)]
+            k[0] = aspect_left(rules, vanilla_v4, row[1], k, width, height, game_base)
+            for f in range(4):
+                if row[1][f] is None:
+                    continue
+                r_mod = value(rules[f], f, v4[f], v4[2], width, height, base)
+                r_vanilla = value(rules[f], f, vanilla_v4[f], vanilla_v4[2], width, height, game_base)
+                out[f] = k[f] + rhalf(r_mod - r_vanilla)
+                carried = True
+        top_level = key != ("", "") and not key[1]
+        geometry.append([key, struct, v4, rules, out, top_level, carried])
+    # 2. A line-up the mod's author made stays a line-up (ll_layout's second pass).
+    for _ in range(4):
+        changed = False
+        for x in geometry:
+            if not x[5]:
+                continue
+            for y in geometry:
+                if x is y or not y[5] or not (x[6] or y[6]):
+                    continue
+                if not ((x[2][1] == y[2][1] and x[4][1] != y[4][1]) or (x[2][0] == y[2][0] and x[4][0] != y[4][0])):
+                    continue
+                for z in (x, y):
+                    if z[6]:
+                        z[4] = [placed(f, z[3][f], z[2], None, width, height, base) for f in range(4)]
+                        z[6] = False
+                        changed = True
+        if not changed:
+            break
+    for _, struct, _, _, out, _, _ in geometry:
+        e = child(struct, "EXTENT")
         for f, x in zip(FIELDS, out):
             e.set_int32(f, x)
+    # 3. The rest of each structure's fields, three ways: gold's only where the file still
+    # has the game's.
+    for (key, struct, ctype), (_, _, v4, _, _, _, _) in zip(structures(source), geometry):
+        row = rows.get(key)
+        unmoved = row is not None and not own_canvas and own.get(key) == v4
         if unmoved and row[2] is not None and (width, height) == GOLD_SIZE and struct.exists("PADDING"):
             struct.set_int32("PADDING", row[2])
         # Gold's text alignment, where the file still has the game's own.
@@ -787,7 +879,9 @@ def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height:
     lists = [(t, k, b) for (s, t), (k, b) in sorted(ROW_LISTS.items()) if s == name]
     cue = name in R3_CUE_SCREENS and cue_template(source) is not None
     extra_cues = name in (SWAP_CUE_SCREEN, TAB_CUE_SCREEN)
-    feedback = name == FEEDBACK_LIST[0]
+    # The Feedback rows' template is scaled from the game's own height: not for a file
+    # already scaled, whose template is its own (ll_layout).
+    feedback = name == FEEDBACK_LIST[0] and not own_canvas
     entry = name == ENTRY_SCREEN
     centre = name == "scriptselect.gui"
     journal = name == "journal.gui"

@@ -224,28 +224,67 @@ static int write_file(const char *directory, const char *name, const Buffer *b) 
 /* 0: written. 1: the game's model is not the one this knows, or cannot be read; nothing
  * is written and the game keeps its own. 2: could not write. 3: this screen is no wider
  * than the game parks the chevron for; nothing is written. */
-int KmrpSwoopHud(const char *key_path, const char *outdir, unsigned width, unsigned height) {
-    if (!width || !height) return 1;
-    /* How far left of the middle the chevron has to be parked on this screen, and how
-     * much further that is than the game's 2.026. */
+/* How far left of the middle the chevron has to be parked on this screen, and how much
+ * further that is than the game's 2.026. 0 when the game's own place is far enough. */
+static int set_shift(unsigned width, unsigned height) {
+    if (!width || !height) return 0;
     float wanted = HALF_HEIGHT * (float)width / (float)height + OUTSIDE;
     SHIFT = wanted - (GAUGE_LEFT_OF_MIDDLE - PARKED);
-    if (SHIFT < 0.01f) return 3;
-    Buffer key = read_file(key_path);
-    Buffer mdl = keyed_resource(&key, key_path, MODEL, TYPE_MDL);
-    Buffer mdx = keyed_resource(&key, key_path, MODEL, TYPE_MDX);
+    return SHIFT >= 0.01f;
+}
+
+/* The model changed and written with its .mdx, both taken over by this call. */
+static int write_changed(Buffer mdl, Buffer mdx, const char *outdir) {
     int result = 1;
     if (mdl.data && mdx.data && park_further(&mdl)) {
         kmrp_mkdir(outdir);
         result = write_file(outdir, MODEL ".mdl", &mdl) && write_file(outdir, MODEL ".mdx", &mdx) ? 0 : 2;
     }
-    free(key.data); free(mdl.data); free(mdx.data);
+    free(mdl.data); free(mdx.data);
     return result;
+}
+
+int KmrpSwoopHud(const char *key_path, const char *outdir, unsigned width, unsigned height) {
+    if (!width || !height) return 1;
+    if (!set_shift(width, height)) return 3;
+    Buffer key = read_file(key_path);
+    Buffer mdl = keyed_resource(&key, key_path, MODEL, TYPE_MDL);
+    Buffer mdx = keyed_resource(&key, key_path, MODEL, TYPE_MDX);
+    free(key.data);
+    const int result = write_changed(mdl, mdx, outdir);
+    if (result == 0) {
+        /* For the run time to make it again from a mod's copy of the model
+         * (kmrp_derive.txt; its format is in kmrp-gameart.c, derived). */
+        char path[4096];
+        snprintf(path, sizeof path, "%s/kmrp_derive.txt", outdir);
+        FILE *record = kmrp_fopen(path, "ab");
+        if (!record || fputs(MODEL ".mdl\t" MODEL "\n", record) < 0 || fclose(record) != 0) return 2;
+    }
+    return result;
+}
+
+/* The same change on a mod's copy of the model (its .mdl and .mdx, from Override): made
+ * only where the parked chevron is still the game's (park_further compares the node's
+ * own values). 0 written; 1 the mod's model is not one this knows where to change, so the
+ * fix is off and the mod's model is used as it is; 2 could not write; 3 not needed here. */
+int KmrpSwoopHudModel(const char *mdl_path, const char *mdx_path, const char *outdir, unsigned width, unsigned height) {
+    if (!width || !height) return 1;
+    if (!set_shift(width, height)) return 3;
+    return write_changed(read_file(mdl_path), read_file(mdx_path), outdir);
 }
 
 #ifndef KMRP_EMBEDDED
 int main(int argc, char **argv) {
-    if (argc != 5) { fprintf(stderr, "usage: kmrp-swoophud KEY OUTDIR WIDTH HEIGHT\n"); return 2; }
+    if (argc == 7 && strcmp(argv[1], "--model") == 0) {
+        int result = KmrpSwoopHudModel(argv[2], argv[3], argv[4], (unsigned)atoi(argv[5]), (unsigned)atoi(argv[6]));
+        if (result == 1) fprintf(stderr, "kmrp-swoophud: %s is not a model this changes; nothing written\n", argv[2]);
+        return result == 3 ? 0 : result;
+    }
+    if (argc != 5) {
+        fprintf(stderr, "usage: kmrp-swoophud KEY OUTDIR WIDTH HEIGHT\n"
+                        "       kmrp-swoophud --model MDL MDX OUTDIR WIDTH HEIGHT\n");
+        return 2;
+    }
     int result = KmrpSwoopHud(argv[1], argv[2], (unsigned)atoi(argv[3]), (unsigned)atoi(argv[4]));
     if (result == 3) printf("the game's own model is right for this screen; nothing written\n");
     if (result == 1) fprintf(stderr, "kmrp-swoophud: %s is not the game's model, or could not be read; nothing written\n", MODEL);

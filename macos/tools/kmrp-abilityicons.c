@@ -248,16 +248,17 @@ int main(int argc, char **argv) {
             source[p * 4 + 3] = channels == 4 ? pack[from + 3] : 255;
         }
         uint8_t *scaled = resize(source, width, tex_height, picture, picture);
+        int left = 0, bottom = 0;
         if (picture != target) {
             /* On a transparent canvas of the full size, centred and then moved to the frame
              * opening's centre, as the C# does. Rows are bottom-up. */
             uint8_t *canvas = calloc((size_t)target * target, 4);
             int inset = (target - picture) / 2;
-            int left = clamp(inset + (int)nearbyint(SKILL_SHIFT_X * scale * SKILL_ROW_BASE / VANILLA_SKILL_ROW),
-                             0, target - picture);
+            left = clamp(inset + (int)nearbyint(SKILL_SHIFT_X * scale * SKILL_ROW_BASE / VANILLA_SKILL_ROW),
+                         0, target - picture);
             int top = clamp(inset + (int)nearbyint(SKILL_SHIFT_Y * scale * SKILL_ROW_BASE / VANILLA_SKILL_ROW),
                             0, target - picture);
-            int bottom = target - top - picture;
+            bottom = target - top - picture;
             for (int y = 0; y < picture; y++)
                 memcpy(canvas + ((size_t)(y + bottom) * target + left) * 4,
                        scaled + (size_t)y * picture * 4, (size_t)picture * 4);
@@ -273,6 +274,17 @@ int main(int argc, char **argv) {
         free(source);
         free(scaled);
         written++;
+        /* How it was made, for the run time to make it again from a mod's copy of the icon
+         * (kmrp_derive.txt; its format is in kmrp-gameart.c, derived). */
+        char stem[64];
+        snprintf(stem, sizeof stem, "%.*s", (int)(strlen(file) > 4 ? strlen(file) - 4 : strlen(file)), file);
+        snprintf(path, sizeof path, "%s/kmrp_derive.txt", outdir);
+        FILE *record = kmrp_fopen(path, "ab");
+        if (!record || fprintf(record, "%s\t%s\t%d\t%d\t%d\t%d\tlinear\n", file, stem, target, picture, left, bottom) < 0 ||
+            fclose(record) != 0) {
+            fprintf(stderr, "kmrp-abilityicons: %s: write failed\n", path);
+            return 1;
+        }
     }
     printf("%d icons\n", written);
     return 0;

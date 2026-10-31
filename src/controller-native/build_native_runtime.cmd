@@ -42,6 +42,10 @@ if errorlevel 1 exit /b %errorlevel%
 cl /nologo /O2 /fp:strict /MT /TC /DKMRP_EMBEDDED /D_CRT_SECURE_NO_WARNINGS /c ^
   macos\tools\kmrp-guiadapt.c /Fobuild\native-runtime\kmrp-guiadapt.obj
 if errorlevel 1 exit /b %errorlevel%
+rem A mod's copy of any 2DA KMRP changes, merged three ways (kmrp-merge.c, kmrp-2da.h).
+cl /nologo /O2 /fp:strict /MT /TC /DKMRP_EMBEDDED /D_CRT_SECURE_NO_WARNINGS /c ^
+  macos\tools\kmrp-merge.c /Fobuild\native-runtime\kmrp-merge.obj
+if errorlevel 1 exit /b %errorlevel%
 rem /MP compiles the sources on every core at once (2026-10-27); each source compiles
 rem the same as alone and /Brepro keeps the output byte for byte the same.
 cl /nologo /MP /Brepro /std:c++17 /O2 /fp:strict /EHsc /MT /LD /DKMRP_NATIVE_RUNTIME ^
@@ -59,7 +63,8 @@ cl /nologo /MP /Brepro /std:c++17 /O2 /fp:strict /EHsc /MT /LD /DKMRP_NATIVE_RUN
   src\controller-native\vendor\K1XboxControls.cpp src\controller-native\vendor\K1XboxControlsXInput.cpp ^
   build\native-runtime\kmrp-guiblend.obj ^
   build\native-runtime\kmrp-abilityicons.obj build\native-runtime\kmrp-gameart.obj ^
-  build\native-runtime\kmrp-swoophud.obj build\native-runtime\kmrp-guiadapt.obj build\native-runtime\LzmaDec.obj ^
+  build\native-runtime\kmrp-swoophud.obj build\native-runtime\kmrp-guiadapt.obj build\native-runtime\kmrp-merge.obj ^
+  build\native-runtime\LzmaDec.obj ^
   /Fobuild\native-runtime\ /Febuild\native-runtime\kmrp-native.dll ^
   /link /Brepro user32.lib gdi32.lib bcrypt.lib crypt32.lib ^
   /DEF:build\native-runtime\native-exports.def /INCREMENTAL:NO ^

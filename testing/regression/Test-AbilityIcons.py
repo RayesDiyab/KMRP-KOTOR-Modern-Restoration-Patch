@@ -108,7 +108,11 @@ def main() -> int:
                 subprocess.run([str(helper), native_helpers.arg(erf), str(height), native_helpers.arg(out),
                                 native_helpers.arg(reserved_file)],
                                check=True, stdout=subprocess.DEVNULL)
-                produced = {p.name: p.read_bytes() for p in out.iterdir()} if out.exists() else {}
+                # kmrp_derive.txt is the record of what each icon is made from, for the run
+                # time to make it again from a mod's copy (docs/mod-file-inventory.md); the
+                # C#, which installs icons for one size and never meets a mod's, has none.
+                produced = ({p.name: p.read_bytes() for p in out.iterdir() if p.name != "kmrp_derive.txt"}
+                            if out.exists() else {})
                 if set(produced) != set(reference):
                     failures.append(f"{height} {arch}: {len(produced)} files, reference {len(reference)} "
                                     f"(only here: {sorted(set(produced) - set(reference))[:3]}, "

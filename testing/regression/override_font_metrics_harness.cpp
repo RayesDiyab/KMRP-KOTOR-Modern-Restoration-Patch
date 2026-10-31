@@ -22,6 +22,15 @@ extern "C" int KmrpHudCues(const char*,const char*) {return 1;}
 extern "C" const char* KmrpHudFileName(int) {return nullptr;}
 extern "C" int KmrpLiveLayoutCount(void) {return 0;}
 extern "C" const char* KmrpLiveLayoutName(int) {return nullptr;}
+// The mod compatibility merges (kmrp-merge.c, kmrp-gameart.c, kmrp-swoophud.c,
+// kmrp-guiadapt.c): never reached, as the harness's sets hold no kmrp_derive.txt.
+extern "C" const char* KmrpLiveLayoutNotes(void) {return "";}
+extern "C" int KmrpReadKeyedResource(const char*,const char*,int,unsigned char** data,std::size_t* size) {*data=nullptr;*size=0;return 1;}
+extern "C" int KmrpMerge2da(const char*,const unsigned char*,std::size_t,const unsigned char*,std::size_t,const unsigned char*,
+                            std::size_t,unsigned char** out,std::size_t* size,char** notes,int*) {*out=nullptr;*size=0;*notes=nullptr;return 3;}
+extern "C" void KmrpMergeFree(void*) {}
+extern "C" int KmrpDeriveImage(const char*,int,int,int,int,const char*,const char*) {return 1;}
+extern "C" int KmrpSwoopHudModel(const char*,const char*,const char*,unsigned,unsigned) {return 1;}
 // The art pack is not read here (K1AssetPack.cpp, not in this harness): the font callback
 // takes its metrics from the fixture. Until 2026-10-28 this stubbed KmrpXpressDecode, the
 // bank's decoder before the pack (b5cbd6a, 2026-10-19), and the harness no longer linked.

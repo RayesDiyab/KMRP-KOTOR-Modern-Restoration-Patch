@@ -117,6 +117,33 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **A mod's copy of a file KMRP changes keeps both the mod's changes and KMRP's, by its
+  format (issue 79)** (2026-10-31, [`docs/mod-file-inventory.md`](docs/mod-file-inventory.md)).
+  Until now a file a mod put in `Override` won whole over KMRP's copy of it, so KMRP's change
+  was lost: the tutorial popup's sharp icons with a mod's `tutorial.2da`, the enlarged feat
+  and power icons with a mod's icon (K1CP's 14 weapon feat icons stood small in KMRP's
+  rows), the swoop race fix with a mod's model. Now the run time makes each of KMRP's
+  generated files again from the mod's copy, by its format, never by its name:
+  - **any 2DA** is merged three ways against vanilla (`macos/tools/kmrp-2da.h`,
+    `kmrp-merge.c`): KMRP's cells only where the mod left vanilla's, the mod's value where
+    both changed one (logged as a conflict), rows found by their name and never by their
+    number, the mod's rows, order, numbers, columns, format and `DEFAULT:` kept;
+  - **a picture** KMRP makes from a game picture is made the same way from the mod's
+    (`KmrpDeriveImage`); **a model** gets KMRP's change only where the part it changes is
+    still the game's (`KmrpSwoopHudModel`);
+  - **a layout**: a control the mod moved keeps the move on KMRP's calibrated place
+    (`K(vanilla) + round(R(mod) - R(vanilla))`; it used to lose KMRP's calibration), a
+    line-up the mod made stays one, and a file already scaled for another resolution is no
+    longer refused: exactly as made at its own size, converted from its canvas elsewhere,
+    with KMRP's calibration once where a control was only scaled from the game's.
+  What a mod's file switches off is logged by name as `[KMRP] compatibility:` lines. The
+  tools record what each generated file is made from in the set (`kmrp_derive.txt`), so
+  cached sets are made once more (stamp `art 3`). Tested on files (new
+  `Test-ModCompatibility.py`, several table schemas under names no KMRP code knows, every
+  picture format, the model, the layouts, every input byte for byte unchanged), and the
+  existing layout, game art and icon tests: see the inventory. **Not tested in the game,
+  and not with a real community mod's files.** The Mac does not run it yet.
+
 - **Windows Auto HDR and RTX HDR stay on with KMRP (issue 73), and menus no longer flash on
   NVIDIA's layered path (issue 14)** (2026-10-30). KOTOR is an OpenGL game, and NVIDIA's
   "Prefer layered on DXGI Swapchain" present method is the only way Auto HDR or RTX HDR
