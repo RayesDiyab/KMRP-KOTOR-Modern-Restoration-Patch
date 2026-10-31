@@ -12,12 +12,20 @@ namespace Kmrp
     /// Two sources. xrandr, on X11 or through XWayland, gives each connected output's modes, their
     /// rates and the current one (marked '*'). The kernel's DRM list, /sys/class/drm/card*-*/modes
     /// of each connector whose status is "connected", gives the monitor's own modes, its preferred
-    /// one first, whatever a compositor shows programs. Under Gamescope (Steam Deck's game mode,
-    /// Bazzite) the two can disagree: xrandr sees Gamescope's virtual size, which made the Windows
-    /// installer under Proton write a size the monitor does not have (issue 72). So the size the
-    /// installer starts the game at is the monitor's preferred one from DRM when Gamescope is
-    /// running, and xrandr's current one otherwise; every size either source lists is offered.
-    /// Neither available: nothing is offered, and the size is asked for.</summary>
+    /// one first, whatever a compositor shows programs. The two can disagree. Under Gamescope
+    /// (Steam Deck's game mode, Bazzite) xrandr sees Gamescope's virtual size, which made the
+    /// Windows installer under Proton write a size the monitor does not have into swkotor.ini,
+    /// and the main menu broke (issue 72; the reporter's fix was the monitor's own resolution
+    /// there). Desktop scaling (KDE's 125%, say) can likewise show XWayland a scaled size.
+    ///
+    /// So where DRM lists the monitor's modes, those are the sizes, and the game starts at
+    /// xrandr's current size only when it is one of them and Gamescope is not running, else at
+    /// the monitor's preferred mode. Where DRM lists nothing (some virtual machines; WSLg),
+    /// xrandr's modes and its current size are used. Neither available: nothing is offered, and
+    /// swkotor.ini's size or --size is used.
+    ///
+    /// For tests, KMRP_TEST_XRANDR names a file to read as xrandr's output ("none": no xrandr)
+    /// and KMRP_TEST_DRM a folder to read as /sys/class/drm.</summary>
     internal static class LinuxDisplay
     {
         internal sealed class Mode
@@ -25,6 +33,7 @@ namespace Kmrp
             internal int Width, Height;
             internal double Rate;          // 0 where the source has none (DRM's list)
             internal bool Current, Preferred;
+            internal bool Drm;             // from the kernel's list: a mode the monitor has
         }
 
         private static List<Mode> cached;
@@ -34,8 +43,11 @@ namespace Kmrp
             if (cached != null)
                 return cached;
             List<Mode> modes = new List<Mode>();
-            modes.AddRange(FromXrandr(Run("xrandr", "--query")));
-            modes.AddRange(FromDrm("/sys/class/drm"));
+            string xrandrFile = Environment.GetEnvironmentVariable("KMRP_TEST_XRANDR");
+            string xrandr = xrandrFile == null ? Run("xrandr", "--query")
+                : xrandrFile == "none" || !File.Exists(xrandrFile) ? null : File.ReadAllText(xrandrFile);
+            modes.AddRange(FromXrandr(xrandr));
+            modes.AddRange(FromDrm(Environment.GetEnvironmentVariable("KMRP_TEST_DRM") ?? "/sys/class/drm"));
             cached = modes;
             return modes;
         }
@@ -51,8 +63,9 @@ namespace Kmrp
         internal static List<int[]> Sizes()
         {
             List<int[]> sizes = new List<int[]>();
+            bool drm = Modes().Exists(m => m.Drm);
             foreach (Mode m in Modes())
-                if (m.Width >= 640 && m.Height >= 480 && !sizes.Exists(s => s[0] == m.Width && s[1] == m.Height))
+                if ((!drm || m.Drm) && m.Width >= 640 && m.Height >= 480 && !sizes.Exists(s => s[0] == m.Width && s[1] == m.Height))
                     sizes.Add(new[] { m.Width, m.Height });
             sizes.Sort((a, b) => b[0] * b[1] != a[0] * a[1] ? (b[0] * b[1]).CompareTo(a[0] * a[1]) : b[0].CompareTo(a[0]));
             return sizes;
@@ -61,14 +74,17 @@ namespace Kmrp
         /// <summary>The size to start the game at, or null when no source answered.</summary>
         internal static int[] Start()
         {
-            Mode pick = null;
             List<Mode> modes = Modes();
-            if (UnderGamescope())
-                pick = modes.Find(m => m.Preferred);
-            if (pick == null)
-                pick = modes.Find(m => m.Current);
-            if (pick == null)
-                pick = modes.Find(m => m.Preferred);
+            Mode current = modes.Find(m => m.Current);
+            if (modes.Exists(m => m.Drm))
+            {
+                if (current != null && !UnderGamescope() &&
+                    modes.Exists(m => m.Drm && m.Width == current.Width && m.Height == current.Height))
+                    return new[] { current.Width, current.Height };
+                Mode preferred = modes.Find(m => m.Drm && m.Preferred);
+                return preferred == null ? null : new[] { preferred.Width, preferred.Height };
+            }
+            Mode pick = current ?? modes.Find(m => m.Preferred);
             return pick == null ? null : new[] { pick.Width, pick.Height };
         }
 
@@ -145,6 +161,7 @@ namespace Kmrp
                             Width = int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture),
                             Height = int.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture),
                             Preferred = first,
+                            Drm = true,
                         });
                         first = false;
                     }

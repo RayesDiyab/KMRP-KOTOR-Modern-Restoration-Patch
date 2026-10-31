@@ -112,6 +112,34 @@ Not done:
 - K1DC on Linux (issue 44 decides whether it should be installed there).
 - The window's step texts are a second copy of `MainForm.RefreshStatus`'s, in the same words.
   Moving them into the core for both windows is left for later.
+
+**2026-10-31: issue 72's rule tightened.** Issue 72 was the Windows installer under Proton
+writing Gamescope's virtual size into `swkotor.ini`, which broke the main menu; the reporter
+fixed it by writing the monitor's own resolution there. Desktop scaling (KDE's 125%, say) can
+show XWayland a scaled size the same way. The rule in `LinuxDisplay.Start` is now:
+- Where the kernel's DRM list names the monitor's modes, only those are offered. The game
+  starts at xrandr's current size only when that size is one of them and Gamescope is not
+  running; otherwise at the monitor's preferred mode.
+- Where DRM lists nothing (some virtual machines, WSLg), xrandr's modes and current size are
+  used, as before.
+- `KMRP_TEST_XRANDR` (a file read as xrandr's output, or `none`) and `KMRP_TEST_DRM` (a folder
+  read as `/sys/class/drm`) let tests replay recorded displays.
+
+Tested on the rebuilt AppImage in WSL with recorded displays:
+
+| Case | Started at |
+| --- | --- |
+| Gamescope rendering 3840x2160 on a 1920x1080 monitor | 1920x1080 |
+| Steam Deck: Gamescope at 1920x1200 on the 1280x800 panel | 1280x800 |
+| Desktop scaling: XWayland sees 2048x1152 of a 2560x1440 monitor | 2560x1440 |
+| No scaling, 2560x1440 | 2560x1440 |
+| A lower mode chosen on the desktop, 1920x1080 | 1920x1080 |
+| No DRM list: xrandr's current size | 2048x1152 |
+
+Under the Gamescope case the virtual 3840x2160 was not among the sizes offered, and a real
+install wrote `Width=1920` and `Height=1080` to `swkotor.ini`; restore then succeeded. Not
+tested on a real Gamescope session, SteamOS, Bazzite or a Deck. A size picked later in the
+game's own Options is outside the installer (section 6).
 - `Test-InstallerPatch.ps1` and `Test-ReinstallOverOlderBuild.ps1`, which borrow the real
   KMRP and KPM settings files, were not run.
 
