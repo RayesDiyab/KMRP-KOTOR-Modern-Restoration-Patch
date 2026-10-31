@@ -17,6 +17,13 @@ with their numbers and their text, and 88 to 94 were added after a commit-by-com
 `v1.5.0..1ec85d1` on 2026-10-22. Where that check found an item incomplete, a paragraph
 headed **Also (2026-10-22)** says what it lacked.
 
+**Brought up to date on 2026-10-31**, after a commit-by-commit check of `1ec85d1..c7d015e`
+(56 commits): every item now names the commit it landed in (items 97 to 124 had none, and
+fifteen still said "uncommitted"), items 125 to 128 were added, the Windows-only table
+gained the changes it lacked, and the Codex handoff for Live Adaptive Layout of
+2026-10-29 (`docs/handoffs/codex-live-adaptive-layout-2026-10-29.md`, never committed) is
+merged in as the last section, its state brought forward.
+
 Each item says what changed on Windows, where, what the Mac needs and how to check it.
 Nothing here was built or run on a Mac for this document. The Mac's own reference is
 [`macos/README.md`](../macos/README.md), and [`macos/WINDOWS-PARITY.md`](../macos/WINDOWS-PARITY.md)
@@ -79,6 +86,38 @@ keeps the table of every Windows change and its state on the Mac.
 | 94 | The stick's vector inside the unit circle, in the buffer |
 | 95 | Glyph buttons are hints: the D-pad never lands on them |
 | 96 | Main menu captions in the middle of their bars |
+| 97 | HD Original's atlases drawn from KMRP's own fonts |
+| 98 | Controller buttons drawn from outlines (issue 68) |
+| 99 | Controller art only in the controller (the Mac keeps it in KMRP's sets for now) |
+| 100 | A on the Resolution screen confirms once |
+| 101 | Windows' controller draws every picture at run time; the Mac carries them |
+| 102 | Live Adaptive Layout: the options screens laid out at run time |
+| 103 | X is OK on Advanced Graphics |
+| 104 | Glyphs on the middle of their caption's letters |
+| 105 | Close in one place on every in-game screen |
+| 106 | Character creation with the pad |
+| 107 | The galaxy map with the pad |
+| 108 | A pad button's release goes where its press went |
+| 109 | Pazaak's side deck screen with the pad, drawn as the Xbox drew it |
+| 110 | Pazaak gameplay's four action boxes |
+| 111 | Class selection joins Live Adaptive Layout |
+| 112 | Controller-owned GUI preload during movies |
+| 113 | First-priority 3D preview initialization |
+| 114 | Abilities and the menu strip join Live Adaptive Layout |
+| 115 | Gameplay and Feedback Options join Live Adaptive Layout |
+| 116 | The row-fitted lists join Live Adaptive Layout |
+| 117 | Pause notice and party selection join Live Adaptive Layout |
+| 118 | The tooltips join Live Adaptive Layout |
+| 119 | The HUD's combat cues: placed with the HUD, and given to a mod's HUD file |
+| 120 | Main menu in live layout, a kept-shape control's centre, adapter order |
+| 121 | Message popup, area map and conversation box join Live Adaptive Layout |
+| 122 | The C helpers open files through `kmrp-path.h` |
+| 123 | Windows' sets no longer carry the live screens |
+| 124 | The Windows controller patch cues the screens at run time |
+| 125 | SDL started on the game's main thread, so a pad coming back is seen (issue 71) |
+| 126 | A mod's copy of a file KMRP changes is merged with KMRP's change, by format (issue 79) |
+| 127 | Live Adaptive Layout on a mod's file: moves carried, line-ups kept, already-scaled files (issue 79) |
+| 128 | `kmrp-path.h`'s library pragma only for MSVC |
 
 Items 46 and 47 are in the 1.5.1 group below (46: the controller events log; 47: a Linux
 pad's own key, Windows and Wine only).
@@ -994,7 +1033,7 @@ same plain C file as item 87, so the Mac calls it from `assets.cpp` the same way
 maintainer: "make sure the main menu buttons are centered in the art." **How to check:**
 every caption sits in the middle of its bar, New Game to Quit, within a pixel or so.
 
-## 97. HD Original's atlases drawn from KMRP's own fonts
+## 97. HD Original's atlases drawn from KMRP's own fonts (9f78f0e)
 
 **To do on the Mac** (2026-10-22; [fonts/README.md](../fonts/README.md),
 `tools/build_hd_original_atlases.py`). The 17 atlases in `assets/hd-original-fonts` are now
@@ -1005,7 +1044,7 @@ and anything that caches the art by a version must take it again (Windows raised
 pack to 7). **How to check:** a diagonal in the menus (a V or a W) is one clean edge at a
 large size, not stepped, and every menu and dialogue line sets where it did.
 
-## 98. Controller buttons drawn from outlines (issue 68)
+## 98. Controller buttons drawn from outlines (issue 68, 1279935)
 
 **To do on the Mac** (2026-10-27; `tools/controller_glyphs.py`,
 `assets/controller-glyphs/glyphs.json`, `macos/tools/kmrp-guiblend.c`). Every controller
@@ -1018,7 +1057,7 @@ drawer on its own; on the Mac it should be built for both slices (`native_helper
 does), and `Test-GuiBlendHelper.py` run as before. **How to check:** at a size the build has
 no set for, a face button's letter is crisp and centred on its disc.
 
-## 99. Controller art only in the controller (the Mac keeps it in KMRP's sets for now)
+## 99. Controller art only in the controller (the Mac keeps it in KMRP's sets for now; b1148c9)
 
 **For the Mac: nothing to do yet; one thing to know** (2026-10-27). On Windows KMRP's sets no
 longer carry the controller's badges, cues or Controller Layout art: the controller patch,
@@ -1034,7 +1073,7 @@ the Mac can compile as it is). When the Mac's controller draws
 its own badges at run time, as Windows' is about to, the option can go. **How to check:** a
 Mac package built from fresh sets shows badges as before.
 
-## 100. A on the Resolution screen confirms once (Windows 2026-10-28, uncommitted)
+## 100. A on the Resolution screen confirms once (Windows 2026-10-28, 0ae9175)
 
 On Windows, A on the Resolution screen ran `OnResolutionChosen` twice: once from the
 screen's own 0x27 (`CSWGuiOptionsResolution::HandleInputEvent`) and once from the focused
@@ -1048,7 +1087,7 @@ pad on the Mac, choose a resolution with A: if Options shows instead of Graphics
 the Mac's engine does the same, and the same fix applies at the Mac's addresses for those
 two functions. Debug level 2's menu snapshots (`LogMenuSnapshotK1`) show it in one run.
 
-## 101. Windows' controller draws every picture at run time; the Mac carries them
+## 101. Windows' controller draws every picture at run time; the Mac carries them (3bdd195 to acf3b48)
 
 From 2026-10-27 to 28 Windows' controller patch came to draw every picture it shows at the
 size its control shows it (badges, cues, the Controller Layout, the Xbox HUD's frames),
@@ -1061,7 +1100,7 @@ textures. Drawing at run time on the Mac too needs the module's sweep, scene dra
 `macos/tools/kmrp-glyphs.c` (already plain C) at the Mac's addresses; until then the
 carried textures are the Mac's.
 
-## 102. Live Adaptive Layout: the options screens laid out at run time
+## 102. Live Adaptive Layout: the options screens laid out at run time (e237578)
 
 Since 2026-10-28 Windows lays out 11 options screens when a size's set is made ready, from
 the player's `Override` file when it is laid out for the game's size, else from the game's
@@ -1084,7 +1123,7 @@ build does. Nothing more to call: `KmrpLiveLayoutCount` and `KmrpLiveLayoutName`
 assets carry it (item 99), so check the R3 cue shows on those three screens once the Mac
 calls the helper.
 
-## 103. X is OK on Advanced Graphics (Windows 2026-10-28)
+## 103. X is OK on Advanced Graphics (Windows 2026-10-28, 80607b2)
 
 Windows' pad presses Advanced Graphics' and Advanced Sound's OK with X wherever the focus
 is, since A toggles the focused box (`PressOkK1`, `K1_OK_BUTTONS` in
@@ -1096,7 +1135,7 @@ until** `macos/patches/kmrp-controller/prompts.cpp` names `kmrpx_optgfxadv` at 0
 `PressDefault` presses Default. The Mac has no Advanced Sound screen. **How to check:** on
 Advanced Graphics, with V-Sync focused, A toggles it and X saves and closes.
 
-## 104. Glyphs on the middle of their caption's letters (Windows 2026-10-28, uncommitted)
+## 104. Glyphs on the middle of their caption's letters (Windows 2026-10-28, d2a3b54)
 
 Windows' badges beside a caption stand on the middle of its letters, top to bottom, not of
 the caption's line or button: the maintainer saw them high on the Map screen's two left
@@ -1124,7 +1163,7 @@ from the texture's OpenGL name at +0x58; never through the engine's `Bind`, whic
 nothing while textures are locked. **To do on the Mac:** the same point in the Mac's
 texture upload.
 
-## 105. Close in one place on every in-game screen (Windows 2026-10-28, uncommitted)
+## 105. Close in one place on every in-game screen (Windows 2026-10-28, 8ddb433)
 
 The in-game menu's Close and the button beside it take the Character screen's rectangles
 on every screen, at every size (`tools/menu_bottom_row.py`, run by
@@ -1132,7 +1171,7 @@ on every screen, at every size (`tools/menu_bottom_row.py`, run by
 beyond taking the new layout sets and Live Adaptive Layout table; both are shared data.
 **How to check:** go through the tabs with L2 and R2: Close and its neighbour do not move.
 
-## 106. Character creation with the pad (Windows 2026-10-28, uncommitted)
+## 106. Character creation with the pad (Windows 2026-10-28, 32b426e)
 
 Square is Cancel on the custom and quick step lists (`PressCancelK1`, badges
 `kmrpx_custcncl` and `kmrpx_quikcncl`, never focused); Attributes and Skills keep the D-pad
@@ -1146,7 +1185,7 @@ always), the X remap rows, the points screens' navigation, and the class screen'
 **How to check:** a new game with the pad: Square cancels on both step lists, the D-pad
 never reaches the bottom rows, and class selection shows Select and Cancel on two capsules.
 
-## 107. The galaxy map with the pad (Windows 2026-10-28, uncommitted)
+## 107. The galaxy map with the pad (Windows 2026-10-28, 32b426e)
 
 The D-pad picks planets by where they are on the map (Left and Right across, Up and Down
 up or down, round at the ends) and the focus stays on the selected planet, so one planet is
@@ -1157,7 +1196,7 @@ navigation, the two hint badges at +0x1F24 and +0x20E8, and A treated as the pan
 there. **How to check:** open the galaxy map on the Ebon Hawk with the pad: each press
 moves one planet in the pressed direction, only it is lit, and A travels, B closes.
 
-## 108. A pad button's release goes where its press went (Windows 2026-10-28, uncommitted)
+## 108. A pad button's release goes where its press went (Windows 2026-10-28, 32b426e)
 
 A detour at `CSWGuiManager::HandleInputEvent` (0x0040C8E0) keeps, for each event, the
 screen in front at its press (the top modal panel, or with none the last panel), and
@@ -1170,7 +1209,7 @@ at the same function, and the old name-entry guard removed if the Mac patch has 
 stays up, A saves under the name typed, B cancels; character creation's name screen still
 stays up after A on its step.
 
-## 109. Pazaak's side deck screen with the pad, drawn as the Xbox drew it (Windows 2026-10-29, uncommitted)
+## 109. Pazaak's side deck screen with the pad, drawn as the Xbox drew it (Windows 2026-10-29, 32b426e)
 
 With the pad in use the side deck screen is the Xbox's, redrawn at run time
 (`UpdatePazaakSetupPadK1`, `SetupLayoutForK1`, `SetupPictureK1`): the panel's picture is
@@ -1186,7 +1225,7 @@ Mac:** the same, and the A remap and badges. **How to check:** start Pazaak with
 the Xbox screen over the table, the cards solid and in their places, Y adds and removes, LT
 and RT switch lists, A plays; with the mouse, the game's screen as before.
 
-## 110. Pazaak gameplay's four action boxes (Windows 2026-10-29)
+## 110. Pazaak gameplay's four action boxes (Windows 2026-10-29, 33a3b4d)
 
 `K1NativeJoystick.cpp` `UpdatePazaakActionStripK1` clones End Turn twice for Play
 Hand Card (string 32330, X) and Flip Hand Card (32331, LB). Their boxes mirror Stand
@@ -1235,7 +1274,7 @@ in the Steam game at 3440x1440 and reported "works flawlessly". Module SHA-256
 relative documentation links pass. Other resolutions and controller families
 remain not play-tested. The Mac port of this item is still to do.
 
-## 111. Class selection joins Live Adaptive Layout (2026-10-29)
+## 111. Class selection joins Live Adaptive Layout (2026-10-29, 6b4b17f)
 
 `classsel.gui` is screen 45. The shared Python/C layout adds `frame` and
 `frame_inclusive` rules: `(v-b)*scale+b`, with `b=-10` for positions, +20 for
@@ -1264,7 +1303,7 @@ Verified on Windows: all 45 screens against 66 sets (240,504 extent fields,
 class-selection mod's widened button and replacement frame. The core build,
 package checks and documentation links pass. No executable bytes change.
 
-## 112. Controller-owned GUI preload during movies (2026-10-29)
+## 112. Controller-owned GUI preload during movies (2026-10-29, 6b4b17f)
 
 Keep preload ownership in the controller patch, independent of KMRP. Windows
 submits copied file paths from the movie callback and does GUI file reads,
@@ -1295,7 +1334,7 @@ GPU collection and the Mac port remain untested. See the
 [controller layout reference](controller-live-adaptive-layout.md#movie-triggered-controller-gui-preload-2026-10-29)
 for scope, addresses and verification.
 
-## 113. First-priority 3D preview initialization (2026-10-29)
+## 113. First-priority 3D preview initialization (2026-10-29, 6b4b17f)
 
 The maintainer reports black models on the first New Game opening and, during
 diagnosis, on reopening and the main menu. Windows traces show no pending
@@ -1320,7 +1359,7 @@ confirmed the Windows result in Steam at 3440x1440: "it looks correct now".
 Logs show each main-menu/class preview primed `0->1` with hidden output before
 its visible class draw `1->2`. Other sizes and the Mac port remain unverified.
 
-## 114. Abilities and the menu strip join Live Adaptive Layout (2026-10-29)
+## 114. Abilities and the menu strip join Live Adaptive Layout (2026-10-29, a9419f6)
 
 `abilities.gui` and `top.gui` bring the shared rule table to 47 screens. The
 Python reference calls the build's existing row fitting and cue functions;
@@ -1344,7 +1383,7 @@ rectangles. All 47 screens compare with 66 sets (251,856 extent fields,
 36 cue-mod layouts pass, as do both module builds and package checks. Native visual
 verification and Mac runtime integration remain pending.
 
-## 115. Gameplay and Feedback Options join Live Adaptive Layout (2026-10-29)
+## 115. Gameplay and Feedback Options join Live Adaptive Layout (2026-10-29, a9419f6)
 
 The shared table now has 49 screens, adding `optgameplay.gui` and
 `optfeedback.gui`. Gameplay repeats `build_controller_layout.py` `add_entry`:
@@ -1377,7 +1416,7 @@ The full 49-screen regression also passes: 259,248 extent fields against 66 sets
 both 36-case mod suites pass. Both Windows module builds, package regressions
 and the controller preload regression pass; no live install was performed.
 
-## 116. The row-fitted lists join Live Adaptive Layout (Windows 2026-10-30, uncommitted)
+## 116. The row-fitted lists join Live Adaptive Layout (Windows 2026-10-30, 0e4274b)
 
 The shared table now has 58 screens, adding `computer.gui`, `container.gui`,
 `ftchrgen.gui`, `journal.gui`, `pwrlvlup.gui`, `scriptselect.gui`,
@@ -1403,7 +1442,7 @@ follows its own list's rounding; a Feats row count crossed by the rounding pixel
 2880x1864); the [layout reference](live-adaptive-layout.md) section 6 has both.
 Not seen in the game yet.
 
-## 117. Pause notice and party selection join Live Adaptive Layout (Windows 2026-10-30, uncommitted)
+## 117. Pause notice and party selection join Live Adaptive Layout (Windows 2026-10-30, 94259de)
 
 The shared table now has 60 screens, adding `pause.gui` and `partyselection.gui`;
 neither needs a step of its own, so `kmrp-guiadapt.c` is unchanged apart from the
@@ -1415,7 +1454,7 @@ like Windows' `Pause`, needs nothing. Both pass against all 66 sets (pause 1,056
 extent fields, 91.10% exact; party selection 10,560, 92.25% exact, 10 further within
 the allowance), 3440x1440 identical.
 
-## 118. The tooltips join Live Adaptive Layout (Windows 2026-10-30, uncommitted)
+## 118. The tooltips join Live Adaptive Layout (Windows 2026-10-30, 94259de)
 
 The shared table now has 65 screens, adding `tooltip6x4.gui`, `tooltip8x6.gui`,
 `tooltip10x8.gui`, `tooltip12x9.gui` and `tooltip16x12.gui`. No step of their own:
@@ -1423,7 +1462,7 @@ the generated table is the whole change, so the Mac needs nothing beyond item 10
 Against all 66 sets: 2,640 extent fields, 97.35% exact, the rest one pixel off,
 3440x1440 identical; 1,350 C/Python layouts.
 
-## 119. The HUD's combat cues: placed with the HUD, and given to a mod's HUD file (Windows 2026-10-30, uncommitted)
+## 119. The HUD's combat cues: placed with the HUD, and given to a mod's HUD file (Windows 2026-10-30, 94259de)
 
 Two changes. **(1)** `K1PcHud.cpp` places `LBL_KMRPY` and `LBL_KMRPX` beside Clear and
 Disengage after placing the HUD (`CombatCueRect` in `K1PcHudLayout.h`, the packager's
@@ -1438,7 +1477,7 @@ game's eight HUD files, each as it is and in five mod-like variants (48 cases);
 `hud_options_harness.cpp` checks the rule gives the shipped cues at 3440x1440. Not seen
 in the game.
 
-## 120. Main menu in live layout, a kept-shape control's centre, adapter order (Windows 2026-10-30)
+## 120. Main menu in live layout, a kept-shape control's centre, adapter order (Windows 2026-10-30, a314a6d)
 
 The table now has 70 screens, adding the five `mainmenu*.gui`. **(1)** A new rule,
 `aspect_centre` (number 8): `kmrp-guiadapt.c`'s `ll_layout` carries gold's correction on
@@ -1450,7 +1489,7 @@ their input. On Windows the reverse order wrote the galaxy map over the issue 67
 placement from 2026-10-28 to 2026-10-30. Measured with the C on Windows; the Mac does not
 call live layout yet (item 102).
 
-## 121. Message popup, area map and conversation box join Live Adaptive Layout (Windows 2026-10-30, uncommitted)
+## 121. Message popup, area map and conversation box join Live Adaptive Layout (Windows 2026-10-30, 86ee647)
 
 The table now has 73 screens, adding `confirm.gui`, `map.gui` and `dialog.gui`.
 `kmrp-guiadapt.c` changes the Mac needs with it: **(1)** `LLFile.gold_size_only`: gold's
@@ -1464,7 +1503,7 @@ width, height, out, set_folder)`: the folder gives `kmrp_prompts.txt` and
 `kmrplayout.gui`; the CLI's last argument is that folder. Windows passes the set folder
 from `AdaptLiveLayoutK1`. Seen on Windows at 3440x1440 ("All look right").
 
-## 122. The C helpers open files through `kmrp-path.h` (Windows 2026-10-30, uncommitted)
+## 122. The C helpers open files through `kmrp-path.h` (Windows 2026-10-30, ccf4641)
 
 A new header, `macos/tools/kmrp-path.h`, gives `kmrp_fopen` and `kmrp_mkdir`; every
 `fopen` and `mkdir` in `kmrp-guiadapt.c`, `kmrp-guiblend.c`, `kmrp-gameart.c`,
@@ -1474,7 +1513,7 @@ must find the header beside the sources (it does: they include it with quotes). 
 Windows the paths are UTF-8 and become UTF-16, for user names outside the code page. The
 module's `Narrow` short-name fallback is Windows-only.
 
-## 123. Windows' sets no longer carry the live screens (Windows 2026-10-30, uncommitted)
+## 123. Windows' sets no longer carry the live screens (Windows 2026-10-30, 2a12c80)
 
 Windows' art pack (`tools/build_native_assets.py`) leaves Live Adaptive Layout's 73 screens
 out of every set, and `BuildSet` deletes the blend helper's copies; the 32-slot roster is
@@ -1483,7 +1522,7 @@ its module runs live layout** (items 102 and 116 to 121): the Mac installer copi
 build's `gui-*.zip` sets, which still hold every screen. Once it does, the Mac can drop
 the same files from what it installs, and should, so one file never has two sources.
 
-## 124. The Windows controller patch cues the screens at run time (Windows 2026-10-30, uncommitted)
+## 124. The Windows controller patch cues the screens at run time (Windows 2026-10-30, 2a12c80)
 
 New in `kmrp-guiadapt.c`: `KmrpControllerCues(key, name, source, out, donor)` and
 `KmrpControllerCueScreen(i)`, with the CLI commands `cues` and `cuescreens`. Windows'
@@ -1493,6 +1532,90 @@ as the game starts (`CueScreens`). **The Mac keeps carrying the 16 files**:
 would call `KmrpControllerCues` on each screen before giving its folder to the game, with
 the patch's `kmrplayout.gui` as the donor, and then stop carrying them.
 
+## 125. SDL started on the game's main thread, so a pad coming back is seen (issue 71, dbbbefb)
+
+On Windows, SDL (PlayStation, Switch and Steam pads) was started by the first pad read, on
+the game's movie thread. Windows tells SDL that a pad came back through a window message
+handled on the thread that started it, and that thread waits between movies, so a
+Bluetooth DualSense switched off by Steam's idle timer was never seen again. It is now
+started on the main thread before the first movie (`K1ControllerBackend.cpp`,
+`docs/controller-sdl-backend.md`); measured on Windows with `debug-logs=2`, the pad was
+read again 0.3 s after Windows reported it back. **Not yet confirmed by the reporter.**
+
+**The Mac:** `macos/patches/kmrp-controller/backend_sdl.cpp` starts and polls SDL on the
+game's input thread (its line 12). The window-message cause is Windows'; macOS reports
+devices to SDL through IOKit, whose notifications need a run loop. Check on a Mac that a
+Bluetooth pad switched off and on again while the game runs is read again (the Mac's
+`controller.log` lists pads). **Not checked on a Mac.**
+
+## 126. A mod's copy of a file KMRP changes is merged with KMRP's change, by format (issue 79, 36bba22)
+
+Until 36bba22 a file a mod put in Override won whole over KMRP's copy of it, on Windows as
+on the Mac (item 42's `PlayerHas` leaves KMRP's copy out), so KMRP's change was lost: the
+tutorial popup's sharp icons with a mod's `tutorial.2da`, the enlarged feat, power and
+skill icons with a mod's icon (K1CP's 14 weapon feat icons stood small in KMRP's rows),
+the swoop fix with a mod's model. Windows now makes each generated file again from the
+mod's copy, the strategy chosen by the file's format, never its name
+([`mod-file-inventory.md`](mod-file-inventory.md)):
+
+| Format | Windows | Shared C the Mac can use |
+| --- | --- | --- |
+| any `.2da` | merged three ways against vanilla: KMRP's cells only where the mod left vanilla's, the mod's value where both changed one (logged), rows found by identity (a `label` column, a unique column, named row labels, else the number with a same-row check), the mod's rows, numbers, columns, format and `DEFAULT:` kept | `macos/tools/kmrp-2da.h` (header only), `kmrp-merge.c` (`KmrpMerge2da`, CLI `kmrp-merge 2da NAME BASE OURS THEIRS OUT`) |
+| a picture made from a game picture | KMRP's transform run on the mod's picture | `kmrp-gameart.c`, `KmrpDeriveImage` (CLI `kmrp-gameart derive ...`) |
+| the swoop HUD model | the chevron moved only where it is still the game's | `kmrp-swoophud.c`, `KmrpSwoopHudModel` (CLI `--model`) |
+
+The generators now write a record of what each file is made from, `kmrp_derive.txt`, into
+the folder they make (format in `kmrp-gameart.c`, `derived`): `KmrpGameArt` and
+`KmrpAbilityIcons` append to it, and `KmrpSwoopHud` adds its line. **The Mac's module calls
+the first two** (`assets.cpp`, line 602), so its sets get the record with no change and the
+game ignores it. Windows' run time (`DeriveFromOverrideK1`, `K1RuntimeAssets.cpp`) reads
+it each time a size's folders are made and remakes, into the folder searched before
+Override, every listed file whose source Override has; it writes each under a temporary
+name and moves it into place, as the run's folders hold hard links into the cache. The
+set stamp became `art 3` so older sets are made again.
+
+**What the Mac needs:** (1) compile `kmrp-merge.c` into the KMRP module (`make_kmrp_patch.py`
+`HELPERS`, with `-DKMRP_EMBEDDED`); (2) a `DeriveFromOverride` in `assets.cpp` doing what
+Windows' does, after `LinkSet`, into the run's folder; (3) the vanilla side of a merge from
+`chitin.key` (`KmrpReadKeyedResource` in `kmrp-guiadapt.c`, which the Mac does not link
+yet: or its own reader); (4) a new stamp, so existing sets gain the record; (5) the swoop
+model only if the Mac adopts item 54's model; (6) run `Test-ModCompatibility.py` on the Mac
+(627 checks on Windows: ten 2DA cases among them 40 random schemas, six picture formats,
+the record, the model, the layouts; every input byte for byte unchanged). Measured on
+Windows in the maintainer's game with K1CP and Sleheyron 3.4: 15 icons made from the mods'
+own pictures (one a TPC), nothing switched off. **Nothing of it built or run on a Mac.**
+
+## 127. Live Adaptive Layout on a mod's file: moves carried, line-ups kept, already-scaled files (issue 79, 36bba22)
+
+`kmrp-guiadapt.c` and the Python reference (`tools/build_live_layout.py`) changed alike;
+the Mac gets this with the C once its module runs live layout (item 102):
+
+- **A control a mod moved** keeps the move on KMRP's calibrated place, for each field gold
+  calibrates: `placed = K(vanilla) + round(R(mod) - R(vanilla))` (`ll_layout`, `ll_place`).
+  The key mapping list moved 20 px gives 740 at 3440x1440; before, 435.
+- **A line-up the mod made stays one**: two top-level controls at the same `TOP` or `LEFT`
+  that the step above would part are placed by the rules alone, and noted.
+- **A file already scaled** for another resolution is no longer refused when its canvas is
+  certain (`ll_canvas`: the root fills it from 0,0, the controls cover it as the game's
+  cover the game's, 2/3 to 1.5 times on each axis). The maintainer's three rules: exactly
+  as made at its own size; at another, KMRP's calibration once for a control only scaled
+  from the game's, the file's own placing converted for any other; where ambiguous the
+  mod's placing wins and the skipped calibration is reported. The Feedback screen's
+  checkbox row height is not scaled again on such a file.
+- **Notes**: `KmrpLiveLayoutNotes()` returns what was decided for the file laid out last;
+  Windows logs them as `[KMRP] compatibility:` lines, and the CLI `live` prints them.
+
+`Test-LiveLayout.py` passes as before (73 screens against the 66 sets, 19,706 C/Python
+layouts, 73 root-only files refused). [`live-adaptive-layout.md`](live-adaptive-layout.md)
+section 3 has the rules.
+
+## 128. `kmrp-path.h`'s library pragma only for MSVC (36bba22)
+
+`#pragma comment(lib, "kernel32.lib")`, added in ccf4641 (item 122), is now inside
+`#ifdef _MSC_VER`: clang does not know it, and `Test-GameArt.py` builds the C with
+`-Werror`, so the test had failed under clang since ccf4641. On the Mac the line was never
+reached (`_WIN32` only); nothing changes there.
+
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
 | Change | Commit | Why not the Mac |
@@ -1501,11 +1624,80 @@ the patch's `kmrplayout.gui` as the donor, and then stop carrying them.
 | XInput loaded at run time, not linked | 9fee5e4 | Windows 7 |
 | A Linux pad's own key (`KEY_BACK`) not keyboard use; the Gamepad layout notice | 8f60e46 | Linux's kernel driver and Wine |
 | K1 Modern Driver Compatibility 2.0.0; left out on Windows 7 | b5cbd6a, f0ca54c | the Mac ships no K1DC or `dinput8.dll` |
-| The frame drawn offscreen and shown when finished, always (`K1OffscreenFrame.cpp`); NVIDIA's present method no longer set by the installer or the module (`K1RuntimeNvidia.cpp` deleted), and an older install's value removed | uncommitted, 2026-10-30 | NVIDIA's layered present path and opengl32's hot-patch form are Windows; the Mac has neither |
-| Hardware mipmaps where only K1DC's emulated ATI extension turned them off (`CorrectHardwareMipmapsK1`); level-2 frame timing and sampler (`kmrp-frame-timing.log`) | uncommitted, 2026-10-30 | the Mac ships no K1DC; the sampler uses Windows thread APIs |
+| The frame drawn offscreen and shown when finished, always (`K1OffscreenFrame.cpp`); NVIDIA's present method no longer set by the installer or the module (`K1RuntimeNvidia.cpp` deleted), and an older install's value removed | 81dac75 | NVIDIA's layered present path and opengl32's hot-patch form are Windows; the Mac has neither |
+| Hardware mipmaps where only K1DC's emulated ATI extension turned them off (`CorrectHardwareMipmapsK1`); level-2 frame timing and sampler (`kmrp-frame-timing.log`) | 0e4274b | the Mac ships no K1DC; the sampler uses Windows thread APIs |
 | Bink drawn with GDI (`0x00405734`), the `[Movies]` 640x480 mode, feature bit 8 | 4a1cd73, 3ab7a87 | Windows' Bink and DirectDraw (item 78 says what applies) |
 | The NVIDIA profile's manifest path, the installer's two registry views, the installer's scrolling Advanced Settings page | b5cbd6a, f0ca54c | Windows installer and drivers |
 | The KMRP Font Converter (`font-converter`) | 34dfabb | a Windows program |
 | OTF fonts of the HD Original font (`tools/build_hd_original_otf.py`) | 34dfabb, 2a76531 | written to `build/`, not shipped |
 | 1.5.1's version and update-check self-test | 7999a0c | Windows installer |
 | The Xbox manual, typography credits, `dialogfont32x32` note | 489c4d0, 57b2aa1, 7024b9c | documents only |
+| Windows' compatibility mode turned off when patching (issue 39) | 8cc57d8 | a Windows setting the Windows installer clears |
+| The build reuses unchanged steps and compiles on every core; the 66 resolutions made side by side, Python fingerprinted by its code | e178462, 8f72955 | `build_kmrp.ps1`; the Mac builds with `macos/build.sh` |
+| The native Linux installer, an AppImage (issue 76), and the start size from the monitor's own modes under Gamescope or desktop scaling (issue 72); the installer's portable core split out of `KmrpPatcher.cs` (`InstallCore.cs`, `InstallPlatform`) | 2e28473, d86713f, 6dc8c25 | Linux and Proton; the Mac installer is its own (`macos/`) |
+| KMRP's fonts kern (pair kerning in `fonts/`) | 8a6fa87 | the font files only: the game's atlases are drawn glyph by glyph and come out as before (CHANGELOG), so nothing in the Mac's assets changes |
+| The Save Editor, now KMSE in its own repository; the Font Converter's own folder | ec98f1c to 3615c7e, 3fac29d, 87547b0 | separate programs, not KMRP |
+| README coverage and cover image; `.gitignore` for local tooling folders | 3fc008c, f1d0e0a, 8686a75, a0068d0, c7d015e | documents and repository housekeeping |
+
+## Working on Live Adaptive Layout (from the Codex handoff of 2026-10-29)
+
+Merged here on 2026-10-31 from `docs/handoffs/codex-live-adaptive-layout-2026-10-29.md`,
+written for Codex at `32b426e` and never committed. Its state is brought forward; the
+reference for how the layout works is [`live-adaptive-layout.md`](live-adaptive-layout.md),
+and [`AGENTS.md`](../AGENTS.md) is the operating contract for any agent working here.
+
+**Where it stands (2026-10-31).** Every one of the 85 layout files is accounted for: 73 laid
+out by the shared path, 2 HUD files placed by the HUD's own table, 1 laid out in code each
+time, 8 never loaded with KMRP, 1 KMRP's own (`live-adaptive-layout.md`, coverage
+inventory). What the note listed as left, and where it went:
+
+| Left on 2026-10-29 | Done in |
+| --- | --- |
+| the 30 screens of `32b426e` seen in the game | not recorded here for every screen; `live-adaptive-layout.md` says per batch what was seen |
+| `classsel.gui`, a width-affine rule | `6b4b17f`, the `frame` rules (item 111) |
+| `dialog.gui`, `pause.gui`, `partyselection.gui`, `statussummary.gui` | `94259de`, `86ee647` (items 117, 121); `statussummary.gui` is laid out in code (Run-time code) |
+| the screens with build steps (Abilities, the tab strip, Gameplay and Feedback options, the message popup, the area map, the container, the row-fitted lists) | `a9419f6`, `0e4274b`, `86ee647` (items 114 to 116, 121) |
+| the HUD, the main menu and tooltip variants | `94259de`, `a314a6d` (items 118 to 120) |
+| the live screens out of the sets | `2a12c80` (item 123) |
+| a mod's moved controls and already-scaled files | `36bba22` (item 127) |
+| the Mac calling `KmrpLiveLayoutSet` | **open** (item 102) |
+
+**The pieces.**
+
+| Piece | What it is |
+| --- | --- |
+| `tools/build_live_layout.py` | The rules, the table and the Python reference layout. `FILES` lists the screens laid out at run time; it writes `macos/tools/kmrp-livelayout-table.h`; `--check` verifies the table is current. |
+| `macos/tools/kmrp-guiadapt.c` | The C that applies the rules to a parsed `.gui`, for the Windows module and the Mac. |
+| `src/controller-native/K1RuntimeAssets.cpp` | Calls `KmrpLiveLayoutSet` when a size's folders are made (Windows' module, `kmrp.dll`). |
+| `testing/regression/Test-LiveLayout.py` | The run-time result against every one of the build's 66 sets, and Python against C, a mod's file included. Needs `build\kmrp\resources`, `build-inputs\vanilla-gui` and clang on `PATH`. |
+| `testing/regression/Test-ModCompatibility.py` | A mod's moved, lined-up and already-scaled files (since 2026-10-31). |
+| `build-inputs/vanilla-gui/` | The game's own layout files, from `chitin.key`. |
+| `assets/override-3440x1440/` | Gold: KMRP's hand-checked 3440x1440 layouts the ratio is taken from. |
+
+**For each change:** edit `build_live_layout.py` and `kmrp-guiadapt.c` together, run
+`python tools\build_live_layout.py`, then its `--check`, then `Test-LiveLayout.py` and
+`Test-ModCompatibility.py`; update `live-adaptive-layout.md`'s counts and sections,
+`CHANGELOG.md` (Unreleased) and, if the Mac needs it, a numbered item here.
+
+**Building and installing one module for the maintainer's test** (AGENTS.md rule 5):
+`cmd /c src\controller-native\build_native_runtime.cmd` builds
+`build\native-runtime\kmrp-native.dll`, which is `patches\kmrp.dll` in the game. With the
+game closed: copy the old file to `KMRP\backups\<name>.before-<what>-<date>`, copy the new
+one in, rewrite its row in `KMRP\kpm.manifest` (`file<TAB>patches\kmrp.dll<TAB><SHA-256>`;
+a stale row makes Restore strand the runtime), and report both hashes. A new hook also
+needs its row in the game's `patch_config.toml`, and the art pack `patches\kmrp-assets.pack`
+must be the build's (compare the hashes on every swap).
+
+**Traps found** (2026-10-29, still true):
+
+- PyKotor's `get_struct` and `get_list` return copies: an edit through them is silently
+  lost. Use `acquire`.
+- `optionsmain.gui`'s `LB_DESC` at 3440x1440 must be gold's 1780, 280, 1386, 850; any
+  difference means the ratio or the table is wrong.
+- `KMRP\logs\kmrp-kpm.log` with debug logs on says "live layout: N screens laid out for
+  WxH", and since 2026-10-31 names what it decided for a mod's file (`[KMRP] compatibility:`).
+- Controls in one column may differ by a pixel (`pazaaksetup.gui`'s `BTN_AVAIL00` at 52,
+  `BTN_AVAIL01` at 53): group by tolerance, never by exact x.
+- The controller patch moves controls on some screens at run time (Pazaak's side deck,
+  class selection, the galaxy map's buttons) and always reads the live rects; check such a
+  screen with the pad after changing its file.
