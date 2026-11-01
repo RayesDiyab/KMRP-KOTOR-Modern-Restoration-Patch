@@ -317,6 +317,14 @@ the area average of the 6x texels it covers, alpha only for white atlases) and s
 `texturewidth` to the fitted width, so the atlas is drawn one texel to one pixel at
 every text size. Original Font keeps its atlas; only its TXI dimensions change.
 
+A change of size on the page shows at once through the metrics alone, which stretches the atlas
+fitted to the size before. Fitting all eighteen takes over a second the first time at a size, so
+it waits until the size has not changed for 400 ms (`FontRefit`, `K1TextOptionsPolicy.h`), and
+then does what a change of font does. Before 2026-11-01 that step did not exist: HD Font stayed
+stretched until a restart or a change of font (the maintainer saw it that day; a change of font
+at the new size was sharp). If the fit fails the text stays as it is, and it is not tried again
+until the next change.
+
 The Old HD source in `assets/hd-fonts` was re-baked on 2026-10-18 (uncommitted at the time of writing),
 after the converter was found to draw the face's missing-glyph box in slots 0x80
 to 0x9F and in every control-code slot; the latter put two vertical lines after

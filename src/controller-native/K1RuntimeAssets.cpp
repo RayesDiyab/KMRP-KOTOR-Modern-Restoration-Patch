@@ -1709,7 +1709,8 @@ extern "C" void __cdecl KmrpFontMetricsLoadedK1(void* object)
     for (int field = 1; field <= 5; ++field) info[field] *= factor;
     info[1] = target; // exact target makes repeat notifications idempotent
     char line[160];
-    sprintf_s(line, "[KMRP] Override's font %s metrics scaled %.2f times before layout", name, factor);
+    sprintf_s(line, "[KMRP] %s font %s metrics scaled %.2f times before layout",
+              OverrideFont(name) ? "Override's" : "KMRP's", name, factor);
     KmrpRuntimeLog(line);
 }
 

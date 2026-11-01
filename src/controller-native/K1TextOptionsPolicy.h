@@ -48,6 +48,17 @@ struct Sizes {
         if(linked)values.fill(values[anchor]);
     }
 };
+// A change of text size shows at once through the fonts' metrics, which stretches the atlas
+// fitted to the size before. The atlases are fitted to the new size once the size has stopped
+// changing: all eighteen take over a second the first time at a size, which a slider moving
+// through its values cannot wait for each step. Times are GetTickCount's, so a wrap is harmless.
+struct FontRefit {
+    static constexpr unsigned SettleMs = 400;
+    bool due = false;
+    unsigned changed = 0;
+    void Changed(unsigned now) {due = true; changed = now;}
+    bool Ready(unsigned now) const {return due && now - changed >= SettleMs;}
+};
 struct Rect { int left, top, width, height; };
 // Inherit the native button's dimensions and column. Leave a third of one
 // button's height between the two, independent of screen resolution or skin.

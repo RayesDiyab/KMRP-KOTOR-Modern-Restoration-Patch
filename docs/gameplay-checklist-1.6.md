@@ -53,6 +53,7 @@ hides the bug these fixed.
 | --- | --- | --- |
 | [ ] | Options, Text Size page: Text 50, Icon Size 50. Open Abilities, Skills tab. | As before this cycle. |
 | [ ] | Text 100, Icon 50. Open Skills. | Text larger. Icons as Icon Size says, centred on their rows. |
+| [ ] | HD Font. Options, Text Size page: drag a slider up, let go, and wait a moment. Then a pad, holding left or right. | The slider stays smooth. Under half a second after it stops, the text turns as sharp as after a change of font. Same at a size never used before, where the first fit takes a second or so. |
 | [ ] | Text 50, Icon 25, then 75, then 100, in one session without restarting. Open Skills each time. | Icons follow the slider each time, centred, sharp at 50. |
 | [ ] | Text 100, Icon 75. Open Skills, then Feats and Powers. | Icons follow the slider. Nothing outside its row. |
 | [ ] | Repeat with **K1CP**. | The same. |
@@ -118,7 +119,7 @@ the left. With **KMRP + controller** they should look as they did before.
 | [ ] | GFX-03 | K1DC on, AA 8: change brightness in Options. | Brightness applies as with AA 0. |
 | [ ] | GFX-04 | On an AMD or Intel PC, if you have one: AA 0, 4, 8. | Picture shows. If a driver refuses, the log says so and the game draws normally. |
 | [ ] | GFX-01 | Issues 39 and 91 need an affected player. Send me issue 39's screenshot or the block's size. | Decides whether the game's own 1600x1200 black fill is the cause. Not fixed. |
-| [ ] | Bundled K1DC | The Steam folder, as installed (see the top). Launch, load a save, change brightness. | Game starts. Brightness works. `KMRP\logs` has no K1DC errors. |
+| [ ] | Bundled K1DC | The Steam folder, as installed (see the top). Change brightness. | Brightness works. `KMRP\logs` has no K1DC errors. Starting, loading a save and the menus were seen working on 2026-11-01. |
 
 ## 11. Installer on your real game
 

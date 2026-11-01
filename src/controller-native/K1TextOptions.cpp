@@ -24,6 +24,7 @@
 void* KmrpTextOptionsTestFunction(unsigned address);
 void* KmrpTextOptionsTestAddress(std::uintptr_t address);
 bool KmrpTextOptionsTestConfirmHeld();
+unsigned KmrpTextOptionsTestTicks();
 #endif
 
 namespace {
@@ -40,6 +41,13 @@ void* Native(std::uintptr_t address) {
     return KmrpTextOptionsTestAddress(address);
 #else
     return reinterpret_cast<void*>(address);
+#endif
+}
+unsigned Ticks() {
+#ifdef KMRP_TEXT_OPTIONS_TEST
+    return KmrpTextOptionsTestTicks();
+#else
+    return GetTickCount();
 #endif
 }
 void** Vtable(void* p) {return static_cast<void**>(Native(At<std::uintptr_t>(p,0)));}
@@ -540,6 +548,7 @@ void Error(const char* message) {
     for(void* p:previews)if(p)At<unsigned>(p,0x44)=(At<unsigned>(p,0x44)&~2u)|(message?0u:2u);
     if(message)Text(help,message);
 }
+FontRefit refit;
 void ReloadFonts(bool images) {
     void** textures=*static_cast<void***>(Native(0x7A4798));
     const int count=*static_cast<int*>(Native(0x7A479C));
@@ -634,6 +643,11 @@ void KmrpTextOptionsFrameK1(void* manager) {
         sizing=requestedSizing;style=requestedStyle;dirty=false;
         if(previousFont==style || KmrpRuntimeApplyTextPreferencesK1()) {
             if(previous.values!=sizing.values || previousFont!=style)ReloadFonts(previousFont!=style);
+            // A change of style has just fitted every font; a change of size alone has not, and
+            // the HD atlases are then stretched until FontRefit says to fit them. Original Font
+            // keeps its atlas at every size, so its metrics are all there is to change.
+            if(previousFont!=style)refit.due=false;
+            else if(previous.values!=sizing.values && style!=Original)refit.Changed(Ticks());
             if(Save())Error(nullptr);else Error("Could not save settings.\nChanges apply this session.");
         } else {
             sizing=requestedSizing=previous;style=requestedStyle=previousFont;
@@ -641,5 +655,11 @@ void KmrpTextOptionsFrameK1(void* manager) {
             Error("Font could not be changed.\nPrevious selection kept.");
         }
         UpdateCaptions();
+    }
+    // Once, also if it fails, and if the page has closed since: a failure leaves the text as it
+    // was, stretched and readable, and is not tried again every frame (audit THR-2).
+    if(!dirty && refit.Ready(Ticks())) {
+        refit.due=false;
+        if(KmrpRuntimeApplyTextPreferencesK1())ReloadFonts(true);
     }
 }

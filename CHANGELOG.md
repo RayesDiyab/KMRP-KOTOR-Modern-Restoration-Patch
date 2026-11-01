@@ -117,6 +117,11 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: HD Font is sharp after a change of Text Size** (2026-11-01). Moving a Text Size slider
+  stretched the atlas fitted to the size before, and the text stayed a little soft until the game
+  restarted or the font was changed. The slider still answers at once, and the atlases are now
+  fitted to the new size 400 ms after it stops. Reported by the maintainer on the audit build.
+
 - **Fixed: the motors stop as a movie starts (audit PAD-7)** (2026-11-01). The game stops updating
   rumble during a movie and XInput holds what it was last told, so a movie begun during a rumble
   could run with the pad shaking. Not yet seen on a pad.

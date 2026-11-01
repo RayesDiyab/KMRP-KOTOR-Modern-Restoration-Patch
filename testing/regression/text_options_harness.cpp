@@ -145,6 +145,8 @@ std::vector<void*> KmrpRuntimePanelsK1(const char*) {
 }
 void KmrpReflowTextK1(){++Mock::reflows;}
 bool KmrpRuntimeIsFontK1(const char* name){return !_stricmp(name,"fnt_console");}
+static unsigned testTicks=0;
+unsigned KmrpTextOptionsTestTicks(){return testTicks;}
 bool KmrpRuntimeApplyTextPreferencesK1(){++Mock::applies;if(Mock::fail){Mock::fail=false;return false;}return true;}
 // The Icon Size slider (issue 80): applied and counted.
 int iconApplies=0;
@@ -306,6 +308,37 @@ int main(int argc,char** argv) {
         release();const int sameBuild=Mock::builds;
         SelectOriginal(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(Mock::builds==sameBuild);selected(Original);
         release();SelectHdOriginal(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(style==HdOriginal);selected(HdOriginal);
+        // HD Font at a new size: seen at once by its metrics, and its atlases fitted once the
+        // slider has settled, as a change of font fits them. Without this the letters stayed
+        // stretched until a restart or a change of font (the maintainer, 2026-11-01).
+        {
+            const auto slide=[&](int position){At<int>(sliders[Menus],0x74)=position;KmrpTextOptionsFrameK1(manager);};
+            const auto wait=[&](unsigned ms){testTicks+=ms;KmrpTextOptionsFrameK1(manager);};
+            const int applied=Mock::applies,reset=Mock::resets,built=Mock::builds,loaded=Mock::loads;
+            slide(10);
+            assert(sizing.values[Menus]==Minimum+10 && Mock::loads>loaded);
+            assert(Mock::applies==applied && Mock::resets==reset);          // nothing heavy while it moves
+            wait(FontRefit::SettleMs-1);assert(Mock::applies==applied);
+            slide(11);                                                      // moved again: it waits again
+            wait(FontRefit::SettleMs-1);assert(Mock::applies==applied);
+            wait(1);
+            assert(Mock::applies==applied+1 && Mock::resets==reset+1 && Mock::builds==built+1);
+            wait(FontRefit::SettleMs*2);assert(Mock::applies==applied+1);   // once
+            // Off the page before it settled: still done.
+            slide(12);void* page=current;current=nullptr;wait(FontRefit::SettleMs);current=page;
+            assert(Mock::applies==applied+2 && Mock::builds==built+2);
+            // A failure is not tried again every frame, and leaves the images alone.
+            slide(13);Mock::fail=true;wait(FontRefit::SettleMs);
+            assert(Mock::applies==applied+3 && Mock::builds==built+2 && !Mock::fail);
+            wait(FontRefit::SettleMs*2);assert(Mock::applies==applied+3);
+            // A change of font fits them itself: nothing left to do after it.
+            slide(14);release();SelectOriginal(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);selected(Original);
+            const int afterFont=Mock::applies;
+            wait(FontRefit::SettleMs);assert(Mock::applies==afterFont);
+            // Original Font keeps its atlas: nothing to fit at any size.
+            slide(15);wait(FontRefit::SettleMs);assert(Mock::applies==afterFont);
+            release();SelectHdOriginal(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);selected(HdOriginal);
+        }
         release();SelectOriginal(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);selected(Original);
         release();ToggleLink(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(!sizing.linked);
         At<int>(sliders[Body],0x74)=(80-Minimum)/Step;KmrpTextOptionsFrameK1(manager);assert(sizing.values[Body]==80);

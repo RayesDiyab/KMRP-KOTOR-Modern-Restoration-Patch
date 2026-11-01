@@ -6,7 +6,7 @@
 **Last full run, on `65a5651` with the three stale paths then fixed in `830c7b1`:** 54 passed, 12 skipped
 for the Mac, and 3 failed on a moved source of this cycle; those 3 and Test-InstallerPatch pass on rerun.
 On `4029b23`, the last commit before this line, the quick group passes 33 of 33 and Test-BuildCache passes.
-The Steam folder has that build, by the real installer: nothing in this document has been seen in play.
+The Steam folder has that build, by the real installer. Seen in play on 2026-11-01, and no more than this: the game starts with the bundled K1DC, loads a save, and its menus work. That first look found a bug no finding had, soft HD Font after a change of Text Size, fixed since.
 
 **Kind: working record, reconciled against the code, 2026-11-01.** It gives each finding of the
 [audit report](cleanup-audit-1.6-report.md) one status. A status was given by reading the code as it
@@ -100,7 +100,7 @@ tests from before this cycle were not all re-proved.
 | GUI-6 | Picture references never released | Kept | | One reference a picture read, and these are the art of screens the player has opened. Bounded and small, against the risk of a release miscounted on a texture the engine still draws. By reading |
 | GUI-7 | Weakest key reader | Tested | this cycle | Test-GameArtFailure: bad keys refused, a good one read; the old file ends in an access violation |
 | GUI-9 | Badge signature ignores scale | Deferred | | Suspected, never seen. Hashing the scale is not safe to do blind: KMRP restores and refits it around native wraps, so the signature could change every frame and redraw the badge. On the checklist: if the gap is seen wrong, fix it then |
-| GUI-10 | "Override's font" for KMRP's own | Tested | `5576e8b` | One log line, read |
+| GUI-10 | "Override's font" for KMRP's own | In-game | this cycle | This row said done at `5576e8b`, and it was not: the game's log of 2026-11-01 had 1,072 such lines with none of those fonts in Override. The line now says whose font it is, by `OverrideFont` |
 | GUI-11 | Unchecked allocation | Tested | this cycle | Test-GameArtFailure fails each of a picture's 7 allocations in turn. `add_texture`'s path has the same checks but is not run: it needs a texture pack |
 | GUI-12 | `size_t` wrap on 32-bit | In-game | this cycle | Every sum of file values in `kmrp-swoophud.c` is 64-bit. By reading: the wrapped read lands in harmless memory, so no test can tell |
 | INS-09 | Override restore cannot resume | Tested | `cf60ec7` | Case 19 |
