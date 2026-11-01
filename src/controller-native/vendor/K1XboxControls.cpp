@@ -1406,9 +1406,13 @@ bool IsGameplayHudActive(
             return true;
         }
         std::uintptr_t vtable = *reinterpret_cast<std::uintptr_t*>(panel);
+        // CSWGuiBarkBubble too: a line of speech the game shows above the HUD without taking
+        // input (AddPanel(bubble, 4, 1), and the input class stays the player's). While it
+        // showed, the D-pad was dropped and A and B went to the world (audit PAD-4, issue 87).
         if (vtable != config.inGameMessagePanelVtable &&
             vtable != config.inGameFadePanelVtable &&
-            vtable != config.inGamePausePanelVtable) {
+            vtable != config.inGamePausePanelVtable &&
+            vtable != K1_BARK_BUBBLE_PANEL_VTABLE) {
             return false;
         }
     }
@@ -5688,16 +5692,10 @@ void CycleAction(
         return;
     }
 
-    std::uintptr_t callback;
-    if (activeIndex < TARGET_ACTION_COUNT) {
-        callback = next ? config.targetNext : config.targetPrevious;
-    } else {
-        callback = next ? config.personalNext : config.personalPrevious;
-    }
-
-    reinterpret_cast<ActionCallbackFn>(callback)(
-        mainInterface,
-        buttons[activeIndex]);
+    // A slot's own events: 0x1F4 and 0x1F5 are registered for the previous and next action
+    // on every slot (0x0068BBE3, 0x0068BBF7). Its handlers exit while its +0x4C is 0, and A's
+    // release leaves it 0, so called directly they did nothing after A (audit PAD-2).
+    SendControlEventK1(buttons[activeIndex], next ? 0x1F5 : 0x1F4);
 }
 
 std::uint32_t InputBit(std::uint32_t keyOffset)
@@ -5782,9 +5780,7 @@ void UpdateActionBarControls(const GameConfig& config, void* mainInterface)
         CycleAction(config, mainInterface, buttons, activeIndex, true);
     }
     if ((pending & PENDING_ACTIVATE) != 0 && activeIndex >= 0) {
-        reinterpret_cast<ActionCallbackFn>(config.activate)(
-            mainInterface,
-            buttons[activeIndex]);
+        SendControlEventK1(buttons[activeIndex], 0x27);
     }
 }
 

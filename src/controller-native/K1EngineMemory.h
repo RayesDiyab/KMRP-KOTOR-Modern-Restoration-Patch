@@ -32,6 +32,18 @@ template <typename T> T EngineFn(std::uintptr_t address)
     return reinterpret_cast<T>(address);
 }
 
+// Send a GUI control an input event as the game's panels do: its HandleInputEvent, vtable
+// +0x3C (CSWGuiControl's is 0x00418750). That function stores the value at +0x4C and the
+// event at +0x48 before it calls the handler registered for the event, and the HUD's
+// handlers exit when +0x4C is 0: called directly they answered whatever the field held, as
+// nothing else sets it (0x0068B057, 0x0068B0A4; audit PAD-1, issues 88 and 90). The Mac port
+// has always pressed this way (hud.cpp Press).
+inline void SendControlEventK1(void* control, int event, int value = 1)
+{
+    using HandleInputFn = void(__thiscall*)(void*, int, int);
+    reinterpret_cast<HandleInputFn>(At<std::uintptr_t*>(control, 0)[0x3C / 4])(control, event, value);
+}
+
 inline bool LooksLikePointerK1(const void* p)
 {
     const std::uintptr_t v = reinterpret_cast<std::uintptr_t>(p);

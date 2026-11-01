@@ -1284,8 +1284,8 @@ void* PanelAtK1(int index);
 int PanelCountK1();
 void* TabBarPanelK1();
 void InstallGuiCuesK1(void* panel);
-bool PressHudButtonK1(void* mainInterface, std::size_t member, std::uintptr_t handler);
-// The HUD's combat buttons and their click handlers; see PressHudButtonK1.
+bool PressHudButtonK1(void* mainInterface, std::size_t member);
+// The HUD's combat buttons; see PressHudButtonK1.
 constexpr std::uintptr_t K1_MAIN_INTERFACE_VTABLE = 0x00753F50;
 constexpr std::size_t    K1_HUD_CLEAR_ONE         = 0x6CD0;      // BTN_CLEARONE
 constexpr std::size_t    K1_HUD_CLEAR_ALL         = 0x7058;      // BTN_CLEARALL, "Disengage"
@@ -1293,8 +1293,6 @@ constexpr std::size_t    K1_HUD_COMBAT_MESSAGE    = 0x735C;      // LBL_CMBTMODE
 bool KmrpXboxHudEnabledK1();                                     // K1XboxHud.cpp
 void KmrpXboxHudForgetK1(void* panel);
 void KmrpForgetBadgeOverlaysK1(void* panel);                     // K1XboxControls.cpp
-constexpr std::uintptr_t K1_ON_CLEAR_ONE          = 0x0068B050;  // CSWGuiMainInterface::OnClearOneButtonPressed
-constexpr std::uintptr_t K1_ON_CLEAR_ALL          = 0x0068B0A0;  // CSWGuiMainInterface::OnClearAllButtonPressed
 void ForgetGuiCuesK1(void* panel);
 void UpdateGuiCuesK1();
 void InstallPazaakTableK1(void* panel);
@@ -2902,11 +2900,11 @@ extern "C" void __cdecl NativeActionBarK1(void* mainInterface)
     g_stick.hudState = KmrpActionBarStateK1(mainInterface);
     // Y, then B: undo the last queued action, then disengage altogether. Y with
     // nothing to undo flourishes the weapons (PerformPendingStickActionsK1, L3's).
-    if (clearOne && !PressHudButtonK1(mainInterface, K1_HUD_CLEAR_ONE, K1_ON_CLEAR_ONE)) {
+    if (clearOne && !PressHudButtonK1(mainInterface, K1_HUD_CLEAR_ONE)) {
         g_stick.flourishRequestedTick = GetTickCount();
     }
     if (disengage) {
-        PressHudButtonK1(mainInterface, K1_HUD_CLEAR_ALL, K1_ON_CLEAR_ALL);
+        PressHudButtonK1(mainInterface, K1_HUD_CLEAR_ALL);
     }
     if (release != 0) {
         KmrpActionBarReleaseK1(mainInterface);   // B: cancel, and nothing else
@@ -3069,12 +3067,13 @@ constexpr std::uint32_t K1_CONTROL_FLAG_DRAWN = 2;
 //                            which leaves combat mode, clears every action and
 //                            plays the button's sound.
 //
-// Pressed through those handlers with the button itself as the argument, so a
-// pad press is exactly a mouse click; and only while the button is drawn, the
-// test OnClearOneButtonPressed makes itself ([this+0x6D14] & 2 at 0x0068B05E).
-using HudButtonHandlerFn = void(__thiscall*)(void*, void*);
-
-bool PressHudButtonK1(void* mainInterface, std::size_t member, std::uintptr_t handler)
+// Pressed by sending the button event 0x27, value 1, as a mouse click does (0x0041ABD0), and
+// only while it is drawn, the test OnClearOneButtonPressed makes itself ([this+0x6D14] & 2 at
+// 0x0068B05E). Until 2026-11-01 this called the handlers directly, which refuse when the
+// button's +0x4C is 0: nothing but a real click set it, and the constructors leave the
+// field as the heap had it, so Y and B worked or did nothing for the life of the HUD
+// (audit PAD-1, issues 88 and 90).
+bool PressHudButtonK1(void* mainInterface, std::size_t member)
 {
     if (!IsReadableK1(mainInterface, K1_HUD_CLEAR_ALL + 0x50) ||
         *FieldAt<std::uintptr_t>(mainInterface, 0) != K1_MAIN_INTERFACE_VTABLE) {
@@ -3084,7 +3083,7 @@ bool PressHudButtonK1(void* mainInterface, std::size_t member, std::uintptr_t ha
     if ((*FieldAt<std::uint32_t>(button, K1_CONTROL_FLAGS) & K1_CONTROL_FLAG_DRAWN) == 0) {
         return false;                   // not in combat, or nothing to clear
     }
-    EngineFn<HudButtonHandlerFn>(handler)(mainInterface, button);
+    SendControlEventK1(button, K1_EVENT_A);
     return true;
 }
 
@@ -7189,6 +7188,11 @@ void RequestNavigationK1(int dx, int dy, bool edge, bool fromDpad)
     // it navigates menus -- and letting it through cycled the bottom-right
     // action bar while the player was simply walking, which is what physical QA
     // caught. In gameplay the left stick means movement and nothing else.
+    //
+    // And only in gameplay: the HUD's request waits for its next update, which menus,
+    // loading and character creation do not run, so a D-pad press on the save list moved
+    // the action bar's focus on the first frame of play (audit PAD-5).
+    const bool hud = fromDpad && InputClassK1() == K1_CLASS_PC;
     const unsigned long now = GetTickCount();
     const bool changed = (dx != g_stick.navHeldX) || (dy != g_stick.navHeldY);
     if (edge || changed) {
@@ -7197,7 +7201,7 @@ void RequestNavigationK1(int dx, int dy, bool edge, bool fromDpad)
         g_stick.navHeldY = dy;
         g_stick.navPendingX = dx;
         g_stick.navPendingY = dy;
-        if (fromDpad) {
+        if (hud) {
             g_stick.hudPendingX = dx;
             g_stick.hudPendingY = dy;
         }
@@ -7207,7 +7211,7 @@ void RequestNavigationK1(int dx, int dy, bool edge, bool fromDpad)
     if (now >= g_stick.navRepeatDeadline) {
         g_stick.navPendingX = dx;
         g_stick.navPendingY = dy;
-        if (fromDpad) {
+        if (hud) {
             g_stick.hudPendingX = dx;
             g_stick.hudPendingY = dy;
         }

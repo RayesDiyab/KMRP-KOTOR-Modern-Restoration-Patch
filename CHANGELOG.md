@@ -117,6 +117,20 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed in code, awaiting a pad in a fight: Y, B, action cycling and X (issues 88, 90; audit
+  PAD-1, PAD-2), the action bar under a bark bubble (issue 87, PAD-4), and a D-pad press in a
+  menu moving the action bar later (PAD-5)** (2026-11-01). KMRP called the HUD's click
+  handlers directly. They exit when the control's `+0x4C` is 0, a field only
+  `CSWGuiControl::HandleInputEvent` writes and no constructor sets, so Y and B worked or did
+  nothing for the life of the HUD, and D-pad cycling and X stopped after A's release set it
+  to 0. Each press now goes through the control's own input call with the event the game
+  registered for it, as the Mac port always has: 0x27 for a button or a slot's activate, 0x1F4
+  and 0x1F5 for a slot's previous and next action. A bark bubble no longer counts as a screen
+  above the HUD: it takes no input, and while one showed the D-pad was dropped, A attacked and
+  B disengaged. Test-HudPress holds the engine facts against the executable. A press
+  sets the field where a stale 0 used to refuse, which is the point; A on a slot behaves as
+  before, and whether it activates twice (PAD-3) is still to be measured.
+
 - **Fixed: an upgrade keeps your settings (audit INS-01), and installing over KMRP 1.0
   works again (INS-11)** (2026-11-01). An install over KMRP restored its first backup of
   `swkotor.ini` whole, so every upgrade lost the game's sound, gameplay and graphics

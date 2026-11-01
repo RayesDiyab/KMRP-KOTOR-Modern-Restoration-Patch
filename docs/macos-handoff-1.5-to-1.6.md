@@ -1657,6 +1657,16 @@ is in `prompts.cpp` (`+0x588`); check whether the Mac's HideMouse has the same "
 showing" test and whether a pointer can come back while the bit is set, and add the same
 throttled re-check there if so. Not built or run on a Mac.
 
+## 132. The action bar under a bark bubble, and a D-pad press in a menu (audit PAD-4, PAD-5; Windows 2026-11-01)
+
+Two Windows fixes the Mac needs checked, as its `hud.cpp` follows the same rules. A
+`CSWGuiBarkBubble` above the HUD takes no input, so Windows' `IsGameplayHudActive` now passes
+it (`vendor/K1XboxControls.cpp`): check whether `HudActive` (`hud.cpp:88`) stops at the bark's
+vtable. A D-pad request is now raised only in the player's input class
+(`RequestNavigationK1`), since the HUD's update does not run in menus: check the Mac's. The Mac
+already presses HUD controls through their own input call (`Press`, `hud.cpp:175`), which is
+what Windows changed to for PAD-1 and PAD-2, so those two need nothing. Not built or run on a Mac.
+
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
 | Change | Commit | Why not the Mac |

@@ -76,6 +76,7 @@ TESTS = {
     "Test-GuiBlendHelper": ("full", py("Test-GuiBlendHelper"), [], ""),
     "Test-GuiModelPreload": ("quick", py("Test-GuiModelPreload"), [], ""),
     "Test-HudOptions": ("quick", py("Test-HudOptions"), [], ""),
+    "Test-HudPress": ("quick", py("Test-HudPress"), [], ""),
     "Test-InstallerPatch": ("settings", ps("Test-InstallerPatch"), [], ""),
     "Test-KmrpLayoutPatch": ("mac", None, [], "needs the Mac executable"),
     "Test-KpatchSource": ("quick", py("Test-KpatchSource"), [], ""),
