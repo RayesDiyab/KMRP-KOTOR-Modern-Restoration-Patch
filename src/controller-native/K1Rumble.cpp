@@ -1299,7 +1299,3 @@ void KmrpRumbleTickK1(void* owner, float dt, float engineHeavy, float engineLigh
     if (light > 1.0f) light = 1.0f;
 }
 
-const RumbleRowK1* KmrpBioWareRumbleRowK1(int index)
-{
-    return BioWare(index);
-}

@@ -58,6 +58,12 @@ hides the bug these fixed.
 | [ ] | THR-1 | Fresh launch, KMRP's patch alone. From the main menu open Options, HUD Size. | The page opens without the 0.4 s stall of the first opening. |
 | [ ] | GUI-5 | Nothing to do unless a set's icons were ever missing. | If `kmrp-kpm.log` warns about icons, the next start tries again. |
 
+## 3a. Rumble without the engine's table (audit R-1)
+
+| Done | Steps | Expected |
+| --- | --- | --- |
+| [ ] | With a pad, Enhanced haptics on, then Original: ignite a saber, throw a grenade near an enemy, take a hit. | Rumble as before. KMRP no longer gives the engine a pattern table, which nothing read. |
+
 ## 3b. Badges beside their captions (decision 6)
 
 **Controller only** at 1920x1080 and 3440x1440: each badge sits beside its caption, not far off to

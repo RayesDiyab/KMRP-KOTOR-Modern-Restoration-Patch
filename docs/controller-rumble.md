@@ -174,9 +174,22 @@ caller that reads the value is the script command, which pushes it as the
 script's result. The handler keeps the engine's one refusal: a *looping* row
 that is already playing is not started again (`0x005FB4BB` tests the row's
 loop flag, `0x005FB4D0` searches the queue), while a one-shot row overlaps its
-running copy freely. The engine's pattern table is still installed
-(`EnsureRumbleTableK1`), so that without this hook the engine plays BioWare's
-rows itself, as the previous build did.
+running copy freely.
+
+KMRP gives the engine no pattern table. Until 2026-11-01 the module still made
+one (`EnsureRumbleTableK1`) for the case of this hook being absent, but the hook
+is in every build, always, and always declines the original, so nothing read it
+(audit R-1). The engine's own fields stayed in place for what they are worth to
+anyone reading this code:
+
+| Thing | Facts |
+| --- | --- |
+| `CClientExoAppInternal +0x340`, `+0x344` | Pattern table and its count. Zero for the life of the process on PC: the constructor zeroes them (`0x005FC15C`, `0x005FC168`), the destructor frees and zeroes them (`0x005FC82A`, `0x005FC844`), and no code loads a table, as the loader went with the Xbox build |
+| Their readers | `0x005FB49F` (the gate this hook replaces), `0x005FB4AB` behind it, `0x005F75B5` in `UpdateRumble` for each queued instance, and the destructor. A scan of the whole game on 2026-11-01 found no others |
+| Pattern, `0x24` bytes | envelope A `+0x00`, envelope B `+0x10`, `int loop` `+0x20` |
+| Envelope, `0x10` bytes | `float* magnitudes` `+0x00`, `float* times` `+0x04` in seconds, `int count` `+0x08`, `int cursor` `+0x0C`, which the evaluator caches its segment in |
+| Evaluator `0x0068FCB0` | Interpolates between the two keyframes around the elapsed time. A null pointer or a time before the first keyframe gives 0.0 |
+| `GetMagnitudes` `0x0068FDD0` | Returns 0, which drops the instance, once the time is past the last keyframe of both envelopes and `loop` is clear. `loop` wraps the time by the last keyframe's |
 
 ### Positional rumble: vanilla's gate, Enhanced's fade
 

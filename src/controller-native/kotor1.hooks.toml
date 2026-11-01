@@ -605,8 +605,7 @@ exclude_from_restore = []
 # eax and ecx are the two accumulated magnitudes, loaded eight and four bytes
 # above this: eax is envelope B's maximum, ecx is envelope A's. ebp is
 # UpdateRumble's own `this`, loaded at 0x005F750E and not popped until
-# 0x005F762B, and it is here so the module can verify the object it is about to
-# install a pattern table on rather than trusting a pointer walk.
+# 0x005F762B, and it is the object the mixer reads its bail-out field from.
 [[hooks.parameters]]
 source = "eax"
 type = "int"

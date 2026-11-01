@@ -54,7 +54,7 @@ tests from before this cycle were not all re-proved.
 | GUI-3 | One odd layout stops a size change | In-game | `8061ac1` | No test: needs the game's panels |
 | GUI-4 | Container's widening read as the engine's | Open | | |
 | GUI-5 | Failed art helper sealed in | Tested | `f29e522` | Test-AssetPrepare case 10 |
-| GUI-8 | "Exactly as its author left it" (decision 5) | Open | | |
+| GUI-8 | "Exactly as its author left it" (decision 5) | Tested | `e8ea7b4` | Test-ModCompatibility, fails without the fix. A real mod's screen on the checklist |
 | THR-1 | KMRP alone never preloads the HUD page | In-game | `53ce379` | No test: needs a GL context |
 | THR-3 | Exceptions on background threads | In-game | `75c1ed6` | By reading; `bad_alloc` not provoked |
 | THR-4 | Game thread waits on the build lock | In-game | `5576e8b` | By reading; no test of the timing |
@@ -109,13 +109,13 @@ tests from before this cycle were not all re-proved.
 | MEM-03 | `_s` failure branches cannot run | In-game | `75c1ed6` | By reading; a 220-character path not run |
 | MEM-04 | Detours written with the game running | Kept | | KPM's, upstream. Theoretical |
 | MEM-05 | Rollback omits the failed run | In-game | `75c1ed6` | By reading |
-| TST-04 | Six hints bake width 0 (decision 6) | Open | | |
+| TST-04 | Six hints bake width 0 (decision 6) | In-game | `d04ca91` | Test-ControllerPromptAssets without its exception list. Controller alone moves three badges: checklist 3b |
 | TST-08 | Frozen diff, stale harness | Open | | |
 | MAC-1, MAC-7 | Submodule pin, truncated address | Deferred | | With the port |
 | E-1 | Font metrics multiplied by 1.0 | Open | | |
 | E-2 | A float nobody reads | Open | | |
 | E-3 | Dead installer format in the applier | Open | | |
-| R-1 | Rumble table never read | Open | | |
+| R-1 | Rumble table never read | In-game | this cycle | Scan of the game: the fields' only readers are the hooked gate, the code behind it, `UpdateRumble` for each queued instance, and the destructor, and the hook is unconditional and always declines. Test-RumbleMixer passes. One rumble in a game on the checklist |
 | DOC | Stale statements | Open | | |
 
 ## The eight approved decisions
@@ -126,8 +126,8 @@ tests from before this cycle were not all re-proved.
 | 2 | Correct F9's documents | Tested | `dd1a626`. `controller-support.md` no longer offers it; check_links passes. No toggle, no new hook |
 | 3 | Remove `--apply` | Tested | `dd1a626`. From the installer, not from the project: deleting the code would have lost what checks the size values, the 4 GB flag's inputs and the inventory, so it is `build/kmrp/kmrp-reference.exe`, which ships nowhere. Four tests pass against it; Test-EngineFields' baseline unchanged; 778 lines and 53 KB left the installer |
 | 4 | Icon Size owns the skill icon | In-game | GUI-2 |
-| 5 | Preserve mod-authored layouts | Open | GUI-8 |
-| 6 | Add the six captions | Open | TST-04 |
+| 5 | Preserve mod-authored layouts | Tested | GUI-8, `e8ea7b4` |
+| 6 | Add the six captions | In-game | TST-04, `d04ca91` |
 | 7 | Retire `vendor/` | Tested | `4db596f`. Credit in both files' first lines and `THIRD_PARTY_NOTICES.md`, with licence, permissions and table. The move changed 174 bytes of the module: its build hash and a 12 byte shift of globals |
 | 8 | Keep the 3440 compare | Kept | Compared at 3440x1440: `mipc210x7.gui` and `mipc28x6.gui` hold the same 111 controls, of which 110 differ. They are two layouts, the first hand-made for this size (a 400 wide name bar against 860, a 270 map against 120), so the compare at `0x0068C4E3` chooses a real thing. Removing it would change every 3440-wide HUD for no gain |
 

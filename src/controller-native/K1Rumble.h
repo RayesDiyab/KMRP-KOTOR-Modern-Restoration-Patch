@@ -20,9 +20,6 @@ struct RumbleRowK1 {
 // BioWare's rumble.2da has rows 0-21.
 constexpr int K1_RUMBLE_PATTERN_COUNT = 22;
 
-// BioWare's row `index`, or null.
-const RumbleRowK1* KmrpBioWareRumbleRowK1(int index);
-
 // Once per frame, from UpdateRumble's SetRumble call. `owner` is UpdateRumble's
 // CClientExoAppInternal and `dt` its frame time in seconds. `engineHeavy` and
 // `engineLight` are what the engine itself mixed (normally zero, since every

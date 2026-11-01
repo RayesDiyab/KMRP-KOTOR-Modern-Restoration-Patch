@@ -774,7 +774,6 @@ struct StickState {
     int           padSlot = -1;                   // XInput slot the pad answered on
     unsigned long rumbleCalls = 0;                // SetRumble calls observed
     unsigned long rumbleSent = 0;                 // XInputSetState calls made
-    unsigned long rumbleTableInstalled = 0;       // pattern tables handed over
     int           remapRequestedSlot = 0;         // a button the screen redefines
     std::uint8_t  remapSuppressed = 0;            // which buttons took the remap
     unsigned long remapDispatched = 0;            // remapped presses performed
@@ -1308,7 +1307,6 @@ void InstallPazaakSetupPadK1(void* panel);   // Pazaak's side deck screen, with 
 void UpdatePazaakSetupPadK1();
 void ForgetPazaakSetupPadK1(void* panel);
 void* ClientExoAppK1();
-void EnsureRumbleTableK1(void* owner);
 void UpdateStickNavigationK1(float x, float y);
 namespace {
 void UpdateSwoopPromptK1();
@@ -2011,147 +2009,6 @@ extern "C" void __cdecl NativeJoystickInitK1(void* exoInputInternal)
 // function's return value.
 
 
-// ------------------------------------------------------ the rumble pattern table
-//
-// The engine's rumble subsystem is complete and running; one field stops it.
-// CClientExoAppInternal::PlayRumblePattern tests the caller's index against the
-// pattern COUNT before it does anything else:
-//
-//     005FB49F  cmp ebp, dword ptr [ecx+0x344]
-//     005FB4A5  jge 0x5fb536                      -> return 0, nothing queued
-//
-// and on PC that count is zero for the life of the process, so every rumble the
-// game asks for is dropped at the door. Two writes to those fields exist in the
-// whole class -- the constructor zeroing them (0x005FC15C, 0x005FC168) and the
-// destructor freeing and re-zeroing (0x005FC82A, 0x005FC844). Nothing loads a
-// table, because the loader went with the Xbox build.
-//
-// Providing one is the entire fix. PlayRumblePattern then appends an instance,
-// UpdateRumble walks the list every frame taking each motor's maximum through
-// CSWRumblePattern::GetMagnitudes, and SetRumble is handed the pair -- where the
-// detour already on 0x005F7617 forwards it to XInput.
-//
-// The layout is read out of GetMagnitudes (0x0068FDD0) and the envelope
-// evaluator it calls twice (0x0068FCB0):
-//
-//     envelope, 0x10 bytes
-//       +0x00  float* magnitudes
-//       +0x04  float* times, in seconds; the end test reads times[count-1]
-//       +0x08  int    count
-//       +0x0C  int    cursor -- the evaluator CACHES its segment here
-//
-//     pattern, 0x24 bytes
-//       +0x00  envelope A, the first magnitude out
-//       +0x10  envelope B, the second
-//       +0x20  int loop
-//
-// The evaluator interpolates linearly between the two keyframes bracketing the
-// elapsed time (0x0068FD96-0x0068FDB7), and GetMagnitudes reports the pattern
-// finished -- returning 0, which makes UpdateRumble drop the instance -- once
-// the time is past the last keyframe of both envelopes and loop is clear.
-
-struct RumbleEnvelopeK1 {
-    const float* magnitudes;
-    const float* times;             // seconds, ascending, first entry 0
-    int          count;
-    int          cursor;            // the engine writes this; not ours to read
-};
-
-struct RumblePatternK1 {
-    RumbleEnvelopeK1 heavy;         // envelope A -> the low-frequency motor
-    RumbleEnvelopeK1 light;         // envelope B -> the high-frequency motor
-    int              loop;
-};
-
-static_assert(sizeof(RumbleEnvelopeK1) == 0x10, "envelope must be 0x10 bytes");
-static_assert(sizeof(RumblePatternK1) == 0x24, "pattern must be 0x24 bytes");
-
-constexpr std::size_t K1_INTERNAL_RUMBLE_TABLE = 0x340;
-constexpr std::size_t K1_INTERNAL_RUMBLE_COUNT = 0x344;
-
-// BioWare's own table: K1's rumble.2da, all 22 rows, as published by the OpenKotOR
-// wiki (wiki/odyssey-engine/2da/rumble-k1.md). The PC build ships neither the
-// file nor a loader for it -- the loader went with the Xbox build -- so the rows
-// are compiled in here, generated from that page and validated row by row:
-// every sample count matches its filled cells, times ascend and magnitudes stay
-// in 0..1. The l* columns are envelope A and the r* columns envelope B, because
-// UpdateRumble calls SetRumble(0, A, B, 600000) at 0x005F7626 and XInput takes
-// (left, right) in that order. Left is the heavy, low-frequency motor on an Xbox
-// pad.
-//
-// Until 2026-09-25 this held nine shapes KMRP had authored, for the indices
-// shipped content asks for, with every other index silent. The comment then
-// said BioWare's envelopes could not be recovered from the PC files. They were
-// never in them, but they are in this table, and its row names confirm the
-// indices: 14 is FragGenade (the grenade VFX), 12 Ceiling (k_pkor_ceil_fall),
-// 15 and 16 Endar_01/02 (the k_pend_ scripts), and 17 Heavy_step (the Stomp
-// footsteps).
-//
-// How the evaluator (0x0068FCB0) and GetMagnitudes (0x0068FDD0) read the data,
-// so that it reads exactly as authored:
-//   * an envelope with no samples has null pointers and count 0. The evaluator
-//     returns 0.0 for a null pointer (0x0068FCB9, 0x0068FCC3), and
-//     GetMagnitudes' end test reads times[count-1] only when that index is in
-//     range, otherwise 0.0 (0x0068FE0B-0x0068FE1B);
-//   * before an envelope's first keyframe the segment search finds nothing and
-//     returns 0.0 (0x0068FDBF), so a late start -- Endar_01's left motor at
-//     5.5 s -- is silence until then, as authored;
-//   * `looping` wraps the elapsed time by the last keyframe's time. Rows 0
-//     (LightSaberOn) and 21 (Whirlwind) loop. Nothing in the shipped PC content
-//     plays either: the only callers are the script command (0x00541120), a
-//     client message (0x004FF94D) and the positional wrapper (0x005FBBC4), all
-//     with the index as data. So a loop runs only if a mod asks for it, until
-//     StopRumblePattern -- which is what the table says it should do.
-//
-// Since the Enhanced haptics pass (2026-09-25) the rows live in K1Rumble.cpp,
-// and the engine's own instance list is bypassed: a hook on PlayRumblePattern
-// hands every play to the mixer there, which evaluates these rows the same way
-// and also attaches rows 0 and 21 to the saber and Whirlwind. The table is still
-// installed here, so that without that hook the engine plays it itself.
-
-// Install it once, and again if the object is ever rebuilt -- the destructor
-// frees the table and zeroes both fields, so the null test picks a new one up by
-// itself. Never over a table the engine owns: if either field is already set,
-// something loaded one and this has no business replacing it.
-void EnsureRumbleTableK1(void* owner)
-{
-    void* const internal = ClientInternalK1();
-    if (!internal || internal != owner) {
-        // Not an inference. The pointer stored below is one the engine's
-        // destructor hands to free(), so putting it on the wrong object would
-        // be heap corruption rather than a harmless miss. `owner` is
-        // UpdateRumble's own `this`, straight out of ebp.
-        return;
-    }
-    void** const slot = FieldAt<void*>(internal, K1_INTERNAL_RUMBLE_TABLE);
-    int* const count = FieldAt<int>(internal, K1_INTERNAL_RUMBLE_COUNT);
-    if (*slot != nullptr || *count != 0) {
-        return;
-    }
-    const std::size_t bytes = sizeof(RumblePatternK1) * K1_RUMBLE_PATTERN_COUNT;
-    auto* const patterns = static_cast<RumblePatternK1*>(
-        EngineFn<OperatorNewFn>(K1_OPERATOR_NEW)(bytes));
-    if (!patterns) {
-        return;
-    }
-    std::memset(patterns, 0, bytes);
-    for (int index = 0; index < K1_RUMBLE_PATTERN_COUNT; ++index) {
-        const RumbleRowK1* const row = KmrpBioWareRumbleRowK1(index);
-        if (!row) {
-            continue;               // unreachable as written; cheap to keep true
-        }
-        RumblePatternK1& pattern = patterns[index];
-        pattern.heavy = { row->heavyMagnitudes, row->heavyTimes, row->heavyCount, 0 };
-        pattern.light = { row->lightMagnitudes, row->lightTimes, row->lightCount, 0 };
-        pattern.loop = row->loop;
-    }
-    // Pointer before count, because the count is what PlayRumblePattern gates on
-    // and it reads the pointer immediately after passing that gate.
-    *slot = patterns;
-    *count = K1_RUMBLE_PATTERN_COUNT;
-    ++g_stick.rumbleTableInstalled;
-}
-
 // The engine's rumble, routed to XInput.
 //
 // KOTOR still runs the Xbox build's rumble subsystem: UpdateRumble at
@@ -2172,10 +2029,9 @@ void EnsureRumbleTableK1(void* owner)
 //     005F7613  mov ecx, dword ptr [esp+8]    envelope A's maximum
 //
 // so the first parameter, from EAX, is envelope B and the second, from ECX, is
-// envelope A. The table this module installs treats envelope A as the heavy
-// low-frequency motor and B as the light high-frequency one, which is the
-// pairing the shapes were cut for -- so A goes left and B goes right, and the
-// two lines below are no longer arbitrary.
+// envelope A. BioWare's table has envelope A as the heavy low-frequency motor and
+// B as the light high-frequency one, so A goes left and B goes right, and the two
+// lines below are no longer arbitrary.
 //
 // The magnitudes arrive as float bit patterns, because the engine moves them
 // with `mov` rather than the x87 stack. Both are recorded raw in the diagnostic
@@ -2407,11 +2263,6 @@ extern "C" void __cdecl NativeRumbleK1(int envelopeBBits, int envelopeABits,
     ++g_stick.rumbleCalls;
     g_stick.rumbleRawA = static_cast<unsigned long>(envelopeABits);
     g_stick.rumbleRawB = static_cast<unsigned long>(envelopeBBits);
-    // UpdateRumble runs every frame from the main loop, so this is the earliest
-    // and most reliable place to hand the engine its pattern table. Installing
-    // from inside the call it gates is safe: with the count still zero there can
-    // be no instances, so the loop above this point did nothing.
-    EnsureRumbleTableK1(rumbleOwner);
 
     auto toFloat = [](int bits) -> float {
         float value = 0.0f;
@@ -8108,7 +7959,7 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         // after. cam* are x100.
         "ovr=%d rmag=%ld amag=%ld dz=%ld dcr=%lu cls=%lu/%lu reb=%lu "
         "rx=%ld ry=%ld camrun=%lu camwr=%lu camdz=%lu camapp=%ld camcls=%lu camown=%lu "
-        "nav=%lu/%lu hud=%lu/%lu/%lu/%08lX/%d pad=%lu prm=%lu dsc=%lu gui=%lu tab=%lu tabin=%d mve=%lu/%lu/%lu move=%d->%d dir=%d rum=%lu/%lu/%08lX raw=%08lX/%08lX slot=%d rtab=%lu rmp=%lu fle=%lu drp=%lu psw=%lu cue=%lu/%lu/%lu mnu=%lu hrel=%lu gly=%d/%lu frm=%lu/%lu dt=%ld/%ld tex=%ld/%ld/%ld/%ld tid=%ld/%ld dev=%08lX cur=%d/%lu/%lu\r\n",
+        "nav=%lu/%lu hud=%lu/%lu/%lu/%08lX/%d pad=%lu prm=%lu dsc=%lu gui=%lu tab=%lu tabin=%d mve=%lu/%lu/%lu move=%d->%d dir=%d rum=%lu/%lu/%08lX raw=%08lX/%08lX slot=%d rmp=%lu fle=%lu drp=%lu psw=%lu cue=%lu/%lu/%lu mnu=%lu hrel=%lu gly=%d/%lu frm=%lu/%lu dt=%ld/%ld tex=%ld/%ld/%ld/%ld tid=%ld/%ld dev=%08lX cur=%d/%lu/%lu\r\n",
         g_stick.registered ? 1 : 0, g_stick.createFailed ? 1 : 0, liveCount,
         g_stick.initCalls, g_stick.bufferCalls, g_stick.recordsEmitted,
         g_stick.movementCalls, g_stick.overrideFrames,
@@ -8160,7 +8011,7 @@ extern "C" void __cdecl NativeJoystickDumpK1()
         g_stick.navFromY, g_stick.navToY, g_stick.navDir,
         g_stick.rumbleCalls, g_stick.rumbleSent, g_stick.rumbleLast,
         g_stick.rumbleRawA, g_stick.rumbleRawB, g_stick.padSlot,
-        g_stick.rumbleTableInstalled, g_stick.remapDispatched,
+        g_stick.remapDispatched,
         g_stick.freeLookExits, g_stick.dpadRepeats, g_stick.partySwitches,
         g_stick.guiCuesInstalled, g_stick.guiCuesRejected,
         g_stick.guiCueToggles,
