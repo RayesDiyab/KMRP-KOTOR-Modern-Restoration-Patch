@@ -54,7 +54,13 @@ hides the bug these fixed.
 | --- | --- | --- |
 | [ ] | Options, Text Size page: Text 50, Icon Size 50. Open Abilities, Skills tab. | As before this cycle. |
 | [ ] | Text 100, Icon 50. Open Skills. | Text larger. Icons as Icon Size says, centred on their rows. |
-| [ ] | HD Font. Options, Text Size page: drag a slider up, let go, and wait a moment. Then a pad, holding left or right. | The slider stays smooth. Under half a second after it stops, the text turns as sharp as after a change of font. Same at a size never used before, where the first fit takes a second or so. |
+| [ ] | Save, greyed. Open Options, Text Size page and change nothing. | Save is dimmed between Default and Close, clicking it does nothing, and a pad shows no X on it. Close closes at once. |
+| [ ] | Save, HD Font. Drag a slider up. Then press Save, and try X on a pad. | The slider stays smooth and the text a little soft. Save lights up, shows "Saving...", then goes dim with the text fully sharp. At a size never used before that takes a second or so. |
+| [ ] | Close warning. Change something and press Close, or B. | "You have unsaved changes." sized to fit, with Save and Don't Save, and the pad's A beside the focused one. |
+| [ ] | In that box press Don't Save (B). Reopen the page, and restart the game. | Sizes, font, link and icons are all as they were saved, and the text is sharp. |
+| [ ] | Change something, Close, then Save (A). Restart the game. | The page closes after saving, and the change is still there after the restart. |
+| [ ] | Try a font without saving: pick Original Font, then Close and Don't Save. | HD Font is back, sharp. |
+| [ ] | All of the above from the main menu and from in a game, and at a second resolution. | The same. The box is centred each time. |
 | [ ] | Text 50, Icon 25, then 75, then 100, in one session without restarting. Open Skills each time. | Icons follow the slider each time, centred, sharp at 50. |
 | [ ] | Text 100, Icon 75. Open Skills, then Feats and Powers. | Icons follow the slider. Nothing outside its row. |
 | [ ] | Repeat with **K1CP**. | The same. |

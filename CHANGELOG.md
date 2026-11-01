@@ -117,10 +117,13 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
-- **Fixed: HD Font is sharp after a change of Text Size** (2026-11-01). Moving a Text Size slider
-  stretched the atlas fitted to the size before, and the text stayed a little soft until the game
-  restarted or the font was changed. The slider still answers at once, and the atlases are now
-  fitted to the new size 400 ms after it stops. Reported by the maintainer on the audit build.
+- **New: a Save button on the Text Size and Font page, and HD Font sharp at a new size**
+  (2026-11-01). Moving a Text Size slider stretched the atlas fitted to the size before, and the
+  text stayed a little soft until the game restarted or the font was changed. Sliders still show a
+  change at once, as a preview, but nothing is made or saved until **Save**, between Default and
+  Close: greyed until something changed, "Saving..." while it fits the fonts, then greyed again; X
+  on a pad. Closing with unsaved changes asks first, Save or Don't Save, and Don't Save puts
+  everything back. A font chosen is still shown at once, and kept only by Save.
 
 - **Fixed: the motors stop as a movie starts (audit PAD-7)** (2026-11-01). The game stops updating
   rumble during a movie and XInput holds what it was last told, so a movie begun during a rumble

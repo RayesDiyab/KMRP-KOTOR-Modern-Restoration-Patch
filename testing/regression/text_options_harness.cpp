@@ -20,6 +20,8 @@ std::map<void*,std::string> captions;
 std::map<void*,unsigned> sizes;
 void* source=nullptr;
 int resets=0,loads=0,images=0,reflows=0,applies=0,builds=0;
+int boxesMade=0,boxesShown=0,boxMode=0,cancelAllowed=0;
+std::string boxMessage;
 std::vector<void*> refresh;
 bool fail=false;
 bool held=false;
@@ -82,7 +84,7 @@ void __fastcall AddEvent(void* mockSelf,void*,int,void*,void*){}
 void __fastcall SetFocus(void* p,void*,void* c,int){At<void*>(p,0x1C)=c;}
 int __fastcall Exists(void* mockSelf,void*,void* p){return active.count(p)?1:0;}
 int __fastcall Remove(void* mockSelf,void*,void* p){return active.erase(p)?1:0;}
-void __fastcall AddPanel(void* mockSelf,void*,void* p,int,int){active.insert(p);}
+void __fastcall AddPanel(void* mockSelf,void*,void* p,int mode,int){active.insert(p);if(p==warningBox){++boxesShown;boxMode=mode;}}
 void __fastcall SetSelected(void* self,void*,unsigned selected){At<unsigned>(self,0x1C8)=(At<unsigned>(self,0x1C8)&~1u)|(selected&1);}
 void __fastcall SetMax(void* s,void*,int n){At<int>(s,0x70)=n;}
 void __fastcall SetValue(void* s,void*,int n){At<int>(s,0x74)=n;}
@@ -101,6 +103,13 @@ void __cdecl BuildAll() {
     }
     refresh.clear();
 }
+// The game's message box, as far as the page uses it.
+struct Text2 {const char* text;unsigned size;};
+void* __fastcall BoxCtor(void* self,void*,void* manager) {
+    ++boxesMade;At<std::uintptr_t>(self,0)=0x74FDB0;At<void*>(self,0x18)=manager;return self;
+}
+void __fastcall BoxCancel(void* self,void*,int allow) {cancelAllowed=allow;At<unsigned>(self,0x64)=(At<unsigned>(self,0x64)&~2u)|(allow?2u:0u);}
+void __fastcall BoxMessage(void*,void*,Text2 message) {boxMessage=message.text?message.text:"";std::free(const_cast<char*>(message.text));}
 void Jump(unsigned at,void* to) {
     functions[at]=to;
 }
@@ -117,6 +126,11 @@ void Setup() {
     MAP(0x417EC0,SetMax);MAP(0x417EE0,SetValue);MAP(0x415DD0,SetFont);
     MAP(0x420670,Reset);MAP(0x422AF0,Load);MAP(0x41FA30,Image);
     MAP(0x46BD10,Enqueue);MAP(0x4217F0,BuildAll);
+    MAP(0x626DF0,BoxCtor);MAP(0x627130,BoxCancel);
+    {
+        auto table=static_cast<void**>(Native(0x74FDB0));table[0]=reinterpret_cast<void*>(&DummyDtor);
+        table[0x70/4]=reinterpret_cast<void*>(&BoxMessage);
+    }
 #undef MAP
     auto texture=static_cast<char*>(std::calloc(1,0x100));At<void*>(texture,0x38)=texture;
     strcpy_s(texture+0x98,16,"fnt_console");At<unsigned>(texture,0x58)=At<unsigned>(texture,0xE8)=99;
@@ -145,8 +159,6 @@ std::vector<void*> KmrpRuntimePanelsK1(const char*) {
 }
 void KmrpReflowTextK1(){++Mock::reflows;}
 bool KmrpRuntimeIsFontK1(const char* name){return !_stricmp(name,"fnt_console");}
-static unsigned testTicks=0;
-unsigned KmrpTextOptionsTestTicks(){return testTicks;}
 bool KmrpRuntimeApplyTextPreferencesK1(){++Mock::applies;if(Mock::fail){Mock::fail=false;return false;}return true;}
 // The Icon Size slider (issue 80): applied and counted.
 int iconApplies=0;
@@ -211,7 +223,7 @@ int main(int argc,char** argv) {
             }assert(count==1);
         };
         selected(HdOriginal);
-        assert(owned.size()==26);   // and the Icon Size caption, slider and three icon previews   // with the glyphs beside Default's and Close's captions
+        assert(owned.size()==28);   // and the Icon Size caption, slider and three icon previews   // with the glyphs beside Default's and Close's captions
         // "Link Text Sizes" at the top of the left column, the slider pairs under it, the
         // last above Default (since 2026-10-19; the link was under the pairs).
         {
@@ -308,45 +320,110 @@ int main(int argc,char** argv) {
         release();const int sameBuild=Mock::builds;
         SelectOriginal(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(Mock::builds==sameBuild);selected(Original);
         release();SelectHdOriginal(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(style==HdOriginal);selected(HdOriginal);
-        // HD Font at a new size: seen at once by its metrics, and its atlases fitted once the
-        // slider has settled, as a change of font fits them. Without this the letters stayed
-        // stretched until a restart or a change of font (the maintainer, 2026-11-01).
+        // Save (the maintainer, 2026-11-01): greyed until something differs from what is saved,
+        // "Saving..." while the fonts are made, greyed again; nothing made or written before it,
+        // and a warning on closing without it.
         {
-            const auto slide=[&](int position){At<int>(sliders[Menus],0x74)=position;KmrpTextOptionsFrameK1(manager);};
-            const auto wait=[&](unsigned ms){testTicks+=ms;KmrpTextOptionsFrameK1(manager);};
+            const auto frame=[&]{KmrpTextOptionsFrameK1(manager);};
+            const auto slide=[&](int position){At<int>(sliders[Menus],0x74)=position;frame();};
+            const auto caption=[&]{return Mock::captions[static_cast<char*>(saveButton)+0x16C];};
+            const auto greyed=[&]{return At<float>(saveButton,CaptionColour)==saveCaption[0]*SaveDimmed;};
+            const auto closing=[&]{return (At<unsigned>(current,0x44)&0x400u)!=0;};
+            const auto keepOpen=[&]{At<unsigned>(current,0x44)&=~0x700u;};
+            // The mock's buttons have no colours of their own to dim.
+            saveCaption[0]=saveFrame[0]=1.0f;shownSaveState=-1;
+            saved=Settings{sizing,style,iconSize};fitted=sizing;saved.sizing=requestedSizing;frame();
+            assert(!Unsaved() && greyed() && caption()=="Save");
+            // Three of one width in a row, inside the two ends the game has, at every size.
+            const Rect left=At<Rect>(defaultsButton,4),middle=At<Rect>(saveButton,4),right=At<Rect>(backButton,4);
+            assert(left.width==middle.width && middle.width==right.width);
+            assert(left.left+left.width<middle.left && middle.left+middle.width<right.left);
+            if(cases==0) {
+            // Greyed, pressing it does nothing, by the mouse or the pad's X.
+            release();SaveClicked(nullptr,nullptr,nullptr);frame();assert(!saveFrames);
+            Input(current,nullptr,0x29,1);assert(!saveFrames);
+            release();
+            // A change: shown at once by the metrics alone, and nothing else happens.
             const int applied=Mock::applies,reset=Mock::resets,built=Mock::builds,loaded=Mock::loads;
             slide(10);
-            assert(sizing.values[Menus]==Minimum+10 && Mock::loads>loaded);
-            assert(Mock::applies==applied && Mock::resets==reset);          // nothing heavy while it moves
-            wait(FontRefit::SettleMs-1);assert(Mock::applies==applied);
-            slide(11);                                                      // moved again: it waits again
-            wait(FontRefit::SettleMs-1);assert(Mock::applies==applied);
-            wait(1);
+            assert(sizing.values[Menus]==Minimum+10 && Mock::loads>loaded && Unsaved() && !greyed());
+            for(int i=0;i<600;++i)frame();
+            assert(Mock::applies==applied && Mock::resets==reset);          // however long it waits
+            // Save, by the pad's X: Saving is on screen for a frame before the work holds it up.
+            Input(current,nullptr,0x29,1);frame();
+            assert(caption()=="Saving..." && greyed() && Mock::applies==applied);
+            frame();
             assert(Mock::applies==applied+1 && Mock::resets==reset+1 && Mock::builds==built+1);
-            wait(FontRefit::SettleMs*2);assert(Mock::applies==applied+1);   // once
-            // Off the page before it settled: still done.
-            slide(12);void* page=current;current=nullptr;wait(FontRefit::SettleMs);current=page;
-            assert(Mock::applies==applied+2 && Mock::builds==built+2);
-            // A failure is not tried again every frame, and leaves the images alone.
-            slide(13);Mock::fail=true;wait(FontRefit::SettleMs);
-            assert(Mock::applies==applied+3 && Mock::builds==built+2 && !Mock::fail);
-            wait(FontRefit::SettleMs*2);assert(Mock::applies==applied+3);
-            // A change of font fits them itself: nothing left to do after it.
-            slide(14);release();SelectOriginal(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);selected(Original);
-            const int afterFont=Mock::applies;
-            wait(FontRefit::SettleMs);assert(Mock::applies==afterFont);
-            // Original Font keeps its atlas: nothing to fit at any size.
-            slide(15);wait(FontRefit::SettleMs);assert(Mock::applies==afterFont);
-            release();SelectHdOriginal(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);selected(HdOriginal);
+            assert(!Unsaved() && greyed() && caption()=="Save" && !closing());
+            assert(saved.sizing.values==sizing.values && fitted.values==sizing.values);
+            // Saved, closing asks nothing.
+            release();Back(current,nullptr,nullptr);assert(closing() && !Mock::boxesShown);keepOpen();
+            // Unsaved, closing asks, and the page stays. Save is the first button, what A
+            // presses, and B answers Don't Save.
+            release();slide(11);const int makes=Mock::applies;
+            Back(current,nullptr,nullptr);
+            assert(!closing() && Mock::boxesShown==1 && Mock::boxesMade==1 && Mock::boxMode==1 && Mock::cancelAllowed==1);
+            assert(Mock::boxMessage=="You have unsaved changes.");
+            assert(Mock::captions[static_cast<char*>(warningBox)+BoxOk+0x16C]=="Save");
+            assert(Mock::captions[static_cast<char*>(warningBox)+BoxCancel+0x16C]=="Don't Save");
+            assert(At<void*>(warningBox,BoxCallback)==reinterpret_cast<void*>(&WarningClosed));
+            // Don't Save: as it was saved, nothing fitted, as the atlases already are, and closed.
+            At<unsigned>(warningBox,BoxFlags)&=~1u;WarningClosed(warningBox,nullptr,nullptr);frame();
+            assert(sizing.values==saved.sizing.values && !Unsaved() && Mock::applies==makes && closing());
+            assert(At<int>(sliders[Menus],0x74)==10);
+            keepOpen();release();
+            // Save in the box: saved, then closed.
+            slide(12);Back(current,nullptr,nullptr);assert(Mock::boxesShown==2 && Mock::boxesMade==1 && !closing());
+            At<unsigned>(warningBox,BoxFlags)|=1u;WarningClosed(warningBox,nullptr,nullptr);
+            frame();assert(!closing());frame();
+            assert(saved.sizing.values[Menus]==Minimum+12 && !Unsaved() && closing());
+            keepOpen();release();
+            // It cannot be closed while it saves.
+            slide(13);Input(current,nullptr,0x29,1);Input(current,nullptr,0x28,1);
+            assert(!closing() && Mock::boxesShown==2);
+            frame();frame();assert(!Unsaved());release();
+            // A failed fit stays unsaved, open, and says so, even when asked to close after it.
+            slide(14);Back(current,nullptr,nullptr);
+            At<unsigned>(warningBox,BoxFlags)|=1u;WarningClosed(warningBox,nullptr,nullptr);
+            Mock::fail=true;const int failing=Mock::applies;frame();frame();
+            assert(Mock::applies==failing+1 && Unsaved() && !closing() && !greyed() && !Mock::fail);
+            for(int i=0;i<60;++i)frame();assert(Mock::applies==failing+1);  // not tried again by itself
+            Input(current,nullptr,0x29,1);frame();frame();assert(!Unsaved());release();
+            // A font is shown as it is chosen, as a choice needs to be, and is only kept by Save.
+            const int fontApplied=Mock::applies;
+            SelectOriginal(current,nullptr,nullptr);frame();
+            assert(style==Original && Unsaved() && Mock::applies==fontApplied+1);
+            release();Back(current,nullptr,nullptr);
+            At<unsigned>(warningBox,BoxFlags)&=~1u;WarningClosed(warningBox,nullptr,nullptr);frame();
+            assert(style==HdOriginal && !Unsaved() && closing());keepOpen();release();
+            // Original Font has no atlas to fit: Save only writes.
+            SelectOriginal(current,nullptr,nullptr);frame();release();
+            Input(current,nullptr,0x29,1);frame();frame();assert(!Unsaved());
+            const int original=Mock::applies;slide(15);Input(current,nullptr,0x29,1);frame();frame();
+            assert(Mock::applies==original && !Unsaved());
+            // The icon slider and the link count as changes too.
+            At<int>(iconSlider,0x74)=3;frame();assert(Unsaved() && !greyed());
+            Input(current,nullptr,0x29,1);frame();frame();assert(!Unsaved() && saved.icon==iconSize);
+            release();ToggleLink(current,nullptr,nullptr);frame();assert(Unsaved());
+            release();ToggleLink(current,nullptr,nullptr);frame();assert(!Unsaved() && greyed());
+            release();SelectHdOriginal(current,nullptr,nullptr);frame();selected(HdOriginal);
+            Input(current,nullptr,0x29,1);frame();frame();assert(!Unsaved());
+            release();
+            }
         }
         release();SelectOriginal(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);selected(Original);
         release();ToggleLink(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(!sizing.linked);
         At<int>(sliders[Body],0x74)=(80-Minimum)/Step;KmrpTextOptionsFrameK1(manager);assert(sizing.values[Body]==80);
-        // The Icon Size slider: caption, size and rows at once, while it is still held, saved.
+        // The Icon Size slider: caption, size and rows at once, while it is still held, and
+        // on disk only by Save.
+        const int iconsBefore=iconApplies;
+        {wchar_t ini[MAX_PATH];assert(ConfigPath(ini) && WritePrivateProfileStringW(L"KMRP Text",L"IconSize",nullptr,ini));}
         Mock::held=true;At<int>(iconSlider,0x74)=(75-Minimum)/Step;KmrpTextOptionsFrameK1(manager);
         assert(Mock::captions[static_cast<char*>(iconLabel)+0xE8]=="Feat & Skill Icons: 75%");
-        assert(KmrpIconSizePercentK1()==75 && iconApplies==1);
+        assert(KmrpIconSizePercentK1()==75 && iconApplies==iconsBefore+1);
         Mock::held=false;
+        {wchar_t ini[MAX_PATH];assert(ConfigPath(ini) && GetPrivateProfileIntW(L"KMRP Text",L"IconSize",-1,ini)!=75);}
+        Input(current,nullptr,0x29,1);KmrpTextOptionsFrameK1(manager);KmrpTextOptionsFrameK1(manager);
         {wchar_t ini[MAX_PATH];assert(ConfigPath(ini) && GetPrivateProfileIntW(L"KMRP Text",L"IconSize",-1,ini)==75);}
         Mock::held=false;KmrpTextOptionsFrameK1(manager);KmrpTextOptionsFrameK1(manager);
         Mock::held=true;KmrpTextOptionsFrameK1(manager);
@@ -354,6 +431,7 @@ int main(int argc,char** argv) {
         assert(sizing.values[Menus]==Default && style==HdOriginal && At<int>(sliders[0],0x74)==(Default-Minimum)/Step);selected(HdOriginal);
         for(int value:sizing.values)assert(value==Default);
         assert(sizing.linked && (At<unsigned>(linkSizes,0x1C8)&1));
+        Input(current,nullptr,0x29,1);KmrpTextOptionsFrameK1(manager);KmrpTextOptionsFrameK1(manager);assert(!Unsaved());
         release();Mock::fail=true;SelectOriginal(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(style==HdOriginal && requestedStyle==HdOriginal);selected(HdOriginal);
         // Restoring the entry while A remains held must never reopen the modal.
         release();Mock::held=true;Back(current,nullptr,nullptr);
@@ -369,7 +447,8 @@ int main(int argc,char** argv) {
         Destroy(current,nullptr,1);assert(!current && owned.empty());
         Mock::active.erase(owner);Mock::PanelDtor(owner,nullptr);
         for(auto c:originals)Mock::DummyDtor(c.second,nullptr,1);
-        Mock::Free(owner);assert(entries.empty() && Mock::sizes.empty());++cases;
+        // All freed but the warning box, which is kept for the game's life, and there is one.
+        Mock::Free(owner);assert(entries.empty() && Mock::sizes.size()==(warningBox?1u:0u) && Mock::boxesMade==1);++cases;
     }
     Mock::CleanupFonts();
     assert(Mock::fontSelections==2*TextGroupCount*cases);

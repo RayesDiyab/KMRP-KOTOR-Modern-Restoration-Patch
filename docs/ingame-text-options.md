@@ -318,12 +318,33 @@ the area average of the 6x texels it covers, alpha only for white atlases) and s
 every text size. Original Font keeps its atlas; only its TXI dimensions change.
 
 A change of size on the page shows at once through the metrics alone, which stretches the atlas
-fitted to the size before. Fitting all eighteen takes over a second the first time at a size, so
-it waits until the size has not changed for 400 ms (`FontRefit`, `K1TextOptionsPolicy.h`), and
-then does what a change of font does. Before 2026-11-01 that step did not exist: HD Font stayed
-stretched until a restart or a change of font (the maintainer saw it that day; a change of font
-at the new size was sharp). If the fit fails the text stays as it is, and it is not tried again
-until the next change.
+fitted to the size before, and is a fair preview. Fitting all eighteen takes over a second the
+first time at a size, so it is left to **Save** (below). Before 2026-11-01 nothing fitted them: HD
+Font stayed stretched until a restart or a change of font (the maintainer saw it that day; a
+change of font at the new size was sharp). For a few hours that day they were fitted 400 ms after
+a slider stopped, until the maintainer asked for the Save button instead.
+
+### Save (since 2026-11-01)
+
+The maintainer's design: nothing is made or written until Save, and closing without it warns.
+
+| Thing | What it does |
+| --- | --- |
+| The page's controls | Show a change at once. Nothing goes to `swkotor.ini`, and no atlas is fitted |
+| Save, between Default and Close | Greyed, and does nothing, unless the page differs from what is saved: sizes, the link, the font or the icon size. X on a pad, whose glyph shows only then |
+| Pressing it | Says "Saving..." for a frame, as the work holds the frame up; fits the atlases if HD Font's sizes changed; writes `swkotor.ini`; goes grey |
+| A font chosen | Fitted and shown at once, as fonts cannot be compared otherwise, and kept only by Save. So this one thing is made before Save |
+| Close with changes | The game's own message box, "You have unsaved changes.", **Save** first, which A presses, and **Don't Save**, which B presses |
+| Save in the box | Saves, then closes. If saving fails the page stays open and says so |
+| Don't Save | Everything back as saved, then closes. No fitting, unless a font was tried |
+| A failed fit | The text stays as it is, the page stays unsaved and says so, and it is not tried again until Save is pressed |
+
+The box is made once and kept for the game's life, as the game keeps its own: the controller patch
+holds on to a confirm box it has seen (`confirmBadges`, `K1ControllerLayout.cpp`) and cannot tell
+one that was freed. Its address details were read from the game (`CSWGuiMessageBox`, `0x00626DF0`,
+`SetAllowCancel` `0x00627130`, `SetMessage` `0x006271A0`, which frees its by-value string).
+Test-TextOptions drives all of this on the shipped file against mocks; what the real box and the
+dimmed button look like needs the game. The HUD Size page keeps saving at once.
 
 The Old HD source in `assets/hd-fonts` was re-baked on 2026-10-18 (uncommitted at the time of writing),
 after the converter was found to draw the face's missing-glyph box in slots 0x80

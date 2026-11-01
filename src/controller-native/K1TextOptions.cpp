@@ -24,7 +24,6 @@
 void* KmrpTextOptionsTestFunction(unsigned address);
 void* KmrpTextOptionsTestAddress(std::uintptr_t address);
 bool KmrpTextOptionsTestConfirmHeld();
-unsigned KmrpTextOptionsTestTicks();
 #endif
 
 namespace {
@@ -43,13 +42,6 @@ void* Native(std::uintptr_t address) {
     return reinterpret_cast<void*>(address);
 #endif
 }
-unsigned Ticks() {
-#ifdef KMRP_TEXT_OPTIONS_TEST
-    return KmrpTextOptionsTestTicks();
-#else
-    return GetTickCount();
-#endif
-}
 void** Vtable(void* p) {return static_cast<void**>(Native(At<std::uintptr_t>(p,0)));}
 using Simple=void(__thiscall*)(void*);
 using Ctor=void*(__thiscall*)(void*);
@@ -63,10 +55,10 @@ constexpr std::uintptr_t GraphicsTable=0x7586F8, ButtonTable=0x73E658;
 struct Entry { void* button=nullptr; void* advanced=nullptr; int badged=-1; char family=0; };
 std::map<void*,Entry> entries;
 void *pending=nullptr, *current=nullptr, *parent=nullptr, *returnFocus=nullptr;
-// Default and Close: the pad presses them itself (Y, B), so they are off its focus and
-// wear its glyph while it is in use (K1OptionsPad.h).
-void *defaultsButton=nullptr, *backButton=nullptr;
-KmrpOptionsPad::Glyph defaultsGlyph, backGlyph;
+// Default, Save and Close: the pad presses them itself (Y, X, B), so they are off its focus
+// and wear its glyph while it is in use (K1OptionsPad.h).
+void *defaultsButton=nullptr, *saveButton=nullptr, *backButton=nullptr;
+KmrpOptionsPad::Glyph defaultsGlyph, saveGlyph, backGlyph;
 void* NativeRoutine(std::uintptr_t address){return Fn<void*>(static_cast<unsigned>(address));}
 std::uintptr_t table[27]{};
 std::vector<void*> owned;
@@ -100,6 +92,29 @@ int style=HdOriginal, requestedStyle=HdOriginal;
 Sizes sizing, requestedSizing;
 int releasedFrames=2;
 bool blockReopen=false;
+// Saved and shown. The page's controls show a change at once, by the fonts' metrics alone, and
+// nothing is made or written until Save (the maintainer, 2026-11-01): fitting the eighteen HD
+// atlases takes over a second the first time at a size, and a stretched atlas is a fair preview.
+// `saved` is what swkotor.ini holds; `fitted` the sizes the HD atlases on hand are fitted to.
+Settings saved;
+Sizes fitted;
+// Save, as it runs. Pressed, the button says Saving, which must be drawn before the work that
+// holds up the frame, so the work waits for this many frames.
+constexpr int SaveDelayFrames=2;
+int saveFrames=0;
+bool closeAfterSave=false, closeAfterDiscard=false;
+int shownSaveState=-1;
+float saveCaption[3]{}, saveFrame[3]{};   // the button's own colours
+constexpr float SaveDimmed=0.4f;
+constexpr unsigned CaptionColour=0x16C+0x1C, FrameColour=0x80+0x10;
+constexpr unsigned BoxFlags=0x64, BoxCallback=0x68, BoxCallbackObject=0x6C, BoxCallbackArgument=0x70;
+constexpr unsigned BoxOk=0x2F4, BoxCancel=0x4B8, BoxSize=0x984;
+constexpr unsigned BoxSetMessage=0x70/4;
+// The box Close opens over unsaved changes: the game's own message box, so confirm.gui, the
+// fit (K1PopupFit.cpp) and the pad's A are all as on any other. Made once and kept, as the game
+// keeps its own: the controller patch holds on to a confirm box it has seen (confirmBadges,
+// K1ControllerLayout.cpp) and cannot tell one that was freed.
+void* warningBox=nullptr;
 std::array<int,TextGroupCount> displayedSizes{{-1,-1,-1,-1}};
 int displayedLinked=-1;
 int displayedStyle=-1;
@@ -137,7 +152,10 @@ void Initialize() {
         iconSize=kmrp_icon_percent(static_cast<int>(GetPrivateProfileIntW(L"KMRP Text",L"IconSize",KMRP_ICON_DEFAULT,path)));
     }
     requestedSizing=sizing;requestedStyle=style;requestedIcon=iconSize;
+    saved=Settings{sizing,style,iconSize};fitted=sizing;
 }
+Settings Requested() {return {requestedSizing,requestedStyle,requestedIcon};}
+bool Unsaved() {return !SameSettings(Requested(),saved);}
 bool Save() {
     wchar_t path[MAX_PATH],value[16];
     if(!ConfigPath(path))return false;
@@ -212,8 +230,57 @@ void SelectableAs(void* control,void* owner,const char* tag) {
     if(!control || !original)return;
     At<unsigned>(control,0x44)=(At<unsigned>(control,0x44)&~0x2Cu)|(At<unsigned>(original,0x44)&0x2Cu);
 }
-void __fastcall Back(void*,void*,void*) {if(Armed())Close();}
-void __fastcall OnB(void*,void*,int value) {if(value)Close();}
+// Save, from the button or the pad's X. Done in the frame (KmrpTextOptionsFrameK1).
+void AskToSave() {
+    if(!current || !saveButton || saveFrames || !Unsaved())return;
+    saveFrames=SaveDelayFrames;
+}
+void __fastcall SaveClicked(void*,void*,void*) {
+    if(Armed()){AskToSave();releasedFrames=0;}
+}
+void Dirty();
+// The warning's two buttons. The box has closed itself by now and is still in use on the
+// stack (CSWGuiMessageBox::HandleInputEvent, 0x006250F0), so only flags are set here.
+void __fastcall WarningClosed(void* box,void*,void*) {
+    if(!current)return;
+    if(At<unsigned>(box,BoxFlags)&1u) {
+        closeAfterSave=true;AskToSave();
+    } else {
+        requestedSizing=saved.sizing;requestedStyle=saved.style;requestedIcon=saved.icon;
+        Dirty();closeAfterDiscard=true;
+    }
+    releasedFrames=0;
+}
+bool WarnOfUnsaved() {
+    void* manager=At<void*>(current,0x18);
+    if(!warningBox) {
+        void* box=Fn<New>(0x6FA7E6)(BoxSize);
+        if(!box)return false;
+        Fn<void*(__thiscall*)(void*,void*)>(0x626DF0)(box,manager);
+        warningBox=box;
+    }
+    // The second button shown, so B answers it (and not OK), as a question box's does.
+    Fn<void(__thiscall*)(void*,int)>(0x627130)(warningBox,1);
+    // Each time: the box puts OK and Cancel back as it closes (0x006252A0).
+    Text(static_cast<char*>(warningBox)+BoxOk,"Save",true);
+    Text(static_cast<char*>(warningBox)+BoxCancel,"Don't Save",true);
+    At<void*>(warningBox,BoxCallback)=reinterpret_cast<void*>(&WarningClosed);
+    At<void*>(warningBox,BoxCallbackObject)=warningBox;
+    At<void*>(warningBox,BoxCallbackArgument)=nullptr;
+    // SetMessage takes its CExoString by value and frees it (`ret 8`, 0x006271A0).
+    struct ByValue {void* words[2];} message{};
+    Fn<void(__thiscall*)(void*,const char*)>(0x5E5A90)(&message,"You have unsaved changes.");
+    reinterpret_cast<void(__thiscall*)(void*,ByValue)>(Vtable(warningBox)[BoxSetMessage])(warningBox,message);
+    Fn<void(__thiscall*)(void*,void*,int,int)>(0x40BC70)(manager,warningBox,1,1);
+    return true;
+}
+// Close, as the player asks for it.
+void AskToClose() {
+    if(saveFrames || closeAfterDiscard)return;
+    if(!Unsaved() || !WarnOfUnsaved())Close();
+}
+void __fastcall Back(void*,void*,void*) {if(Armed())AskToClose();}
+void __fastcall OnB(void*,void*,int value) {if(value)AskToClose();}
 void __fastcall Open(void* owner,void*,void*) {
     if(!current && !pending && !blockReopen)pending=owner;
 }
@@ -249,8 +316,9 @@ void SliderEvents(void* slider,void* panel) {
 // the pad's focus (the maintainer, 2026-10-19). Until then Y reached Defaults only from
 // a slider, through the slider's own Default command (SliderEvents).
 void __fastcall Input(void* self,void*,int event,int value) {
-    if(value && event==0x28){Close();return;}
+    if(value && event==0x28){AskToClose();return;}
     if(event==0x2A){if(value)Defaults(nullptr,nullptr,nullptr);return;}
+    if(event==0x29){if(value)AskToSave();return;}
     Fn<void(__thiscall*)(void*,int,int)>(0x409E60)(self,event,value);
 }
 void* __fastcall Destroy(void* self,void*,unsigned flags) {
@@ -259,10 +327,14 @@ void* __fastcall Destroy(void* self,void*,unsigned flags) {
     Fn<Focus>(0x40A630)(self,nullptr,0);
     auto array=At<void**>(self,0x20);
     for(int i=0;array && i<At<int>(self,0x24);++i)array[i]=nullptr;
-    KmrpOptionsPad::SkipFocus(defaultsButton,false);KmrpOptionsPad::SkipFocus(backButton,false);
+    KmrpOptionsPad::SkipFocus(defaultsButton,false);KmrpOptionsPad::SkipFocus(saveButton,false);
+    KmrpOptionsPad::SkipFocus(backButton,false);
     for(void* c:owned)DestroyControl(c);
-    owned.clear();help=linkSizes=defaultsButton=backButton=nullptr;
-    defaultsGlyph=backGlyph=KmrpOptionsPad::Glyph{};
+    owned.clear();help=linkSizes=defaultsButton=saveButton=backButton=nullptr;
+    defaultsGlyph=saveGlyph=backGlyph=KmrpOptionsPad::Glyph{};
+    saveFrames=0;closeAfterSave=closeAfterDiscard=false;shownSaveState=-1;
+    // Gone with its parent, say, and no one was asked: what is saved stands.
+    if(initialized){requestedSizing=saved.sizing;requestedStyle=saved.style;requestedIcon=saved.icon;Dirty();}
     for(void*& p:sizeLabels)p=nullptr;
     for(void*& p:sliders)p=nullptr;
     for(void*& p:previews)p=nullptr;
@@ -305,6 +377,21 @@ void UpdateCaptions() {
         displayedStyle=requestedStyle;
         // Right (or left) from "Link Text Sizes" goes to the font chosen.
         if(linkSizes)At<void*>(linkSizes,0x60)=At<void*>(linkSizes,0x68)=fontChoices[ChoiceOf(requestedStyle)];
+    }
+}
+// Save: greyed unless there is something to save, and "Saving..." while it is done. As the HUD
+// page dims its tabs, the caption's colour and the frame's, each at full strength from the
+// button's own. Pressed greyed, it does nothing (AskToSave), and the pad's X is not shown.
+void UpdateSaveButton() {
+    if(!saveButton)return;
+    const int state=saveFrames?2:Unsaved()?1:0;
+    if(state==shownSaveState)return;
+    shownSaveState=state;
+    Text(saveButton,state==2?"Saving...":"Save",true);
+    const float strength=state==1?1.0f:SaveDimmed;
+    for(int c=0;c<3;++c) {
+        (&At<float>(saveButton,CaptionColour))[c]=saveCaption[c]*strength;
+        (&At<float>(saveButton,FrameColour))[c]=saveFrame[c]*strength;
     }
 }
 // The preview's three icons at the size in force, side by side and centred in their area:
@@ -364,13 +451,15 @@ void MakeScreen(void* manager,void* owner) {
 #endif
     for(void*& icon:iconPreviews)icon=Bind(p,"LBL_GAMMA",0x140,0x41ACD0);
     void* defaults=Bind(p,"BTN_DEFAULT",0x1C4,0x41C0F0);
+    void* save=Bind(p,"BTN_DEFAULT",0x1C4,0x41C0F0);
     void* back=Bind(p,"BTN_BACK",0x1C4,0x41C0F0);
-    // The pad's Y and B beside Default's and Close's captions (K1OptionsPad.h).
+    // The pad's Y, X and B beside the three captions (K1OptionsPad.h).
     void* defaultsMark=Bind(p,"LBL_GAMMA",0x140,0x41ACD0);
+    void* saveMark=Bind(p,"LBL_GAMMA",0x140,0x41ACD0);
     void* backMark=Bind(p,"LBL_GAMMA",0x140,0x41ACD0);
     Fn<Simple>(0x40B8F0)(p);
     bool complete=title && linkSizes && fontChoices[0] && fontChoices[1] && help && defaults && back &&
-        defaultsMark && backMark;
+        save && defaultsMark && saveMark && backMark;
     for(int i=0;i<TextGroupCount;++i)complete=complete && sizeLabels[i] && sliders[i] && previews[i];
     complete=complete && iconLabel && iconSlider && iconPreviews[0] && iconPreviews[1] && iconPreviews[2];
     if(!complete) {
@@ -384,11 +473,21 @@ void MakeScreen(void* manager,void* owner) {
     SelectableAs(linkSizes,owner,"CB_SHADOWS");
     for(void* choice:fontChoices)SelectableAs(choice,owner,"CB_SHADOWS");
     SelectableAs(defaults,owner,"BTN_DEFAULT");
+    SelectableAs(save,owner,"BTN_DEFAULT");
     SelectableAs(back,owner,"BTN_BACK");
     Extent(p,At<Rect>(owner,4));
     const auto rect=[owner](const char* tag){return At<Rect>(KmrpRuntimeControlByTagK1(owner,tag),4);};
     Extent(title,rect("LBL_TITLE"));
-    Extent(defaults,rect("BTN_DEFAULT"));Extent(back,rect("BTN_BACK"));
+    // Default, Save and Close: one width, Save midway, the ends where the game has them. They
+    // narrow only where three of Default's width would not fit.
+    {
+        const Rect first=rect("BTN_DEFAULT"),last=rect("BTN_BACK");
+        const int room=last.left+last.width-first.left,space=(std::max)(4,first.height/3);
+        const int width=(std::min)(first.width,(room-2*space)/3);
+        Extent(defaults,{first.left,first.top,width,first.height});
+        Extent(save,{first.left+(room-width)/2,first.top,width,first.height});
+        Extent(back,{last.left+last.width-width,first.top,width,first.height});
+    }
     const Rect label=rect("LBL_GAMMA"), track=rect("SLI_GAMMA"), checkbox=rect("CB_SHADOWS");
     const int gap=(std::max)(2,track.height/3);
     const Rect advanced=rect("BTN_ADVANCED");
@@ -416,13 +515,14 @@ void MakeScreen(void* manager,void* owner) {
     }
 
     Text(linkSizes,"Link Text Sizes",true);
-    for(void* mark:{defaultsMark,backMark}){Text(mark,"");At<unsigned>(mark,0x44)&=~2u;}
-    defaultsButton=defaults;backButton=back;
+    for(void* mark:{defaultsMark,saveMark,backMark}){Text(mark,"");At<unsigned>(mark,0x44)&=~2u;}
+    defaultsButton=defaults;saveButton=save;backButton=back;
     defaultsGlyph=KmrpOptionsPad::Glyph{};defaultsGlyph.label=defaultsMark;defaultsGlyph.button=defaults;defaultsGlyph.code='y';
+    saveGlyph=KmrpOptionsPad::Glyph{};saveGlyph.label=saveMark;saveGlyph.button=save;saveGlyph.code='x';
     backGlyph=KmrpOptionsPad::Glyph{};backGlyph.label=backMark;backGlyph.button=back;backGlyph.code='b';
     // On the pixels of Graphics Options' own Y and B: the same buttons, the same captions.
     defaultsGlyph.badge="kmrpy_optgfxdef";backGlyph.badge="kmrpb_optgfx";
-    KmrpOptionsPad::SkipFocus(defaults,true);KmrpOptionsPad::SkipFocus(back,true);
+    KmrpOptionsPad::SkipFocus(defaults,true);KmrpOptionsPad::SkipFocus(save,true);KmrpOptionsPad::SkipFocus(back,true);
     // The right-hand column, inside the frame the player sees round the description list:
     // the frame stands 23/86 of the list's scrollbar width left of the list and ends 13/86
     // of it short of the scrollbar's strip, which it does not cover (measured at 3440x1440
@@ -487,7 +587,10 @@ void MakeScreen(void* manager,void* owner) {
     Fn<Event>(0x41AB20)(fontChoices[ChoiceOf(Original)],0x27,p,reinterpret_cast<void*>(&SelectOriginal));
     Fn<Event>(0x41AB20)(fontChoices[ChoiceOf(HdOriginal)],0x27,p,reinterpret_cast<void*>(&SelectHdOriginal));
     Fn<Event>(0x41AB20)(defaults,0x27,p,reinterpret_cast<void*>(&Defaults));
+    Fn<Event>(0x41AB20)(save,0x27,p,reinterpret_cast<void*>(&SaveClicked));
     Fn<Event>(0x41AB20)(back,0x27,p,reinterpret_cast<void*>(&Back));
+    std::memcpy(saveCaption,&At<float>(save,CaptionColour),sizeof saveCaption);
+    std::memcpy(saveFrame,&At<float>(save,FrameColour),sizeof saveFrame);
     // The pad's focus: the link and the four sliders under it, up and down and round;
     // the fonts, up and down and round; left and right between the link and the font
     // chosen (UpdateCaptions), and nothing from a slider, whose left and right move it.
@@ -503,11 +606,12 @@ void MakeScreen(void* manager,void* owner) {
     Navigation(back,fontChoices[FontChoiceCount-1],fontChoices[0],defaults,defaults);
     Fn<Focus>(0x40A630)(p,linkSizes,0);
     displayedSizes.fill(-1);displayedLinked=displayedStyle=displayedIcon=-1;
-    releasedFrames=0;UpdateCaptions();
+    releasedFrames=0;UpdateCaptions();UpdateSaveButton();
     // The pad's Y and B before the page is shown, not on its next frame: they popped in
     // after it (the maintainer, 2026-10-28).
     KmrpOptionsPad::Batch(true);
     KmrpOptionsPad::Update(defaultsGlyph,KmrpOptionsPad::PadInUse(),KmrpOptionsPad::Family(),&NativeRoutine);
+    KmrpOptionsPad::Update(saveGlyph,KmrpOptionsPad::PadInUse() && Unsaved(),KmrpOptionsPad::Family(),&NativeRoutine);
     KmrpOptionsPad::Update(backGlyph,KmrpOptionsPad::PadInUse(),KmrpOptionsPad::Family(),&NativeRoutine);
     KmrpOptionsPad::Batch(false);
     Fn<void(__thiscall*)(void*,void*,int,int)>(0x40BC70)(manager,p,3,1);
@@ -548,7 +652,6 @@ void Error(const char* message) {
     for(void* p:previews)if(p)At<unsigned>(p,0x44)=(At<unsigned>(p,0x44)&~2u)|(message?0u:2u);
     if(message)Text(help,message);
 }
-FontRefit refit;
 void ReloadFonts(bool images) {
     void** textures=*static_cast<void***>(Native(0x7A4798));
     const int count=*static_cast<int*>(Native(0x7A479C));
@@ -568,6 +671,25 @@ void ReloadFonts(bool images) {
     // uploads GL images and rebuilds the engine's texture-ID registry.
     if(images)Fn<void(__cdecl*)()>(0x4217F0)();
     KmrpReflowTextK1();
+}
+
+// The HD atlases, for the sizes in use. Original Font keeps its atlas at every size, so its
+// metrics are all there is. A failure leaves the text as it was, stretched and readable.
+bool FitFonts() {
+    if(style==Original || fitted.values==sizing.values)return true;
+    if(!KmrpRuntimeApplyTextPreferencesK1())return false;
+    ReloadFonts(true);
+    fitted=sizing;
+    return true;
+}
+void FinishSave() {
+    const bool close=closeAfterSave;
+    closeAfterSave=false;
+    if(FitFonts() && Save()) {
+        saved=Settings{sizing,style,iconSize};
+        Error(nullptr);
+        if(close)Close();
+    } else Error("Could not save settings.\nChanges apply this session.");
 }
 }
 
@@ -613,6 +735,7 @@ void KmrpTextOptionsFrameK1(void* manager) {
         // The two pictures listed in one go by the controller patch (K1OptionsPad.h).
         KmrpOptionsPad::Batch(true);
         KmrpOptionsPad::Update(defaultsGlyph,pad,family,&NativeRoutine);
+        KmrpOptionsPad::Update(saveGlyph,pad && Unsaved() && !saveFrames,family,&NativeRoutine);
         KmrpOptionsPad::Update(backGlyph,pad,family,&NativeRoutine);
         KmrpOptionsPad::Batch(false);
     }
@@ -634,7 +757,6 @@ void KmrpTextOptionsFrameK1(void* manager) {
     if(requestedIcon!=iconSize) {
         iconSize=requestedIcon;
         KmrpRuntimeApplyIconSizeK1();
-        if(Save())Error(nullptr);else Error("Could not save settings.\nChanges apply this session.");
         PlaceIconPreviews(iconSize);
         UpdateCaptions();
     }
@@ -643,12 +765,9 @@ void KmrpTextOptionsFrameK1(void* manager) {
         sizing=requestedSizing;style=requestedStyle;dirty=false;
         if(previousFont==style || KmrpRuntimeApplyTextPreferencesK1()) {
             if(previous.values!=sizing.values || previousFont!=style)ReloadFonts(previousFont!=style);
-            // A change of style has just fitted every font; a change of size alone has not, and
-            // the HD atlases are then stretched until FontRefit says to fit them. Original Font
-            // keeps its atlas at every size, so its metrics are all there is to change.
-            if(previousFont!=style)refit.due=false;
-            else if(previous.values!=sizing.values && style!=Original)refit.Changed(Ticks());
-            if(Save())Error(nullptr);else Error("Could not save settings.\nChanges apply this session.");
+            // A change of font has just fitted every atlas, so it can be seen as it will be.
+            if(previousFont!=style)fitted=sizing;
+            Error(nullptr);
         } else {
             sizing=requestedSizing=previous;style=requestedStyle=previousFont;
             KmrpRuntimeApplyTextPreferencesK1();
@@ -656,10 +775,11 @@ void KmrpTextOptionsFrameK1(void* manager) {
         }
         UpdateCaptions();
     }
-    // Once, also if it fails, and if the page has closed since: a failure leaves the text as it
-    // was, stretched and readable, and is not tried again every frame (audit THR-2).
-    if(!dirty && refit.Ready(Ticks())) {
-        refit.due=false;
-        if(KmrpRuntimeApplyTextPreferencesK1())ReloadFonts(true);
+    if(saveFrames && --saveFrames==0)FinishSave();
+    if(closeAfterDiscard && !dirty) {
+        closeAfterDiscard=false;
+        FitFonts();     // Those made since it was opened are for sizes no longer in use.
+        Close();
     }
+    UpdateSaveButton();
 }

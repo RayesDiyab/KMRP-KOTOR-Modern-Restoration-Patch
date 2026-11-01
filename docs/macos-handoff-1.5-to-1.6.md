@@ -1684,7 +1684,7 @@ memory and a bad key; the swoop tool's shift and 64-bit sums. `K1PictureKey.h` i
 | The Container's widening taken for the engine's at a change of size (GUI-4): `KmrpTextLayoutWidenedK1`, `KmrpTextLayoutForgetWidenedK1`; `testing/regression/runtime_relayout_harness.cpp` shows the case | `macos/patches/kmrp-layout/popup_fit.cpp` does the Container's fit and the re-layout came from the same Windows code, so check that a change of size does not keep and scale the fit's width |
 | Picture lookups by hash, the list by border now one map from drawn name to picture (THR-5, GFX-07) | Whether `prompts.cpp` and `overlays.cpp` walk lists per border per frame. Measure before changing it |
 | The motors stopped as a movie starts (PAD-7) | `rumble.cpp` has no movie case. The Mac's pads are SDL's, whose rumble is a 1.5 second lease, so it may stop by itself: check before adding anything |
-| HD Font fitted again 400 ms after a change of Text Size (`FontRefit`, `K1TextOptionsPolicy.h`) | Whether the Mac's text page reloads the fitted atlases on a size change; the symptom is soft text until a restart or a change of font |
+| A Save button on the Text Size page, with a warning on closing unsaved (`K1TextOptions.cpp`, `docs/ingame-text-options.md`) | The Mac's text page should do the same. Check first whether it reloads the fitted atlases on a size change; the symptom is soft text until a restart or a change of font |
 | The six hints' wording (decision 6, TST-04) | The Mac's prompt table: Travel and Cancel on the galaxy map, OK and Cancel naming a save, Add card and Play setting up Pazaak |
 
 **Not for the Mac:** the rumble table's removal (R-1; the Mac never had one), the applier's old
