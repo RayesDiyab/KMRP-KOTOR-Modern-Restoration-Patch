@@ -290,7 +290,7 @@ int main(int argc, char **argv) {
     if (result == 3) printf("the game's own model is right for this screen; nothing written\n");
     if (result == 1) fprintf(stderr, "kmrp-swoophud: %s is not the game's model, or could not be read; nothing written\n", MODEL);
     if (result == 2) fprintf(stderr, "kmrp-swoophud: %s: %s\n", argv[2], strerror(errno));
-    if (result == 0) printf("%s.mdl and .mdx written, the chevron parked %.3f further left\n", MODEL, SHIFT);
+    if (result == 0) printf("%s.mdl and .mdx written, the chevron parked %.3f further left\n", MODEL, shift_for((unsigned)atoi(argv[3]), (unsigned)atoi(argv[4])));
     return result == 3 ? 0 : result;
 }
 #endif
