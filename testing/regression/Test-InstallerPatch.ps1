@@ -625,6 +625,20 @@ try {
         Assert ((Get-Sha (Join-Path $folder "swkotor.ini")) -eq $iniBefore) "$delay ms: swkotor.ini is as it was"
     }
 
+    Write-Host "Case 17b a stop between the swkotor.ini backup's hash and the backup"
+    Set-KmrpSettings $true $true
+    $game = New-Fixture "hash-without-backup"
+    $folder = Split-Path -Parent $game
+    New-Item -ItemType Directory -Force -Path (Join-Path $folder "KMRP\backups") | Out-Null
+    [IO.File]::WriteAllText((Join-Path $folder "KMRP\backups\swkotor.ini.sha256"), ("0" * 64) + "`r`n")
+    [IO.File]::WriteAllText((Join-Path $folder "KMRP\backups\swkotor.ini.kotor-ui-new-left.tmp"), "part of a backup")
+    [IO.File]::WriteAllText((Join-Path $folder "swkotor.ini.kotor-ui-new-left.tmp"), "part of a write")
+    $iniBefore = Get-Sha (Join-Path $folder "swkotor.ini")
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the install succeeds: there is no backup yet"
+    Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "and its restore"
+    Assert ((Get-Sha (Join-Path $folder "swkotor.ini")) -eq $iniBefore) "swkotor.ini is as it was"
+    Assert (@(Get-ChildItem -LiteralPath $folder -Recurse -File -Filter "*.tmp").Count -eq 0) "what a stopped write left is gone"
+
     Write-Host "Case 18 a damaged manifest stops both, before anything changes (audit INS-05)"
     Set-KmrpSettings $true $true
     $game = New-Fixture "damaged-manifest"

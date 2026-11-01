@@ -117,6 +117,12 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: a kill while backing up `swkotor.ini` no longer blocks every later install (audit
+  INS-03)** (2026-11-01). The backup was written before its hash, so a kill between the two left a
+  backup with no hash, and each later install refused it. The hash goes first and the backup in one
+  step, so a stop leaves no backup or a whole one. Found by Test-InstallerPatch case 17 at 250 ms on
+  its fourth full run, which is why its stops are not relied on alone: case 17b sets that state up.
+
 - **Testing: the GUI audit measures what Windows loads and can fail (audit TST-02); the build cache
   counts what a step reaches (S-10)** (2026-11-01). Test-GuiAudit exited 1 on every run from
   2026-10-02, so it could not fail, and it measured set copies of 73 screens Windows now lays out at

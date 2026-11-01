@@ -998,9 +998,7 @@ namespace Kmrp
 
     internal static class IniOperations
     {
-        private const string TemporaryInfix = ".kotor-ui-new-";
-        // What a stopped write leaves beside swkotor.ini (KpmEdition.RemoveInProgress).
-        internal const string TemporaryPattern = "swkotor.ini" + TemporaryInfix + "*.tmp";
+        private const string TemporaryInfix = ".kotor-ui-new-";   // KpmEdition.RemoveInProgress clears these
         internal const int DefaultWidth = 3440;
         internal const int DefaultHeight = 1440;
         private const string GraphicsSection = "Graphics Options";
@@ -1295,23 +1293,25 @@ namespace Kmrp
                     throw new InvalidDataException("The existing swkotor.ini backup failed its integrity check. Move it aside before patching:\r\n" + backupPath);
                 if (!refresh || expected == originalHash)
                     return;
-                File.Delete(hashPath);
                 File.Delete(backupPath);
+                File.Delete(hashPath);
             }
 
-            WriteBytesNew(backupPath, original);
-            if (GoldPatch.HashFile(backupPath) != originalHash)
-            {
-                File.Delete(backupPath);
-                throw new IOException("swkotor.ini backup verification failed. No INI change was applied.");
-            }
+            // The hash first and the backup in one step: stopped at any point there is either
+            // no backup or a whole one with its hash. A kill between the two the other way round
+            // left a backup with no hash, and every later install refused it (Test-InstallerPatch
+            // Case 17 at 250 ms, 2026-11-01).
+            File.WriteAllText(hashPath, originalHash + "\r\n", Encoding.ASCII);
             try
             {
-                File.WriteAllText(hashPath, originalHash + "\r\n", Encoding.ASCII);
+                WriteBytesAtomically(backupPath, original);
+                if (GoldPatch.HashFile(backupPath) != originalHash)
+                    throw new IOException("swkotor.ini backup verification failed. No INI change was applied.");
             }
             catch
             {
-                File.Delete(backupPath);
+                FileGuard.Discard(backupPath);
+                FileGuard.Discard(hashPath);
                 throw;
             }
             SafeReport(report, "INI backup created: " + backupPath);

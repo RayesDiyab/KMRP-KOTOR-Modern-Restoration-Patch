@@ -1616,8 +1616,10 @@ namespace Kmrp
                 if (Directory.Exists(place))
                     foreach (string path in Directory.GetFiles(place, "*" + InProgressSuffix))
                         FileGuard.Discard(path);
-            foreach (string path in Directory.GetFiles(folder, IniOperations.TemporaryPattern))
-                FileGuard.Discard(path);
+            foreach (string place in new[] { folder, GamePath.Combine(folder, Path.GetDirectoryName(KmrpFolder.IniBackup)) })
+                if (Directory.Exists(place))
+                    foreach (string path in Directory.GetFiles(place, "swkotor.ini*.tmp"))
+                        FileGuard.Discard(path);
         }
 
         // Never clobber a file this installer did not write.
