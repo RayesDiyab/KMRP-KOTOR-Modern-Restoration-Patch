@@ -450,61 +450,24 @@ int KmrpDeriveImage(const char *source, int canvas, int picture, int left, int b
 
 /* ---------------------------------------------------------------- tutorial.2da */
 
-static Buffer keyed_resource(const char *key_path, const char *resref, int type) {
-    Buffer none = { NULL, 0 }, key = read_file(key_path);
-    if (!key.data || key.size < 24 || memcmp(key.data, "KEY V1  ", 8) != 0) return none;
-    uint32_t bif_count = u32(key.data + 8), key_count = u32(key.data + 12);
-    uint32_t file_table = u32(key.data + 16), key_table = u32(key.data + 20);
-    for (uint32_t i = 0; i < key_count; i++) {
-        uint64_t at = (uint64_t)key_table + (uint64_t)i * 22;
-        if (at + 22 > key.size) break;
-        char name[17] = { 0 };
-        memcpy(name, key.data + at, 16);
-        if (strcasecmp(name, resref) != 0 || u16(key.data + at + 16) != type) continue;
-        uint32_t id = u32(key.data + at + 18), bif_index = id >> 20, index = id & 0xFFFFF;
-        uint64_t entry = (uint64_t)file_table + (uint64_t)bif_index * 12;
-        if (bif_index >= bif_count || entry + 12 > key.size) break;
-        uint32_t name_offset = u32(key.data + entry + 4);
-        uint16_t name_length = u16(key.data + entry + 8);
-        char bif_path[4096], relative[512] = { 0 };
-        if (name_length >= sizeof relative || (uint64_t)name_offset + name_length > key.size) break;
-        memcpy(relative, key.data + name_offset, name_length);
-        for (char *p = relative; *p; p++) if (*p == '\\') *p = '/';
-        /* Either separator: on Windows the module passes C:\...\chitin.key, and with '/'
-           alone the BIF was looked for in the current folder, which is the game's only
-           when the game itself runs this. The installer's prebuild of every size
-           (2026-10-19) runs elsewhere, so tutorial.2da was never read and nothing was
-           made (2026-10-23; kmrp-guiadapt.c and kmrp-swoophud.c had this fix already). */
-        const char *slash = strrchr(key_path, '/');
-        const char *other = strrchr(key_path, '\\');
-        if (other && (!slash || other > slash)) slash = other;
-        int dir_length = slash ? (int)(slash - key_path) : 1;
-        snprintf(bif_path, sizeof bif_path, "%.*s/%s", dir_length, slash ? key_path : ".", relative);
-        Buffer bif = read_file(bif_path);
-        free(key.data);
-        if (!bif.data || bif.size < 20 || memcmp(bif.data, "BIFFV1  ", 8) != 0) { free(bif.data); return none; }
-        uint32_t variable_count = u32(bif.data + 8), variable_table = u32(bif.data + 16);
-        uint64_t record = (uint64_t)variable_table + (uint64_t)index * 16;
-        if (index >= variable_count || record + 16 > bif.size || (u32(bif.data + record) & 0xFFFFF) != index) {
-            free(bif.data); return none;
-        }
-        uint32_t offset = u32(bif.data + record + 4), size = u32(bif.data + record + 8);
-        if ((uint64_t)offset + size > bif.size) { free(bif.data); return none; }
-        Buffer out = { malloc(size ? size : 1), size };
-        if (!out.data) { free(bif.data); return none; }
-        memcpy(out.data, bif.data + offset, size);
-        free(bif.data);
-        return out;
-    }
+#define KMRP_KEYED_LIMIT (64u << 20)
+#ifdef _MSC_VER
+#define fseeko _fseeki64
+#endif
+#include "kmrp-keyed.h"
+
+static Buffer keyed_file(const char *key_path, const char *resref, int type) {
+    Buffer key = read_file(key_path);
+    Buffer found = keyed_resource(&key, key_path, resref, type);
     free(key.data);
-    return none;
+    return found;
 }
 
 /* The game's table, its icon column pointed at the popup's own copies. The table is read and
  * written by kmrp-2da.h, the same code that merges a mod's copy of any table with KMRP's
  * (kmrp-merge.c); what KMRP changes in it is this alone. */
 static int add_tutorial_table(const char *key_path) {
-    Buffer original = keyed_resource(key_path, "tutorial", TYPE_2DA);
+    Buffer original = keyed_file(key_path, "tutorial", TYPE_2DA);
     if (!original.data) return fail("tutorial.2da could not be read through chitin.key");
     Kmrp2da t;
     const int read = kmrp_2da_parse(original.data, original.size, &t) && !t.text;

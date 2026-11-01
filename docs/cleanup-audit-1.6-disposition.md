@@ -79,9 +79,9 @@ tests from before this cycle were not all re-proved.
 | S-3 | `KmrpXboxHudK1` steps | Deferred | As S-1 |
 | S-4 | Other large files | Deferred | MAC-6 decides `K1RuntimeAssets.cpp`'s shape |
 | S-5 | Installer split | Deferred | `--apply`'s removal comes first (decision 3) |
-| S-6 | Options page toolkit twice | Open | |
+| S-6 | Options page toolkit twice | Deferred | Measured: of the functions with the same name in the two files, none is identical, so sharing them is a rewrite of two working pages that only a game can check. Not before the release |
 | S-7 | Xbox `Piece` and `Placed` three times | Deferred | The third copy is the Mac's |
-| S-8 | Small helpers written several times | Open | |
+| S-8 | Small helpers written several times | Deferred | `keyed_resource` done: one `kmrp-keyed.h` for its three copies, which the report names as the piece that helps the port most, and the art helper no longer loads a whole BIF for one file. The rest (`resize`, `Utf8Path`, rounding, Rect, SetExtent, font readers, addresses, prototypes) each touch working code for no player gain, so they wait until after 1.6, or for the port where it needs one |
 | S-9 | Hook tables | Tested | Seven legacy rows gone, all 43 others proved unchanged, drift check passes |
 | S-10 | Build cache hashes all of `tools/` | Tested | `a88ab3a`. 63 or 64 of 128 tools count per step; a name in a comment still counts |
 
@@ -91,9 +91,9 @@ tests from before this cycle were not all re-proved.
 | --- | --- | --- | --- | --- |
 | PAD-7 | Motors may hold through a movie | In-game | this cycle | Zero sent once when a movie frame finds the last value not zero, which is harmless if the suspicion was wrong. Not provoked. Checklist |
 | PAD-8 | Stale saber hum after a load | Tested | `5576e8b` | Test-RumbleMixer |
-| GUI-6 | Picture references never released | Open | | |
+| GUI-6 | Picture references never released | Kept | | One reference a picture read, and these are the art of screens the player has opened. Bounded and small, against the risk of a release miscounted on a texture the engine still draws. By reading |
 | GUI-7 | Weakest key reader | Tested | this cycle | Test-GameArtFailure: bad keys refused, a good one read; the old file ends in an access violation |
-| GUI-9 | Badge signature ignores scale | Open | | |
+| GUI-9 | Badge signature ignores scale | Deferred | | Suspected, never seen. Hashing the scale is not safe to do blind: KMRP restores and refits it around native wraps, so the signature could change every frame and redraw the badge. On the checklist: if the gap is seen wrong, fix it then |
 | GUI-10 | "Override's font" for KMRP's own | Tested | `5576e8b` | One log line, read |
 | GUI-11 | Unchecked allocation | Tested | this cycle | Test-GameArtFailure fails each of a picture's 7 allocations in turn. `add_texture`'s path has the same checks but is not run: it needs a texture pack |
 | GUI-12 | `size_t` wrap on 32-bit | In-game | this cycle | Every sum of file values in `kmrp-swoophud.c` is 64-bit. By reading: the wrapped read lands in harmless memory, so no test can tell |
@@ -101,9 +101,9 @@ tests from before this cycle were not all re-proved.
 | INS-10 | Linux restore does less | In-game | `cf60ec7` | Art cache removal compiled, not run on Linux. Kept: Linux sets no DPI value, and a `C:\` row is skipped on purpose |
 | THR-7 | 64 KB cleared per frame | In-game | this cycle | Not cleared, and the file query is once in 30 frames at a size already seen. The audit's "return if unchanged" is not done: KMRP's path can change at one size, so it would miss that. A new size still looks at once. Test-ControllerPreload passes |
 | THR-9 | `SHIFT` outside the lock | In-game | this cycle | The file-wide value is gone: each run's shift is in its own `Model`. By reading; Test-LiveLayout's and the build's swoop checks pass |
-| THR-10 | Sampler and applier suspend each other | Open | | Debug only |
+| THR-10 | Sampler and applier suspend each other | Kept | | Debug logging only, one window at start, and theoretical. Not worth code in a path players do not run |
 | GFX-05 | `drawnOffscreen` ignored the binding | Tested | `397129c` | Test-OffscreenFrame, fails without it |
-| GFX-06 | Each read resolves the whole frame | Open | | Cost unmeasured |
+| GFX-06 | Each read resolves the whole frame | Deferred | | Cost unmeasured, with anti-aliasing on only. KMRP's log at level 2 already counts reads against swaps, so a game with AA says if there is anything to gain |
 | GFX-07 | Scene fills never pruned | In-game | this cycle | The list by border is gone: only its picture-to-scene answer was ever read, so one row per picture drawn. With THR-5 |
 | MEM-02 | `hudInterface` outlives the HUD | In-game | `75c1ed6` | By reading |
 | MEM-03 | `_s` failure branches cannot run | In-game | `75c1ed6` | By reading; a 220-character path not run |
@@ -112,8 +112,8 @@ tests from before this cycle were not all re-proved.
 | TST-04 | Six hints bake width 0 (decision 6) | In-game | `d04ca91` | Test-ControllerPromptAssets without its exception list. Controller alone moves three badges: checklist 3b |
 | TST-08 | Frozen diff, stale harness | Tested | this cycle | Test-ControllerPromptAssets reads the source, not a frozen `.diff`. Test-PartyRosterGui builds `K1XboxControls.cpp` as it ships. Stale comments corrected. The review's last words, "Live Layout key", name no file or line, so nothing was done for them |
 | MAC-1, MAC-7 | Submodule pin, truncated address | Deferred | | With the port |
-| E-1 | Font metrics multiplied by 1.0 | Open | | |
-| E-2 | A float nobody reads | Open | | |
+| E-1 | Font metrics multiplied by 1.0 | Deferred | | Proven dead, but removing it reaches the engine recipe, four build tools, the reference code and the entry of the text draw, around which KMRP's hook at `0x0045A857` is placed: a risk to every line of text for a tiny saving. It would also end the one writable and executable page, so it is worth doing just after 1.6 |
+| E-2 | A float nobody reads | Deferred | | Proven unread. One recipe row with no effect, changing the guarded site count and its documents for no gain. With E-1 |
 | E-3 | Dead installer format in the applier | Tested | this cycle | 136 lines gone, with the old edition's `DllMain`. Not byte-identical: the file-reading branch was compiled in, though its only caller always passed the built-in data, so that was the proof. The disassembly differs in the removed functions, `Apply`, and moved code and tables. Quick group passes; every game start runs this code |
 | R-1 | Rumble table never read | In-game | this cycle | Scan of the game: the fields' only readers are the hooked gate, the code behind it, `UpdateRumble` for each queued instance, and the destructor, and the hook is unconditional and always declines. Test-RumbleMixer passes. One rumble in a game on the checklist |
 | DOC | Stale statements | Tested | this cycle | Corrected: `--apply` and `WindowsEnginePatch` in seven documents, the keystroke path in two, and eleven documents added to `docs/README.md`. check_links passes over 1,307 links. The Mac handoff's stale items and `macos/WINDOWS-PARITY.md` wait for the port. Some tests' docstrings the review called stale were not reread |
@@ -141,4 +141,4 @@ tests from before this cycle were not all re-proved.
 | F10 | Kept | Four callers found; the hook stays |
 | F11 | Tested | The preview is gone (`cac345e`) |
 | F12 | Deferred | S-1 to S-8 |
-| F13 | Open | Keyboard on real hardware: gameplay checklist |
+| F13 | In-game | Keyboard on real hardware: gameplay checklist |

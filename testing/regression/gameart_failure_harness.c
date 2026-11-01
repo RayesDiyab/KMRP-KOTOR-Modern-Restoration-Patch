@@ -92,16 +92,16 @@ int main(int argc, char **argv)
     memcpy(bif + 36, "abcd", 4);
     write_bytes(bifPath, bif, sizeof bif);
     write_key(keyPath, 24, 70, 5);
-    Buffer good = keyed_resource(keyPath, "tutorial", TYPE_2DA);
+    Buffer good = keyed_file(keyPath, "tutorial", TYPE_2DA);
     check(good.data && good.size == 4 && !memcmp(good.data, "abcd", 4), "a good key still reads its resource");
     free(good.data);
     /* And a bad one is refused: these read far outside the file until 2026-11-01 (GUI-7). */
     write_key(keyPath, 24, 0x7FFFFFF0u, 5);
-    check(!keyed_resource(keyPath, "tutorial", TYPE_2DA).data, "a BIF name outside the key is refused");
+    check(!keyed_file(keyPath, "tutorial", TYPE_2DA).data, "a BIF name outside the key is refused");
     write_key(keyPath, 0x7FFFFF00u, 70, 5);
-    check(!keyed_resource(keyPath, "tutorial", TYPE_2DA).data, "a file table outside the key is refused");
+    check(!keyed_file(keyPath, "tutorial", TYPE_2DA).data, "a file table outside the key is refused");
     write_key(keyPath, 0xFFFFFFF8u, 70, 5);
-    check(!keyed_resource(keyPath, "tutorial", TYPE_2DA).data, "a file table that wraps a 32-bit sum is refused");
+    check(!keyed_file(keyPath, "tutorial", TYPE_2DA).data, "a file table that wraps a 32-bit sum is refused");
 
     printf("%d failed\n", failures);
     return failures ? 1 : 0;

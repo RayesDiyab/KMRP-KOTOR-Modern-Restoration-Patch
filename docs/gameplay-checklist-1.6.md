@@ -94,6 +94,13 @@ the left. With **KMRP + controller** they should look as they did before.
 | --- | --- | --- |
 | [ ] | Any mod whose `.gui` is already made for your size, for example a Scaled KOTOR screen, at that size. | Exactly as its author made it, gutters and list heights included. At another size it is converted, and the log says so. |
 
+## 3d. Things to look out for (no fix made)
+
+| Done | Steps | What it decides |
+| --- | --- | --- |
+| [ ] | GUI-9. Controller on, on a screen with badges: change Text Size up and down, go back to the screen. | If a badge stands too far from or over its caption, the finding is real and gets its fix. |
+| [ ] | GFX-06. Only if convenient: Anti-aliasing 8, `Debug` level 2, two minutes of play, then look for the line counting reads against swaps in `KMRP\logs\kmrp-kpm.log`. | Many reads a swap would make it worth resolving only the part read. |
+
 ## 4. Display and drivers
 
 | Done | Finding | Steps | Expected |
