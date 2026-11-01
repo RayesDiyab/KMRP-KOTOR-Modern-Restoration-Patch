@@ -58,26 +58,26 @@ hides the bug these fixed.
 | [ ] | THR-1 | Fresh launch, KMRP's patch alone. From the main menu open Options, HUD Size. | The page opens without the 0.4 s stall of the first opening. |
 | [ ] | GUI-5 | Nothing to do unless a set's icons were ever missing. | If `kmrp-kpm.log` warns about icons, the next start tries again. |
 
-## 3a. Rumble without the engine's table (audit R-1)
+## 4. Rumble (audit R-1, PAD-7)
 
 | Done | Steps | Expected |
 | --- | --- | --- |
 | [ ] | With a pad, Enhanced haptics on, then Original: ignite a saber, throw a grenade near an enemy, take a hit. | Rumble as before. KMRP no longer gives the engine a pattern table, which nothing read. |
 | [ ] | PAD-7. With a held rumble going (a saber lit with Saber Hum on, or an explosion), let a cutscene movie start, for example by leaving a planet in the Ebon Hawk. | The motors stop as the movie starts, and rumble works after it. |
 
-## 3aa. The Container after a change of size (audit GUI-4)
+## 5. The Container after a change of size (audit GUI-4)
 
 | Done | Steps | Expected |
 | --- | --- | --- |
 | [ ] | Open a container at 1920x1080 with a large Text Size. Close it, change the resolution in Options to another size, and open a container again. Change once more. | The three buttons stay inside the panel, "Switch To Give Item" fits, and the panel does not grow with each change. |
 
-## 3ab. Pictures after the lookup change (audit THR-5)
+## 6. Pictures after the lookup change (audit THR-5)
 
 | Done | Steps | Expected |
 | --- | --- | --- |
 | [ ] | With the Xbox HUD on: play a few minutes of combat, open the Controller Layout, change the pad family, and change the resolution once. | No white frame or badge that stays white, and no picture of the wrong family or size. |
 
-## 3b. Badges beside their captions (decision 6)
+## 7. Badges beside their captions (decision 6)
 
 **Controller only** at 1920x1080 and 3440x1440: each badge sits beside its caption, not far off to
 the left. With **KMRP + controller** they should look as they did before.
@@ -88,20 +88,20 @@ the left. With **KMRP + controller** they should look as they did before.
 | [ ] | Name a save | OK, Cancel |
 | [ ] | Pazaak card selection | Add card, Play |
 
-## 3c. A mod's already-scaled screen (decision 5)
+## 8. A mod's already-scaled screen (decision 5)
 
 | Done | Steps | Expected |
 | --- | --- | --- |
 | [ ] | Any mod whose `.gui` is already made for your size, for example a Scaled KOTOR screen, at that size. | Exactly as its author made it, gutters and list heights included. At another size it is converted, and the log says so. |
 
-## 3d. Things to look out for (no fix made)
+## 9. Things to look out for (no fix made)
 
 | Done | Steps | What it decides |
 | --- | --- | --- |
 | [ ] | GUI-9. Controller on, on a screen with badges: change Text Size up and down, go back to the screen. | If a badge stands too far from or over its caption, the finding is real and gets its fix. |
 | [ ] | GFX-06. Only if convenient: Anti-aliasing 8, `Debug` level 2, two minutes of play, then look for the line counting reads against swaps in `KMRP\logs\kmrp-kpm.log`. | Many reads a swap would make it worth resolving only the part read. |
 
-## 4. Display and drivers
+## 10. Display and drivers
 
 | Done | Finding | Steps | Expected |
 | --- | --- | --- | --- |
@@ -113,7 +113,7 @@ the left. With **KMRP + controller** they should look as they did before.
 | [ ] | GFX-01 | Issues 39 and 91 need an affected player. Send me issue 39's screenshot or the block's size. | Decides whether the game's own 1600x1200 black fill is the cause. Not fixed. |
 | [ ] | Bundled K1DC | Install from this build with Modern Driver Compatibility on, on a folder that has never had the standalone route. | Game starts. Brightness works. |
 
-## 5. Installer on your real game
+## 11. Installer on your real game
 
 The automated tests cover these on throwaway folders. These rows are the real Steam folder.
 
@@ -125,7 +125,7 @@ The automated tests cover these on throwaway folders. These rows are the real St
 | [ ] | INS-07 | Run Steam's Verify integrity. Open the installer. | "Repair needed", and the button says Repair. It repairs. |
 | [ ] | INS-08 | Only if you want to: rename `binkw32Hooked.dll`, Restore Original, rename it back, Verify. | An error naming `binkw32.dll`, not "restored successfully". |
 
-## 6. Mods
+## 12. Mods
 
 | Done | Setup | Steps | Expected |
 | --- | --- | --- | --- |
@@ -133,7 +133,7 @@ The automated tests cover these on throwaway folders. These rows are the real St
 | [ ] | **Sleheyron** | Reach a Sleheyron module, open the map and a dialogue. | As in its own install. |
 | [ ] | **Controller only** | Run sections 1 and 3's rows that say so, then a dialogue, a store and Pazaak. | Badges fit the game's own layout, no KMRP files needed. |
 
-## 7. What cannot be checked on your PC
+## 13. What cannot be checked on your PC
 
 | Check | Needs |
 | --- | --- |

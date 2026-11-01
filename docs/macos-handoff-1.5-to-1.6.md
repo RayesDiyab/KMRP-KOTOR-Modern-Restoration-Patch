@@ -1667,6 +1667,28 @@ vtable. A D-pad request is now raised only in the player's input class
 already presses HUD controls through their own input call (`Press`, `hud.cpp:175`), which is
 what Windows changed to for PAD-1 and PAD-2, so those two need nothing. Not built or run on a Mac.
 
+## 133. What the 1.6 audit's fixes mean for the Mac (Windows 2026-11-01)
+
+The audit's report, section 7, holds the Mac's own findings (MAC-1 to MAC-8), which wait for the
+port. These are the Windows fixes since then that the Mac should look at. Status of each is in
+[`cleanup-audit-1.6-disposition.md`](cleanup-audit-1.6-disposition.md). None has been run on a Mac.
+
+**Comes by itself with the next rebuild, as the code is shared:** `kmrp-keyed.h`, the one chitin.key
+reader; a file already scaled left as made at its own size (GUI-8); `kmrp-gameart.c` surviving no
+memory and a bad key; the swoop tool's shift and 64-bit sums. `K1PictureKey.h` is portable.
+
+**To check and port by hand, the Mac's code being its own:**
+
+| Windows | What to look at on the Mac |
+| --- | --- |
+| The Container's widening taken for the engine's at a change of size (GUI-4): `KmrpTextLayoutWidenedK1`, `KmrpTextLayoutForgetWidenedK1`; `testing/regression/runtime_relayout_harness.cpp` shows the case | `macos/patches/kmrp-layout/popup_fit.cpp` does the Container's fit and the re-layout came from the same Windows code, so check that a change of size does not keep and scale the fit's width |
+| Picture lookups by hash, the list by border now one map from drawn name to picture (THR-5, GFX-07) | Whether `prompts.cpp` and `overlays.cpp` walk lists per border per frame. Measure before changing it |
+| The motors stopped as a movie starts (PAD-7) | `rumble.cpp` has no movie case. The Mac's pads are SDL's, whose rumble is a 1.5 second lease, so it may stop by itself: check before adding anything |
+| The six hints' wording (decision 6, TST-04) | The Mac's prompt table: Travel and Cancel on the galaxy map, OK and Cancel naming a save, Add card and Play setting up Pazaak |
+
+**Not for the Mac:** the rumble table's removal (R-1; the Mac never had one), the applier's old
+edition (E-3), the offscreen frame, and all of the installer's changes, which are in the table below.
+
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
 | Change | Commit | Why not the Mac |
@@ -1676,9 +1698,6 @@ what Windows changed to for PAD-1 and PAD-2, so those two need nothing. Not buil
 | A Linux pad's own key (`KEY_BACK`) not keyboard use; the Gamepad layout notice | 8f60e46 | Linux's kernel driver and Wine |
 | K1 Modern Driver Compatibility 2.0.0; left out on Windows 7 | b5cbd6a, f0ca54c | the Mac ships no K1DC or `dinput8.dll` |
 | One chitin.key reader for the C tools, `kmrp-keyed.h` (S-8, GUI-7) | 2026-11-01 | none needed: shared C, comes with the next rebuild. `kmrp-gameart` now reads only the resource's bytes, not the whole BIF |
-| Motors told to stop as a movie starts (PAD-7): `NativeMovieFrameK1` | 2026-11-01 | check whether the Mac's rumble holds through a movie; if it does, the same one line |
-| The controller patch's picture lookups are hash tables, and the list by border is one map from drawn name to picture (THR-5, GFX-07); `K1PictureKey.h` | 2026-11-01 | if the Mac walks the same lists, do the same: `K1PictureKey.h` is portable, but use `strncasecmp`'s rule only in tests |
-| The Container's widening is not taken for the engine's at a change of size (GUI-4): `KmrpTextLayoutWidenedK1`, `KmrpTextLayoutForgetWidenedK1` | 2026-11-01 | port both, if the Mac's Container fit and re-layout came from these files; Test-RuntimeRelayout's harness shows the case |
 | Live Layout leaves a file already scaled alone at its own size (GUI-8, decision 5) | 2026-11-01 | none needed: shared C, `kmrp-guiadapt.c`, comes with the next rebuild |
 | The manifest written first with an `incomplete` row, files by rename, a rollback that reports, a damaged record refused, the game running or a second installer refused, Repair (audit INS-02 to INS-10) | 2026-11-01 | `kmrp-mac.sh` already records first, checks each installed file for `status` and has `refuse_if_running`; it shares none of this code |
 | An upgrade keeps `swkotor.ini`; Restore Original goes key by key; installing over 1.0 works (audit INS-01, INS-11) | 2026-11-01 | `kmrp-mac.sh` already restores key by key and refuses an install over an install |

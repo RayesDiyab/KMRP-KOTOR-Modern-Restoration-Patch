@@ -28,7 +28,7 @@ tests from before this cycle were not all re-proved.
 | INS-01 | An upgrade reset `swkotor.ini` | Tested | `96bf347`, `b0feedc` | Test-InstallerPatch cases 4, 12, 14. Real folder on the checklist |
 | INS-02 | KPM takeover refused by the art pack | Tested | `b0feedc` | Case 13, fails on the old installer |
 | INS-03 | No record during an install | Tested | `b0feedc`, `df3360e` | Case 17, kills at fifteen moments. The first fix had a gap the test then found: File.Replace |
-| INS-11 | An install over KMRP 1.0 failed | Tested | `b0feedc` | Case 14. Found during the fix of INS-01, so it is not in the report's table |
+| INS-11 | An install over KMRP 1.0 failed | Tested | `96bf347` | Case 14. Found during the fix of INS-01, so it is not in the report's table |
 | INS-04 | Rollback not real | Tested | `b0feedc` | Cases 15, 16. Not tried on a really full disk |
 | PAD-1 | Y and B refused the press | In-game | `2a83b64` | Test-HudPress holds the source and the handlers' test of `+0x4C`. The live value was never measured |
 | PAD-2 | D-pad and X dead after A | In-game | `2a83b64` | Test-HudPress. Needs a pad in combat |
@@ -110,7 +110,7 @@ tests from before this cycle were not all re-proved.
 | MEM-03 | `_s` failure branches cannot run | In-game | `75c1ed6` | By reading; a 220-character path not run |
 | MEM-04 | Detours written with the game running | Kept | | KPM's, upstream. Theoretical |
 | MEM-05 | Rollback omits the failed run | In-game | `75c1ed6` | By reading |
-| TST-04 | Six hints bake width 0 (decision 6) | In-game | `d04ca91` | Test-ControllerPromptAssets without its exception list. Controller alone moves three badges: checklist 3b |
+| TST-04 | Six hints bake width 0 (decision 6) | In-game | `d04ca91` | Test-ControllerPromptAssets without its exception list. Controller alone moves three badges: checklist section 7 |
 | TST-08 | Frozen diff, stale harness | Tested | this cycle | Test-ControllerPromptAssets reads the source, not a frozen `.diff`. Test-PartyRosterGui builds `K1XboxControls.cpp` as it ships. Stale comments corrected. The review's last words, "Live Layout key", name no file or line, so nothing was done for them |
 | MAC-1, MAC-7 | Submodule pin, truncated address | Deferred | | With the port |
 | E-1 | Font metrics multiplied by 1.0 | Deferred | | Proven dead, but removing it reaches the engine recipe, four build tools, the reference code and the entry of the text draw, around which KMRP's hook at `0x0045A857` is placed: a risk to every line of text for a tiny saving. It would also end the one writable and executable page, so it is worth doing just after 1.6 |
