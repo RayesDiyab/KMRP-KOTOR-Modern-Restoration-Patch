@@ -96,11 +96,11 @@ tests from before this cycle were not all re-proved.
 | GUI-9 | Badge signature ignores scale | Open | | |
 | GUI-10 | "Override's font" for KMRP's own | Tested | `5576e8b` | One log line, read |
 | GUI-11 | Unchecked allocation | Tested | this cycle | Test-GameArtFailure fails each of a picture's 7 allocations in turn. `add_texture`'s path has the same checks but is not run: it needs a texture pack |
-| GUI-12 | `size_t` wrap on 32-bit | Open | | |
+| GUI-12 | `size_t` wrap on 32-bit | In-game | this cycle | Every sum of file values in `kmrp-swoophud.c` is 64-bit. By reading: the wrapped read lands in harmless memory, so no test can tell |
 | INS-09 | Override restore cannot resume | Tested | `cf60ec7` | Case 19 |
 | INS-10 | Linux restore does less | In-game | `cf60ec7` | Art cache removal compiled, not run on Linux. Kept: Linux sets no DPI value, and a `C:\` row is skipped on purpose |
 | THR-7 | 64 KB cleared per frame | Open | | |
-| THR-9 | `SHIFT` outside the lock | Open | | |
+| THR-9 | `SHIFT` outside the lock | In-game | this cycle | The file-wide value is gone: each run's shift is in its own `Model`. By reading; Test-LiveLayout's and the build's swoop checks pass |
 | THR-10 | Sampler and applier suspend each other | Open | | Debug only |
 | GFX-05 | `drawnOffscreen` ignored the binding | Tested | `397129c` | Test-OffscreenFrame, fails without it |
 | GFX-06 | Each read resolves the whole frame | Open | | Cost unmeasured |

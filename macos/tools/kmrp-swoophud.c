@@ -77,7 +77,6 @@
 static const float PARKED = -1.55f, BROUGHT_IN = 2.4f, NEAR_ENOUGH = 0.02f;
 /* The gauge and the view, in the model's units at the gauge's depth (see above). */
 static const float GAUGE_LEFT_OF_MIDDLE = 0.476f, HALF_HEIGHT = 1.0314f, OUTSIDE = 0.65f;   /* 0.57, and the chevron's own 0.08 */
-static float SHIFT;
 
 typedef struct { uint8_t *data; size_t size; } Buffer;
 
@@ -107,18 +106,18 @@ static Buffer keyed_resource(const Buffer *key, const char *key_path, const char
     uint32_t bif_count = u32(key->data + 8), key_count = u32(key->data + 12);
     uint32_t file_table = u32(key->data + 16), key_table = u32(key->data + 20);
     for (uint32_t i = 0; i < key_count; i++) {
-        size_t at = key_table + (size_t)i * 22;
+        uint64_t at = (uint64_t)key_table + (uint64_t)i * 22;
         if (at + 22 > key->size) break;
         char name[17] = { 0 };
         memcpy(name, key->data + at, 16);
         if (strcasecmp(name, resref) != 0 || u16(key->data + at + 16) != type) continue;
         uint32_t id = u32(key->data + at + 18), bif_index = id >> 20, index = id & 0xFFFFF;
-        size_t entry = file_table + (size_t)bif_index * 12;
+        uint64_t entry = (uint64_t)file_table + (uint64_t)bif_index * 12;
         if (bif_index >= bif_count || entry + 12 > key->size) return none;
         uint32_t name_offset = u32(key->data + entry + 4);
         uint16_t name_length = u16(key->data + entry + 8);
         char bif_path[4096], relative[512] = { 0 };
-        if (name_length >= sizeof relative || (size_t)name_offset + name_length > key->size) return none;
+        if (name_length >= sizeof relative || (uint64_t)name_offset + name_length > key->size) return none;
         memcpy(relative, key->data + name_offset, name_length);
         for (char *p = relative; *p; p++) if (*p == '\\') *p = '/';
         const char *slash = strrchr(key_path, '/');
@@ -145,42 +144,42 @@ static Buffer keyed_resource(const Buffer *key, const char *key_path, const char
     return none;
 }
 
-typedef struct { uint8_t *m; size_t size; uint32_t names, name_count; int visited, changed, strange; } Model;
+typedef struct { uint8_t *m; size_t size; uint32_t names, name_count; int visited, changed, strange; float shift; } Model;
 
 static int named(const Model *model, uint32_t node, const char *wanted) {
     uint32_t index = u16(model->m + node + 4);
     if (index >= model->name_count) return 0;
     uint32_t at = u32(model->m + model->names + (size_t)index * 4);
     size_t length = strlen(wanted);
-    return at + length < model->size && strcasecmp((const char *)model->m + at, wanted) == 0;
+    return (uint64_t)at + length < model->size && strcasecmp((const char *)model->m + at, wanted) == 0;
 }
 
 /* Walks a tree of nodes; at the node, moves what is there. `animation`: its keys are
  * what is added to the node's own position. */
 static void walk(Model *model, uint32_t node, int animation, int depth) {
-    if (depth > 64 || ++model->visited > 100000 || (size_t)node + 80 > model->size) { model->strange = 1; return; }
+    if (depth > 64 || ++model->visited > 100000 || (uint64_t)node + 80 > model->size) { model->strange = 1; return; }
     uint8_t *n = model->m + node;
     if (named(model, node, NODE)) {
         if (!animation) {
             float z = f32(n + 16 + 8);
             if (fabsf(z - PARKED) > NEAR_ENOUGH) model->strange = 1;
-            else { put_f32(n + 16 + 8, z - SHIFT); model->changed++; }
+            else { put_f32(n + 16 + 8, z - model->shift); model->changed++; }
         }
         uint32_t controllers = u32(n + 56), count = u32(n + 60), values = u32(n + 68);
-        if (count > 64 || (size_t)controllers + (size_t)count * 16 > model->size) { model->strange = 1; return; }
+        if (count > 64 || (uint64_t)controllers + (uint64_t)count * 16 > model->size) { model->strange = 1; return; }
         for (uint32_t c = 0; c < count; c++) {
             const uint8_t *controller = model->m + controllers + (size_t)c * 16;
             if (u32(controller) != 8) continue;
             uint32_t rows = u16(controller + 6), first = u16(controller + 10);
             for (uint32_t r = 0; r < rows; r++) {
-                size_t at = (size_t)values + ((size_t)first + (size_t)r * 3 + 2) * 4;
+                uint64_t at = (uint64_t)values + ((uint64_t)first + (uint64_t)r * 3 + 2) * 4;
                 if (at + 4 > model->size) { model->strange = 1; return; }
                 float z = f32(model->m + at);
                 if (!animation) {
                     if (fabsf(z - PARKED) > NEAR_ENOUGH) model->strange = 1;
-                    else { put_f32(model->m + at, z - SHIFT); model->changed++; }
+                    else { put_f32(model->m + at, z - model->shift); model->changed++; }
                 } else if (fabsf(z - BROUGHT_IN) <= NEAR_ENOUGH) {
-                    put_f32(model->m + at, z + SHIFT); model->changed++;
+                    put_f32(model->m + at, z + model->shift); model->changed++;
                 } else if (fabsf(z) > NEAR_ENOUGH) {
                     model->strange = 1;
                 }
@@ -188,24 +187,24 @@ static void walk(Model *model, uint32_t node, int animation, int depth) {
         }
     }
     uint32_t children = u32(n + 44), count = u32(n + 48);
-    if (count > 4096 || (size_t)children + (size_t)count * 4 > model->size) { model->strange = 1; return; }
+    if (count > 4096 || (uint64_t)children + (uint64_t)count * 4 > model->size) { model->strange = 1; return; }
     for (uint32_t c = 0; c < count; c++) walk(model, u32(model->m + children + (size_t)c * 4), animation, depth + 1);
 }
 
 /* 1 when the model was the game's and is changed; 0 when it is left alone. */
-static int park_further(Buffer *mdl) {
+static int park_further(Buffer *mdl, float shift) {
     if (mdl->size < 12 + 0xC4) return 0;
-    Model model = { mdl->data + 12, mdl->size - 12, 0, 0, 0, 0, 0 };
+    Model model = { mdl->data + 12, mdl->size - 12, 0, 0, 0, 0, 0, shift };
     uint32_t root = u32(model.m + 0x28), animations = u32(model.m + 0x58), animation_count = u32(model.m + 0x5C);
     model.names = u32(model.m + 0xB8);
     model.name_count = u32(model.m + 0xBC);
-    if (model.name_count > 4096 || (size_t)model.names + (size_t)model.name_count * 4 > model.size) return 0;
-    if (animation_count > 1024 || (size_t)animations + (size_t)animation_count * 4 > model.size) return 0;
+    if (model.name_count > 4096 || (uint64_t)model.names + (uint64_t)model.name_count * 4 > model.size) return 0;
+    if (animation_count > 1024 || (uint64_t)animations + (uint64_t)animation_count * 4 > model.size) return 0;
     walk(&model, root, 0, 0);
     int own = model.changed;
     for (uint32_t a = 0; a < animation_count; a++) {
         uint32_t animation = u32(model.m + animations + (size_t)a * 4);
-        if ((size_t)animation + 0x2C > model.size) return 0;
+        if ((uint64_t)animation + 0x2C > model.size) return 0;
         walk(&model, u32(model.m + animation + 0x28), 1, 0);
     }
     /* The node's own position and its one key, and at least one key that brings it in. */
@@ -226,17 +225,17 @@ static int write_file(const char *directory, const char *name, const Buffer *b) 
  * than the game parks the chevron for; nothing is written. */
 /* How far left of the middle the chevron has to be parked on this screen, and how much
  * further that is than the game's 2.026. 0 when the game's own place is far enough. */
-static int set_shift(unsigned width, unsigned height) {
+static float shift_for(unsigned width, unsigned height) {
     if (!width || !height) return 0;
     float wanted = HALF_HEIGHT * (float)width / (float)height + OUTSIDE;
-    SHIFT = wanted - (GAUGE_LEFT_OF_MIDDLE - PARKED);
-    return SHIFT >= 0.01f;
+    float shift = wanted - (GAUGE_LEFT_OF_MIDDLE - PARKED);
+    return shift >= 0.01f ? shift : 0;
 }
 
 /* The model changed and written with its .mdx, both taken over by this call. */
-static int write_changed(Buffer mdl, Buffer mdx, const char *outdir) {
+static int write_changed(Buffer mdl, Buffer mdx, const char *outdir, float shift) {
     int result = 1;
-    if (mdl.data && mdx.data && park_further(&mdl)) {
+    if (mdl.data && mdx.data && park_further(&mdl, shift)) {
         kmrp_mkdir(outdir);
         result = write_file(outdir, MODEL ".mdl", &mdl) && write_file(outdir, MODEL ".mdx", &mdx) ? 0 : 2;
     }
@@ -246,12 +245,13 @@ static int write_changed(Buffer mdl, Buffer mdx, const char *outdir) {
 
 int KmrpSwoopHud(const char *key_path, const char *outdir, unsigned width, unsigned height) {
     if (!width || !height) return 1;
-    if (!set_shift(width, height)) return 3;
+    const float shift = shift_for(width, height);
+    if (!shift) return 3;
     Buffer key = read_file(key_path);
     Buffer mdl = keyed_resource(&key, key_path, MODEL, TYPE_MDL);
     Buffer mdx = keyed_resource(&key, key_path, MODEL, TYPE_MDX);
     free(key.data);
-    const int result = write_changed(mdl, mdx, outdir);
+    const int result = write_changed(mdl, mdx, outdir, shift);
     if (result == 0) {
         /* For the run time to make it again from a mod's copy of the model
          * (kmrp_derive.txt; its format is in kmrp-gameart.c, derived). */
@@ -269,8 +269,9 @@ int KmrpSwoopHud(const char *key_path, const char *outdir, unsigned width, unsig
  * fix is off and the mod's model is used as it is; 2 could not write; 3 not needed here. */
 int KmrpSwoopHudModel(const char *mdl_path, const char *mdx_path, const char *outdir, unsigned width, unsigned height) {
     if (!width || !height) return 1;
-    if (!set_shift(width, height)) return 3;
-    return write_changed(read_file(mdl_path), read_file(mdx_path), outdir);
+    const float shift = shift_for(width, height);
+    if (!shift) return 3;
+    return write_changed(read_file(mdl_path), read_file(mdx_path), outdir, shift);
 }
 
 #ifndef KMRP_EMBEDDED
