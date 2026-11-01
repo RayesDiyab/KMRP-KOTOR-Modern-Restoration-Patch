@@ -273,11 +273,50 @@ namespace Kmrp
                 return -1;
             if (!IsInstalled(targetPath))
                 return null;
+            if (NeedsRepair(targetPath) != null)
+                return -1;
             DateTimeOffset? theirs = InstalledBuild(targetPath);
             if (theirs == null)
                 return -1;
             int order = theirs.Value.CompareTo(mine.Value);
             return order < 0 ? -1 : order > 0 ? 1 : 0;
+        }
+
+        /// <summary>Why the install recorded here is not what the game will run, in the
+        /// player's words, or null when it is, or when nothing is installed. The manifest
+        /// alone said "Patched successfully" until 2026-11-01, after Steam's file check had
+        /// put its own binkw32.dll back and KMRP no longer loaded (audit INS-07). A file
+        /// that is there but different is not asked about: KPM's Apply rewrites them, and
+        /// a player's edits are theirs. An install KPM has taken over is KPM's to keep
+        /// whole. The window offers the same install as a Repair.</summary>
+        internal static string NeedsRepair(string targetPath)
+        {
+            try
+            {
+                targetPath = Path.GetFullPath(targetPath);
+                if (!IsInstalled(targetPath))
+                    return null;
+                if (ManifestDamage(targetPath) != null)
+                    return "KMRP's record of this install is damaged.";
+                if (Array.IndexOf(File.ReadAllLines(ManifestPath(targetPath), Encoding.UTF8), IncompleteRow) >= 0)
+                    return "An install did not finish. Repair finishes it.";
+                string folder = FolderOf(targetPath);
+                List<string[]> records = ReadRecords(targetPath);
+                if (RuntimeChangedSinceInstall(folder, records))
+                    return null;
+                string[] rename = records.Find(r => r[0] == "moved" && r.Length == 4);
+                string bink = GamePath.Combine(folder, BinkName);
+                if (rename != null && File.Exists(bink) && GoldPatch.HashFile(bink) == rename[3])
+                    return "The game's own binkw32.dll is back (Steam's file check puts it back), " +
+                        "so KMRP is not loading. Repair installs it again.";
+                foreach (string[] record in records)
+                    if (record[0] == "file" && record[1] != KmrpFolder.ControllerSettings &&
+                        !File.Exists(GamePath.Combine(folder, record[1])))
+                        return record[1] + " is missing. Repair installs it again.";
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            return null;
         }
 
         /// <summary>Steam's swkotor.exe, which only this edition supports.</summary>
@@ -366,6 +405,13 @@ namespace Kmrp
         internal static void Install(string targetPath, int width, int height, Action<string> report,
             Action<int, string> progress)
         {
+            using (InstallGuard.Take(targetPath))
+                InstallTimed(targetPath, width, height, report, progress);
+        }
+
+        private static void InstallTimed(string targetPath, int width, int height, Action<string> report,
+            Action<int, string> progress)
+        {
             if (progress == null)
             {
                 InstallCore(targetPath, width, height, report, null, null);
@@ -420,6 +466,7 @@ namespace Kmrp
                 throw new FileNotFoundException(
                     "swkotor.ini was not found beside swkotor.exe. Launch the game once or place the INI in the game folder before installing.",
                     IniOperations.PathForExecutable(targetPath));
+            RequireReadableManifest(targetPath);
             string foreign = ForeignRuntimeFile(targetPath, standalone);
             // KPM's own files decide, since 2026-09-30 alone: the Advanced Settings
             // option that also chose an install for KPM was removed (MainForm).
@@ -610,7 +657,8 @@ namespace Kmrp
         /// restore's.</summary>
         internal static void Restore(string targetPath, Action<string> report, Action<int, string> progress)
         {
-            Restore(targetPath, report, progress, false, false);
+            using (InstallGuard.Take(targetPath))
+                Restore(targetPath, report, progress, false, false);
         }
 
         /// <summary>`keepCache`: an install over this one is about to make the art again,
@@ -625,6 +673,7 @@ namespace Kmrp
                 PatchOperations.RestoreStandalone(targetPath, report, progress);
                 return;
             }
+            RequireReadableManifest(targetPath);
             KmrpFolder.Migrate(targetPath, report);
             string folder = FolderOf(targetPath);
             List<string[]> records = ReadRecords(targetPath);
@@ -665,14 +714,32 @@ namespace Kmrp
             RemoveInProgress(folder);
             RemovePatchOptions(folder, records);
             UndoEngineChanges(targetPath, records, report);
-            InstallPlatform.RestoreDpi(targetPath, report);
-            InstallPlatform.RemoveOldNvidiaSetting(targetPath, report);
+            // From here a record of KMRP's that cannot be used stops only its own step, and
+            // the player is told at the end. It stopped the whole restore until 2026-11-01,
+            // with KMRP half removed and the same refusal every time after (audit INS-05);
+            // and what was not put back was reported as restored (audit INS-08). The proxy
+            // has gone by now even when the game's own binkw32.dll cannot come back: left
+            // in place, the next install would take it for the game's and move it aside.
+            List<string> notRestored = new List<string>();
+            if (engine && !File.Exists(GamePath.Combine(folder, BinkName)))
+                notRestored.Add(BinkName + ", which was missing or had changed");
+            Action<string, Action> attempt = delegate(string what, Action restore)
+            {
+                try { restore(); }
+                catch (InvalidDataException error) { notRestored.Add(what + " (" + error.Message + ")"); }
+            };
+            attempt("the high-DPI setting", () => InstallPlatform.RestoreDpi(targetPath, report));
+            attempt("the NVIDIA setting", () => InstallPlatform.RemoveOldNvidiaSetting(targetPath, report));
             SafeProgress(progress, 92, "Restoring display settings…");
             // An install over this one leaves swkotor.ini as the player has it: the whole
             // backup going back here lost every setting changed since the first install,
             // KMRP's own Text, Icon and HUD sizes with them (2026-11-01, audit INS-01).
             if (!keepCache)
-                IniOperations.Restore(targetPath, records.FindAll(r => r[0] == "ini"), report);
+                attempt("swkotor.ini", delegate
+                {
+                    if (!IniOperations.Restore(targetPath, records.FindAll(r => r[0] == "ini"), report))
+                        notRestored.Add("swkotor.ini, as its backup is missing");
+                });
             FileGuard.Delete(ManifestPath(targetPath));
             // An install over this one (keepCache) writes into KMRP's folders next.
             if (!keepCache)
@@ -680,6 +747,17 @@ namespace Kmrp
             if (!keepCache)
                 InstallPlatform.RemoveArtCache(report);
             SafeProgress(progress, 100, "Restore complete");
+            if (notRestored.Count > 0)
+            {
+                string left = "KMRP was removed, but this could not be put back: " +
+                    String.Join("; ", notRestored.ToArray()) + ". " + (IsSteam(targetPath)
+                        ? "Steam's Verify integrity (Properties, Installed Files) replaces a game file."
+                        : "Reinstalling the game replaces a game file.");
+                if (keepCache)
+                    SafeReport(report, left);
+                else
+                    throw new IOException(left);
+            }
             SafeReport(report, engine && (!handedOver || whole)
                 ? "The original game files and settings have been restored."
                 : "KMRP's files and settings have been removed. " +
@@ -857,25 +935,13 @@ namespace Kmrp
             }
             foreach (string name in new[] { ConfigName, RuntimeName, "addresses.toml", "addresses.db",
                                             "sqlite3.dll", KpmStateName })
-            {
-                string path = GamePath.Combine(folder, name);
-                if (File.Exists(path))
-                    File.Delete(path);
-            }
+                FileGuard.Delete(GamePath.Combine(folder, name));
             foreach (string id in EnginePatches)
-            {
-                string path = GamePath.Combine(folder, PatchFolder, id + ".dll");
-                if (File.Exists(path))
-                    File.Delete(path);
-            }
+                FileGuard.Delete(GamePath.Combine(folder, PatchFolder, id + ".dll"));
             string[] rename = records.Find(r => r[0] == "moved" && r.Length == 4);
             string moved = GamePath.Combine(folder, BinkMovedName);
             if (rename != null && File.Exists(moved) && GoldPatch.HashFile(moved) == rename[3])
-            {
-                string proxy = GamePath.Combine(folder, BinkName);
-                if (File.Exists(proxy))
-                    File.Delete(proxy);
-            }
+                FileGuard.Delete(GamePath.Combine(folder, BinkName));
             SafeReport(report, "Removed KOTOR Patch Manager's runtime and put back the untouched swkotor.exe.");
         }
 
@@ -1758,7 +1824,7 @@ namespace Kmrp
                     SafeReport(report, "Left " + record[1] + " in place because it changed after install.");
                     continue;
                 }
-                File.Delete(record[1]);
+                FileGuard.Delete(record[1]);
                 string folder = Path.GetDirectoryName(record[1]);
                 try
                 {
@@ -1910,8 +1976,66 @@ namespace Kmrp
             foreach (string[] record in records)
                 text.Append(String.Join("\t", record)).Append("\r\n");
             if (!complete)
-                text.Append("incomplete\r\n");
+                text.Append(IncompleteRow).Append("\r\n");
             WriteWhole(ManifestPath(targetPath), new UTF8Encoding(false).GetBytes(text.ToString()), hash => { });
+        }
+
+        private const string IncompleteRow = "incomplete";
+
+        // A restore acts on these names, so only what Install writes is accepted: a file
+        // in the game folder or its patches\ folder, and the one rename.
+        private static bool IsValidRow(string[] parts)
+        {
+            return (parts.Length == 3 && parts[0] == "file" && IsOwnedName(parts[1])) ||
+                (parts.Length == 4 && parts[0] == "moved" && parts[1] == BinkName && parts[2] == BinkMovedName) ||
+                (parts.Length == 2 && parts[0] == "laa") ||
+                (parts.Length == 3 && parts[0] == "ini") ||
+                (parts.Length == 2 && parts[0] == "options" &&
+                 (parts[1] == OptionsName || parts[1] == ControllerOptionsName)) ||
+                (parts.Length == 4 && parts[0] == "kpatch" && IsKpatchPath(parts[1]) &&
+                 (parts[3] == "created" || parts[3] == "replaced"));
+        }
+
+        /// <summary>What is wrong with the manifest here, or null: unreadable, without the
+        /// version row every install has written first since the first one, or holding a
+        /// row of a kind Install writes that Install could not have written. Rows of other
+        /// kinds are a later build's, and a .kpatch row of the right shape may name a path
+        /// on another system, as a Windows install read under Linux does; ReadRecords
+        /// skips both.</summary>
+        private static string ManifestDamage(string targetPath)
+        {
+            if (!IsInstalled(targetPath))
+                return null;
+            try
+            {
+                string[] lines = File.ReadAllLines(ManifestPath(targetPath), Encoding.UTF8);
+                if (lines.Length == 0 || !lines[0].StartsWith("version\t", StringComparison.Ordinal))
+                    return "it has no version row";
+                foreach (string line in lines)
+                {
+                    string[] parts = line.Split('\t');
+                    if (Array.IndexOf(new[] { "file", "moved", "laa", "ini", "options", "kpatch" }, parts[0]) >= 0 &&
+                        !IsValidRow(parts) && !(parts[0] == "kpatch" && parts.Length == 4))
+                        return "this row is not one KMRP writes: " + line;
+                }
+                return null;
+            }
+            catch (IOException error) { return error.Message; }
+            catch (UnauthorizedAccessException error) { return error.Message; }
+        }
+
+        /// <summary>Stops an install or restore before it changes anything when the manifest
+        /// cannot be trusted. Until 2026-11-01 an unreadable one read as empty: a restore
+        /// removed nothing, deleted the manifest and reported success, with KMRP still
+        /// installed and nothing left to say what it had put there (audit INS-05).</summary>
+        private static void RequireReadableManifest(string targetPath)
+        {
+            string damage = ManifestDamage(targetPath);
+            if (damage != null)
+                throw new InvalidDataException("KMRP's record of this install, " + KmrpFolder.KpmManifest +
+                    ", is damaged (" + damage + "), so KMRP cannot tell which files are its own. No changes " +
+                    "were made. Put the game's files back (Steam's Verify integrity, or a reinstall of the " +
+                    "game), delete that file, and install again.");
         }
 
         private static List<string[]> ReadRecords(string targetPath)
@@ -1922,17 +2046,7 @@ namespace Kmrp
                 foreach (string line in File.ReadAllLines(ManifestPath(targetPath), Encoding.UTF8))
                 {
                     string[] parts = line.Split('\t');
-                    // A restore acts on these names, so only what Install writes is
-                    // accepted: a file in the game folder or its patches\ folder, and
-                    // the one rename.
-                    if ((parts.Length == 3 && parts[0] == "file" && IsOwnedName(parts[1])) ||
-                        (parts.Length == 4 && parts[0] == "moved" && parts[1] == BinkName && parts[2] == BinkMovedName) ||
-                        (parts.Length == 2 && parts[0] == "laa") ||
-                        (parts.Length == 3 && parts[0] == "ini") ||
-                        (parts.Length == 2 && parts[0] == "options" &&
-                         (parts[1] == OptionsName || parts[1] == ControllerOptionsName)) ||
-                        (parts.Length == 4 && parts[0] == "kpatch" && IsKpatchPath(parts[1]) &&
-                         (parts[3] == "created" || parts[3] == "replaced")))
+                    if (IsValidRow(parts))
                         records.Add(parts);
                 }
             }

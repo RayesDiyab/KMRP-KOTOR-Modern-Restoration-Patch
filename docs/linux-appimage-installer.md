@@ -46,7 +46,9 @@ Checked:
   (`steamapps/compatdata/32370/pfx/.../AppData/Roaming/KPatchLauncher`), and Wine's
   `Z:` and `C:` paths in them are turned into Linux folders. The DPI value, K1DC, the
   NVIDIA cleanup and the art prebuild do nothing on Linux: the game makes each size's art
-  the first time it is used.
+  the first time it is used. Restore Original empties that art cache in the prefix, and any
+  process named `swkotor.exe` stops an install or restore (both 2026-11-01, compiled, not
+  yet run on Linux).
 - **Tested in WSL's Ubuntu 26.04,** on a game folder on its own case-sensitive disk
   (Steam's unmodified `swkotor.exe`, its `binkw32.dll`, the original `swkotor.ini`):
   - Without `binkw32.dll` the install refused with the Windows installer's message.

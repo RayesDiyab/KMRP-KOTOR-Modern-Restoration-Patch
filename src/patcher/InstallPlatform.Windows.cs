@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 
 namespace Kmrp
 {
@@ -20,6 +21,21 @@ namespace Kmrp
         }
 
         static partial void OnRemoveArtCache(Action<string> report) { ArtPreparation.RemoveCache(report); }
+
+        // Windows lets nobody open a running program's file for writing, whichever
+        // process has it and whatever its bitness, and this names this folder's copy
+        // alone; a game running from another folder is no reason to stop.
+        static partial void OnGameRunning(string executablePath, ref bool running)
+        {
+            try
+            {
+                using (new FileStream(executablePath, FileMode.Open, FileAccess.Write,
+                           FileShare.ReadWrite | FileShare.Delete))
+                    running = false;
+            }
+            catch (IOException) { running = true; }
+            catch (UnauthorizedAccessException) { running = false; }    // read-only, not running
+        }
 
         static partial void OnInstallDpi(string executablePath, Action<string> report, ref object state)
         {

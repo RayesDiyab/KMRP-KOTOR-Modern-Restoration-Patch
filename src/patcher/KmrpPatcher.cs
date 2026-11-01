@@ -4604,6 +4604,8 @@ namespace Kmrp
             // maintainer, 2026-10-19).
             int? age = actionIsRestore ? KpmEditionOperations.CompareInstalled(target) : null;
             bool upgrade = age == -1 && iniExists;
+            string repair = actionIsRestore ? KpmEditionOperations.NeedsRepair(target) : null;
+            upgradeButton.Text = repair != null ? "Repair" : "Upgrade";
             upgradeButton.Enabled = upgrade;
             LayoutActionRow(upgrade);
 
@@ -4639,7 +4641,12 @@ namespace Kmrp
             }
 
             DateTimeOffset? installedBuild = KpmEditionOperations.InstalledBuild(target);
-            if (state == ExecutableState.Gold && upgrade)
+            if (state == ExecutableState.Gold && repair != null)
+            {
+                SetState(applyState, "Repair needed", UiTheme.Warning);
+                lastDetail = repair;
+            }
+            else if (state == ExecutableState.Gold && upgrade)
             {
                 SetState(applyState, "Upgrade available", UiTheme.Accent);
                 lastDetail = installedBuild.HasValue
@@ -5187,6 +5194,9 @@ namespace Kmrp
                     PatchOperations.Restore(args[1], delegate { });
                     return 0;
                 }
+                // Test-only (Test-InstallerPatch case 20): what the window's Repair goes by.
+                if (args.Length == 2 && args[0] == "--needs-repair")
+                    return KpmEditionOperations.NeedsRepair(args[1]) == null ? 0 : 3;
                 // KMRP's .kpatch file, its README and KPM's licence, for
                 // sharing them on their own; the installer carries them since 2026-09-29.
                 if (args.Length == 2 && args[0] == "--export-kpm-patches")

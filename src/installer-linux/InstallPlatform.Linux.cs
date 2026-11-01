@@ -7,7 +7,8 @@ namespace Kmrp
     // value, K1DC's Windows 7 check (Proton's Wine has every function its module needs), the NVIDIA setting and the art prebuild through kmrp.dll have no Linux
     // counterpart and stay unimplemented: their calls compile away, and the game makes each size's
     // art the first time it is used. What Linux does answer is where KPM, running under Proton,
-    // keeps its settings and how its Windows paths map to Linux folders.
+    // keeps its settings, how its Windows paths map to Linux folders, whether the game is
+    // running, and where that art is to remove it.
     internal static partial class InstallPlatform
     {
         /// <summary>The game folder the command works on, set before the core is called.</summary>
@@ -35,6 +36,27 @@ namespace Kmrp
             string prefix = Prefix();
             path = prefix == null ? "" : Path.Combine(prefix, "drive_c", "users", "steamuser", "AppData", "Roaming",
                 "KPatchLauncher", "settings.json");
+        }
+
+        // Wine names the process after the program. Any KOTOR running stops the install: nothing
+        // here says which folder it came from.
+        static partial void OnGameRunning(string executablePath, ref bool running)
+        {
+            running = System.Diagnostics.Process.GetProcessesByName("swkotor.exe").Length > 0;
+        }
+
+        // The game's art cache, in the prefix as KpmSettingsPath's file is. %LOCALAPPDATA% under
+        // Proton; the same folder Windows' restore empties (ArtPreparation.RemoveCache).
+        static partial void OnRemoveArtCache(Action<string> report)
+        {
+            string prefix = Prefix();
+            if (prefix == null)
+                return;
+            string cache = Path.Combine(prefix, "drive_c", "users", "steamuser", "AppData", "Local", "KMRP", "cache");
+            if (!Directory.Exists(cache))
+                return;
+            Directory.Delete(cache, true);
+            report?.Invoke("Removed KMRP's art cache from the game's Proton prefix.");
         }
 
         static partial void OnHighestRefresh(int[] size, ref int rate)

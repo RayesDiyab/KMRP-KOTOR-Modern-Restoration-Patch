@@ -761,6 +761,8 @@ namespace Kmrp
             action.IsEnabled = actionIsRestore || (executableReady && iniExists);
             int? age = actionIsRestore ? KpmEditionOperations.CompareInstalled(target) : null;
             bool upgradeNow = age == -1 && iniExists;
+            string repair = actionIsRestore ? KpmEditionOperations.NeedsRepair(target) : null;
+            upgrade.SetText(repair != null ? "Repair" : "Upgrade");
             upgrade.IsEnabled = upgradeNow;
             LayoutActionRow(upgradeNow);
 
@@ -779,7 +781,12 @@ namespace Kmrp
                     : "Installed", Ui.Text, 0);
 
             DateTimeOffset? installed = target.Length > 0 ? KpmEditionOperations.InstalledBuild(target) : null;
-            if (complete && upgradeNow)
+            if (complete && repair != null)
+            {
+                applyState.Set("Repair needed", Ui.Warning, 0);
+                lastDetail = repair;
+            }
+            else if (complete && upgradeNow)
             {
                 applyState.Set("Upgrade available", Ui.Accent, 0);
                 lastDetail = installed.HasValue

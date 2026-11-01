@@ -1152,15 +1152,16 @@ namespace Kmrp
         /// with it). `rows` are the keys the install set and their values, the manifest's
         /// "ini" rows: a key that no longer holds that value is the player's and stays. An
         /// install from before these rows has none, so all its keys go back. KMRP's own
-        /// sections go. If nothing else changed the backup's own bytes are written.</summary>
-        internal static void Restore(string executablePath, List<string[]> rows, Action<string> report)
+        /// sections go. If nothing else changed the backup's own bytes are written. False
+        /// when there is no backup to restore from.</summary>
+        internal static bool Restore(string executablePath, List<string[]> rows, Action<string> report)
         {
             string backupPath = BackupPath(executablePath);
             string hashPath = BackupHashPath(executablePath);
             if (!File.Exists(backupPath))
             {
                 SafeReport(report, "No swkotor.ini backup exists; INI restore was skipped.");
-                return;
+                return false;
             }
             if (!File.Exists(hashPath))
                 throw new InvalidDataException("The swkotor.ini backup verification record is missing. Restore was blocked.");
@@ -1181,6 +1182,7 @@ namespace Kmrp
             SafeReport(report, BytesEqual(restored, backup)
                 ? "Restored the previous swkotor.ini settings."
                 : "Put back the swkotor.ini settings KMRP changed; the rest of the file is as you left it.");
+            return true;
         }
 
         // The keys of [Graphics Options] an install sets (UpdateResolution).
@@ -1743,7 +1745,10 @@ namespace Kmrp
             {
                 OverrideRecord record = records[recordIndex];
                 string target = SafeDestination(overrideRoot, record.RelativePath);
-                if (File.Exists(target) && GoldPatch.HashFile(target) != record.InstalledHash)
+                string targetHash = File.Exists(target) ? GoldPatch.HashFile(target) : null;
+                // The original already back is an earlier restore that stopped part way.
+                if (targetHash != null && targetHash != record.InstalledHash &&
+                    !(record.HadOriginal && targetHash == record.OriginalHash))
                     throw new InvalidDataException("An installed interface file was changed after patching. Restore was stopped to protect it:\r\n" + target);
                 if (record.HadOriginal)
                 {
@@ -2015,6 +2020,83 @@ namespace Kmrp
         }
     }
 
+    /// <summary>What has to hold before an install or restore touches a game folder (audit
+    /// INS-06), so it is refused with a plain message rather than stopping part way with
+    /// "Access to the path is denied": the game not running from it, this account allowed
+    /// to write there, and no other KMRP installer working on it. The lock is the one thing
+    /// held for the whole operation, by whoever disposes of the result. The Mac's has its
+    /// own (refuse_if_running, kmrp-mac.sh).</summary>
+    internal sealed class InstallGuard : IDisposable
+    {
+        private readonly System.Threading.Mutex mutex;
+
+        private InstallGuard(System.Threading.Mutex mutex)
+        {
+            this.mutex = mutex;
+        }
+
+        internal static InstallGuard Take(string executablePath)
+        {
+            if (!File.Exists(executablePath))
+                return new InstallGuard(null);
+            string executable = Path.GetFullPath(executablePath);
+            string folder = Path.GetDirectoryName(executable);
+            System.Threading.Mutex mutex = new System.Threading.Mutex(false, "Local\\KMRP-install-" +
+                HashName(folder.ToUpperInvariant()));
+            bool held = false;
+            try
+            {
+                try { held = mutex.WaitOne(0); }
+                // An installer that was killed: the manifest says what it left.
+                catch (System.Threading.AbandonedMutexException) { held = true; }
+                if (!held)
+                    throw new InvalidOperationException("Another KMRP installer is working on this game " +
+                        "folder. Wait for it to finish, then try again. No changes were made.");
+                if (InstallPlatform.GameRunning(executable))
+                    throw new InvalidOperationException("KOTOR is running from this folder. Close it, then " +
+                        "try again. No changes were made.");
+                RequireWriteAccess(folder);
+                return new InstallGuard(mutex);
+            }
+            catch
+            {
+                if (held)
+                    mutex.ReleaseMutex();
+                mutex.Dispose();
+                throw;
+            }
+        }
+
+        private static string HashName(string text)
+        {
+            using (System.Security.Cryptography.SHA256 sha = System.Security.Cryptography.SHA256.Create())
+                return BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(text))).Replace("-", "");
+        }
+
+        private static void RequireWriteAccess(string folder)
+        {
+            string probe = GamePath.Combine(folder, "kmrp-write-test.kmrp-new");
+            try
+            {
+                File.WriteAllBytes(probe, new byte[0]);
+                File.Delete(probe);
+            }
+            catch (UnauthorizedAccessException error)
+            {
+                throw new IOException("This account may not change files in " + folder + ". Start the " +
+                    "installer as administrator, or move the game to a folder you own. No changes were made.", error);
+            }
+        }
+
+        public void Dispose()
+        {
+            if (mutex == null)
+                return;
+            mutex.ReleaseMutex();
+            mutex.Dispose();
+        }
+    }
+
     /// <summary>The standalone K1 Modern Driver Compatibility, two files beside the game:
     /// Ultimate ASI Loader's dinput8.dll and K1DC's .asi, recorded in
     /// KMRP\driver-compat.manifest.
@@ -2122,13 +2204,20 @@ namespace Kmrp
                 foreach (string line in File.ReadAllLines(manifestPath, Encoding.UTF8))
                 {
                     string[] parts = line.Split('\t');
-                    if (parts.Length == 2 && parts[0] != "version")
+                    if (parts.Length == 2 && parts[0] != "version" && IsPlainName(parts[0]))
                         records.Add(parts);
                 }
             }
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
             return records;
+        }
+
+        // Restore deletes what these rows name, so a name with a folder in it is not one
+        // this wrote (audit INS-05; an unreadable record leaves the two files, with no harm).
+        private static bool IsPlainName(string name)
+        {
+            return name.Length > 0 && name.IndexOfAny(new[] { '\\', '/', ':' }) < 0 && name != "." && name != "..";
         }
     }
 

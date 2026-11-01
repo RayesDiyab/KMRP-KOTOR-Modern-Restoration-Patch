@@ -47,6 +47,13 @@
     installer killed at eight moments, each followed by an install and a restore. Which
     stage a kill lands on varies from run to run, and the log says.
 
+    Cases 18 to 21 (2026-11-01, audit INS-05 to INS-09): a damaged manifest; a restore
+    that cannot put everything back; the status against the files (the installer's
+    test-only --needs-repair); and the guards, with swkotor.exe held open as a running
+    program's file is, a second installer started beside the first, and a folder this
+    account is denied by an ACL. The last two read KMRP.startup-error.log, which the
+    installer writes beside itself when the command line fails.
+
     Case 11 (2026-10-20): an install over one made before 2026-10-20, whose files were
     loose in the game folder (its manifests, settings, KPM's licence, the swkotor.ini
     backup, KMRP.log): afterwards none is left there, the manifest names the settings in
@@ -608,6 +615,120 @@ try {
         $after = Get-Listing $folder | Where-Object { $_ -notmatch $kept }
         Assert (($before -join "`n") -eq ($after -join "`n")) "$delay ms: the folder is as it was"
         Assert ((Get-Sha (Join-Path $folder "swkotor.ini")) -eq $iniBefore) "$delay ms: swkotor.ini is as it was"
+    }
+
+    Write-Host "Case 18 a damaged manifest stops both, before anything changes (audit INS-05)"
+    Set-KmrpSettings $true $true
+    $game = New-Fixture "damaged-manifest"
+    $folder = Split-Path -Parent $game
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the install succeeds"
+    $manifest = Join-Path $folder "KMRP\kpm.manifest"
+    $good = [IO.File]::ReadAllBytes($manifest)
+    $installed = Get-Listing $folder | Where-Object { $_ -notmatch $kept }
+    foreach ($damage in @(
+        @{ name = "no version row"; lines = [IO.File]::ReadAllLines($manifest) | Select-Object -Skip 1 },
+        @{ name = "a row naming a file outside the game"; lines = @([IO.File]::ReadAllLines($manifest)) + "file`t..\..\elsewhere.txt`t00" })) {
+        [IO.File]::WriteAllLines($manifest, [string[]]$damage.lines)
+        $damagedListing = Get-Listing $folder | Where-Object { $_ -notmatch $kept -and $_ -notmatch 'kpm\.manifest' }
+        Assert ((Invoke-Installer @("--restore", "`"$game`"")) -ne 0) "$($damage.name): the restore refuses"
+        Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -ne 0) "$($damage.name): the install refuses"
+        Assert ((Invoke-Installer @("--needs-repair", "`"$game`"")) -eq 3) "$($damage.name): the window says so"
+        $now = Get-Listing $folder | Where-Object { $_ -notmatch $kept -and $_ -notmatch 'kpm\.manifest' }
+        Assert (($now -join "`n") -eq ($damagedListing -join "`n")) "$($damage.name): nothing changed"
+        Assert (Test-Path -LiteralPath $manifest) "$($damage.name): the manifest is kept"
+    }
+    [IO.File]::WriteAllBytes($manifest, $good)
+    Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "with the manifest whole again the restore succeeds"
+
+    Write-Host "Case 19 what a restore cannot put back, it says (audit INS-05, INS-08, INS-09)"
+    Set-KmrpSettings $true $true
+    $game = New-Fixture "not-restored"
+    $folder = Split-Path -Parent $game
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the install succeeds"
+    [IO.File]::Delete((Join-Path $folder "binkw32Hooked.dll"))
+    [IO.File]::Delete((Join-Path $folder "KMRP\backups\swkotor.ini"))
+    [IO.File]::Delete((Join-Path $folder "KMRP\backups\swkotor.ini.sha256"))
+    # A standalone K1DC's record may name files beside the game and nothing else.
+    $victim = Join-Path $WorkRoot "not-the-games-file.txt"
+    [IO.File]::WriteAllText($victim, "someone else's")
+    [IO.File]::WriteAllText((Join-Path $folder "KMRP\driver-compat.manifest"),
+        "version`t2.0.1-win7`r`n..\not-the-games-file.txt`t$(Get-Sha $victim)`r`n")
+    # A restore of the old standalone's Override that stopped after this file went back.
+    $override = Join-Path $folder "Override"
+    $backupFolder = Join-Path $folder "KOTOR_UI_Override_Backup"
+    New-Item -ItemType Directory -Force -Path $override, $backupFolder | Out-Null
+    [IO.File]::WriteAllText((Join-Path $override "x.gui"), "the player's file")
+    [IO.File]::WriteAllText((Join-Path $backupFolder "x.gui"), "the player's file")
+    $name = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("x.gui"))
+    [IO.File]::WriteAllText((Join-Path $folder "KOTOR_UI_Override_Backup.manifest"),
+        "KUIOVERRIDE1`r`n$name`t1`t$(Get-Sha (Join-Path $override 'x.gui'))`t$('A' * 64)`r`n")
+    $errorLog = Join-Path (Split-Path -Parent $Installer) "KMRP.startup-error.log"
+    if (Test-Path -LiteralPath $errorLog) { [IO.File]::Delete($errorLog) }
+    Assert ((Invoke-Installer @("--restore", "`"$game`"")) -ne 0) "the restore does not report success"
+    $message = if (Test-Path -LiteralPath $errorLog) { [IO.File]::ReadAllText($errorLog) } else { "" }
+    Assert ($message -match 'binkw32\.dll') "it names binkw32.dll"
+    Assert ($message -match 'swkotor\.ini') "and swkotor.ini"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $folder "KMRP\kpm.manifest"))) "KMRP is removed all the same"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $folder "KotorPatcher.dll"))) "its runtime with it"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $folder "KOTOR_UI_Override_Backup.manifest"))) "an Override restore that stopped part way finishes"
+    Assert (Test-Path -LiteralPath $victim) "a record naming a file outside the game folder deletes nothing"
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -ne 0) "a new install asks for binkw32.dll"
+
+    Write-Host "Case 20 the status goes by the files, not the manifest alone (audit INS-07)"
+    Set-KmrpSettings $true $true
+    $game = New-Fixture "repair"
+    $folder = Split-Path -Parent $game
+    $gameBink = [IO.File]::ReadAllBytes((Join-Path $folder "binkw32.dll"))
+    Assert ((Invoke-Installer @("--needs-repair", "`"$game`"")) -eq 0) "nothing installed: nothing to repair"
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the install succeeds"
+    $proxy = [IO.File]::ReadAllBytes((Join-Path $folder "binkw32.dll"))
+    Assert ((Invoke-Installer @("--needs-repair", "`"$game`"")) -eq 0) "a whole install needs none"
+    [IO.File]::WriteAllBytes((Join-Path $folder "binkw32.dll"), $gameBink)
+    Assert ((Invoke-Installer @("--needs-repair", "`"$game`"")) -eq 3) "Steam's own binkw32.dll back needs a repair"
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the repair succeeds"
+    Assert ((Get-Sha (Join-Path $folder "binkw32.dll")) -eq ([BitConverter]::ToString([Security.Cryptography.SHA256]::HashData($proxy)).Replace("-", ""))) "the proxy is back"
+    Assert ((Invoke-Installer @("--needs-repair", "`"$game`"")) -eq 0) "and none is needed"
+    [IO.File]::Delete((Join-Path $folder "patches\kmrp.dll"))
+    Assert ((Invoke-Installer @("--needs-repair", "`"$game`"")) -eq 3) "a missing module needs a repair"
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the repair succeeds"
+    [IO.File]::Delete((Join-Path $folder "KMRP\controller.ini"))
+    Assert ((Invoke-Installer @("--needs-repair", "`"$game`"")) -eq 0) "the player's settings file is not asked about"
+    [IO.File]::AppendAllText((Join-Path $folder "patch_config.toml"), "`n")
+    [IO.File]::Delete((Join-Path $folder "patches\kmrp-controller.dll"))
+    Assert ((Invoke-Installer @("--needs-repair", "`"$game`"")) -eq 0) "an install KPM rewrote is KPM's"
+
+    Write-Host "Case 21 nothing starts while the game or another installer has the folder (audit INS-06)"
+    Set-KmrpSettings $true $true
+    $game = New-Fixture "guarded"
+    $folder = Split-Path -Parent $game
+    $before = Get-Listing $folder
+    # A running program's file refuses to open for writing, as this does.
+    $held = [IO.File]::Open($game, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+    $code = Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")
+    $held.Dispose()
+    Assert ($code -ne 0) "the install refuses while the game runs"
+    Assert (([IO.File]::ReadAllText($errorLog)) -match 'KOTOR is running') "and says why"
+    Assert (((Get-Listing $folder) -join "`n") -eq ($before -join "`n")) "nothing changed"
+    $process = Start-Process -FilePath $Installer -ArgumentList @("--in-place", "`"$game`"", "1920x1080") -PassThru
+    while (-not $process.HasExited -and -not (Test-Path -LiteralPath (Join-Path $folder "KMRP\kpm.manifest"))) { Start-Sleep -Milliseconds 5 }
+    Assert (-not $process.HasExited) "the test caught the first installer running"
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -ne 0) "a second installer on the folder refuses"
+    Assert (([IO.File]::ReadAllText($errorLog)) -match 'Another KMRP installer') "and says why"
+    $process.WaitForExit()
+    Assert ($process.ExitCode -eq 0) "the first finishes"
+    $game2 = New-Fixture "guarded-other"
+    Assert ((Invoke-Installer @("--in-place", "`"$game2`"", "1920x1080")) -eq 0) "another folder is free meanwhile"
+    Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the lock is released"
+    $account = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+    $locked = New-Fixture "no-rights"
+    $lockedFolder = Split-Path -Parent $locked
+    & icacls $lockedFolder /deny "${account}:(WD,AD)" | Out-Null
+    try {
+        Assert ((Invoke-Installer @("--in-place", "`"$locked`"", "1920x1080")) -ne 0) "a folder this account may not write to refuses"
+        Assert (([IO.File]::ReadAllText($errorLog)) -match 'may not change files') "and says why"
+    }
+    finally {
+        & icacls $lockedFolder /remove:d $account | Out-Null
     }
 }
 finally {

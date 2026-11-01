@@ -117,6 +117,30 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: the installer checks before it starts and says what it could not do (audit
+  INS-05 to INS-10)** (2026-11-01). Install and Restore Original now refuse, with a plain
+  message and nothing changed, while KOTOR runs from the folder (Windows: `swkotor.exe`
+  will not open for writing, confirmed against a running copy of `ping.exe`; Linux: any
+  process named `swkotor.exe`, not tried under Proton), while another KMRP installer works
+  on the folder (a lock per folder), and where this account may not write. A damaged
+  `KMRP\kpm.manifest` stops both too: it read as empty, so a restore removed nothing,
+  deleted the manifest and reported success. A restore no longer stops half way over a
+  side record it cannot use, and no longer reports success when `binkw32.dll` or the
+  `swkotor.ini` backup was missing: KMRP is removed, the installer shows an error naming
+  what was not put back, and the proxy goes all the same, since left behind the next
+  install would take it for the game's. The window's status now reads the files as well as
+  the manifest: after Steam's file check it said "Patched successfully" with KMRP no longer
+  loading. It says "Repair needed" for an unfinished install, the game's own `binkw32.dll`
+  back or a recorded file missing, and the Upgrade button becomes Repair, the same install.
+  A file that is there but different is not counted, as KPM's Apply rewrites them; an
+  install KPM took over is left to KPM. K1DC's record may name files beside the game and
+  nothing else, every restore delete goes through `FileGuard.Delete`, a restore of the old
+  standalone's Override that stopped part way can run again, and the Linux installer
+  empties the art cache in the Proton prefix (compiled, not run on Linux). Linux has no DPI
+  step to undo, as it never sets one. Test-InstallerPatch cases 18 to 21 are new, with a
+  test-only `--needs-repair`. A damaged manifest has no automatic way back: the message
+  says to put the game's files back and delete it.
+
 - **Fixed: an install that stops or fails leaves nothing it cannot undo (audit INS-02,
   INS-03, INS-04)** (2026-11-01). The manifest was written last, so an install killed
   part way left a runtime nothing recorded, possibly with `binkw32.dll` renamed, and the

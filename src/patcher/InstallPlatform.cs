@@ -27,6 +27,7 @@ namespace Kmrp
         static partial void OnHighestRefresh(int[] size, ref int rate);
         static partial void OnKpmSettingsPath(ref string path);
         static partial void OnLocalPath(ref string path);
+        static partial void OnGameRunning(string executablePath, ref bool running);
 
         /// <summary>A path a Windows program wrote (KPM's settings), as this system names it: the
         /// same on Windows; under Proton, Wine's drive letters turned into Linux folders.</summary>
@@ -42,6 +43,14 @@ namespace Kmrp
         {
             OnKpmSettingsPath(ref path);
             return path;
+        }
+
+        /// <summary>The game is running from EXECUTABLEPATH (InstallGuard).</summary>
+        internal static bool GameRunning(string executablePath)
+        {
+            bool running = false;
+            OnGameRunning(executablePath, ref running);
+            return running;
         }
 
         /// <summary>The display's highest refresh rate at SIZE (width, height), or at its current
