@@ -102,6 +102,7 @@ Read from `K1RuntimeResolution.cpp`, `K1RuntimeEngine.cpp`, `K1RuntimeAssets.cpp
 | The dialog is filled | repeated rows of the display's modes are hidden | `EnumModesOnce` |
 | The game asks whether a size is valid | yes if KMRP has a layout for it and the display reports a mode of it | `KmrpAllowRuntimeResolutionK1` |
 | `SetVideoMode` runs | the recipe's per-size operands are written for the new size (section 6) and that size's interface files are unpacked to the cache, fonts included | `KmrpModeSwitchK1`; `FieldValue`; `K1RuntimeAssets.cpp` |
+| `CSWGuiManager::SetSize` runs, from any of its four callers | the same preparation, which returns at once if `SetVideoMode` already did it. Needed at startup, where `0x005F93FA` can reach `SetSize` with no mode switch (found 2026-11-01, `docs/cleanup-audit-1.6-findings.md`, F10) | `KmrpResolutionRequestedK1` |
 | The next GUI frame | every live panel is laid out for the new size: section 5a | `KmrpRuntimeLayoutDimensions` |
 
 ### 5a. Laying live panels out again

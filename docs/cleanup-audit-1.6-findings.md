@@ -174,23 +174,29 @@ Every entry is read and asked four things: is it needed, does anything else do t
 is it simple, and is it in the right module. Issue 82's limit stands: hooks merge only where
 timing, registers and behaviour really match, and the game's behaviour does not change.
 
-## F10. Two hooks with one job: `0x0040BE70` and `0x005F18F6` (open, proposed removal)
+## F10. `0x0040BE70` and `0x005F18F6`: not the same job (closed, keep)
 
-`KmrpResolutionRequestedK1` at `CSWGuiManager::SetSize` calls `Prepare`, as
-`KmrpModeSwitchK1` does. Measured from the maintainer's `kmrp-native-preview.log`: 133
-"switching" lines and 133 "requested" lines, the second a second or two after the first, the
-same size. By then `KmrpRuntimeAssetsDimensions` returns at its first line. `g_requested`,
-the hook's other job, is written and never read.
+**Corrected 2026-11-01.** This finding first said the two hooks have one job and proposed
+removing `0x0040BE70`, from a log count and a text search of the private reconstruction. The
+maintainer asked why, and the technical documents had not been read. Read now, with every
+caller listed from `build-inputs/swkotornopatch.exe` (the Steam file's code is packed): direct
+calls found by a scan of `.text`, and no pointer to the function anywhere in the file.
 
-The game's other callers of `SetSize` are the evil ending's credits (the private
-reconstruction, `sw_gui_in_game_credits.cpp`): 640x480, which the same log shows refused
-("assets-failed 640x480"), and back to the saved size. So the hook does nothing `0x005F18F6`
-does not, apart from a log line.
+| Caller of `SetSize` | In | Size | `Prepare` already run? |
+| --- | --- | --- | --- |
+| `0x005F19DE` | `SetVideoMode` (`0x005F1830`) | the new mode | Yes, `0x005F18F6`, same size. Here the hook does nothing. |
+| `0x005F93FA` | `0x005F8470`, just after the GUI manager is made | the screen size globals | Only if `SetVideoMode` got past its first steps. It returns early when the mode is the one in force or `EnumDisplaySettingsA` fails, and `0x005F18F6` never runs. |
+| `0x0068FA08` | the evil ending's credits | 640x480 | No. The log shows that size refused on this PC, so nothing is done here. |
+| `0x0068F1C5` | the same, on the way back | the saved size | No mode switch. The size should be the current one, so `Prepare` returns at once. |
 
-**Proposed:** remove the hook and `g_requested`; `KmrpResolutionObservedK1`, called from the GUI frame, stays.
-It changes `kotor1-native-runtime.hooks.toml` and `patch_config.toml`, so it needs an install
-and a run through a resolution change. Not checked: the callers by disassembly, as the Steam
-executable's code is packed; the evil ending in a game.
+So `0x0040BE70` is the one hook that sees every change of the GUI's size, and in the
+`0x005F93FA` case it can be the only `Prepare` of a size that `KmrpPrepareResourcesK1`, which
+reads `swkotor.ini`, did not already prepare. The 133 pairs in the maintainer's log show that
+this did not happen on this PC, not that it cannot happen.
+
+**Kept.** What can go: `g_requested`, written and never read (`K1RuntimeResolution.cpp`). Its
+hook's row was also missing from the table of what KMRP does on a change, in
+[`resolution-switch.md`](../reverse-engineering/resolution-switch.md) section 5; added.
 
 ## F11. The first preview module is still in the build's files (open, proposed removal)
 
