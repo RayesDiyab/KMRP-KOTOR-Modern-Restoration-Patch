@@ -54,7 +54,7 @@ EVENT_NAMES = {
 
 
 def panel_vtables() -> dict:
-    text = MODULE.read_text(encoding="utf-8")
+    text = MODULE.read_text(encoding="utf-8") + MODULE.with_name("K1EngineAddresses.h").read_text(encoding="utf-8")
     return {name.replace("K1_", "").replace("_PANEL_VTABLE", ""): int(value, 0)
             for name, value in re.findall(
                 r"constexpr\s+std::uintptr_t\s+(\w+_PANEL_VTABLE)\s*=\s*(0x[0-9A-Fa-f]+)\s*;", text)}

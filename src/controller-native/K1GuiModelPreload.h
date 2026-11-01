@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <vector>
+#include "K1EngineAddresses.h"
 #include "K1CaptionInk.h"
 
 // The highest-priority graphics preload is the actual preview's first render.
@@ -47,7 +48,7 @@ inline void Queue(void* panel) {
     Forget(panel);
     if (!IsReadableK1(panel, sizeof(void*))) return;
     const auto vt = *static_cast<const std::uintptr_t*>(panel);
-    const int count = vt == 0x00758020 ? 6 : vt == 0x00752F70 ? 1 : 0;
+    const int count = vt == K1_CLASS_SELECT_PANEL_VTABLE ? 6 : vt == K1_MAIN_MENU_PANEL_VTABLE ? 1 : 0;
     const int first = count == 6 ? 0x230 : 0x360;
     for (int i = 0; i < count; ++i) {
         void* view = static_cast<unsigned char*>(panel) + first + i * 0x25C;
@@ -76,7 +77,7 @@ inline bool Prime(void* view, Draw draw) {
     int oldBuffer = 0;
     gl.get(0x0C01, &oldBuffer); // GL_DRAW_BUFFER
     auto* effects = reinterpret_cast<int*>(scene + 0xD4);
-    auto* frameTime = reinterpret_cast<float*>(0x0078E574);
+    auto* frameTime = reinterpret_cast<float*>(K1_G_DELTA_T);
     struct Restore {
         int* effects; int oldEffects; float* frameTime; float oldTime; DrawBuffer buffer; unsigned oldBuffer;
         ~Restore() { *effects = oldEffects; *frameTime = oldTime; buffer(oldBuffer); }

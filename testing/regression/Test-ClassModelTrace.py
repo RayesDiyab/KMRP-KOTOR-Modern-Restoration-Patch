@@ -14,7 +14,7 @@ def main():
     for address, target in {'0x006DC030': '&NativeDraw', '0x00758054': '&drawSlot',
                             '0x0067ACB0': '&NativeViewDraw', '0x00752E68': '&viewDrawSlot',
                             '0x007A4774': '&pending', '0x007A4714': '&locked',
-                            '0x007A4798': '&textureList', '0x007A479C': '&total'}.items():
+                            'K1_TEXTURE_LIST': '&textureList', 'K1_TEXTURE_COUNT': '&total'}.items():
         production = production.replace(address, 'reinterpret_cast<std::uintptr_t>(' + target + ')')
     harness = r'''
 #include <windows.h>

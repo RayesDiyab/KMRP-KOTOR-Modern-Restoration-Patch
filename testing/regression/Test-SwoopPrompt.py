@@ -16,7 +16,8 @@ def main():
     source = (ROOT / 'src/controller-native/K1NativeJoystick.cpp').read_text(encoding='utf-8')
     start = source.index('namespace {\nconstexpr std::uintptr_t K1_TEXTURE_REF_VTABLE')
     stop = source.index('} // namespace', start) + len('} // namespace')
-    helper = source[start:stop]
+    addresses = (ROOT / 'src/controller-native/K1EngineAddresses.h').as_posix()
+    helper = f'#include "{addresses}"\n' + source[start:stop]
     assert 'K1_LIVE_MATERIAL' not in source and 'K1_SWOOP_SCAN_BUDGET' not in source
     assert source.count('    UpdateSwoopPromptK1();') == 1
     assert 'swoopPromptActive' not in source

@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <windows.h>
+#include "K1EngineAddresses.h"
 #include "K1Rect.h"
 #include "K1EngineMemory.h"
 
@@ -111,11 +112,7 @@ constexpr std::uint32_t PENDING_K1_MENU_INPUT =
     PENDING_K1_GENERIC_BUTTON |
     PENDING_K1_SETTINGS_NAV;
 
-constexpr std::uintptr_t K1_ABILITIES_PANEL_VTABLE = 0x00755E50;
-constexpr std::uintptr_t K1_CHARACTER_PANEL_VTABLE = 0x00756100;
-constexpr std::uintptr_t K1_INVENTORY_PANEL_VTABLE = 0x007564E0;
 constexpr std::uintptr_t K1_JOURNAL_PANEL_VTABLE = 0x00751960;
-constexpr std::uintptr_t K1_MAP_PANEL_VTABLE = 0x00754830;
 constexpr std::uintptr_t K1_MESSAGES_PANEL_VTABLE = 0x0074FD18;
 constexpr std::uintptr_t K1_LEVEL_UP_PANEL_VTABLE = 0x00759568;
 constexpr std::uintptr_t K1_POWERS_PANEL_VTABLE = 0x00759780;
@@ -124,33 +121,24 @@ constexpr std::uintptr_t K1_SKILLS_PANEL_VTABLE = 0x00759990;
 constexpr std::uintptr_t K1_NAME_PANEL_VTABLE = 0x00759F38;
 constexpr std::uintptr_t K1_ABILITIES_CHARGEN_PANEL_VTABLE = 0x00759C68;
 constexpr std::uintptr_t K1_SOLO_MODE_QUERY_PANEL_VTABLE = 0x00756F28;
-constexpr std::uintptr_t K1_PAZAAK_SETUP_PANEL_VTABLE = 0x007532E8;
-constexpr std::uintptr_t K1_PAZAAK_GAME_PANEL_VTABLE = 0x00753358;
 // Pazaak's wager box, from its constructor (0x0067F03E). Its dispatcher,
 // 0x0067E150, answers A, B and all four directions itself.
 constexpr std::uintptr_t K1_PAZAAK_WAGER_PANEL_VTABLE = 0x007534C8;
+// K1_SKILL_INFO_PANEL_VTABLE is
 // "You have been granted the following feat(s) this level." (skillinfo.gui),
 // from its constructor (0x006CE7C0, the vtable stored at 0x006CE7F9). Its OK is
 // +0x484 (bound at 0x006CE8EA), and its dispatcher, 0x006CD3C0, closes the box
 // on A and B whatever holds focus.
-constexpr std::uintptr_t K1_SKILL_INFO_PANEL_VTABLE = 0x00757940;
-constexpr std::uintptr_t K1_PARTY_SELECT_PANEL_VTABLE = 0x00756D28;
-constexpr std::uintptr_t K1_CLASS_SELECT_PANEL_VTABLE = 0x00758020;
 constexpr std::uintptr_t K1_GALAXY_MAP_PANEL_VTABLE = 0x00754910;    // CSWGuiInGameGalaxyMap
 constexpr std::uintptr_t K1_SAVE_NAME_PANEL_VTABLE = 0x007576D0;     // CSWGuiSaveNamePanel
 // Character creation's own screens, from their constructors (2026-09-25):
 // CSWGuiQuickOrCustomPanel 0x006F09F0, CSWGuiCustomPanel 0x006EF730,
 // CSWGuiQuickPanel 0x006F0390, CSWGuiPortraitCharGen 0x006F9430.
 constexpr std::uintptr_t K1_QUICK_OR_CUSTOM_PANEL_VTABLE = 0x00759710;
-constexpr std::uintptr_t K1_CUSTOM_CHARGEN_PANEL_VTABLE = 0x007595E0;
-constexpr std::uintptr_t K1_QUICK_CHARGEN_PANEL_VTABLE = 0x00759668;
 constexpr std::uintptr_t K1_PORTRAIT_CHARGEN_PANEL_VTABLE = 0x00759EA8;
 constexpr std::uintptr_t K1_CONTAINER_PANEL_VTABLE = 0x007567E0;
 constexpr std::uintptr_t K1_SAVELOAD_PANEL_VTABLE = 0x00757650;
 constexpr std::uintptr_t K1_UPGRADE_SELECTION_PANEL_VTABLE = 0x007571B0;
-constexpr std::uintptr_t K1_MAIN_MENU_PANEL_VTABLE = 0x00752F70;
-constexpr std::uintptr_t K1_INGAME_GAMEPLAY_PANEL_VTABLE = 0x00758E00;
-constexpr std::uintptr_t K1_INGAME_AUTOPAUSE_PANEL_VTABLE = 0x00758EE0;
 constexpr std::uintptr_t K1_UPGRADE_ITEM_SELECT_PANEL_VTABLE = 0x00757228;
 constexpr std::uintptr_t K1_UPGRADE_PANEL_VTABLE = 0x00757298;
 // The store needs no strip table: CSWGuiStore::HandleInputEvent already answers
@@ -158,32 +146,21 @@ constexpr std::uintptr_t K1_UPGRADE_PANEL_VTABLE = 0x00757298;
 // row is reachable through the face buttons once the panel is recognised at all.
 constexpr std::uintptr_t K1_STORE_PANEL_VTABLE = 0x00756E38;
 constexpr std::uintptr_t K1_INGAME_OPTIONS_PANEL_VTABLE = 0x00755DE0;
-constexpr std::uintptr_t K1_KEY_MAPPINGS_PANEL_VTABLE = 0x00759358;
 constexpr std::uintptr_t K1_OPTIONS_MAIN_PANEL_VTABLE = 0x00758838;
 // The Movies screen (titlemovie.gui). Stored at 0x006DD949 by its constructor,
 // which binds LB_MOVIES, LBL_TITLE and BTN_BACK (+0x484, from 0x006DDA20).
 constexpr std::uintptr_t K1_TITLE_MOVIES_PANEL_VTABLE = 0x00758130;
-constexpr std::uintptr_t K1_OPTIONS_FEEDBACK_PANEL_VTABLE = 0x007581E8;
-constexpr std::uintptr_t K1_OPTIONS_GRAPHICS_PANEL_VTABLE = 0x007586F8;
-constexpr std::uintptr_t K1_OPTIONS_GRAPHICS_ADVANCED_PANEL_VTABLE = 0x007584A0;
-constexpr std::uintptr_t K1_OPTIONS_MOUSE_PANEL_VTABLE = 0x007585F8;
 constexpr std::uintptr_t K1_OPTIONS_RESOLUTION_PANEL_VTABLE = 0x00758348;
-constexpr std::uintptr_t K1_OPTIONS_SOUND_PANEL_VTABLE = 0x007587C0;
-constexpr std::uintptr_t K1_OPTIONS_SOUND_ADVANCED_PANEL_VTABLE = 0x00758550;
 constexpr std::uintptr_t K1_BARK_BUBBLE_PANEL_VTABLE = 0x00755C60;
 constexpr std::uintptr_t K1_MESSAGE_BOX_PANEL_VTABLE = 0x0074FDB0;
-constexpr std::uintptr_t K1_GUI_BORDER_SET_FILL_IMAGE = 0x00414C00;
-// CSWGuiLabel's and CSWGuiButton's vtables (the decompilation's symbol list): the controls
-// whose borders the run-time pictures are drawn for (K1SweepRuntimePictures).
-constexpr std::uintptr_t K1_GUI_LABEL_VTABLE = 0x0073E5B8;
-constexpr std::uintptr_t K1_GUI_BUTTON_VTABLE = 0x0073E658;
+// CSWGuiLabel and CSWGuiButton are the controls whose borders the run-time pictures are drawn
+// for (K1SweepRuntimePictures).
 constexpr std::ptrdiff_t K1_BUTTON_BORDER_PARAMS_OFFSET = 0x0080;
 // The border drawn INSTEAD of the normal one while a control is focused, so a
 // badge has to be written to both or it disappears the moment the button takes
 // focus. See SetK1ControllerPromptFill.
 constexpr std::ptrdiff_t K1_BUTTON_HILIGHT_PARAMS_OFFSET = 0x00F4;
 
-constexpr std::uintptr_t K1_GUI_MANAGER_GLOBAL = 0x007A39F4;
 constexpr std::ptrdiff_t K1_PAZAAK_CARD_STRIDE = 0x031C;
 constexpr std::ptrdiff_t K1_PAZAAK_FLIP_STRIDE = 0x01C4;
 constexpr std::ptrdiff_t K1_CHARACTER_SCRIPTS_OFFSET = 0x5400;
@@ -263,10 +240,9 @@ constexpr std::ptrdiff_t K1_OPTIONS_SOUND_BACK_OFFSET = 0x11A4;
 constexpr std::ptrdiff_t K1_OPTIONS_SOUND_ADVANCED_OK_OFFSET = 0x0DC8;
 constexpr std::ptrdiff_t K1_OPTIONS_SOUND_ADVANCED_DEFAULT_OFFSET = 0x0F8C;
 constexpr std::ptrdiff_t K1_OPTIONS_SOUND_ADVANCED_CANCEL_OFFSET = 0x1150;
-// Equipment is not in IsK1MenuPanel, so FindK1MenuPanel never returns it and
+// Equipment (K1_EQUIP_PANEL_VTABLE) is not in IsK1MenuPanel, so FindK1MenuPanel never returns it and
 // its entry in the table below stays dead. Listing it anyway keeps the address
 // with the rest; bringing the screen under the mod is a separate decision.
-constexpr std::uintptr_t K1_EQUIP_PANEL_VTABLE = 0x007569A0;
 // Written by its constructor at 0x006D26FB.
 constexpr std::uintptr_t K1_QUESTITEM_PANEL_VTABLE = 0x00757C20;
 // Party selection already has its vtable above; the value derived here from
@@ -303,7 +279,6 @@ constexpr std::ptrdiff_t K1_ABILITIES_EXIT_OFFSET = 0x369C;
 // takes the input class from 2 to 0 -- it closes -- and X changes 3.2% while
 // staying in the menu, so X acts on the screen. Y changes 0.27%, which is noise.
 // Close is B, the screen's own action is X, and everything else is focus + A.
-constexpr std::uintptr_t K1_INGAME_MENU_PANEL_VTABLE = 0x00750148;
 
 constexpr std::ptrdiff_t K1_INVENTORY_CLOSE_OFFSET     = 0x1164;
 constexpr std::ptrdiff_t K1_INVENTORY_USEITEM_OFFSET   = 0x1328;
@@ -374,7 +349,6 @@ constexpr std::ptrdiff_t K1_MANAGER_MOUSE_Y_OFFSET = 0x0004;
 constexpr int K1_PARKED_CURSOR_Y = 16;
 constexpr std::ptrdiff_t K1_MANAGER_VIEWPORT_WIDTH_OFFSET = 0x006C;
 constexpr std::ptrdiff_t K1_MANAGER_VIEWPORT_HEIGHT_OFFSET = 0x006E;
-constexpr std::uintptr_t K1_CANCEL_MOVIE = 0x00404C40;
 
 struct BufferedInputRecord {
     std::uint32_t offset;
@@ -424,7 +398,7 @@ constexpr GameConfig K1_CONFIG = {
     0,
     0x0074D3C8,
     0x004189D0,
-    0x0040A630,
+    K1_SET_ACTIVE_CONTROL,
     0x0040ABE0,
     0x0068AF70,
     0x0068AFE0,
@@ -616,7 +590,6 @@ const char* const K1_INVENTORY_FILTER_RESREFS[K1_INVENTORY_FILTER_COUNT] = {
 // CClientExoApp is [[0x007A39FC]+4], its internal [+4] again, and CGuiInGame
 // hangs off that at +0x40 -- which is all CClientExoApp::GetGuiInGame
 // (0x005ED690) does: `mov eax,[ecx+4]` then `mov eax,[eax+0x40]`.
-constexpr std::uintptr_t K1_CLIENT_EXO_APP_ROOT_ADDRESS = 0x007A39FC;
 constexpr std::ptrdiff_t K1_IN_GAME_GUI_OFFSET = 0x40;
 constexpr std::ptrdiff_t K1_IN_GAME_INVENTORY_FILTER = 0xBC1;
 
@@ -626,7 +599,7 @@ constexpr std::ptrdiff_t K1_IN_GAME_INVENTORY_FILTER = 0xBC1;
 // `mov eax,[ecx+4]` then `mov eax,[eax+0x40]`.
 int K1InventoryFilterVariant()
 {
-    void** root = *reinterpret_cast<void***>(K1_CLIENT_EXO_APP_ROOT_ADDRESS);
+    void** root = *reinterpret_cast<void***>(K1_CLIENT_EXO_APP_ROOT);
     if (!root) {
         return -1;
     }
@@ -1278,7 +1251,7 @@ bool IsK1TitleMenuPanel(void* panel)
 
 void* GetK1TitleGuiManager()
 {
-    return *reinterpret_cast<void**>(K1_GUI_MANAGER_GLOBAL);
+    return *reinterpret_cast<void**>(K1_GUI_MANAGER_PTR);
 }
 
 void* FindK1MenuPanel(void* manager)
@@ -2078,7 +2051,7 @@ void* K1ControlOfParams(const void* params, std::ptrdiff_t* offset)
     static const Kind kinds[] = {
         {K1_GUI_LABEL_VTABLE, 0x70},
         {K1_GUI_BUTTON_VTABLE, K1_BUTTON_BORDER_PARAMS_OFFSET}, {K1_GUI_BUTTON_VTABLE, K1_BUTTON_HILIGHT_PARAMS_OFFSET},
-        {0x0073EB88, K1_BUTTON_BORDER_PARAMS_OFFSET}, {0x0073EB88, K1_BUTTON_HILIGHT_PARAMS_OFFSET},  // CSWGuiButtonToggle
+        {K1_GUI_BUTTON_TOGGLE_VTABLE, K1_BUTTON_BORDER_PARAMS_OFFSET}, {K1_GUI_BUTTON_TOGGLE_VTABLE, K1_BUTTON_HILIGHT_PARAMS_OFFSET},  // CSWGuiButtonToggle
         {0x0073E7A0, 0x7C}, {0x0073E7A0, 0xF0},                                                  // CSWGuiProgressBar
     };
     for (const Kind& kind : kinds) {
@@ -2164,7 +2137,7 @@ extern "C" void __cdecl KmrpSetPictureK1(void* params, const char* name)
         g_k1WaitingFills.push_back(waiting);
         return;
     }
-    reinterpret_cast<SetFillImageFn>(K1_GUI_BORDER_SET_FILL_IMAGE)(params, use, 1);
+    reinterpret_cast<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(params, use, 1);
 }
 
 // The swoop race's prompt (UpdateSwoopPromptK1, K1NativeJoystick.cpp) drawn for this
@@ -2283,7 +2256,7 @@ void KmrpStampPictureK1(void* control, std::ptrdiff_t paramsOffset, const char* 
         }
     }
     if (_strnicmp(params + 0x40, use, 16) == 0) return;
-    reinterpret_cast<SetFillImageFn>(K1_GUI_BORDER_SET_FILL_IMAGE)(params, use, 1);
+    reinterpret_cast<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(params, use, 1);
 }
 // True once a whole frame has gone by in which the game thread drew no badge or picture:
 // whatever the screens up need is drawn.
@@ -2296,7 +2269,7 @@ bool KmrpDrawnPictureK1(const char* name, char out[17])
     if (!scene) {
         return false;
     }
-    const int rows = *reinterpret_cast<const int*>(0x0078D1D8);       // the game's screenHeight
+    const int rows = *reinterpret_cast<const int*>(K1_SCREEN_HEIGHT);       // the game's screenHeight
     const int side = (std::min)(1024, (std::max)(128, static_cast<int>(std::lround(128.0 * rows / 480.0))));
     return K1SceneTexture(*scene, side, side, out);
 }
@@ -2325,7 +2298,7 @@ const K1Scene* K1PictureFor(const char* params, char fill[17], int& width, int& 
 // KmrpLogicalFillK1.
 void K1SetSceneFill(char* params, const std::string& scene, const char* drawn)
 {
-    reinterpret_cast<SetFillImageFn>(K1_GUI_BORDER_SET_FILL_IMAGE)(params, drawn, 1);
+    reinterpret_cast<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(params, drawn, 1);
     g_k1DrawnScenes.insert_or_assign(K1PictureKey(drawn), scene);
 }
 
@@ -2481,7 +2454,7 @@ void K1SweepRuntimePictures(void* manager)
         // control inside it begins with its class's vtable, so the object is read for those
         // of a label, a button and a progress bar; a control whose fill is none of the
         // patch's pictures is left as it is (K1BorderPicture).
-        if (*reinterpret_cast<const std::uintptr_t*>(panel) == 0x00753F50) {
+        if (*reinterpret_cast<const std::uintptr_t*>(panel) == K1_MAIN_INTERFACE_VTABLE) {
             constexpr std::size_t kMainInterfaceSize = 0xC8CC, kLargestControl = 0x1C4;
             const std::uintptr_t* const words = static_cast<const std::uintptr_t*>(panel);
             for (std::size_t i = 1; i < (kMainInterfaceSize - kLargestControl) / 4; ++i) {
@@ -2588,8 +2561,6 @@ struct K1BadgeOverlay { void* panel; void* button; void* label; int id; K1BadgeR
 constexpr int K1_BADGE_OVERLAYS = 256;      // 96 until every badge went on a label (2026-10-09)
 K1BadgeOverlay g_k1BadgeOverlays[K1_BADGE_OVERLAYS] = {};
 void* g_k1BadgePaintPanel = nullptr;      // set by UpdateK1ControllerPrompts while it paints
-constexpr std::uintptr_t K1_BADGE_OPERATOR_NEW = 0x006FA7E6;
-constexpr std::uintptr_t K1_BADGE_LABEL_CTOR = 0x0041ACD0;      // CSWGuiLabel::CSWGuiLabel
 constexpr std::size_t K1_BADGE_LABEL_SIZE = 0x140;
 constexpr std::uintptr_t K1_BADGE_LIST_ADD = 0x00671C00;        // CExoArrayList::Add(item)
 constexpr std::ptrdiff_t K1_BADGE_LABEL_PARAMS = 0x70;          // a label's CSWGuiBorderParams
@@ -3153,11 +3124,11 @@ bool ShowK1BadgeOverlay(void* control, const char resref[16], int tall = 0, bool
         if (!panel || !free) {
             return false;
         }
-        void* const label = reinterpret_cast<void*(__cdecl*)(std::size_t)>(K1_BADGE_OPERATOR_NEW)(K1_BADGE_LABEL_SIZE);
+        void* const label = reinterpret_cast<void*(__cdecl*)(std::size_t)>(K1_OPERATOR_NEW)(K1_BADGE_LABEL_SIZE);
         if (!label) {
             return false;
         }
-        reinterpret_cast<void*(__thiscall*)(void*)>(K1_BADGE_LABEL_CTOR)(label);
+        reinterpret_cast<void*(__thiscall*)(void*)>(K1_GUI_LABEL_CTOR)(label);
         const int id = *reinterpret_cast<int*>(static_cast<char*>(panel) + K1_BADGE_PANEL_COUNT);
         *reinterpret_cast<void**>(static_cast<char*>(label) + K1_BADGE_CONTROL_PARENT) = panel;
         *reinterpret_cast<int*>(static_cast<char*>(label) + K1_BADGE_CONTROL_ID) = id;
@@ -3377,7 +3348,7 @@ bool ShowK1BadgeOverlay(void* control, const char resref[16], int tall = 0, bool
             static_cast<char*>(label) + K1_BADGE_LABEL_PARAMS + 0x1C);
         flags = (flags & ~3u) | 2u;
     }
-    reinterpret_cast<SetFillImageFn>(K1_GUI_BORDER_SET_FILL_IMAGE)(
+    reinterpret_cast<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(
         static_cast<char*>(label) + K1_BADGE_LABEL_PARAMS, fill, 1);
     for (int i = 0; i < 16; ++i) {
         entry->resref[i] = resref[i];
@@ -3636,7 +3607,7 @@ void SetK1ControllerPromptFill(void* control, const char* value, const char* box
     // no texture the patch carries, it showed white until the sweep drew over it on the next
     // frame, a flash at every change of focus (2026-10-28).
     auto setFill = [](void* params, const char* name, int flag) {
-        reinterpret_cast<SetFillImageFn>(K1_GUI_BORDER_SET_FILL_IMAGE)(params, KmrpDrawnFillK1(params, name), flag);
+        reinterpret_cast<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(params, KmrpDrawnFillK1(params, name), flag);
     };
     if (resref[0] == '\0') {
         HideK1BadgeOverlay(control);
@@ -3714,7 +3685,7 @@ void SetK1ControllerPromptArt(void* control, const char* border, const char* hil
         focused[i] = second[i];
     }
     SetFillImageFn setFill = reinterpret_cast<SetFillImageFn>(
-        K1_GUI_BORDER_SET_FILL_IMAGE);
+        K1_BORDER_SET_FILL_IMAGE);
     setFill(OffsetPointer(control, K1_BUTTON_BORDER_PARAMS_OFFSET), normal, 1);
     setFill(OffsetPointer(control, K1_BUTTON_HILIGHT_PARAMS_OFFSET), focused, 1);
 }
@@ -4723,7 +4694,7 @@ void KmrpBadgeCentreK1(void* button, bool on)
 // CClientExoAppInternal whose +0x3D8 carries the hide mask.
 extern "C" void __cdecl KmrpUpdateCursorK1()
 {
-    void** root = *reinterpret_cast<void***>(K1_CLIENT_EXO_APP_ROOT_ADDRESS);
+    void** root = *reinterpret_cast<void***>(K1_CLIENT_EXO_APP_ROOT);
     if (!root) {
         return;
     }
@@ -5036,8 +5007,8 @@ bool MouseIsBeingUsedK1(int mouseX, int mouseY)
         static int screenWidth = 0, screenHeight = 0;
         static DWORD changed = 0;
         static bool quiet = false;
-        const int width = *reinterpret_cast<const int*>(0x0078D1D4);
-        const int height = *reinterpret_cast<const int*>(0x0078D1D8);
+        const int width = *reinterpret_cast<const int*>(K1_SCREEN_WIDTH);
+        const int height = *reinterpret_cast<const int*>(K1_SCREEN_HEIGHT);
         if (width != screenWidth || height != screenHeight) {
             screenWidth = width;
             screenHeight = height;

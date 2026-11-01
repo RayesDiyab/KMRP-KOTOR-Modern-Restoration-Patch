@@ -43,6 +43,7 @@
 //
 // Documentation standard: see `docs/documentation-standard.md`.
 #include <windows.h>
+#include "K1EngineAddresses.h"
 #include "K1Rect.h"
 #include "K1EngineMemory.h"
 #include <algorithm>
@@ -125,7 +126,6 @@ constexpr std::ptrdiff_t kControlExtent = 0x04;
 constexpr std::ptrdiff_t kLabelBorderParams = 0x70;
 constexpr std::ptrdiff_t kButtonBorderParams = 0x80;
 constexpr std::ptrdiff_t kParamsFill = 0x40;
-constexpr std::uintptr_t kSetFillImage = 0x00414C00;
 // The name's frame for a friendly and for a hostile target, both in the game's data
 // (mi8x6.gui names the first). The engine marks a hostile target by giving the
 // target slots the frame lbl_miscroll_h (CSWGuiMainInterfaceAction::Update).
@@ -255,10 +255,7 @@ constexpr std::ptrdiff_t kActionIcon = 0x1C4;          // the slot's icon, a CSW
 constexpr std::ptrdiff_t kHudSpareLabel = 0xBE2C;      // LBL_MENUBG
 constexpr std::ptrdiff_t kHudSpareButton = 0xB71C;     // BTN_MSG
 constexpr std::ptrdiff_t kParamsAlpha = 0x0C;
-constexpr std::uintptr_t kAppManager = 0x007A39FC;     // [[it] + 4] is CClientExoApp
 constexpr std::uintptr_t kGetGameObject = 0x005ED580;  // CClientExoApp::GetGameObject(id)
-constexpr std::uintptr_t kGetGuiString = 0x005EDEB0;   // CClientExoApp::GetGUIString(CExoString*, strref)
-constexpr std::uintptr_t kStringDestroy = 0x005E5C20;  // CExoString::~CExoString
 constexpr std::uintptr_t kSetDescription = 0x00685560; // CSWGuiMainInterface::SetActionDescription(CExoString*)
 constexpr std::uintptr_t kUpdateNameLabel = 0x00685CB0;// CSWGuiTargetActionMenu::UpdateNameLabel(CSWCObject*)
 constexpr std::uintptr_t kGetDefaultActions = 0x00620620;  // CClientExoAppInternal::GetDefaultActions()
@@ -309,7 +306,7 @@ void SetFill(void* params, const char name[16])
     // (KmrpDrawnFillK1), not as the bare name, which is no texture the patch carries.
     if (SameName(KmrpLogicalFillK1(&At<char>(params, kParamsFill)), name)) return;
     using Fn = void(__thiscall*)(void*, const char*, int);
-    reinterpret_cast<Fn>(kSetFillImage)(params, KmrpDrawnFillK1(params, name), 1);
+    reinterpret_cast<Fn>(K1_BORDER_SET_FILL_IMAGE)(params, KmrpDrawnFillK1(params, name), 1);
 }
 
 // A layout length on this screen, rounding half up, as build_xbox_hud.py rounds.
@@ -394,14 +391,10 @@ constexpr std::ptrdiff_t kLabelText = 0xD0;
 constexpr std::ptrdiff_t kLabelTextParams = 0xE8;
 constexpr std::ptrdiff_t kTextColour = 0x1C;           // three floats, opacity, three floats
 constexpr std::ptrdiff_t kTextOpacity = 0x28;
-constexpr std::uintptr_t kSetTextColour = 0x00414E10;  // CSWGuiTextParams::SetColor(Vector*)
 constexpr unsigned kEngagedString = 48208;
 constexpr int kEngagedPadString = 42475;
 constexpr char kButtonCharacter = 0x11;             // what the engine makes of "<bbutton>"
-constexpr std::uintptr_t kSetText = 0x00415E00;        // CSWGuiTextParams::SetText(CExoString*)
 constexpr std::uintptr_t kTextHeight = 0x00414EB0;     // CSWGuiText::GetIdealHeight()
-constexpr std::uintptr_t kMeasureText = 0x00414F10;    // CSWGuiText::GetIdealWidthAndHeight(CSWGuiExtent*)
-constexpr std::uintptr_t kStringFromText = 0x005E5A90; // CExoString::CExoString(const char*)
 constexpr int kButtonSize = 22;                        // pixels, beside a 16 px font
 constexpr int kButtonGap = 9;
 
@@ -409,13 +402,13 @@ struct String { char* text = nullptr; unsigned length = 0; };   // CExoString
 
 void SetText(void* label, String* text)
 {
-    reinterpret_cast<void(__thiscall*)(void*, String*)>(kSetText)(Part(label, kLabelTextParams), text);
+    reinterpret_cast<void(__thiscall*)(void*, String*)>(K1_TEXT_SET_TEXT)(Part(label, kLabelTextParams), text);
 }
 
 int LineWidth(void* label)
 {
     Extent measured{};
-    reinterpret_cast<void(__thiscall*)(void*, Extent*)>(kMeasureText)(Part(label, kLabelText), &measured);
+    reinterpret_cast<void(__thiscall*)(void*, Extent*)>(K1_TEXT_EXTENT)(Part(label, kLabelText), &measured);
     return measured.width;
 }
 
@@ -477,7 +470,7 @@ void CombatMessage(void* hud, void* client, int width)
     if (!tried && client) {
         tried = true;
         String whole;
-        reinterpret_cast<void*(__thiscall*)(void*, String*, int)>(kGetGuiString)(client, &whole, kEngagedPadString);
+        reinterpret_cast<void*(__thiscall*)(void*, String*, int)>(K1_GET_GUI_STRING)(client, &whole, kEngagedPadString);
         // The engine has already turned the token into one character, 0x11, which is
         // the B button in the Xbox game's font (seen in the running game: "COMBAT MODE
         // engaged. [0x11] to disengage."); the PC fonts have nothing there.
@@ -491,12 +484,12 @@ void CombatMessage(void* hud, void* client, int width)
             while (*rest == ' ') ++rest;
             strncpy_s(right, rest, _TRUNCATE);
             using Make = void*(__thiscall*)(String*, const char*);
-            reinterpret_cast<Make>(kStringFromText)(&before, left);
-            reinterpret_cast<Make>(kStringFromText)(&after, right);
-            reinterpret_cast<Make>(kStringFromText)(&nothing, "");
+            reinterpret_cast<Make>(K1_EXOSTRING_CTOR)(&before, left);
+            reinterpret_cast<Make>(K1_EXOSTRING_CTOR)(&after, right);
+            reinterpret_cast<Make>(K1_EXOSTRING_CTOR)(&nothing, "");
             split = before.text && after.text;
         }
-        reinterpret_cast<void(__thiscall*)(String*)>(kStringDestroy)(&whole);
+        reinterpret_cast<void(__thiscall*)(String*)>(K1_EXOSTRING_DTOR)(&whole);
     }
     const bool engaged = split && button && IsControllerInputActiveK1() &&
         At<unsigned>(hud, kHudMessageNumber) == kEngagedString &&
@@ -511,7 +504,7 @@ void CombatMessage(void* hud, void* client, int width)
         // and opacity, which the engine sets per message and fades.
         SetText(message, &before);
         SetText(back, &after);
-        reinterpret_cast<void(__thiscall*)(void*, void*)>(kSetTextColour)(backText, Part(messageText, kTextColour));
+        reinterpret_cast<void(__thiscall*)(void*, void*)>(K1_TEXT_SET_COLOUR)(backText, Part(messageText, kTextColour));
         At<float>(backText, kTextOpacity) = At<float>(messageText, kTextOpacity);
         // The whole line centred: the two texts' widths, with the button between.
         // Everything from the line's own height, as the pause notice is made: the
@@ -563,9 +556,9 @@ void CombatMessage(void* hud, void* client, int width)
         // The game's own line again, if it is still this message (the mouse came back).
         if (client && At<unsigned>(hud, kHudMessageNumber) == kEngagedString) {
             String own;
-            reinterpret_cast<void*(__thiscall*)(void*, String*, int)>(kGetGuiString)(client, &own, static_cast<int>(kEngagedString));
+            reinterpret_cast<void*(__thiscall*)(void*, String*, int)>(K1_GET_GUI_STRING)(client, &own, static_cast<int>(kEngagedString));
             SetText(message, &own);
-            reinterpret_cast<void(__thiscall*)(String*)>(kStringDestroy)(&own);
+            reinterpret_cast<void(__thiscall*)(String*)>(K1_EXOSTRING_DTOR)(&own);
         }
     }
 }
@@ -659,7 +652,6 @@ constexpr std::ptrdiff_t kHudQueueButton = 0x6CD0;     // BTN_CLEARONE, which th
 // back, before every draw, on the rectangle its constructor copied from its layout
 // file to +0x1A4 (left, top, width; the height follows the text), so that rectangle
 // is what is changed here.
-constexpr std::uintptr_t kGetInGameGui = 0x005ED690;   // CClientExoApp::GetInGameGui()
 constexpr std::ptrdiff_t kInGameBarkBubble = 0x4C;
 constexpr std::ptrdiff_t kBubbleExtent = 0x1A4;
 // The minimap's frame art (kmrx_minimap) is a square line from 2.6 to 4.0 of its 64.
@@ -667,9 +659,9 @@ constexpr double kMapFrameLine = 4.0;
 
 int* BarkBubble()
 {
-    void* app = *reinterpret_cast<void**>(kAppManager);
+    void* app = *reinterpret_cast<void**>(K1_CLIENT_EXO_APP_ROOT);
     void* client = app ? At<void*>(app, 4) : nullptr;
-    void* inGame = client ? reinterpret_cast<void*(__thiscall*)(void*)>(kGetInGameGui)(client) : nullptr;
+    void* inGame = client ? reinterpret_cast<void*(__thiscall*)(void*)>(K1_GET_IN_GAME_GUI)(client) : nullptr;
     void* bubble = inGame ? At<void*>(inGame, kInGameBarkBubble) : nullptr;
     return bubble ? &At<int>(bubble, kBubbleExtent) : nullptr;
 }
@@ -713,9 +705,9 @@ constexpr std::uintptr_t kSetupPauseExtent = 0x00688DB0;   // CSWGuiMainInterfac
 
 void* PausePanel()
 {
-    void* app = *reinterpret_cast<void**>(kAppManager);
+    void* app = *reinterpret_cast<void**>(K1_CLIENT_EXO_APP_ROOT);
     void* client = app ? At<void*>(app, 4) : nullptr;
-    void* inGame = client ? reinterpret_cast<void*(__thiscall*)(void*)>(kGetInGameGui)(client) : nullptr;
+    void* inGame = client ? reinterpret_cast<void*(__thiscall*)(void*)>(K1_GET_IN_GAME_GUI)(client) : nullptr;
     return inGame ? At<void*>(inGame, kInGamePause) : nullptr;
 }
 
@@ -1599,15 +1591,15 @@ bool RestorePauseNotice(void* pause)
         using Make = void*(__thiscall*)(String*, const char*);
         if (g_pauseKept.kept) {
             String text;
-            reinterpret_cast<Make>(kStringFromText)(&text, g_pauseKept.reason);
+            reinterpret_cast<Make>(K1_EXOSTRING_CTOR)(&text, g_pauseKept.reason);
             SetText(reason, &text);
-            reinterpret_cast<void(__thiscall*)(String*)>(kStringDestroy)(&text);
+            reinterpret_cast<void(__thiscall*)(String*)>(K1_EXOSTRING_DTOR)(&text);
         }
         {
             String text;
-            reinterpret_cast<Make>(kStringFromText)(&text, g_pauseOwn.press);
+            reinterpret_cast<Make>(K1_EXOSTRING_CTOR)(&text, g_pauseOwn.press);
             SetText(press, &text);
-            reinterpret_cast<void(__thiscall*)(String*)>(kStringDestroy)(&text);
+            reinterpret_cast<void(__thiscall*)(String*)>(K1_EXOSTRING_DTOR)(&text);
         }
         // And SetPauseReason's own steps.
         first.height = reinterpret_cast<Height>(kTextHeight)(Part(reason, kLabelText));
@@ -1666,9 +1658,9 @@ void PauseNotice(void* pause, void* client)
     if (!tried && client) {
         tried = true;
         String line;
-        reinterpret_cast<void*(__thiscall*)(void*, String*, int)>(kGetGuiString)(client, &line, kPausePressString);
+        reinterpret_cast<void*(__thiscall*)(void*, String*, int)>(K1_GET_GUI_STRING)(client, &line, kPausePressString);
         english = line.text && _stricmp(line.text, "PRESS THE PAUSE BUTTON TO CONTINUE") == 0;
-        reinterpret_cast<void(__thiscall*)(String*)>(kStringDestroy)(&line);
+        reinterpret_cast<void(__thiscall*)(String*)>(K1_EXOSTRING_DTOR)(&line);
     }
     if (!english) return;
     void* reason = Part(pause, kPauseReason);
@@ -1767,15 +1759,15 @@ void PauseNotice(void* pause, void* client)
         strcat_s(words, last == '.' || last == '!' || last == '?' ? " PRESS" : ". PRESS");
         std::memcpy(first, words, sizeof first);
         String text;
-        reinterpret_cast<void*(__thiscall*)(String*, const char*)>(kStringFromText)(&text, first);
+        reinterpret_cast<void*(__thiscall*)(String*, const char*)>(K1_EXOSTRING_CTOR)(&text, first);
         SetText(reason, &text);
-        reinterpret_cast<void(__thiscall*)(String*)>(kStringDestroy)(&text);
+        reinterpret_cast<void(__thiscall*)(String*)>(K1_EXOSTRING_DTOR)(&text);
     }
     if (!(pressNow.text && std::strcmp(pressNow.text, second) == 0)) {
         String text;
-        reinterpret_cast<void*(__thiscall*)(String*, const char*)>(kStringFromText)(&text, second);
+        reinterpret_cast<void*(__thiscall*)(String*, const char*)>(K1_EXOSTRING_CTOR)(&text, second);
         SetText(press, &text);
-        reinterpret_cast<void(__thiscall*)(String*)>(kStringDestroy)(&text);
+        reinterpret_cast<void(__thiscall*)(String*)>(K1_EXOSTRING_DTOR)(&text);
     }
     At<int>(press, kControlFlags) |= kControlVisible;
 
@@ -1870,7 +1862,7 @@ String* NoActionName(void* client)
     static String name;
     static bool fetched = false;
     if (!fetched && client) {
-        reinterpret_cast<void*(__thiscall*)(void*, String*, int)>(kGetGuiString)(client, &name, kNoActionString);
+        reinterpret_cast<void*(__thiscall*)(void*, String*, int)>(K1_GET_GUI_STRING)(client, &name, kNoActionString);
         fetched = true;
     }
     return fetched ? &name : nullptr;
@@ -1982,7 +1974,7 @@ extern "C" void __cdecl KmrpXboxHudK1(void* hud)
     const int height = At<short>(manager, kManagerViewportHeight);
     if (width <= 0 || height <= 0) return;
 
-    void* app = *reinterpret_cast<void**>(kAppManager);
+    void* app = *reinterpret_cast<void**>(K1_CLIENT_EXO_APP_ROOT);
     void* client = app ? At<void*>(app, 4) : nullptr;
     const bool target = (At<unsigned>(menu, kMenuFlags) & 1) != 0;
     void* object = client && target
@@ -2601,9 +2593,9 @@ void AddStealth(void* list, void* creature, void* client)
     char* entry = GrowList(list, 1);
     if (!entry) return;
     String name;
-    reinterpret_cast<String*(__thiscall*)(void*, String*, int)>(kGetGuiString)(client, &name, kStealthName);
+    reinterpret_cast<String*(__thiscall*)(void*, String*, int)>(K1_GET_GUI_STRING)(client, &name, kStealthName);
     reinterpret_cast<String*(__thiscall*)(void*, const String*)>(kStringAssign)(entry, &name);
-    reinterpret_cast<void(__thiscall*)(String*)>(kStringDestroy)(&name);
+    reinterpret_cast<void(__thiscall*)(String*)>(K1_EXOSTRING_DTOR)(&name);
     At<int>(entry, kEntryId) = kStealthId;
     void (__fastcall* const routine)(void*, void*, int, void*) = StealthChosen;
     std::memset(Part(entry, kEntryRoutine), 0, 16);
@@ -2618,7 +2610,7 @@ extern "C" void __cdecl KmrpXboxHudListsK1(void* menu)
 {
     if (!menu || !Enabled() || !g_layout.xbox || !IsControllerInputActiveK1()) return;
     void* hud = At<void*>(menu, kMenuInterface);
-    void* app = *reinterpret_cast<void**>(kAppManager);
+    void* app = *reinterpret_cast<void**>(K1_CLIENT_EXO_APP_ROOT);
     void* client = app ? At<void*>(app, 4) : nullptr;
     if (!hud || !client) return;
     void* medical = Part(hud, kHudPersonalLists + 1 * 0xC);
@@ -2675,7 +2667,7 @@ extern "C" void __cdecl KmrpXboxHudPauseReasonDoneK1(void* pause)
     if (!pause || !Enabled() || pause != PausePanel()) return;
     void* hud = g_layout.hud;
     if (!g_layout.xbox || !hud || !IsControllerInputActiveK1()) return;
-    void* app = *reinterpret_cast<void**>(kAppManager);
+    void* app = *reinterpret_cast<void**>(K1_CLIENT_EXO_APP_ROOT);
     void* client = app ? At<void*>(app, 4) : nullptr;
     PlacePause(hud, pause, client, g_layout.width);
 }

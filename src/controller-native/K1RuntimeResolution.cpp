@@ -1,3 +1,4 @@
+#include "K1EngineAddresses.h"
 #include "K1RuntimeResolution.h"
 #include <windows.h>
 #include "KmrpOptions.h"
@@ -74,8 +75,8 @@ void Prepare(int width, int height)
 // takes is the string at +0x98, as 0x0042358B passes it.
 void ReloadFontMetrics()
 {
-    void** const textures = *reinterpret_cast<void***>(0x007A4798);
-    const int count = *reinterpret_cast<const int*>(0x007A479C);
+    void** const textures = *reinterpret_cast<void***>(K1_TEXTURE_LIST);
+    const int count = *reinterpret_cast<const int*>(K1_TEXTURE_COUNT);
     if (!textures || count <= 0 || count > 0x100000) return;
     int reloaded = 0;
     for (int i = 0; i < count; ++i) {
@@ -277,8 +278,8 @@ void KmrpStartAtDisplaySize()
 // reloaded them (play-tested 2026-10-04).
 extern "C" void __cdecl KmrpModeSwitchK1()
 {
-    const int width = *reinterpret_cast<const int*>(0x0078D1D4);
-    const int height = *reinterpret_cast<const int*>(0x0078D1D8);
+    const int width = *reinterpret_cast<const int*>(K1_SCREEN_WIDTH);
+    const int height = *reinterpret_cast<const int*>(K1_SCREEN_HEIGHT);
     if (!KmrpRuntimeDimensions(width, height)) return;
     Prepare(width, height);
     Log("switching", width, height);

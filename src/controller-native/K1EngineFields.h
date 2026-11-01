@@ -5,6 +5,7 @@
 // installer's reference copy (ResolutionPatch, src/patcher/InstallCore.cs).
 #pragma once
 
+#include "K1EngineAddresses.h"
 #include "../../macos/tools/kmrp-iconsize.h"
 #include <array>
 #include <cmath>
@@ -34,9 +35,9 @@ inline std::array<std::uint8_t, 4> KmrpEngineFieldValue(std::uint32_t va, std::u
         // (CSWGuiSkillFlowChart::AddPowerSet, AddFeatSet) and the Skills tab's rows
         // (CSWGuiInGameSkillEntry) grow with their icons where the icons outgrow them. At
         // the default (50%) every value is as before.
-        if (va == 0x006CD8D9 || va == 0x006CDB79)
+        if (va == K1_SKILL_FLOW_HEIGHT || va == 0x006CDB79)
             value = kmrp_icon_chain_row(value, scale, iconPercent);
-        else if (va == 0x006AB8EF || va == 0x006ACB20)
+        else if (va == 0x006AB8EF || va == K1_SKILL_ENTRY_HEIGHT)
             value = kmrp_icon_skill_row(value, scale, iconPercent);
         break;
     case 4: value = -width; break;

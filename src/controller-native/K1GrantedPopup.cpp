@@ -33,12 +33,12 @@
 // count +0x2A0, row height +0x2B4, rows that fit +0x2C4 (a short). Every control's extent
 // is at +0x4, set through vtable slot 1.
 #include <cstdint>
+#include "K1EngineAddresses.h"
 #include "K1EngineMemory.h"
 #include <cstring>
 
 namespace {
 
-constexpr std::uintptr_t kGrantedVtable = 0x00757940;
 constexpr std::size_t kExtent = 0x4, kList = 0x64, kOk = 0x484, kRows = 0x648, kRowStride = 0x310, kRowCount = 10;
 constexpr std::size_t kRowText = 0xD0, kHex = 0x1B4, kHexLit = 0x228, kIcon = 0x29C;
 constexpr std::size_t kListInner = 0x298, kListCount = 0x2A0, kListRow = 0x2B4, kListVisible = 0x2C4;
@@ -67,7 +67,7 @@ char* g_popup;   // the popup whose rows step 1 refits, once it has been filled
 bool IsGrantedRow(char* row) {
     char* const first = g_popup + kRows;
     if (row < first || row >= first + kRowCount * kRowStride) return false;
-    return (row - first) % kRowStride == 0 && At<std::uintptr_t>(g_popup, 0) == kGrantedVtable;
+    return (row - first) % kRowStride == 0 && At<std::uintptr_t>(g_popup, 0) == K1_SKILL_INFO_PANEL_VTABLE;
 }
 
 void FitRows(char* popup) {
@@ -129,7 +129,7 @@ void FitRows(char* popup) {
 // limit, 2026-10-18; at twice, a full granted popup reached the top of the screen);
 // beyond that the list scrolls. Measured from what the fill left, so it never accumulates.
 void KmrpGrantedPopupFrameK1() {
-    if (!g_popup || !g_fit.valid || At<std::uintptr_t>(g_popup, 0) != kGrantedVtable) return;
+    if (!g_popup || !g_fit.valid || At<std::uintptr_t>(g_popup, 0) != K1_SKILL_INFO_PANEL_VTABLE) return;
     void* const list = g_popup + kList;
     const std::int32_t row = At<std::int32_t>(list, kListRow);
     const std::int32_t count = At<std::int32_t>(list, kListCount);
@@ -159,7 +159,7 @@ void KmrpGrantedPopupFrameK1() {
 extern "C" void __cdecl GrantedPopupFilledK1(void* list) {
     if (!list) return;
     char* const popup = static_cast<char*>(list) - kList;
-    if (At<std::uintptr_t>(popup, 0) != kGrantedVtable) return;
+    if (At<std::uintptr_t>(popup, 0) != K1_SKILL_INFO_PANEL_VTABLE) return;
     g_popup = popup;
     FitRows(popup);
 }

@@ -1,5 +1,6 @@
 // Draw-compatible per-instance fitting for native K1 GUI strings.
 // See docs/native-text-coverage.md and docs/text-layout-inventory.md.
+#include "K1EngineAddresses.h"
 #include "K1Rect.h"
 #include "K1TextLayout.h"
 #include "K1EngineMemory.h"
@@ -651,7 +652,7 @@ bool ReadPicture(ArtPicture& p, unsigned glName) {
 // recorded as a failure.
 const ArtPicture* Picture(const std::string& name) {
     for (const ArtPicture& p : artPictures) if (p.name == name) return p.read ? &p : nullptr;
-    void* const texture = Fn<void*(__cdecl*)(const char*, int)>(0x00423A60)(name.c_str(), 0);   // AurTextureGetReference
+    void* const texture = Fn<void*(__cdecl*)(const char*, int)>(K1_LOAD_TEXTURE_REF)(name.c_str(), 0);   // AurTextureGetReference
     const unsigned glName = texture ? K1CaptionInk::UploadedName(texture) : 0;
     if (artPictures.size() >= 6) artPictures.erase(artPictures.begin());
     artPictures.push_back({name});
@@ -729,8 +730,8 @@ void ArtCaptions(void* panel) {
         if (!control) continue;
         const std::uintptr_t table = At<std::uintptr_t>(control, 0);
         unsigned params = 0, text = 0;
-        if (table == 0x0073E658 || table == 0x0073EB88) { params = 0x80; text = 0x154; }   // button, toggle
-        else if (table == 0x0073E5B8) { params = 0x70; text = 0xD0; }                      // label
+        if (table == K1_GUI_BUTTON_VTABLE || table == K1_GUI_BUTTON_TOGGLE_VTABLE) { params = 0x80; text = 0x154; }   // button, toggle
+        else if (table == K1_GUI_LABEL_VTABLE) { params = 0x70; text = 0xD0; }                      // label
         else continue;
         void* const string = At<void*>(control, text + 0x14);
         const auto found = string ? strings.find(string) : strings.end();
@@ -744,7 +745,7 @@ void ArtCaptions(void* panel) {
         Rect behind{};
         for (int j = i - 1; j >= 0 && name.empty(); --j) {
             void* const under = array[j];
-            if (!under || At<std::uintptr_t>(under, 0) != 0x0073E5B8) continue;
+            if (!under || At<std::uintptr_t>(under, 0) != K1_GUI_LABEL_VTABLE) continue;
             const Rect r = At<Rect>(under, 4);
             const int mx = at.left + at.width / 2, my = at.top + at.height / 2;
             if (mx < r.left || mx >= r.left + r.width || my < r.top || my >= r.top + r.height) continue;

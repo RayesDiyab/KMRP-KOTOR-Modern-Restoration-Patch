@@ -16,6 +16,7 @@
 // control. This file supplies both, then reads the result back through the
 // engine's own PollInput.
 
+#include "K1EngineAddresses.h"
 #include "K1NativeJoystick.h"
 #include "K1EngineMemory.h"
 #include "K1MovieWindow.h"
@@ -63,7 +64,6 @@ namespace {
 constexpr std::uintptr_t K1_CREATE_NEW_EVENT   = 0x005E0E20;  // CExoInputInternal
 constexpr std::uintptr_t K1_ADD_EVENT          = 0x005E0FA0;  // CExoInputInternal
 constexpr std::uintptr_t K1_POLL_INPUT         = 0x005E23C0;  // PollInput_2
-constexpr std::uintptr_t K1_OPERATOR_NEW       = 0x006FA7E6;
 constexpr std::uintptr_t K1_OPERATOR_DELETE    = 0x006FA390;
 // The CRT free, distinct from operator delete above. Named `_free` in the
 // symbol archive, and the same address KPM's grass patch documents as the one
@@ -501,9 +501,7 @@ constexpr std::uint32_t DIJOFS_BUTTON0_OFFSET = 0x30;   // DIJOFS_BUTTON(0)
 // check**. The router gets away with that because it only ever runs in a live
 // module. A bridge does not have that guarantee, so GetPlayerCreature is
 // checked first and the call is skipped when there is no player.
-constexpr std::uintptr_t K1_CLIENT_EXO_APP_ROOT = 0x007A39FC;
 constexpr std::uintptr_t K1_PLAYER_FLOURISH     = 0x005EDE90;  // CClientExoApp::PlayerFlourishWeapons
-constexpr std::uintptr_t K1_GET_PLAYER_CREATURE = 0x005ED540;  // CClientExoApp::GetPlayerCreature
 constexpr std::uintptr_t K1_GET_IN_FREE_LOOK    = 0x005EE230;  // CClientExoApp::GetInFreeLook
 
 // The camera turn. Traced after the physical right stick produced no rotation.
@@ -545,7 +543,6 @@ constexpr std::uintptr_t K1_GET_IN_FREE_LOOK    = 0x005EE230;  // CClientExoApp:
 // bridge from inside the movie loop is the only path, which is why the poll runs
 // from a hook inside CExoMoviePlayerInternal::PlayMovieLoop.
 constexpr std::uintptr_t K1_MOVIE_PLAYER_PTR   = 0x007A3CF4;
-constexpr std::uintptr_t K1_CANCEL_MOVIE       = 0x00404C40;
 
 // The two fields CancelMovie's own guard reads before it will cancel anything.
 // They have to be tested HERE as well, because the call is not side-effect free
@@ -564,7 +561,6 @@ constexpr std::uintptr_t K1_ROTATE_CAMERA       = 0x00640090;  // CSWCModule::Ro
 constexpr std::uintptr_t K1_PITCH_CAMERA        = 0x0063FDB0;  // CSWCModule, free look's pitch rate
 // The stick's up is +1 here (XInput); the engine's joystick Y runs the other way.
 constexpr float          K1_FREELOOK_PITCH_SIGN = -1.0f;
-constexpr std::uintptr_t K1_CAMERA_FRAME_DELTA  = 0x0078E574;  // what UpdateCamera is passed
 constexpr std::size_t    K1_INTERNAL_CAMERA_OWNER = 0x18;      // CClientExoAppInternal+0x18
 
 // World interaction: "do the default action on whatever is targeted".
@@ -958,7 +954,6 @@ bool DescriptionPresentK1(void* input, int eventId)
 // module+0x9968. The engine's global is the object's owner, so it is asked each
 // time; the address alone is not enough, for the reason given above
 // DescriptionPresentK1.
-constexpr std::uintptr_t K1_EXO_INPUT          = 0x007A39E4;  // CExoInput*, null while there is none
 constexpr std::size_t    K1_EXO_INPUT_INTERNAL = 0x04;        // CExoInputInternal*, as 0x005DF6B9 reads it
 
 void* LiveStickInputK1()
@@ -1288,7 +1283,6 @@ void* TabBarPanelK1();
 void InstallGuiCuesK1(void* panel);
 bool PressHudButtonK1(void* mainInterface, std::size_t member);
 // The HUD's combat buttons; see PressHudButtonK1.
-constexpr std::uintptr_t K1_MAIN_INTERFACE_VTABLE = 0x00753F50;
 constexpr std::size_t    K1_HUD_CLEAR_ONE         = 0x6CD0;      // BTN_CLEARONE
 constexpr std::size_t    K1_HUD_CLEAR_ALL         = 0x7058;      // BTN_CLEARALL, "Disengage"
 constexpr std::size_t    K1_HUD_COMBAT_MESSAGE    = 0x735C;      // LBL_CMBTMODEMSG
@@ -1972,7 +1966,7 @@ void FeedNativeCameraK1(void* clientInternal)
     // The engine's own camera-invert option at 0x00832920 is deliberately not
     // read here yet -- it has not been tested against the stick, and guessing
     // at it is what produced this bug in the first place.
-    const float delta = *reinterpret_cast<const float*>(K1_CAMERA_FRAME_DELTA);
+    const float delta = *reinterpret_cast<const float*>(K1_G_DELTA_T);
     EngineFn<RotateCameraFn>(K1_ROTATE_CAMERA)(owner, amount, delta);
 
     // Up and down, in free look only (issue 45). The engine has a pitch input for
@@ -2451,7 +2445,7 @@ void PanelBuilt(void* panel, double start)
 // no allocation, no lock, so it cannot wait on anything the suspended thread holds.
 struct Sample { double at; unsigned eip, caller; };
 constexpr unsigned kSamples = 8192;           // about 16 s at 2 ms
-constexpr unsigned kGameTextStart = 0x00401000, kGameTextEnd = 0x0073D000;   // swkotor.exe .text
+constexpr unsigned kGameTextStart = K1_GAME_TEXT_START, kGameTextEnd = 0x0073D000;   // swkotor.exe .text
 Sample g_samples[kSamples];
 volatile LONG g_sampleCount = 0;
 HANDLE g_mainThread = nullptr;
@@ -2587,10 +2581,10 @@ void LogMipmapCapsOnce()
 {
     static int frames = 0;
     if (++frames != 120) return;   // well after the renderer has started and asked
-    const unsigned* mask = reinterpret_cast<const unsigned*>(0x007BB85C);
-    const unsigned* sgis = reinterpret_cast<const unsigned*>(0x0078E4CC);
-    const unsigned* ati = reinterpret_cast<const unsigned*>(0x0078E4D0);
-    const int* answer = reinterpret_cast<const int*>(0x0078E538);
+    const unsigned* mask = reinterpret_cast<const unsigned*>(K1_GL_EXTENSION_MASK);
+    const unsigned* sgis = reinterpret_cast<const unsigned*>(K1_GL_SGIS_MIPMAP_BIT);
+    const unsigned* ati = reinterpret_cast<const unsigned*>(K1_GL_ATI_MIPMAP_BIT);
+    const int* answer = reinterpret_cast<const int*>(K1_GL_MIPMAP_ANSWER);
     if (!IsReadableK1(mask, 4) || !IsReadableK1(sgis, 8) || !IsReadableK1(answer, 4)) return;
     using GetString = const unsigned char*(WINAPI*)(unsigned);
     const HMODULE gl = GetModuleHandleA("opengl32.dll");
@@ -2831,8 +2825,6 @@ extern "C" int __cdecl NativeJoystickBufferK1(void* outBuffer)
 // does: CSWGuiControl::HitCheckMouse tests `cl`, not `ecx`, and the upper three
 // bytes of that dword hold unrelated data that would otherwise poison the test.
 
-constexpr std::uintptr_t K1_GUI_MANAGER_PTR    = 0x007A39F4;
-constexpr std::uintptr_t K1_SET_ACTIVE_CONTROL = 0x0040A630;  // (control, playSound)
 
 constexpr std::size_t K1_MGR_PANEL_ARRAY = 0x88;
 constexpr std::size_t K1_MGR_PANEL_COUNT = 0x8C;
@@ -2844,7 +2836,6 @@ constexpr std::size_t K1_MGR_PANEL_COUNT = 0x8C;
 // synchronous -- it empties the whole queue in one pass, each entry costing a
 // disk read and a decode in ConstructImage. If that lands in a single frame
 // these numbers say so, and nothing here writes to the engine.
-constexpr std::uintptr_t K1_G_DELTA_T              = 0x0078E574;  // float
 constexpr std::uintptr_t K1_G_MAX_DELTA_T          = 0x007A4750;  // float
 constexpr std::uintptr_t K1_G_MAX_TEXTURE_TIME     = 0x007A46B0;  // int
 constexpr std::uintptr_t K1_G_CURRENT_TEXTURE_TIME = 0x007A4754;  // int
@@ -2880,9 +2871,6 @@ constexpr unsigned long K1_SLOW_FRAME_MS = 100;
 // every panel with the panel already in ecx -- one hook rather than four, and
 // its prologue (56 8B F1 F6 46 44 02) has no relative operand to relocate.
 constexpr std::uintptr_t K1_GUI_PANEL_BIND_CONTROL = 0x0040B930;
-constexpr std::uintptr_t K1_GUI_LABEL_CTOR         = 0x0041ACD0;
-constexpr std::uintptr_t K1_EXOSTRING_CTOR         = 0x005E5A90;
-constexpr std::uintptr_t K1_EXOSTRING_DTOR         = 0x005E5C20;
 
 // CSWGuiControl 0x5C + CSWGuiBorder 0x74 + CSWGuiText 0x70. Measured three ways:
 // the spacing of INVENTORY's adjacent embedded labels, the `add ecx, 0x140` in
@@ -2964,18 +2952,18 @@ struct GuiCueBindingK1 {
 constexpr GuiCueBindingK1 K1_GUI_CUES[] = {
     // RB changes the party member these four are about. They are exactly the
     // four panels that implement 0xCE, and the four that carry the portraits.
-    {0x00755E50, "LBL_KMRPR3", 0, "BTN_CHANGE1"},   // ABILITIES -- Skills / Powers / Feats
+    {K1_ABILITIES_PANEL_VTABLE, "LBL_KMRPR3", 0, "BTN_CHANGE1"},   // ABILITIES -- Skills / Powers / Feats
     // X cycles that screen's sub-tab -- its 0x29 handler (0x006AE714)
     // switches a byte at CGuiInGame+0xBC0 through 0/1/2 and wraps.
-    {0x00755E50, "LBL_KMRPSWAP", 0, "BTN_EXIT"},
-    {0x00756100, "LBL_KMRPR3", 0, "BTN_CHANGE1"},   // CHARACTER
-    {0x007569A0, "LBL_KMRPR3", 0, "BTN_CHANGE1"},   // EQUIP
-    {0x007564E0, "LBL_KMRPR3", 0, "BTN_CHANGE1"},   // INVENTORY
+    {K1_ABILITIES_PANEL_VTABLE, "LBL_KMRPSWAP", 0, "BTN_EXIT"},
+    {K1_CHARACTER_PANEL_VTABLE, "LBL_KMRPR3", 0, "BTN_CHANGE1"},   // CHARACTER
+    {K1_EQUIP_PANEL_VTABLE, "LBL_KMRPR3", 0, "BTN_CHANGE1"},   // EQUIP
+    {K1_INVENTORY_PANEL_VTABLE, "LBL_KMRPR3", 0, "BTN_CHANGE1"},   // INVENTORY
     // LT and RT move along the menu tab strip, which top.gui owns. Its panel
     // draws with the BASE CSWGuiPanel::Draw, the same array walk everything else
     // here relies on.
-    {0x00750148, "LBL_KMRPLT", 0, "BTN_EQU"},
-    {0x00750148, "LBL_KMRPRT", 0, "BTN_OPT"},
+    {K1_INGAME_MENU_PANEL_VTABLE, "LBL_KMRPLT", 0, "BTN_EQU"},
+    {K1_INGAME_MENU_PANEL_VTABLE, "LBL_KMRPRT", 0, "BTN_OPT"},
     // Y and B beside the HUD's combat buttons, each shown only while its button
     // is: Y by BTN_CLEARONE, B by BTN_CLEARALL (see PressHudButtonK1). The second
     // keeps its tag from when X disengaged (until 2026-10-19): the tag names the
@@ -3107,8 +3095,8 @@ const PointsScreenK1* PointsScreenForK1(std::uintptr_t dispatcher)
 // break navigation that already works.
 constexpr std::uintptr_t K1_NATIVE_DIRECTION_CONTROLS[] = {
     0x0041A9D0,   // CSWGuiNavigable / CSWGuiEditbox -- up, down, left, right
-    0x0041CE20,   // CSWGuiListBox -- up, down, plus its own scrollbar codes
-    0x0041ADF0,   // CSWGuiSlider -- axis depends on orientation
+    K1_LISTBOX_DISPATCHER,   // CSWGuiListBox -- up, down, plus its own scrollbar codes
+    K1_SLIDER_DISPATCHER,   // CSWGuiSlider -- axis depends on orientation
 };
 
 using SetActiveControlFn = void(__thiscall*)(void*, void*, int);
@@ -3205,7 +3193,7 @@ constexpr std::uintptr_t K1_INGAME_MENU_DISPATCHER = 0x00624970;
 // call the engine would make -- so the navigation stays the engine's.
 //
 // The boundary comes from the engine too. CSWGuiListBox::HandleInputEvent's
-// 0x31 case at 0x0041CF3E computes its own "did anything happen":
+// (K1_LISTBOX_DISPATCHER) 0x31 case at 0x0041CF3E computes its own "did anything happen":
 //
 //     mov  ax, [esi+0x2C8]     ; the selected row
 //     test ax, ax
@@ -3214,7 +3202,6 @@ constexpr std::uintptr_t K1_INGAME_MENU_DISPATCHER = 0x00624970;
 // so a list sitting on row 0 cannot scroll up, and that is exactly when up
 // should leave it for the tab strip. +0x2C6 selects a different branch when it
 // is not -1, so the escape is only taken on the plain-row path.
-constexpr std::uintptr_t K1_LISTBOX_DISPATCHER = 0x0041CE20;
 
 // CSWGuiInGameJournal. Its four actions are events its dispatcher implements
 // directly, read at 0x006456E0:
@@ -3305,15 +3292,15 @@ struct DefaultButtonK1 {
     std::size_t    offset;
 };
 constexpr DefaultButtonK1 K1_DEFAULT_BUTTONS[] = {
-    {0x007586F8, 0x16F8},   // Graphics
-    {0x007584A0, 0x1F88},   // Advanced Graphics
-    {0x007587C0, 0x1368},   // Sound
-    {0x00758550, 0x0F8C},   // Advanced Sound
-    {0x00758E00, 0x0788},   // Gameplay
-    {0x007585F8, 0x0788},   // Mouse
-    {0x007581E8, 0x0A68},   // Feedback
-    {0x00758EE0, 0x14E0},   // Auto-Pause
-    {0x00759358, 0x01B0},   // Key Mapping
+    {K1_OPTIONS_GRAPHICS_PANEL_VTABLE, 0x16F8},   // Graphics
+    {K1_OPTIONS_GRAPHICS_ADVANCED_PANEL_VTABLE, 0x1F88},   // Advanced Graphics
+    {K1_OPTIONS_SOUND_PANEL_VTABLE, 0x1368},   // Sound
+    {K1_OPTIONS_SOUND_ADVANCED_PANEL_VTABLE, 0x0F8C},   // Advanced Sound
+    {K1_INGAME_GAMEPLAY_PANEL_VTABLE, 0x0788},   // Gameplay
+    {K1_OPTIONS_MOUSE_PANEL_VTABLE, 0x0788},   // Mouse
+    {K1_OPTIONS_FEEDBACK_PANEL_VTABLE, 0x0A68},   // Feedback
+    {K1_INGAME_AUTOPAUSE_PANEL_VTABLE, 0x14E0},   // Auto-Pause
+    {K1_KEY_MAPPINGS_PANEL_VTABLE, 0x01B0},   // Key Mapping
 };
 
 void* DefaultButtonOfK1(void* panel)
@@ -3360,8 +3347,8 @@ void PressDefaultK1(void* panel)
 // choose and confirm from the box. Both screens call their OK button BTN_BACK
 // (build_controller_prompt_textures.py); offsets from the bind calls, as the badges'.
 constexpr DefaultButtonK1 K1_OK_BUTTONS[] = {
-    {0x007584A0, 0x1DC4},   // Advanced Graphics
-    {0x00758550, 0x0DC8},   // Advanced Sound
+    {K1_OPTIONS_GRAPHICS_ADVANCED_PANEL_VTABLE, 0x1DC4},   // Advanced Graphics
+    {K1_OPTIONS_SOUND_ADVANCED_PANEL_VTABLE, 0x0DC8},   // Advanced Sound
 };
 
 // Square is Cancel on character creation's two step lists, custom and quick (the
@@ -3370,8 +3357,8 @@ constexpr DefaultButtonK1 K1_OK_BUTTONS[] = {
 // lands on it (K1XboxControls.cpp, K1_CUSTOM_CHARGEN_PROMPTS). BTN_CANCEL at the
 // offsets of those badges.
 constexpr DefaultButtonK1 K1_CANCEL_BUTTONS[] = {
-    {0x007595E0, 0x1FC0},   // custom character creation
-    {0x00759668, 0x1198},   // quick character creation
+    {K1_CUSTOM_CHARGEN_PANEL_VTABLE, 0x1FC0},   // custom character creation
+    {K1_QUICK_CHARGEN_PANEL_VTABLE, 0x1198},   // quick character creation
 };
 
 // `panel`'s button among `entries` (by its vtable), or null.
@@ -3454,7 +3441,6 @@ constexpr RaiseThunkK1 K1_RAISE_THUNKS[] = {
 };
 constexpr std::uintptr_t K1_PANEL_RAISE_A = 0x0040B640;   // +0x50; B, X, Y 0x10 apart
 constexpr std::uintptr_t K1_BUTTON_HANDLE_INPUT = 0x0041AD40;   // CSWGuiButton: sound, then 0x0041A9D0
-constexpr std::uintptr_t K1_CONTROL_HANDLE_INPUT = 0x00418750;  // CSWGuiControl: enter/exit, then the table
 // CSWGuiButtonToggle (a check box): flips its tick on a press of its event, then runs the
 // button's handlers for the press and the release alike (0x00418750 stores the value at
 // +0x4C and calls them either way).
@@ -4219,7 +4205,7 @@ void CapturePartyRosterBindingsK1(void* panel)
     if(*FieldAt<std::uintptr_t>(panel,0)==K1_BASE_PANEL_VTABLE) {
         KmrpPartyBindingsK1().erase(panel);return;
     }
-    if(*FieldAt<std::uintptr_t>(panel,0)!=0x00756D28 ||
+    if(*FieldAt<std::uintptr_t>(panel,0)!=K1_PARTY_SELECT_PANEL_VTABLE ||
        !*FieldAt<void*>(panel,K1_PANEL_GFF) || !KmrpPartyRoster32ActiveK1())return;
     const int count=*FieldAt<int>(panel,K1_PANEL_CONTROL_COUNT);
     auto before=*FieldAt<void**>(panel,K1_PANEL_CONTROL_ARRAY);
@@ -4520,7 +4506,6 @@ extern "C" char __cdecl KmrpGlyphLetterK1()
 // and CSWGuiBorder::SetFillImage (0x00414C00) swaps it for the family's.
 constexpr std::size_t K1_LABEL_BORDER_PARAMS = 0x70;
 constexpr std::size_t K1_BORDER_PARAMS_FILL  = 0x40;
-constexpr std::uintptr_t K1_BORDER_SET_FILL_IMAGE = 0x00414C00;
 using SetFillImageFn = void(__thiscall*)(void*, const void*, int);
 
 void MatchCueFamilyK1(void* label)
@@ -4630,7 +4615,6 @@ constexpr std::size_t    K1_PAZAAK_FLIP_ICON       = 0x69CC;
 constexpr std::size_t    K1_PAZAAK_FLIP_LEGEND     = 0x6B0C;
 constexpr std::size_t    K1_PAZAAK_END_TURN        = 0x6C4C;
 constexpr std::size_t    K1_PAZAAK_STAND           = 0x6E20;
-constexpr std::uintptr_t K1_PAZAAK_GAME_VTABLE     = 0x00753358;
 constexpr std::uintptr_t K1_PAZAAK_HANDLE_CONTINUE = 0x0067EC20;
 constexpr std::uintptr_t K1_PAZAAK_HANDLE_STAND    = 0x0067ED00;
 constexpr std::uintptr_t K1_PAZAAK_FLIP_CLICK      = 0x0067DDA0;
@@ -4638,9 +4622,7 @@ constexpr int            K1_PAZAAK_PLAY_STRING     = 32330;         // "Play Han
 // CSWGuiPanel::AddControl (`ret 4`), CSWGuiText's SetText (`ret 4`, at a label's
 // +0xE8) and CClientExoApp::GetGUIString (the string, then the reference; `ret 8`).
 constexpr std::uintptr_t K1_GUI_PANEL_ADD_CONTROL  = 0x0040B9A0;
-constexpr std::uintptr_t K1_GUI_TEXT_SET_TEXT      = 0x00415E00;
 constexpr std::size_t    K1_LABEL_TEXT             = 0xE8;
-constexpr std::uintptr_t K1_GET_GUI_STRING         = 0x005EDEB0;
 
 void KmrpPromptFillK1(void* control, const char* value);
 void KmrpBadgeCentreK1(void* button, bool on);
@@ -4745,7 +4727,7 @@ void SetPazaakActionEnabledK1(void* button, bool enabled)
     reinterpret_cast<void(__thiscall*)(void*, int)>((*FieldAt<void**>(button, 0))[0x88 / 4])(button, enabled);
     if (!enabled) {
         const float gray[3] = {0.5f, 0.5f, 0.5f};
-        reinterpret_cast<void(__thiscall*)(void*, const float*)>(0x00414E10)(FieldAt<char>(button, 0x16C), gray);
+        reinterpret_cast<void(__thiscall*)(void*, const float*)>(K1_TEXT_SET_COLOUR)(FieldAt<char>(button, 0x16C), gray);
     }
 }
 
@@ -4837,7 +4819,7 @@ void* AppendLabelLikeK1(void* panel, const char* like)
 // hidden until the pad is in use (UpdatePazaakTableK1).
 void InstallPazaakTableK1(void* panel)
 {
-    if (!LooksLikePointerK1(panel) || *FieldAt<std::uintptr_t>(panel, 0) != K1_PAZAAK_GAME_VTABLE ||
+    if (!LooksLikePointerK1(panel) || *FieldAt<std::uintptr_t>(panel, 0) != K1_PAZAAK_GAME_PANEL_VTABLE ||
             !LooksLikePointerK1(*FieldAt<void**>(panel, K1_PANEL_GFF))) {
         return;
     }
@@ -4866,7 +4848,7 @@ void InstallPazaakTableK1(void* panel)
         if (void* const client = ClientExoAppK1()) {
             void* text[2] = {};
             reinterpret_cast<void*(__thiscall*)(void*, void*, int)>(K1_GET_GUI_STRING)(client, &text, strings[i]);
-            reinterpret_cast<void(__thiscall*)(void*, void*)>(K1_GUI_TEXT_SET_TEXT)(FieldAt<char>(button, 0x16C), &text);
+            reinterpret_cast<void(__thiscall*)(void*, void*)>(K1_TEXT_SET_TEXT)(FieldAt<char>(button, 0x16C), &text);
             EngineFn<ExoStringDtorFn>(K1_EXOSTRING_DTOR)(&text);
         }
     }
@@ -4959,7 +4941,6 @@ void KmrpBadgeCentreK1(void* button, bool on);     // glyph and caption centred 
 
 void QueueGuiModelPreloadK1(void* panel) { K1ClassModelTrace::QueuePanel(panel); }
 
-constexpr std::uintptr_t K1_CLASS_SELECT_VTABLE   = 0x00758020;
 constexpr std::size_t    K1_CLASS_SELECT_CANCEL   = 0x1394;       // BTN_BACK
 constexpr int            K1_SELECT_STRING         = 236;          // "Select"
 constexpr std::uintptr_t K1_GUI_BUTTON_CTOR       = 0x0041C0F0;
@@ -5001,7 +4982,7 @@ void UpdatePazaakActionStripK1()
     void* const panel = g.panel;
     if (!panel || !g.playButton || !g.flipButton ||
         !IsReadableK1(panel, K1_PAZAAK_STAND + 0x1C4) ||
-        *FieldAt<std::uintptr_t>(panel, 0) != K1_PAZAAK_GAME_VTABLE) return;
+        *FieldAt<std::uintptr_t>(panel, 0) != K1_PAZAAK_GAME_PANEL_VTABLE) return;
     EnsurePazaakHandFocusK1(panel);
     char* const params = PanelFillParamsK1(panel);
     if (!params) return;
@@ -5027,7 +5008,7 @@ void UpdatePazaakActionStripK1()
     if (!SameBoxK1(box, panelWas) || !SameBoxK1(end, endWas) || !SameBoxK1(stand, standWas)) drawn[0] = 0;
     bool shown = IsControllerInputActiveK1();
     if (shown && !drawn[0] && box.width > 0 && box.height > 0) {
-        void* const texture = EngineFn<void*(__cdecl*)(const char*, int)>(0x00423A60)(original, 0);
+        void* const texture = EngineFn<void*(__cdecl*)(const char*, int)>(K1_LOAD_TEXTURE_REF)(original, 0);
         const unsigned name = texture ? K1CaptionInk::UploadedName(texture) : 0;
         int w = 0, h = 0;
         unsigned char* pixels = name ? K1CaptionInk::ReadUploaded(name, &w, &h) : nullptr;
@@ -5104,7 +5085,7 @@ bool ClassSelectArtK1(const char* fill, const ClassBoxK1& panel, const ClassBoxK
         g_classSelect.ok = true;
         return true;
     }
-    void* const texture = EngineFn<void*(__cdecl*)(const char*, int)>(0x00423A60)(fill, 0);
+    void* const texture = EngineFn<void*(__cdecl*)(const char*, int)>(K1_LOAD_TEXTURE_REF)(fill, 0);
     const unsigned name = texture ? K1CaptionInk::UploadedName(texture) : 0;
     int width = 0, height = 0;
     unsigned char* const pixels = name ? K1CaptionInk::ReadUploaded(name, &width, &height) : nullptr;
@@ -5122,7 +5103,7 @@ bool ClassSelectArtK1(const char* fill, const ClassBoxK1& panel, const ClassBoxK
 // As the screen is built: Select made, hidden, with its caption, and kept off the focus.
 void InstallClassSelectPadK1(void* panel)
 {
-    if (!LooksLikePointerK1(panel) || *FieldAt<std::uintptr_t>(panel, 0) != K1_CLASS_SELECT_VTABLE ||
+    if (!LooksLikePointerK1(panel) || *FieldAt<std::uintptr_t>(panel, 0) != K1_CLASS_SELECT_PANEL_VTABLE ||
             !LooksLikePointerK1(*FieldAt<void**>(panel, K1_PANEL_GFF))) {
         return;
     }
@@ -5141,7 +5122,7 @@ void InstallClassSelectPadK1(void* panel)
     if (void* const client = ClientExoAppK1()) {
         void* text[2] = { nullptr, nullptr };          // CExoString
         reinterpret_cast<void*(__thiscall*)(void*, void*, int)>(K1_GET_GUI_STRING)(client, &text, K1_SELECT_STRING);
-        reinterpret_cast<void(__thiscall*)(void*, void*)>(K1_GUI_TEXT_SET_TEXT)(FieldAt<std::uint8_t>(select, K1_BUTTON_TEXT_PARAMS), &text);
+        reinterpret_cast<void(__thiscall*)(void*, void*)>(K1_TEXT_SET_TEXT)(FieldAt<std::uint8_t>(select, K1_BUTTON_TEXT_PARAMS), &text);
         EngineFn<ExoStringDtorFn>(K1_EXOSTRING_DTOR)(&text);
     }
 }
@@ -5153,7 +5134,7 @@ void UpdateClassSelectPadK1()
     ClassSelectPadK1& g = g_classSelect;
     void* const panel = g.panel;
     if (!panel || !g.select || !IsReadableK1(panel, K1_CLASS_SELECT_CANCEL + K1_GUI_BUTTON_SIZE) ||
-            *FieldAt<std::uintptr_t>(panel, 0) != K1_CLASS_SELECT_VTABLE) {
+            *FieldAt<std::uintptr_t>(panel, 0) != K1_CLASS_SELECT_PANEL_VTABLE) {
         return;
     }
     char* const params = PanelFillParamsK1(panel);
@@ -5260,7 +5241,6 @@ void ForgetClassSelectPadK1(void* panel)
 // Add Card or Remove Card as LT and RT (0x35, 0x36) move between the lists. Play is
 // m_btnAccept (+0x7108); the dispatcher has no A, so A presses it (K1_BUTTON_REMAPS). Both are
 // hints, never focused (K1_PAZAAK_SETUP_PROMPTS, K1XboxControls.cpp).
-constexpr std::uintptr_t K1_PAZAAK_SETUP_VTABLE = 0x007532E8;
 constexpr std::size_t    K1_PAZAAK_SETUP_TITLE  = 0x0064;
 constexpr std::size_t    K1_PAZAAK_SETUP_AVAIL  = 0x01A4;     // 18 CSWGuiPazaakCard, 0x31C apart
 constexpr std::size_t    K1_PAZAAK_SETUP_NUMS   = 0x399C;     // 18 count labels, 0x140 apart
@@ -5301,7 +5281,7 @@ void PazaakSetupPlayK1(void* panel)
 
 bool PazaakSetupInFrontK1(void* panel)
 {
-    return panel != nullptr && *FieldAt<std::uintptr_t>(panel, 0) == K1_PAZAAK_SETUP_VTABLE;
+    return panel != nullptr && *FieldAt<std::uintptr_t>(panel, 0) == K1_PAZAAK_SETUP_PANEL_VTABLE;
 }
 
 // ---- drawing: a sheet of RGBA, top row first, and the shapes on it
@@ -5589,7 +5569,7 @@ bool SetupLayoutForK1(void* panel, SetupLayoutK1& L)
 // parts drawn over it. Its name in `out`; false until the table's picture is uploaded.
 bool SetupPictureK1(const SetupLayoutK1& L, int ltLeft, int rtRight, char (&out)[17])
 {
-    void* const texture = EngineFn<void*(__cdecl*)(const char*, int)>(0x00423A60)("lbl_pazaak", 0);   // AurTextureGetReference
+    void* const texture = EngineFn<void*(__cdecl*)(const char*, int)>(K1_LOAD_TEXTURE_REF)("lbl_pazaak", 0);   // AurTextureGetReference
     const unsigned name = texture ? K1CaptionInk::UploadedName(texture) : 0;
     int tw = 0, th = 0;
     unsigned char* const pixels = name ? K1CaptionInk::ReadUploaded(name, &tw, &th) : nullptr;
@@ -5734,7 +5714,7 @@ bool SetupPictureK1(const SetupLayoutK1& L, int ltLeft, int rtRight, char (&out)
 // As the screen is built: the two trigger glyphs made, hidden and without text.
 void InstallPazaakSetupPadK1(void* panel)
 {
-    if (!LooksLikePointerK1(panel) || *FieldAt<std::uintptr_t>(panel, 0) != K1_PAZAAK_SETUP_VTABLE ||
+    if (!LooksLikePointerK1(panel) || *FieldAt<std::uintptr_t>(panel, 0) != K1_PAZAAK_SETUP_PANEL_VTABLE ||
             !LooksLikePointerK1(*FieldAt<void**>(panel, K1_PANEL_GFF))) {
         return;
     }
@@ -5768,7 +5748,7 @@ void InstallPazaakSetupPadK1(void* panel)
         *FieldAt<std::uint32_t>(label, K1_CONTROL_FLAGS) &= ~K1_CONTROL_FLAG_DRAWN;
         void* none[2] = { nullptr, nullptr };          // CExoString
         EngineFn<ExoStringCtorFn>(K1_EXOSTRING_CTOR)(&none, "");
-        reinterpret_cast<void(__thiscall*)(void*, void*)>(K1_GUI_TEXT_SET_TEXT)(FieldAt<std::uint8_t>(label, K1_LABEL_TEXT), &none);
+        reinterpret_cast<void(__thiscall*)(void*, void*)>(K1_TEXT_SET_TEXT)(FieldAt<std::uint8_t>(label, K1_LABEL_TEXT), &none);
         EngineFn<ExoStringDtorFn>(K1_EXOSTRING_DTOR)(&none);
         std::uint32_t& style = *FieldAt<std::uint32_t>(label, K1_LABEL_BORDER_PARAMS + 0x1C);
         style = (style & ~3u) | 2u;                    // stretched over its label (FILLSTYLE 2)
@@ -5834,7 +5814,7 @@ void UpdatePazaakSetupPadK1()
     PazaakSetupPadK1& g = g_pazaakSetup;
     void* const panel = g.panel;
     if (!panel || !IsReadableK1(panel, K1_PAZAAK_SETUP_RTEXT + K1_GUI_LABEL_SIZE) ||
-            *FieldAt<std::uintptr_t>(panel, 0) != K1_PAZAAK_SETUP_VTABLE) {
+            *FieldAt<std::uintptr_t>(panel, 0) != K1_PAZAAK_SETUP_PANEL_VTABLE) {
         return;
     }
     char* const params = PanelFillParamsK1(panel);
@@ -5951,7 +5931,7 @@ void UpdatePazaakSetupPadK1()
         const float* const mine = reinterpret_cast<const float*>(FieldAt<char>(add, K1_BUTTON_TEXT_PARAMS + 0x1C));
         if (std::memcmp(blue, mine, 12) != 0) {
             float colour[3] = {blue[0], blue[1], blue[2]};
-            reinterpret_cast<void(__thiscall*)(void*, const float*)>(0x00414E10)(FieldAt<char>(add, K1_BUTTON_TEXT_PARAMS), colour);
+            reinterpret_cast<void(__thiscall*)(void*, const float*)>(K1_TEXT_SET_COLOUR)(FieldAt<char>(add, K1_BUTTON_TEXT_PARAMS), colour);
         }
     }
     SetupMoveK1(play, centred(136, 408, 441));
@@ -6380,7 +6360,6 @@ void* ChooseNeighbourK1(void* panel, void* current, int dx, int dy)
 // slides along.
 enum class NavAxisK1 { Any, Horizontal, Vertical };
 
-constexpr std::uintptr_t K1_SLIDER_DISPATCHER = 0x0041ADF0;
 
 // Does this self-navigating control actually take presses on `axis`?
 //
@@ -6582,11 +6561,11 @@ struct CycleRowK1 {
     std::size_t raise;             // BTN_*RIGHT, the +
 };
 constexpr CycleRowK1 K1_CYCLE_ROWS[] = {
-    {0x00758E00, 0x0CD4, 0x105C, 0x0E98},   // Gameplay: Difficulty
-    {0x007584A0, 0x1878, 0x1A3C, 0x1C00},   // Advanced Graphics: Texture Quality
-    {0x007584A0, 0x132C, 0x14F0, 0x16B4},   //   Anti-aliasing
-    {0x007584A0, 0x0DE0, 0x0FA4, 0x1168},   //   Anisotropy
-    {0x00758550, 0x031C, 0x06A4, 0x04E0},   // Advanced Sound: EAX
+    {K1_INGAME_GAMEPLAY_PANEL_VTABLE, 0x0CD4, 0x105C, 0x0E98},   // Gameplay: Difficulty
+    {K1_OPTIONS_GRAPHICS_ADVANCED_PANEL_VTABLE, 0x1878, 0x1A3C, 0x1C00},   // Advanced Graphics: Texture Quality
+    {K1_OPTIONS_GRAPHICS_ADVANCED_PANEL_VTABLE, 0x132C, 0x14F0, 0x16B4},   //   Anti-aliasing
+    {K1_OPTIONS_GRAPHICS_ADVANCED_PANEL_VTABLE, 0x0DE0, 0x0FA4, 0x1168},   //   Anisotropy
+    {K1_OPTIONS_SOUND_ADVANCED_PANEL_VTABLE, 0x031C, 0x06A4, 0x04E0},   // Advanced Sound: EAX
 };
 
 // The row `control` belongs to -- its value or either arrow -- or null.
@@ -6726,7 +6705,6 @@ constexpr std::size_t    K1_GALAXY_PLANETS         = 0x64;          // 16 button
 constexpr std::size_t    K1_GALAXY_PLANET_STRIDE   = 0x1C4;
 constexpr int            K1_GALAXY_PLANET_COUNT    = 16;
 constexpr std::uintptr_t K1_GALAXY_DISPLAY_PLANET  = 0x006933A0;
-constexpr std::uintptr_t K1_GET_PARTY_TABLE        = 0x004AEE70;    // CServerExoApp, ret 0
 constexpr std::uintptr_t K1_PLANET_SELECTABLE      = 0x00563B00;    // ret 4
 constexpr std::uintptr_t K1_PLANET_AVAILABLE       = 0x00563B40;    // ret 4
 constexpr std::uintptr_t K1_SET_SELECTED_PLANET    = 0x00563B60;    // ret 4
@@ -7160,7 +7138,7 @@ void LogMenuSnapshotK1(void* manager)
     void** const panels = *FieldAt<void**>(manager, 0x88);
     const int count = *FieldAt<int>(manager, 0x8C);
     if (!panels || count < 0 || count > 64 || !IsReadableK1(panels, count * 4u)) return;
-    const int width = *reinterpret_cast<const int*>(0x0078D1D4), height = *reinterpret_cast<const int*>(0x0078D1D8);
+    const int width = *reinterpret_cast<const int*>(K1_SCREEN_WIDTH), height = *reinterpret_cast<const int*>(K1_SCREEN_HEIGHT);
     add("menus: screen %dx%d, %d panels\n", width, height, count);
     for (int i = 0; i < count; ++i) {
         void* const panel = panels[i];
@@ -7174,7 +7152,7 @@ void LogMenuSnapshotK1(void* manager)
         // of its border, CSWGuiButton::Draw) and, for a button, both borders' pictures: the
         // Xbox HUD's selected slot lost its yellow on 2026-10-28.
         if (IsReadableK1(active, 0x170)) {
-            const bool button = *static_cast<std::uintptr_t*>(active) == 0x0073E658;
+            const bool button = *static_cast<std::uintptr_t*>(active) == K1_GUI_BUTTON_VTABLE;
             add("    active flags=%X%s%.16s%s%.16s\n", *FieldAt<unsigned>(active, 0x44),
                 button ? " border=" : "", button ? FieldAt<char>(active, 0x80 + 0x40) : "",
                 button ? " hilight=" : "", button ? FieldAt<char>(active, 0xF4 + 0x40) : "");
@@ -8200,7 +8178,6 @@ extern "C" void __cdecl NativeMiniGameAxisK1(void* game, float** vectorSlot)
 // texture references, assigned through the engine's tracked-reference helper.
 namespace {
 constexpr std::uintptr_t K1_TEXTURE_REF_VTABLE = 0x0073F0A8;
-constexpr std::uintptr_t K1_LOAD_TEXTURE_REF = 0x00423A60;
 constexpr std::uintptr_t K1_ASSIGN_TEXTURE_REF = 0x00447FA0;
 constexpr std::uintptr_t K1_TEXTURE_REF_ID = 0x00420BF0;
 using LoadTextureRefFn = void*(__cdecl*)(const char*, const char*);

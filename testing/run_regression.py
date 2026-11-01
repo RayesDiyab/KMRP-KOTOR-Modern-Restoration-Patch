@@ -110,6 +110,7 @@ TESTS = {
     "Test-NativeTextLayout": ("quick", py("Test-NativeTextLayout"), [], ""),
     "Test-RuntimeRelayout": ("quick", py("Test-RuntimeRelayout"), [], ""),
     "Test-PictureKey": ("quick", py("Test-PictureKey"), [], ""),
+    "Test-EngineAddresses": ("quick", py("Test-EngineAddresses"), [], ""),
     "Test-GameArtFailure": ("quick", py("Test-GameArtFailure"), [], ""),
     "Test-NvidiaPresentMethod": ("full", ps("Test-NvidiaPresentMethod"), [], ""),
     "Test-OverrideFontMetrics": ("quick", py("Test-OverrideFontMetrics"), [], ""),

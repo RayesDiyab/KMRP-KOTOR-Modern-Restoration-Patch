@@ -50,6 +50,7 @@
 
 #include <windows.h>
 #include <tlhelp32.h>
+#include "K1EngineAddresses.h"
 #include "KmrpOptions.h"
 
 #include <cstdarg>
@@ -66,7 +67,6 @@ constexpr std::uint32_t kVanillaSections = 4;
 constexpr std::uint32_t kVanillaSizeOfImage = 0x46D000;   // ends at the block
 constexpr std::uint32_t kBlockVa = 0x0086D000;
 constexpr std::uint32_t kBlockSize = 0xB000;
-constexpr std::uint32_t kImageLow = 0x00401000;
 constexpr std::uint32_t kKindIn = 1, kKindOut = 2, kKindAbs = 3;
 constexpr std::uint32_t kCore = 1, kMovies = 2, kMapNotes = 4, kMovieMode = 8;
 
@@ -360,7 +360,7 @@ void Apply(std::uint32_t features, const std::vector<std::uint8_t>* embedded = n
             break;
         }
         run.final_.assign(fin, fin + run.length);
-        if (run.va < kImageLow || run.va + run.length > kBlockVa || run.length == 0) {
+        if (run.va < K1_GAME_TEXT_START || run.va + run.length > kBlockVa || run.length == 0) {
             Log("run at %08X+%u lies outside the game's original image. Nothing applied.",
                 run.va, run.length);
             return;

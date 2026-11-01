@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <cstring>
 
+#include "K1EngineAddresses.h"
 #include "K1Rect.h"
 #include "K1CaptionInk.h"
 
@@ -69,7 +70,6 @@ inline void EntryBadge(void* button, bool shown) {
 // The engine's routines a glyph uses, found through the page's own lookup (the text
 // page's harness answers them with mocks).
 using Resolve = void* (*)(std::uintptr_t);
-constexpr std::uintptr_t kSetFillImage = 0x00414C00;   // CSWGuiBorderParams::SetFillImage(name, 1)
 
 // A picture on a border (its parameters, `params`): the controller patch's drawing of it for
 // the border's size where the patch is there and has it, so the page shows no missing texture
@@ -81,7 +81,7 @@ inline void SetPicture(void* params, const char* name, Resolve resolve) {
     if (a.setPicture) { a.setPicture(params, name); return; }
     char resref[16] = {};
     for (int i = 0; i < 16 && name[i]; ++i) resref[i] = name[i];
-    reinterpret_cast<void(__thiscall*)(void*, const char*, int)>(resolve(kSetFillImage))(params, resref, 1);
+    reinterpret_cast<void(__thiscall*)(void*, const char*, int)>(resolve(K1_BORDER_SET_FILL_IMAGE))(params, resref, 1);
 }
 inline void Batch(bool begin) { const Api& a = Controller(); if (a.batch) a.batch(begin ? 1 : 0); }
 // The picture `name` drawn in the background for a border `width` by `height`, ahead of
@@ -90,7 +90,6 @@ inline void QueuePicture(const char* name, int width, int height) {
     const Api& a = Controller();
     if (a.queuePicture && name && name[0]) a.queuePicture(name, width, height);
 }
-constexpr std::uintptr_t kMeasureText = 0x00414F10;    // CSWGuiText::GetIdealWidthAndHeight(CSWGuiExtent*)
 constexpr unsigned kLabelParams = 0x70, kParamsFlags = 0x1C;
 constexpr unsigned kButtonText = 0x154;                 // a button's CSWGuiText
 constexpr unsigned kFlags = 0x44, kVisible = 2;
@@ -170,7 +169,7 @@ inline void Update(Glyph& g, bool pad, char family, Resolve resolve) {
     const bool show = pad && (At<unsigned>(g.button, kFlags) & kVisible) != 0;
     if (show) {
         Box measured{};
-        reinterpret_cast<void(__thiscall*)(void*, Box*)>(resolve(kMeasureText))(static_cast<char*>(g.button) + kButtonText, &measured);
+        reinterpret_cast<void(__thiscall*)(void*, Box*)>(resolve(K1_TEXT_EXTENT))(static_cast<char*>(g.button) + kButtonText, &measured);
         const Box button = At<Box>(g.button, 4);
         void* const string = At<void*>(static_cast<char*>(g.button) + kButtonText, 0x14);
         const int drawnTop = string ? At<int>(string, 0x08) : 0;
@@ -238,7 +237,7 @@ inline void Update(Glyph& g, bool pad, char family, Resolve resolve) {
                 // label, as on Graphics Options (KmrpBadgeGlyphK1).
                 const Box box{glyph[0], glyph[1], glyph[2], glyph[3]};
                 reinterpret_cast<void(__thiscall*)(void*, const Box*)>((*reinterpret_cast<void***>(g.label))[1])(g.label, &box);
-                reinterpret_cast<void(__thiscall*)(void*, const char*, int)>(resolve(kSetFillImage))(
+                reinterpret_cast<void(__thiscall*)(void*, const char*, int)>(resolve(K1_BORDER_SET_FILL_IMAGE))(
                     static_cast<char*>(g.label) + kLabelParams, drawn, 1);
             } else {
                 if (const BadgeShape* shape = Badge(g.badge)) {

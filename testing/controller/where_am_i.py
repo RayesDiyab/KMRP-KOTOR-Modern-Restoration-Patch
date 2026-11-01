@@ -31,7 +31,7 @@ SKIP = [(0x00400000, 0x00400000 + 0x480000), (0x78C60000, 0x78D00000)]
 
 
 def panel_vtables() -> dict:
-    text = MODULE_SOURCE.read_text(encoding="utf-8")
+    text = MODULE_SOURCE.read_text(encoding="utf-8") + MODULE_SOURCE.with_name("K1EngineAddresses.h").read_text(encoding="utf-8")
     return {name: int(value, 0) for name, value in re.findall(
         r"constexpr\s+std::uintptr_t\s+(\w+_PANEL_VTABLE)\s*=\s*(0x[0-9A-Fa-f]+)\s*;", text)}
 

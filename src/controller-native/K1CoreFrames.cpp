@@ -6,6 +6,7 @@
 // (The save buffer counter it kept for the controller's state dump is gone: no module both
 // hooks the save and writes that dump.)
 
+#include "K1EngineAddresses.h"
 #include "K1MovieWindow.h"
 #include "K1CursorConfinement.h"
 #include "K1StatusSummary.h"
@@ -63,10 +64,10 @@ void CorrectHardwareMipmapsK1()
     static bool done = false;
     static int frames = 0;   // uploads seen before the extension mask was there
     if (done) return;
-    unsigned* const mask = reinterpret_cast<unsigned*>(0x007BB85C);
-    const unsigned* const sgis = reinterpret_cast<const unsigned*>(0x0078E4CC);
-    const unsigned* const ati = reinterpret_cast<const unsigned*>(0x0078E4D0);
-    int* const answer = reinterpret_cast<int*>(0x0078E538);
+    unsigned* const mask = reinterpret_cast<unsigned*>(K1_GL_EXTENSION_MASK);
+    const unsigned* const sgis = reinterpret_cast<const unsigned*>(K1_GL_SGIS_MIPMAP_BIT);
+    const unsigned* const ati = reinterpret_cast<const unsigned*>(K1_GL_ATI_MIPMAP_BIT);
+    int* const answer = reinterpret_cast<int*>(K1_GL_MIPMAP_ANSWER);
     if (!IsReadableK1(mask, 4) || !IsReadableK1(sgis, 8) || !IsReadableK1(answer, 4)) { done = true; return; }
     using GetString = const unsigned char*(WINAPI*)(unsigned);
     static GetString getString = nullptr;

@@ -24,6 +24,7 @@
 // only on the frames where UpdateRumble would have advanced its own patterns.
 // Load screens, fades, pause and menus freeze it and silence the motors.
 #include <windows.h>
+#include "K1EngineAddresses.h"
 #include "K1EngineMemory.h"
 #include <cmath>
 #include <cstdarg>
@@ -608,15 +609,11 @@ void Mix(float& heavy, float& light)
 
 // ------------------------------------------------------------ the engine
 
-constexpr std::uintptr_t K1_EXO_INPUT            = 0x007A39E4;  // CExoInput*
 constexpr std::uintptr_t K1_RULES                = 0x007A3A28;  // CSWRules*
-constexpr std::uintptr_t K1_GET_PLAYER_CREATURE  = 0x005ED540;  // CClientExoApp::GetPlayerCreature
 constexpr std::uintptr_t K1_GET_ITEM_BY_ID       = 0x005ED5A0;  // CClientExoApp::GetItemByGameObjectID
 constexpr std::uintptr_t K1_GET_SERVER_CREATURE  = 0x0060FB20;  // CSWCCreature::GetServerCreature
 constexpr std::uintptr_t K1_GET_EQUIPPED_ITEM_ID = 0x0060CA80;  // CSWCCreature::GetEquippedItemID
-constexpr std::uintptr_t K1_STRING_FROM_TEXT     = 0x005E5A90;  // CExoString::CExoString(char const*)
 constexpr std::uintptr_t K1_STRING_FROM_INT      = 0x005E5BC0;  // CExoString::CExoString(int)
-constexpr std::uintptr_t K1_STRING_FREE          = 0x005E5C20;  // CExoString::~CExoString
 constexpr std::uintptr_t K1_2DA_INT_BY_ROW       = 0x00413660;  // C2DA::GetINTEntry(int, CExoString const&, int*)
 constexpr std::uintptr_t K1_2DA_FLOAT_BY_ROW     = 0x00413430;  // C2DA::GetFLOATEntry(int, ...)
 constexpr std::uintptr_t K1_2DA_INT_BY_LABEL     = 0x00414110;  // C2DA::GetINTEntry(CExoString const&, ...)
@@ -624,7 +621,6 @@ constexpr std::uintptr_t K1_2DA_FLOAT_BY_LABEL   = 0x00413FA0;  // C2DA::GetFLOA
 constexpr std::uintptr_t K1_FADE_OBSCURING       = 0x0062DED0;  // CGuiInGame::IsGlobalFadeObscuring
 constexpr std::uintptr_t K1_FADING               = 0x0062AC60;  // CGuiInGame::IsGlobalFading
 constexpr std::uintptr_t K1_LOAD_SCREEN_EXISTS   = 0x005F2AE0;  // CClientExoAppInternal::LoadScreenExists
-constexpr std::uintptr_t K1_GET_IN_GAME_GUI      = 0x005ED690;  // CClientExoApp::GetInGameGui
 constexpr std::size_t    K1_GUI_SOUND_LISTENER   = 0xB4;        // non-zero: the cutoff test uses the sound listener (0x005FBB46)
 constexpr std::size_t    K1_INTERNAL_IN_GAME_GUI = 0x40;        // UpdateRumble reads it at 0x005F7539
 constexpr std::size_t    K1_INTERNAL_RUMBLE_OFF  = 0x288;       // UpdateRumble's first bail, 0x005F752B
@@ -705,8 +701,8 @@ bool LookUpRumble(int category, int row, int& pattern, float& cutoff)
     void* const table = At<void*>(tables, category == 0 ? 0x58 : 0x88);
     if (!LooksLikePointerK1(table)) return false;
     ExoString patternColumn{}, cutoffColumn{}, label{};
-    EngineFn<StrTextFn>(K1_STRING_FROM_TEXT)(&patternColumn, "RumblePattern");
-    EngineFn<StrTextFn>(K1_STRING_FROM_TEXT)(&cutoffColumn, "RumbleCutOff");
+    EngineFn<StrTextFn>(K1_EXOSTRING_CTOR)(&patternColumn, "RumblePattern");
+    EngineFn<StrTextFn>(K1_EXOSTRING_CTOR)(&cutoffColumn, "RumbleCutOff");
     bool found;
     cutoff = 10.0f;                         // the engine's default
     if (category == 0) {
@@ -716,10 +712,10 @@ bool LookUpRumble(int category, int row, int& pattern, float& cutoff)
         EngineFn<StrIntFn>(K1_STRING_FROM_INT)(&label, row);
         found = EngineFn<IntLabelFn>(K1_2DA_INT_BY_LABEL)(table, &label, &patternColumn, &pattern) != 0;
         if (found) EngineFn<FloatLabelFn>(K1_2DA_FLOAT_BY_LABEL)(table, &label, &cutoffColumn, &cutoff);
-        EngineFn<StrFreeFn>(K1_STRING_FREE)(&label);
+        EngineFn<StrFreeFn>(K1_EXOSTRING_DTOR)(&label);
     }
-    EngineFn<StrFreeFn>(K1_STRING_FREE)(&cutoffColumn);
-    EngineFn<StrFreeFn>(K1_STRING_FREE)(&patternColumn);
+    EngineFn<StrFreeFn>(K1_EXOSTRING_DTOR)(&cutoffColumn);
+    EngineFn<StrFreeFn>(K1_EXOSTRING_DTOR)(&patternColumn);
     return found && pattern >= 0 && pattern < K1_RUMBLE_PATTERN_COUNT;
 }
 

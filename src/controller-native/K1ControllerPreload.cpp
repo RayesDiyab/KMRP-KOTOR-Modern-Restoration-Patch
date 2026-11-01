@@ -1,6 +1,7 @@
 // Controller-owned preload requests. The movie callback only submits copied paths;
 // file I/O, decoding and drawing run on the existing picture worker. GPU upload and
 // directory registration are collected only with a context on the GUI thread.
+#include "K1EngineAddresses.h"
 #include "K1ControllerPreload.h"
 #include "K1GuiPreloadData.h"
 #include "K1ResourceFolder.h"
@@ -70,7 +71,7 @@ extern "C" void __cdecl KmrpQueueTexturePreloadK1(const char* name) {
 }
 
 void KmrpControllerGuiMovieK1() {
-    const int width = *reinterpret_cast<const int*>(0x0078D1D4), height = *reinterpret_cast<const int*>(0x0078D1D8);
+    const int width = *reinterpret_cast<const int*>(K1_SCREEN_WIDTH), height = *reinterpret_cast<const int*>(K1_SCREEN_HEIGHT);
     if (width <= 0 || height <= 0 || KmrpRuntimeAssetDirectory().empty()) return;
     // At a size already seen, a look at KMRP's path each half second or so, not each frame: it
     // can still change at this size, but it is a file query, and this runs every frame (audit
@@ -168,7 +169,7 @@ void KmrpControllerGuiPreloadFrameK1() {
             if (readyTextures.empty()) break;
             name = std::move(readyTextures.front()); readyTextures.erase(readyTextures.begin());
         }
-        void* texture = reinterpret_cast<void*(__cdecl*)(const char*, int)>(0x00423A60)(name.c_str(), 0);
+        void* texture = reinterpret_cast<void*(__cdecl*)(const char*, int)>(K1_LOAD_TEXTURE_REF)(name.c_str(), 0);
         if (texture) {
             reinterpret_cast<void(__thiscall*)(void*)>(0x004214B0)(texture);
             keptTextures.push_back(texture);

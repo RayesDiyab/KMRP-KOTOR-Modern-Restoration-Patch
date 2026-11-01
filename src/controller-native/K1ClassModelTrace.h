@@ -4,6 +4,7 @@
 #include <cstring>
 #include <vector>
 #include <utility>
+#include "K1EngineAddresses.h"
 #include "K1CaptionInk.h"
 #include "K1GuiModelPreload.h"
 
@@ -84,8 +85,8 @@ inline Snapshot Capture() {
     Snapshot out;
     out.pending = *reinterpret_cast<const int*>(0x007A4774);
     out.locked = *reinterpret_cast<const unsigned*>(0x007A4714);
-    void** const list = *reinterpret_cast<void***>(0x007A4798);
-    out.total = *reinterpret_cast<const int*>(0x007A479C);
+    void** const list = *reinterpret_cast<void***>(K1_TEXTURE_LIST);
+    out.total = *reinterpret_cast<const int*>(K1_TEXTURE_COUNT);
     if (out.total < 0 || out.total > 16384 || !IsReadableK1(list, out.total * sizeof(void*))) return out;
     for (int i = 0; i < out.total; ++i) {
         const auto* p = static_cast<const unsigned char*>(list[i]);
@@ -162,7 +163,7 @@ inline void QueuePanel(void* panel) {
     K1GuiModelPreload::Forget(panel);
     if (!IsReadableK1(panel, sizeof(void*))) return;
     const auto vt = *static_cast<const std::uintptr_t*>(panel);
-    if (vt != 0x00758020 && vt != 0x00752F70) return;
+    if (vt != K1_CLASS_SELECT_PANEL_VTABLE && vt != K1_MAIN_MENU_PANEL_VTABLE) return;
     if (Replace(reinterpret_cast<void**>(ViewDrawSlot), reinterpret_cast<void*>(&TracedViewDraw),
                 reinterpret_cast<void*>(ViewDrawAddress))) K1GuiModelPreload::Queue(panel);
 }

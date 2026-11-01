@@ -28,6 +28,7 @@
 //   0x00415B30   the border's rect, __thiscall(border, int out[4]), `ret 4`.
 //   0x0040BA20   the pointer in a panel's coordinates, __thiscall(panel, int* x, int* y),
 //                `ret 8`.
+#include "K1EngineAddresses.h"
 #include <cstdint>
 #include <cstring>
 
@@ -78,7 +79,7 @@ inline int __fastcall MouseDown(void* self, void*) {
 inline int __fastcall MouseMove(void* self, void*, int a, int b) {
     if (Field(self, 0x10) > Field(self, 0x0C))            // vertical: the engine's own
         return reinterpret_cast<int(__thiscall*)(void*, int, int)>(0x00419250)(self, a, b);
-    const auto gui = *reinterpret_cast<unsigned char* const*>(0x007A39F4);
+    const auto gui = *reinterpret_cast<unsigned char* const*>(K1_GUI_MANAGER_PTR);
     if (!gui || !(gui[0x0C] & 1) || Field(self, 0x6C) != 1) return 1;
     const int thumb = ThumbWidth(self), travel = Field(self, 0x0C) - thumb, maximum = Field(self, 0x70);
     if (travel <= 0 || maximum <= 0) return 1;

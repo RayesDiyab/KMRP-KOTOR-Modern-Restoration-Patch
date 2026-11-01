@@ -1,4 +1,5 @@
 // KOTOR 1.03 GUI ABI. See reverse-engineering/custom-gui-controls.md.
+#include "K1EngineAddresses.h"
 #include "K1Rect.h"
 #include "K1ControllerLayout.h"
 #include "K1GuiControls.h"
@@ -1677,7 +1678,7 @@ unsigned long long panelSignature(void* manager, int& count) {
 void probeLayoutPictures(void* manager) {
     static const bool enabled = KmrpPatchOption(L"layout-predraw", 1) != 0;
     if (!enabled) return;
-    const int width=*reinterpret_cast<const int*>(0x0078D1D4), height=*reinterpret_cast<const int*>(0x0078D1D8);
+    const int width=*reinterpret_cast<const int*>(K1_SCREEN_WIDTH), height=*reinterpret_cast<const int*>(K1_SCREEN_HEIGHT);
     if (width<=0 || height<=0) return;
     int panelCount=0;
     const unsigned long long panels=panelSignature(manager,panelCount);

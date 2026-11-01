@@ -1,5 +1,6 @@
 // Reapply authored geometry to existing native controls after a mode change.
 // Text, event bindings, focus, list selection and control ownership remain native.
+#include "K1EngineAddresses.h"
 #include "K1Rect.h"
 #include "K1RuntimeLayout.h"
 #include "K1RuntimeAssets.h"
@@ -256,8 +257,7 @@ void FileBars(const Gff& gff, const std::string& resource, std::map<std::string,
 // 0x10 is the scrollbar on the left; PADDING, a byte.
 const unsigned kListBarWidth = 0x110, kListContentWidth = 0x294, kListFlags = 0x2BC, kListPadding = 0x2C0;
 const std::uintptr_t kListTable = 0x0073E840;          // CSWGuiListBox's vtable
-// CSWGuiInGameMap: its vtable, its CSWGuiMapHider and its canvas (KmrpRuntimeLayoutDimensions).
-const std::uintptr_t kMapPanelTable = 0x00754830;
+// CSWGuiInGameMap: its CSWGuiMapHider and its canvas (KmrpRuntimeLayoutDimensions).
 const unsigned kMapOverlay = 0xE38, kMapCanvas = 0x1080;
 const unsigned kControlPanel = 0x34, kPanelManager = 0x18, kManagerWidth = 0x6C, kManagerHeight = 0x6E;   // the last two are shorts
 
@@ -273,7 +273,7 @@ RowKind KindOf(std::uintptr_t vtable, RowKind usual)
         case 0x007578A8: return kChartRow;     // CSWGuiSkillFlow: a row of the powers' or the feats' chart
         case 0x00756850: return kStoreRow;     // CSWGuiStoreItemEntry: its icon is the row's height
         case 0x00757108: return kUpgradeRow;   // CSWUpgradeItemEntry: its icon is 56 at every size
-        case 0x0073EB88: return kScriptRow;    // CSWGuiButtonToggle: a party member's script (CSWGuiScriptSelect::CreateOption)
+        case K1_GUI_BUTTON_TOGGLE_VTABLE: return kScriptRow;    // CSWGuiButtonToggle: a party member's script (CSWGuiScriptSelect::CreateOption)
     }
     return usual;
 }
@@ -523,8 +523,8 @@ extern "C" void __cdecl KmrpListAddRowsK1(void* list, void** slot)
         if (!row[i]) continue;
         const int* height = nullptr;
         switch (At<std::uintptr_t>(row[i], 0)) {
-            case 0x00755ED0: height = reinterpret_cast<const int*>(0x006ACB20); break;   // CSWGuiInGameSkillEntry
-            case 0x007578A8: height = reinterpret_cast<const int*>(0x006CD8D9); break;   // CSWGuiSkillFlow
+            case 0x00755ED0: height = reinterpret_cast<const int*>(K1_SKILL_ENTRY_HEIGHT); break;   // CSWGuiInGameSkillEntry
+            case 0x007578A8: height = reinterpret_cast<const int*>(K1_SKILL_FLOW_HEIGHT); break;   // CSWGuiSkillFlow
         }
         if (height && *height >= 8 && *height <= 4096) At<Extent>(row[i], 4).height = *height;
     }
@@ -942,7 +942,7 @@ bool KmrpRuntimeLayoutDimensions(void* manager, int width, int height)
         // 1920x1080 the map was drawn 2001x720 over a 960x540 frame (the maintainer,
         // 2026-10-09). The instance the HUD makes for its minimap is put back to the
         // game's own 512x256 and 440x256 by the recipe's wrapper and is left so.
-        if (At<std::uintptr_t>(panel, 0) == kMapPanelTable) {
+        if (At<std::uintptr_t>(panel, 0) == K1_MAP_PANEL_VTABLE) {
             void* canvas = static_cast<char*>(panel) + kMapCanvas;
             void* overlay = static_cast<char*>(panel) + kMapOverlay;
             const Extent canvasNow = At<Extent>(canvas, 4), overlayNow = At<Extent>(overlay, 4);

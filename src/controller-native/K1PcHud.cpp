@@ -42,6 +42,7 @@
 // Placed again only when something changes: the HUD object, the screen's size, a
 // size on the page, or the Xbox-style HUD giving the HUD back. Nothing per frame but
 // the comparison.
+#include "K1EngineAddresses.h"
 #include "K1HudOptions.h"
 #include "K1HudOptionsPolicy.h"
 #include "K1PcHudLayout.h"
@@ -56,7 +57,6 @@ namespace {
 using namespace KmrpPcHud;
 using KmrpHudOptions::ElementCount;
 
-constexpr std::uintptr_t kHudTable = 0x00753F50;        // CSWGuiMainInterface's vtable
 constexpr unsigned kHudManager = 0x18;
 constexpr unsigned kHudMapWindow = 0x6080;
 constexpr unsigned kHudDescriptionBottom = 0xA454;
@@ -212,7 +212,7 @@ void KmrpPcHudFrameK1(void* manager)
 {
     if (!manager) return;
     for (void* hud : KmrpRuntimeAllPanelsK1()) {
-        if (At<std::uintptr_t>(hud, 0) != kHudTable || At<void*>(hud, kHudManager) != manager) continue;
+        if (At<std::uintptr_t>(hud, 0) != K1_MAIN_INTERFACE_VTABLE || At<void*>(hud, kHudManager) != manager) continue;
         if (XboxOwns()) { applied = Key{}; return; }
         Key key;
         key.hud = hud;

@@ -11,7 +11,7 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     production = (ROOT / 'src/controller-native/K1GuiModelPreload.h').read_text(encoding='utf-8')
     production = production.replace('#pragma once', '').replace('0x0078D1E4', 'reinterpret_cast<std::uintptr_t>(&do3d)')
-    production = production.replace('0x0078E574', 'reinterpret_cast<std::uintptr_t>(&::frameTime)')
+    production = production.replace('K1_G_DELTA_T', 'reinterpret_cast<std::uintptr_t>(&::frameTime)')
     harness = r'''
 #include <windows.h>
 #include <cstdint>

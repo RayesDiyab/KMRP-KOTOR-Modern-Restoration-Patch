@@ -2,6 +2,7 @@
 // repair, with Windows object layouts and thiscall callbacks. Keyboard arrows
 // arrive as 0x3D..0x40; the controller's 0x2F..0x32 path remains independent.
 #include <algorithm>
+#include "K1EngineAddresses.h"
 #include "K1EngineMemory.h"
 #include <cstdint>
 #include <cstdlib>
@@ -10,8 +11,6 @@ namespace {
 using CastFn = void* (__thiscall*)(void*);
 using FocusFn = void (__thiscall*)(void*, void*, int);
 using InputFn = int (__thiscall*)(void*, int, int);
-constexpr std::uintptr_t ListInput = 0x0041CE20;
-constexpr std::uintptr_t SliderInput = 0x0041ADF0;
 void* keyboardManager = nullptr;
 void* keyboardPanel = nullptr;
 void* keyboardControl = nullptr;
@@ -29,7 +28,7 @@ void* Navigable(void* c) {
     return reinterpret_cast<CastFn>(table[0x4C / 4])(c);
 }
 bool SelectableList(void* c, std::uintptr_t* table) {
-    if (table[0x3C / 4] != ListInput) return false;
+    if (table[0x3C / 4] != K1_LISTBOX_DISPATCHER) return false;
     void** entries = At<void**>(c, 0x29C);
     const int count = At<int>(c, 0x2A0);
     if (!entries || count <= 0 || count > 4096) return false;
@@ -139,7 +138,7 @@ void BaseInput(void* control, int event, int value) {
 #ifdef KMRP_KEYBOARD_TEST
     (void)control; (void)event; (void)value;
 #else
-    reinterpret_cast<InputFn>(0x00418750)(control, event, value);
+    reinterpret_cast<InputFn>(K1_CONTROL_HANDLE_INPUT)(control, event, value);
 #endif
 }
 }
@@ -155,7 +154,7 @@ extern "C" int __cdecl KeyboardNavigateK1(void* control, int* eventSlot, int* va
     Note(panel);
     // Sliders own only the axis along which they slide.
     auto* table = At<std::uintptr_t*>(control, 0);
-    if (table[0x3C / 4] == SliderInput) {
+    if (table[0x3C / 4] == K1_SLIDER_DISPATCHER) {
         const bool horizontal = At<int>(control, 0x10) <= At<int>(control, 0x0C);
         if (horizontal == (event == 0x3F || event == 0x40)) return 0;
     }

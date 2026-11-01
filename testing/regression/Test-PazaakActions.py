@@ -27,7 +27,7 @@ def main():
     production = production.replace('(K1_PAZAAK_CLICK_CARD)', '(&MockPlay)')
     production = production.replace('(0x0067CA50)', '(&MockFlash)')
     production = production.replace('(0x0067DD80)', '(&MockFlip)')
-    production = production.replace('(0x00414E10)', '(&MockTextColor)')
+    production = production.replace('(K1_TEXT_SET_COLOUR)', '(&MockTextColor)')
     production = production.replace('(K1_SET_ACTIVE_CONTROL)', '(&MockFocus)')
     production = production.replace('reinterpret_cast<const float*>(0x007A23CC)', 'flashColour')
     template = (Path(__file__).parent / 'pazaak_actions_harness.cpp').read_text(encoding='utf-8')

@@ -1,4 +1,5 @@
 #pragma once
+#include "K1EngineAddresses.h"
 #include <windows.h>
 #include <cstdint>
 #include <cstring>
@@ -52,7 +53,7 @@ inline void* KmrpPartyControlK1(void* panel,unsigned index)
 {
     const auto found=KmrpPartyBindingsK1().find(panel);
     if(found==KmrpPartyBindingsK1().end() || index>=5 || !panel ||
-       *static_cast<const std::uintptr_t*>(panel)!=0x00756D28) return nullptr;
+       *static_cast<const std::uintptr_t*>(panel)!=K1_PARTY_SELECT_PANEL_VTABLE) return nullptr;
     auto bytes=static_cast<unsigned char*>(panel);
     void** controls=*reinterpret_cast<void***>(bytes+0x20);
     const int count=*reinterpret_cast<const int*>(bytes+0x24),id=found->second[index];
@@ -62,7 +63,7 @@ inline void* KmrpPartyControlK1(void* panel,unsigned index)
     for(int i=0;i<count;++i) {
         auto control=static_cast<unsigned char*>(controls[i]);
         if(!control || *reinterpret_cast<const int*>(control+0x50)!=id)continue;
-        if(*reinterpret_cast<const std::uintptr_t*>(control)!=0x0073E658 ||
+        if(*reinterpret_cast<const std::uintptr_t*>(control)!=K1_GUI_BUTTON_VTABLE ||
            *reinterpret_cast<void**>(control+0x34)!=panel)continue;
         return control;
     }
@@ -77,7 +78,7 @@ template<class Recorded>
 inline bool KmrpCapturePartyIdsK1(void* panel, Recorded control)
 {
     if (!panel || KmrpPartyBindingsK1().count(panel) ||
-        *static_cast<const std::uintptr_t*>(panel)!=0x00756D28 || !KmrpPartyRoster32ActiveK1()) return false;
+        *static_cast<const std::uintptr_t*>(panel)!=K1_PARTY_SELECT_PANEL_VTABLE || !KmrpPartyRoster32ActiveK1()) return false;
     KmrpPartyIdsK1 ids{{-1,-1,-1,-1,-1}};
     for(unsigned i=0;i<5;++i) {
         auto bytes=static_cast<unsigned char*>(control(KmrpPartyTagK1(i)));
@@ -113,7 +114,7 @@ template<class Selectable,class Portrait,class Fill>
 inline void KmrpPresentPartyRecordK1(void* panel,void* record,Selectable selectable,Portrait portrait,Fill fill)
 {
     auto bytes=static_cast<unsigned char*>(record);
-    if(!bytes || *reinterpret_cast<const std::uintptr_t*>(bytes)!=0x00756BB8 ||
+    if(!bytes || *reinterpret_cast<const std::uintptr_t*>(bytes)!=K1_PARTY_RECORD_VTABLE ||
        *reinterpret_cast<void**>(bytes+0x34)!=panel ||
        *reinterpret_cast<void**>(bytes+0x58)!=record)return;
     const int slot=*reinterpret_cast<const int*>(bytes+0x450);
@@ -129,7 +130,7 @@ inline void KmrpPresentPartyRecordK1(void* panel,void* record,Selectable selecta
         return;
     }
     auto label=bytes+0x308; // native CSWGuiPartySelectionData::character_label
-    if(*reinterpret_cast<const std::uintptr_t*>(label)!=0x0073E5B8 ||
+    if(*reinterpret_cast<const std::uintptr_t*>(label)!=K1_GUI_LABEL_VTABLE ||
        *reinterpret_cast<void**>(label+0x34)!=panel ||
        !(*reinterpret_cast<const unsigned*>(label+0x44)&2u))return;
     // Native OnPanelAdded dims portraits by selectability, independently of
