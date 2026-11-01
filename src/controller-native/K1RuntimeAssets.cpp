@@ -52,6 +52,8 @@
 #include "K1TextOptionsPolicy.h"
 #include <windows.h>
 #include <bcrypt.h>
+#include "K1Sha256.h"
+#include "K1TempFolders.h"
 #include <array>
 #include <list>
 #include <map>
@@ -149,23 +151,6 @@ struct Locked {
 // True only after adapting the supplied roster GUI successfully for this size.
 bool managedPartyRoster = false;
 
-bool Sha(const unsigned char* data, unsigned size, Key& result)
-{
-    // Opened once a thread: a set is some 2,100 files, each hashed on its way to the
-    // cache, and opening the provider for every one of them was measurable.
-    static thread_local BCRYPT_ALG_HANDLE algorithm = nullptr;
-    BCRYPT_HASH_HANDLE hash = nullptr;
-    if (!algorithm && BCryptOpenAlgorithmProvider(&algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0) < 0) {
-        algorithm = nullptr;
-        return false;
-    }
-    bool ok = BCryptCreateHash(algorithm, &hash, nullptr, 0, nullptr, 0, 0) >= 0 &&
-        BCryptHashData(hash, const_cast<unsigned char*>(data), size, 0) >= 0 &&
-        BCryptFinishHash(hash, result.data(), static_cast<ULONG>(result.size()), 0) >= 0;
-    if (hash) BCryptDestroyHash(hash);
-    return ok;
-}
-
 const wchar_t kLockSuffix[] = L".lock";
 
 std::wstring Pid() { return std::to_wstring(GetCurrentProcessId()); }
@@ -259,51 +244,6 @@ void RemoveStale(const std::wstring& parent, const std::wstring& build)
     }
 }
 
-// The per-launch caches in %TEMP% of builds before 2026-10-19. Each launch made its
-// own directory (about 100 MB), and until 2026-10-04 nothing ever removed one:
-// 63 had collected in %TEMP%, 5.4 GB.
-//
-// A cache is this module's when it is a KMR*.tmp directory, the name
-// GetTempFileNameW gave it, holding the font atlas every size has. It is in use
-// while its game holds the lock beside it, which cannot be deleted then. A cache
-// from before the lock existed has none and is taken as stale. Only plain files
-// directly inside are removed: this module never makes a subdirectory, so one that
-// has any is left alone.
-void RemoveStaleCaches(const std::wstring& temp)
-{
-    WIN32_FIND_DATAW found{};
-    HANDLE search = FindFirstFileW((temp + L"KMR*.tmp").c_str(), &found);
-    if (search == INVALID_HANDLE_VALUE) return;
-    do {
-        if (!(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ||
-            (found.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) continue;
-        const std::wstring directory = temp + found.cFileName;
-        if (GetFileAttributesW((directory + L"\\dialogfont16x16.txi").c_str()) == INVALID_FILE_ATTRIBUTES) continue;
-        const std::wstring lock = directory + kLockSuffix;
-        if (GetFileAttributesW(lock.c_str()) != INVALID_FILE_ATTRIBUTES && !DeleteFileW(lock.c_str())) continue;
-        WIN32_FIND_DATAW file{};
-        HANDLE files = FindFirstFileW((directory + L"\\*").c_str(), &file);
-        if (files == INVALID_HANDLE_VALUE) continue;
-        bool plain = true;
-        do {
-            if (!wcscmp(file.cFileName, L".") || !wcscmp(file.cFileName, L"..")) continue;
-            if (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) { plain = false; break; }
-        } while (FindNextFileW(files, &file));
-        FindClose(files);
-        if (!plain) continue;
-        files = FindFirstFileW((directory + L"\\*").c_str(), &file);
-        if (files == INVALID_HANDLE_VALUE) continue;
-        do {
-            if (!(file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
-                DeleteFileW((directory + L"\\" + file.cFileName).c_str());
-        } while (FindNextFileW(files, &file));
-        FindClose(files);
-        RemoveDirectoryW(directory.c_str());
-        DeleteFileW((directory + L".reserved.txt").c_str());
-    } while (FindNextFileW(search, &found));
-    FindClose(search);
-}
-
 // Bytes of the pack from `offset`, as many as `out` holds.
 bool ReadAt(HANDLE file, std::uint32_t offset, std::vector<unsigned char>& out)
 {
@@ -373,7 +313,8 @@ bool Initialize()
         return false;
     }
     wchar_t temp[MAX_PATH]{};
-    if (GetTempPathW(MAX_PATH, temp)) RemoveStaleCaches(temp);
+    // The per-launch caches of builds before 2026-10-19, each with the font atlas every size has.
+    if (GetTempPathW(MAX_PATH, temp)) KmrpRemoveStaleCaches(temp, L"KMR*.tmp", L"dialogfont16x16.txi", kLockSuffix, L".reserved.txt");
     // The cache, under %LOCALAPPDATA% (or %TEMP% where that is not set), named after
     // the pack, so a new build starts a new one (RemoveStale removes the old).
     wchar_t local[MAX_PATH];
@@ -459,7 +400,7 @@ bool Decode(const Key& key, std::vector<unsigned char>& output)
     ReleaseSRWLockExclusive(&packLock);
     Key measured;
     return ok && KmrpPack::Unfilter(object.filter, output.data(), output.size()) &&
-           Sha(output.data(), static_cast<unsigned>(output.size()), measured) && measured == key;
+           KmrpSha256(output.data(), static_cast<unsigned>(output.size()), measured) && measured == key;
 }
 
 void ForgetUnpacked()
@@ -512,7 +453,7 @@ bool WriteNew(const std::wstring& path, const std::vector<unsigned char>& bytes,
     CloseHandle(file);
     if (!ok || !known) return ok;
     std::vector<unsigned char> actual; Key measured;
-    return Read(path, actual) && Sha(actual.data(), static_cast<unsigned>(actual.size()), measured) && measured == *known;
+    return Read(path, actual) && KmrpSha256(actual.data(), static_cast<unsigned>(actual.size()), measured) && measured == *known;
 }
 
 // A cached file shown in one of this run's folders: a hard link, which costs no copy
@@ -590,21 +531,11 @@ std::string Narrow(const std::wstring& path)
 // as UTF-16): any character, any length. Since 2026-10-30; the code-page path above made
 // live layout skip every screen where a user name or the game folder had a character the
 // system's code page lacks.
-std::string Utf8Path(const std::wstring& path)
-{
-    const int length = WideCharToMultiByte(CP_UTF8, 0, path.c_str(), -1, nullptr, 0, nullptr, nullptr);
-    if (length <= 0) return std::string();
-    std::string text(static_cast<size_t>(length), '\0');
-    WideCharToMultiByte(CP_UTF8, 0, path.c_str(), -1, &text[0], length, nullptr, nullptr);
-    text.resize(static_cast<size_t>(length) - 1);
-    return text;
-}
-
 // gui-blend.bin, beside the cache's folders: the blend helper reads it from a file.
 bool TablePath(std::string& path)
 {
     const std::wstring wide = root + L"\\gui-blend.bin";
-    path = Utf8Path(wide);
+    path = KmrpUtf8PathK1(wide);
     if (path.empty()) return false;
     if (GetFileAttributesW(wide.c_str()) != INVALID_FILE_ATTRIBUTES) return true;
     std::vector<unsigned char> table;
@@ -1040,7 +971,7 @@ bool AdaptPartyRosterK1(const std::wstring& set, const std::wstring& view, int w
     const std::wstring game = GameFolder();
     if (game.empty()) return false;
     const std::wstring source=game+L"\\override\\partyselection.gui", base=view+L"\\partyselection.gui.base"+Pid();
-    const std::string key=Utf8Path(game+L"\\chitin.key"), base8=Utf8Path(base), set8=Utf8Path(set);
+    const std::string key=KmrpUtf8PathK1(game+L"\\chitin.key"), base8=KmrpUtf8PathK1(base), set8=KmrpUtf8PathK1(set);
     std::vector<unsigned char> roster,layout,adapted;
     const int laid=key.empty()||base8.empty()?1:
         KmrpLiveLayoutSet(key.c_str(),"partyselection.gui",nullptr,width,height,base8.c_str(),set8.c_str());
@@ -1120,7 +1051,7 @@ bool DeriveFromOverrideK1(const std::wstring& set, const std::wstring& folder, i
     const std::wstring game = GameFolder();
     if (game.empty()) return false;
     const std::wstring override = game + L"\\override\\";
-    const std::string key = Utf8Path(game + L"\\chitin.key");
+    const std::string key = KmrpUtf8PathK1(game + L"\\chitin.key");
     auto exists = [](const std::wstring& path) { return GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES; };
     int made = 0;
     std::istringstream lines(std::string(record.begin(), record.end()));
@@ -1184,9 +1115,9 @@ bool DeriveFromOverrideK1(const std::wstring& set, const std::wstring& folder, i
             const bool asTpc = exists(override + Wide(stem) + L".tpc");
             const std::wstring outName = folder + L"\\" + Wide(stem) + (asTpc ? L".tpc" : L".tga");
             const std::wstring outWork = outName + L".tmp" + Pid();
-            const int result = KmrpDeriveImage(Utf8Path(from).c_str(), std::atoi(field[2].c_str()), std::atoi(field[3].c_str()),
+            const int result = KmrpDeriveImage(KmrpUtf8PathK1(from).c_str(), std::atoi(field[2].c_str()), std::atoi(field[3].c_str()),
                                                std::atoi(field[4].c_str()), std::atoi(field[5].c_str()), field[6].c_str(),
-                                               Utf8Path(outWork).c_str());
+                                               KmrpUtf8PathK1(outWork).c_str());
             if (result == 0 && MoveIntoPlace(outWork, outName)) {
                 ++made;
                 if (KmrpDebugLogs()) {
@@ -1206,8 +1137,8 @@ bool DeriveFromOverrideK1(const std::wstring& set, const std::wstring& folder, i
             // Made in a folder of its own and moved, as the model comes with its .mdx.
             const std::wstring workFolder = folder + L"\\model.tmp" + Pid();
             CreateDirectoryW(workFolder.c_str(), nullptr);
-            const int result = exists(mdx) ? KmrpSwoopHudModel(Utf8Path(mdl).c_str(), Utf8Path(mdx).c_str(),
-                                                               Utf8Path(workFolder).c_str(), static_cast<unsigned>(width),
+            const int result = exists(mdx) ? KmrpSwoopHudModel(KmrpUtf8PathK1(mdl).c_str(), KmrpUtf8PathK1(mdx).c_str(),
+                                                               KmrpUtf8PathK1(workFolder).c_str(), static_cast<unsigned>(width),
                                                                static_cast<unsigned>(height))
                                            : 1;
             const std::wstring builtMdl = workFolder + L"\\" + Wide(stem) + L".mdl", builtMdx = workFolder + L"\\" + Wide(stem) + L".mdx";
@@ -1262,8 +1193,8 @@ bool AdaptGalaxyMapK1(const std::wstring& set, const std::wstring& folder)
     if (game.empty()) return false;
     const bool theirs = OverrideHas(L"galaxymap.gui");
     const std::wstring target = folder + L"\\galaxymap.gui", work = target + L".tmp" + Pid();
-    const std::string key = Utf8Path(game + L"\\chitin.key"), layout = Utf8Path(LayoutBase(folder, L"galaxymap.gui"));
-    const std::string out = Utf8Path(work), source = theirs ? Utf8Path(game + L"\\override\\galaxymap.gui") : std::string();
+    const std::string key = KmrpUtf8PathK1(game + L"\\chitin.key"), layout = KmrpUtf8PathK1(LayoutBase(folder, L"galaxymap.gui"));
+    const std::string out = KmrpUtf8PathK1(work), source = theirs ? KmrpUtf8PathK1(game + L"\\override\\galaxymap.gui") : std::string();
     if (key.empty() || layout.empty() || out.empty() || (theirs && source.empty())) return false;
     const int result = KmrpGalaxyMap(key.c_str(), layout.c_str(), out.c_str(), theirs ? source.c_str() : nullptr);
     if (result != 0) {
@@ -1304,7 +1235,7 @@ bool AdaptMainMenuK1(const std::wstring& set, const std::wstring& folder)
             continue;
         }
         const std::wstring target = folder + L"\\" + name, work = target + L".tmp" + Pid();
-        const std::string layout = Utf8Path(LayoutBase(folder, name)), out = Utf8Path(work);
+        const std::string layout = KmrpUtf8PathK1(LayoutBase(folder, name)), out = KmrpUtf8PathK1(work);
         if (layout.empty() || out.empty() || KmrpMainMenuBars(layout.c_str(), out.c_str()) != 0) {
             DeleteFileW(work.c_str());
             continue;
@@ -1329,11 +1260,11 @@ bool AdaptLiveLayoutK1(const std::wstring& set, const std::wstring& folder, int 
 {
     const std::wstring game = GameFolder();
     if (game.empty()) return false;
-    const std::string key = Utf8Path(game + L"\\chitin.key");
+    const std::string key = KmrpUtf8PathK1(game + L"\\chitin.key");
     if (key.empty()) return false;
     // The set's folder: its prompt manifest (the Container is widened for the caption it
     // measured) and its kmrplayout.gui (the donor of confirm.gui's badge label).
-    const std::string setFolder = Utf8Path(set);
+    const std::string setFolder = KmrpUtf8PathK1(set);
     int written = 0, theirs = 0;
     for (int i = 0; i < KmrpLiveLayoutCount(); ++i) {
         const std::wstring name = Wide(KmrpLiveLayoutName(i));
@@ -1342,7 +1273,7 @@ bool AdaptLiveLayoutK1(const std::wstring& set, const std::wstring& folder, int 
         if (managedPartyRoster && Lower(name) == L"partyselection.gui") continue;
         const bool mod = OverrideHas(name);
         const std::wstring target = folder + L"\\" + name, work = target + L".tmp" + Pid();
-        const std::string out = Utf8Path(work), source = mod ? Utf8Path(game + L"\\override\\" + name) : std::string();
+        const std::string out = KmrpUtf8PathK1(work), source = mod ? KmrpUtf8PathK1(game + L"\\override\\" + name) : std::string();
         if (out.empty() || (mod && source.empty())) continue;
         const int result = KmrpLiveLayoutSet(key.c_str(), KmrpLiveLayoutName(i), mod ? source.c_str() : nullptr,
                                              width, height, out.c_str(), setFolder.c_str());
@@ -1380,7 +1311,7 @@ bool AdaptLiveLayoutK1(const std::wstring& set, const std::wstring& folder, int 
         const std::wstring name = Wide(hudName);
         if (!OverrideHas(name)) continue;
         const std::wstring target = folder + L"\\" + name, work = target + L".tmp" + Pid();
-        const std::string out = Utf8Path(work), source = Utf8Path(game + L"\\override\\" + name);
+        const std::string out = KmrpUtf8PathK1(work), source = KmrpUtf8PathK1(game + L"\\override\\" + name);
         if (out.empty() || source.empty()) continue;
         const int result = KmrpHudCues(source.c_str(), out.c_str());
         char line[200];
@@ -1525,7 +1456,7 @@ bool BuildSet(int width, int height, std::wstring& directory)
         ULONGLONG mark = GetTickCount64(), part[6]{};
         auto lap = [&](int which) { const ULONGLONG now = GetTickCount64(); part[which] += now - mark; mark = now; };
         std::vector<unsigned char> output;
-        const std::string directory8 = Utf8Path(work);
+        const std::string directory8 = KmrpUtf8PathK1(work);
         if (directory8.empty()) return false;
         unsigned left = 0;
         for (const auto& entry : selected->entries) if (!objects.count(entry.key)) ++left;
@@ -1563,7 +1494,7 @@ bool BuildSet(int width, int height, std::wstring& directory)
                     if (objects.count(entry.key)) continue;
                     Key measured;
                     if (!Read(work + L"\\" + Wide(entry.name), output) ||
-                        !Sha(output.data(), static_cast<unsigned>(output.size()), measured) || measured != entry.key)
+                        !KmrpSha256(output.data(), static_cast<unsigned>(output.size()), measured) || measured != entry.key)
                         ++differing;
                 }
                 if (differing) {
@@ -1583,7 +1514,7 @@ bool BuildSet(int width, int height, std::wstring& directory)
         lap(2);
         // The icons the bank already supplies are not the helpers' to make. Beside the
         // folder, not in it: the game must not see it as a resource.
-        const std::string game8 = Utf8Path(game);
+        const std::string game8 = KmrpUtf8PathK1(game);
         if (game8.empty()) return true;
         const std::string pack = game8 + "\\TexturePacks\\swpc_tex_gui.erf", key = game8 + "\\chitin.key";
         const std::string reserved = directory8 + ".reserved.txt";

@@ -23,6 +23,8 @@
 #include "K1ResourceFolder.h"
 #include <windows.h>
 #include <bcrypt.h>
+#include "K1Sha256.h"
+#include "K1TempFolders.h"
 #include <array>
 #include <cstring>
 #include <string>
@@ -65,19 +67,6 @@ void Report(const char* text)
     CloseHandle(file);
 }
 
-bool Sha(const unsigned char* data, unsigned size, Key& result)
-{
-    BCRYPT_ALG_HANDLE algorithm = nullptr;
-    BCRYPT_HASH_HANDLE hash = nullptr;
-    if (BCryptOpenAlgorithmProvider(&algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0) < 0) return false;
-    const bool ok = BCryptCreateHash(algorithm, &hash, nullptr, 0, nullptr, 0, 0) >= 0 &&
-        BCryptHashData(hash, const_cast<unsigned char*>(data), size, 0) >= 0 &&
-        BCryptFinishHash(hash, result.data(), static_cast<ULONG>(result.size()), 0) >= 0;
-    if (hash) BCryptDestroyHash(hash);
-    BCryptCloseAlgorithmProvider(algorithm, 0);
-    return ok;
-}
-
 // The bank: "KCAST001", a file count, then per file its name (u16 length, ASCII, no
 // path), SHA-256, size, compressed size and XPRESS-Huffman stream.
 bool ReadBank()
@@ -118,51 +107,12 @@ bool ReadBank()
     return true;
 }
 
-// Remove the folders of games that are no longer running: each launch makes its
-// own, and nothing else would ever remove one. A folder is this module's when it is
-// a KMC*.tmp directory, the name GetTempFileNameW gave it, holding the marker; it is
-// in use while its game holds the lock beside it, which cannot be deleted then.
-// Only plain files directly inside are removed, as this module makes nothing else.
-void RemoveStaleCaches(const std::wstring& temp)
-{
-    WIN32_FIND_DATAW found{};
-    HANDLE search = FindFirstFileW((temp + L"KMC*.tmp").c_str(), &found);
-    if (search == INVALID_HANDLE_VALUE) return;
-    do {
-        if (!(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ||
-            (found.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) continue;
-        const std::wstring directory = temp + found.cFileName;
-        if (GetFileAttributesW((directory + L"\\" + kMarkerW).c_str()) == INVALID_FILE_ATTRIBUTES) continue;
-        const std::wstring lock = directory + kLockSuffix;
-        if (GetFileAttributesW(lock.c_str()) != INVALID_FILE_ATTRIBUTES && !DeleteFileW(lock.c_str())) continue;
-        WIN32_FIND_DATAW file{};
-        HANDLE inside = FindFirstFileW((directory + L"\\*").c_str(), &file);
-        if (inside == INVALID_HANDLE_VALUE) continue;
-        bool plain = true;
-        do {
-            if (!wcscmp(file.cFileName, L".") || !wcscmp(file.cFileName, L"..")) continue;
-            if (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) { plain = false; break; }
-        } while (FindNextFileW(inside, &file));
-        FindClose(inside);
-        if (!plain) continue;
-        inside = FindFirstFileW((directory + L"\\*").c_str(), &file);
-        if (inside == INVALID_HANDLE_VALUE) continue;
-        do {
-            if (!(file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
-                DeleteFileW((directory + L"\\" + file.cFileName).c_str());
-        } while (FindNextFileW(inside, &file));
-        FindClose(inside);
-        RemoveDirectoryW(directory.c_str());
-    } while (FindNextFileW(search, &found));
-    FindClose(search);
-}
-
 bool MakeCache()
 {
     if (!cache.empty()) return true;
     wchar_t temp[MAX_PATH], reserved[MAX_PATH];
     if (!GetTempPathW(MAX_PATH, temp)) return false;
-    RemoveStaleCaches(temp);
+    KmrpRemoveStaleCaches(temp, L"KMC*.tmp", kMarkerW, kLockSuffix);
     if (!GetTempFileNameW(temp, L"KMC", 0, reserved)) return false;
     // Exclusively the empty reservation this process just made.
     if (!DeleteFileW(reserved) || !CreateDirectoryW(reserved, nullptr)) return false;
@@ -187,7 +137,7 @@ bool Unpack()
         output.resize(file.size);
         Key measured;
         if (!KmrpXpressDecode(file.bytes, file.compressed, output.data(), output.size()) ||
-            !Sha(output.data(), file.size, measured) || measured != file.key) { ok = false; break; }
+            !KmrpSha256(output.data(), file.size, measured) || measured != file.key) { ok = false; break; }
         const std::wstring path = cache + L"\\" + std::wstring(file.name.begin(), file.name.end());
         HANDLE handle = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
         if (handle == INVALID_HANDLE_VALUE) { ok = false; break; }
@@ -295,18 +245,6 @@ extern "C" int KmrpControllerCues(const char* key, const char* name, const char*
                                   const char* donorGui);
 extern "C" const char* KmrpControllerCueScreen(int i);
 
-namespace {
-std::string Utf8Path(const std::wstring& path)
-{
-    const int length = WideCharToMultiByte(CP_UTF8, 0, path.c_str(), -1, nullptr, 0, nullptr, nullptr);
-    if (length <= 0) return std::string();
-    std::string text(static_cast<size_t>(length), '\0');
-    WideCharToMultiByte(CP_UTF8, 0, path.c_str(), -1, &text[0], length, nullptr, nullptr);
-    text.resize(static_cast<size_t>(length) - 1);
-    return text;
-}
-}
-
 // Controller Live Adaptive Layout's screens (2026-10-30): the file the game would load, a
 // mod's in Override or else the game's own (through chitin.key), with the controller's cues
 // added at run time and written into the folder, which the game searches before Override.
@@ -323,13 +261,13 @@ void CueScreens()
     wchar_t folder[MAX_PATH];
     if (!KmrpGameFolder(folder)) return;
     const std::wstring game = folder;
-    const std::string key = Utf8Path(game + L"\\chitin.key"), donor = Utf8Path(cache + L"\\kmrplayout.gui");
+    const std::string key = KmrpUtf8PathK1(game + L"\\chitin.key"), donor = KmrpUtf8PathK1(cache + L"\\kmrplayout.gui");
     if (key.empty() || donor.empty()) return;
     for (int i = 0; const char* screen = KmrpControllerCueScreen(i); ++i) {
         const std::wstring name(screen, screen + std::strlen(screen)), theirs = game + L"\\override\\" + name;
         const std::wstring target = cache + L"\\" + name, work = target + L".tmp";
         const bool mod = GetFileAttributesW(theirs.c_str()) != INVALID_FILE_ATTRIBUTES;
-        const std::string out = Utf8Path(work), source = mod ? Utf8Path(theirs) : std::string();
+        const std::string out = KmrpUtf8PathK1(work), source = mod ? KmrpUtf8PathK1(theirs) : std::string();
         if (out.empty() || (mod && source.empty())) continue;
         const int result = KmrpControllerCues(key.c_str(), screen, mod ? source.c_str() : nullptr, out.c_str(), donor.c_str());
         if (result == 0 && MoveFileExW(work.c_str(), target.c_str(), MOVEFILE_REPLACE_EXISTING)) {

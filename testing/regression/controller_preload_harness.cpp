@@ -112,11 +112,11 @@ int wmain(int argc, wchar_t** argv) {
     Require(sizeReads == previousReads, "Standalone HUD reread KMRP INI settings");
     testCoreFolder = savedCore;
     K1PreloadClassInfo probe{}; K1PreloadPicture probePictures[512] = {};
-    const std::string probeKey = Utf8(testGame + L"/chitin.key");
-    const std::string sourceGui = testCoreFolder.empty() ? "" : Utf8(testCoreFolder + L"/classsel.gui");
+    const std::string probeKey = KmrpUtf8PathK1(testGame + L"/chitin.key");
+    const std::string sourceGui = testCoreFolder.empty() ? "" : KmrpUtf8PathK1(testCoreFolder + L"/classsel.gui");
     const int sourceCount = KmrpReadPreloadGui(probeKey.c_str(), sourceGui.c_str(), "classsel", &probe, probePictures, 512);
     int probeW = 0, probeH = 0;
-    unsigned char* probePixels = KmrpReadPreloadTexture(Utf8(testGame).c_str(), Utf8(testCoreFolder).c_str(), probe.fill, &probeW, &probeH);
+    unsigned char* probePixels = KmrpReadPreloadTexture(KmrpUtf8PathK1(testGame).c_str(), KmrpUtf8PathK1(testCoreFolder).c_str(), probe.fill, &probeW, &probeH);
     std::printf("Class source: %d fills, %s, texture %dx%d, panel %d,%d,%d,%d cancel %d,%d,%d,%d\n",
         sourceCount, probe.fill, probeW, probeH, probe.panel[0], probe.panel[1], probe.panel[2], probe.panel[3],
         probe.cancel[0], probe.cancel[1], probe.cancel[2], probe.cancel[3]); std::fflush(stdout);
@@ -133,7 +133,7 @@ int wmain(int argc, wchar_t** argv) {
     { std::unique_lock<std::mutex> lock(finishedLock); Require(finished.wait_for(lock, std::chrono::seconds(20), [&] { return barrier.load(); }), "Worker did not finish"); }
     Require(writes == 1, "Movie frames submitted duplicate preload jobs");
     K1PreloadClassInfo info{}; K1PreloadPicture pictures[512] = {};
-    const std::string key = Utf8(testGame + L"/chitin.key");
+    const std::string key = KmrpUtf8PathK1(testGame + L"/chitin.key");
     Require(KmrpReadPreloadGui(key.c_str(), sourceGui.c_str(), "classsel", &info, pictures, 512) >= 0, "Native GUI read failed");
     ClassBoxK1 panel{}, cancel{}; std::memcpy(&panel, info.panel, 16); std::memcpy(&cancel, info.cancel, 16);
     ClassArtResultK1 result;

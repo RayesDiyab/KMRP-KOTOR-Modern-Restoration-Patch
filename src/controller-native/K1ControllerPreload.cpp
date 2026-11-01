@@ -3,6 +3,7 @@
 // directory registration are collected only with a context on the GUI thread.
 #include "K1ControllerPreload.h"
 #include "K1GuiPreloadData.h"
+#include "K1ResourceFolder.h"
 #include <windows.h>
 #include <mutex>
 #include <set>
@@ -29,13 +30,6 @@ unsigned framesSinceLook = 0;
 std::wstring queuedClassPath;
 std::atomic<unsigned> generation{0};
 
-std::string Utf8(const std::wstring& path) {
-    if (path.empty()) return {};
-    const int count = WideCharToMultiByte(CP_UTF8, 0, path.c_str(), -1, nullptr, 0, nullptr, nullptr);
-    std::string out(static_cast<std::size_t>(count), 0);
-    WideCharToMultiByte(CP_UTF8, 0, path.c_str(), -1, &out[0], count, nullptr, nullptr);
-    out.resize(count - 1); return out;
-}
 std::wstring GameDirectory() {
     wchar_t path[32768] = {};
     GetModuleFileNameW(nullptr, path, 32768);
@@ -49,7 +43,7 @@ std::string CoreAssets() {
     HMODULE core = GetModuleHandleW(L"kmrp.dll");
     auto path = core ? reinterpret_cast<PathFn>(GetProcAddress(core, "KmrpPreloadGuiPathK1")) : nullptr;
     wchar_t assets[32768] = {};
-    return path && path("", assets, 32768) ? Utf8(assets) : std::string();
+    return path && path("", assets, 32768) ? KmrpUtf8PathK1(assets) : std::string();
 }
 
 void DecodeTexture(const std::string& game, const std::string& assets, const std::string& name) {
@@ -67,7 +61,7 @@ void DecodeTexture(const std::string& game, const std::string& assets, const std
 
 extern "C" void __cdecl KmrpQueueTexturePreloadK1(const char* name) {
     if (!name || !*name || std::strlen(name) > 16) return;
-    const std::string texture(name), game = Utf8(GameDirectory()), assets = CoreAssets();
+    const std::string texture(name), game = KmrpUtf8PathK1(GameDirectory()), assets = CoreAssets();
     {
         std::lock_guard<std::mutex> lock(stateLock);
         if (!textures.insert(texture).second) return;
@@ -114,9 +108,9 @@ void KmrpControllerGuiMovieK1() {
             const std::wstring overrideFile = game + L"\\Override\\" + std::wstring(name, name + std::strlen(name)) + L".gui";
             if (File(overrideFile)) file = overrideFile;
         }
-        sources.push_back({name, Utf8(file)});
+        sources.push_back({name, KmrpUtf8PathK1(file)});
     }
-    const std::string root = Utf8(game), key = Utf8(game + L"\\chitin.key");
+    const std::string root = KmrpUtf8PathK1(game), key = KmrpUtf8PathK1(game + L"\\chitin.key");
     const std::string assets = CoreAssets();
     const char family = KmrpGlyphLetterK1();
     KmrpQueueControllerGuiWorkK1([sources, root, key, assets, requested, family] {

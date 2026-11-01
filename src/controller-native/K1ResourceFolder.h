@@ -9,6 +9,17 @@
 #include <windows.h>
 #include <string>
 
+// A path as the C helpers take it, in UTF-8.
+inline std::string KmrpUtf8PathK1(const std::wstring& path)
+{
+    const int length = WideCharToMultiByte(CP_UTF8, 0, path.c_str(), -1, nullptr, 0, nullptr, nullptr);
+    if (length <= 0) return std::string();
+    std::string text(static_cast<size_t>(length), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, path.c_str(), -1, &text[0], length, nullptr, nullptr);
+    text.resize(static_cast<size_t>(length) - 1);
+    return text;
+}
+
 // A path in the system's code page as it is, or "" when it has a character the page lacks.
 inline std::string KmrpCodePagePathK1(const std::wstring& path)
 {

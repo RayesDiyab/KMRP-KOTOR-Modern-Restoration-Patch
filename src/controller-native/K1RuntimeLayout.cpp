@@ -10,6 +10,7 @@
 #include "../../macos/tools/kmrp-iconsize.h"
 #include <windows.h>
 #include "K1EngineMemory.h"
+#include "K1EngineFields.h"
 #include <map>
 #include <vector>
 #include <string>
@@ -948,9 +949,7 @@ bool KmrpRuntimeLayoutDimensions(void* manager, int width, int height)
             const bool minimap = canvasNow.width == 512 && canvasNow.height == 256 &&
                                  overlayNow.width == 440 && overlayNow.height == 256;
             if (!minimap) {
-                const double exact = (width / 2) * 512 / 440.0, lower = std::floor(exact), part = exact - lower;
-                const int canvasWidth = static_cast<int>(lower) +
-                    (part > .5 || (part == .5 && std::fmod(lower, 2.) != 0.) ? 1 : 0);
+                const int canvasWidth = KmrpRoundEven((width / 2) * 512 / 440.0);
                 changes.push_back({canvas, {canvasNow.left, canvasNow.top, canvasWidth, height / 2}});
                 changes.push_back({overlay, {overlayNow.left, overlayNow.top, width / 2, height / 2}});
             }
@@ -964,8 +963,7 @@ bool KmrpRuntimeLayoutDimensions(void* manager, int width, int height)
             for (const auto& picture : pictures) {
                 void* image = At<void*>(overlay, picture.at);
                 if (!image) continue;
-                const double exact = static_cast<float>(picture.base) * marker, lower = std::floor(exact), part = exact - lower;
-                int side = static_cast<int>(lower) + (part > .5 || (part == .5 && std::fmod(lower, 2.) != 0.) ? 1 : 0);
+                int side = KmrpRoundEven(static_cast<float>(picture.base) * marker);
                 if (side < 1) side = 1;
                 const Extent now = At<Extent>(image, 4);
                 changes.push_back({image, {now.left, now.top, side, side}});
