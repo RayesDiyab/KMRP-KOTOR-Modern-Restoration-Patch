@@ -3,6 +3,7 @@
 #include "K1Rect.h"
 #include "K1ControllerLayout.h"
 #include "K1GuiControls.h"
+#include "K1FontInfo.h"
 #include "K1StatusSummary.h"
 #include <windows.h>
 #include "KmrpOptions.h"
@@ -317,24 +318,16 @@ bool lastReplyLine(void* text, ReplyLine& out) {
     char* const object=At<char*>(text,0x14);
     if (!IsReadableK1(object,0x44)) return false;
     const char* const string=At<const char*>(object,0x14);
-    void* const font=At<void*>(object,0x18);
     const int lines=At<int>(object,0x38);
     const int* const lengths=At<const int*>(object,0x34);
-    if (lines<1 || lines>32 || !IsReadableK1(lengths,lines*sizeof(int)) || !IsReadableK1(font,4))
-        return false;
+    if (lines<1 || lines>32 || !IsReadableK1(lengths,lines*sizeof(int))) return false;
     auto length=[&](int i) { return lengths[i]<0 ? -lengths[i] : lengths[i]; };
     int total=1;                                    // the terminator
     for (int i=0;i<lines;++i) total+=length(i)+1;   // a line and its separator
     if (total>4096 || !IsReadableK1(string,total-1)) return false;
-    void** const vtable=At<void**>(font,0);
-    if (!IsReadableK1(vtable,0x3C)) return false;
-    using Info=char*(__thiscall*)(void*);
-    char* const info=reinterpret_cast<Info>(vtable[0x38/4])(font);
-    if (!IsReadableK1(info,0x28)) return false;
-    const char* const upperLeft=At<const char*>(info,0x18);
-    const char* const lowerRight=At<const char*>(info,0x24);
-    if (!IsReadableK1(upperLeft,256*12) || !IsReadableK1(lowerRight,256*12)) return false;
-    const float texels=At<float>(info,0x0C)*100.0f;
+    KmrpFontK1 font;
+    if (!KmrpFontOfStringK1(object,font)) return false;
+    const float texels=font.texels*100.0f;
     const char* line=string;
     for (int i=0;i+1<lines;++i) {
         line+=length(i);
@@ -344,16 +337,14 @@ bool lastReplyLine(void* text, ReplyLine& out) {
     while (end>0 && line[end-1]==' ') --end;        // a trailing space is not text
     float width=0.0f;
     for (int i=0;i<end && line[i];++i) {
-        const int glyph=static_cast<unsigned char>(line[i])*12;
-        width+=(*reinterpret_cast<const float*>(lowerRight+glyph)
-               -*reinterpret_cast<const float*>(upperLeft+glyph))*texels;
+        width+=font.Span(line[i])*texels;
     }
     out.width=static_cast<int>(width+0.5f);
     out.lines=lines;
     out.scale=At<float>(object,0x40);
     // One drawn line: fontheight x 100 texels (font information +0x04, as
     // CSWGuiText's height function reads it), texels being pixels here.
-    out.lineHeight=static_cast<int>(At<float>(info,0x04)*100.0f+0.5f);
+    out.lineHeight=static_cast<int>(font.height*100.0f+0.5f);
     return out.width>0;
 }
 unsigned dialogGeometryLogs = 0;

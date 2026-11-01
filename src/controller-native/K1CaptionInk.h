@@ -20,6 +20,7 @@
 #endif
 #include <windows.h>
 #include "K1EngineMemory.h"
+#include "K1FontInfo.h"
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -251,31 +252,17 @@ inline bool Letters(void* string, double* middle, int* line) {
 // scale and 100; 0 when it cannot be told or the caption has more than one line. The
 // controller patch's MeasureK1CaptionByFont makes the same sum (K1XboxControls.cpp).
 inline int CaptionWidth(void* string) {
-    if (!IsReadableK1(string, 0x44)) return 0;
+    KmrpFontK1 font;
+    if (!KmrpFontOfStringK1(string, font)) return 0;
     if (*reinterpret_cast<const int*>(static_cast<char*>(string) + 0x38) > 1) return 0;
-    void* const font = *reinterpret_cast<void**>(static_cast<char*>(string) + 0x18);
-    if (!IsReadableK1(font, sizeof(void*))) return 0;
-    void** const vtable = *reinterpret_cast<void***>(font);
-    if (!IsReadableK1(vtable, 0x3C)) return 0;
-    const char* const info = reinterpret_cast<const char*(__thiscall*)(void*)>(vtable[0x38 / 4])(font);
-    if (!IsReadableK1(info, 0x28)) return 0;
-    const char* const upperLeft = *reinterpret_cast<const char* const*>(info + 0x18);
-    const char* const lowerRight = *reinterpret_cast<const char* const*>(info + 0x24);
-    if (!IsReadableK1(upperLeft, 256 * 12) || !IsReadableK1(lowerRight, 256 * 12)) return 0;
     const char* const chars = *reinterpret_cast<const char* const*>(static_cast<char*>(string) + 0x14);
     if (!IsReadableK1(chars, 1)) return 0;
-    float scale = *reinterpret_cast<const float*>(static_cast<char*>(string) + 0x40);
-    if (!(scale > 0.01f && scale < 100.0f)) scale = 1.0f;
-    const float texels = *reinterpret_cast<const float*>(info + 0x0C);
-    const float spacing = *reinterpret_cast<const float*>(info + 0x10);
     float width = 0.0f;
     for (int i = 0; i < 256 && IsReadableK1(chars + i, 1) && chars[i] != '\0'; ++i) {
         if (chars[i] == '\n') return 0;
-        const int glyph = static_cast<unsigned char>(chars[i]) * 12;
-        width += (*reinterpret_cast<const float*>(lowerRight + glyph) -
-                  *reinterpret_cast<const float*>(upperLeft + glyph)) * texels + spacing;
+        width += font.Span(chars[i]) * font.texels + font.spacing;
     }
-    return width > 0.0f ? static_cast<int>(width * scale * 100.0f + 0.5f) : 0;
+    return width > 0.0f ? static_cast<int>(width * font.scale * 100.0f + 0.5f) : 0;
 }
 
 // How far KMRP's draw moves a vertically centred text up so its letters' middle is its

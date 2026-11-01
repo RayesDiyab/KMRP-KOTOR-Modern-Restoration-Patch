@@ -46,6 +46,7 @@
 #include "K1EngineAddresses.h"
 #include "K1Rect.h"
 #include "K1EngineMemory.h"
+#include "K1FontInfo.h"
 #include <algorithm>
 #include <climits>
 #include <cmath>
@@ -402,33 +403,16 @@ int LineWidth(void* label)
 
 Extent g_messageRow{};     // the combat-mode message's row in the Xbox layout (ApplyXbox)
 
-// A label's font as its string is drawn, the way PauseNotice reads it below
-// (CAurGUIStringInternal: the font at +0x18, its information by the virtual at +0x38:
-// fontheight +0x04, texturewidth +0x0C, spacingR +0x10, the glyphs' two coordinate
-// arrays at +0x18 and +0x24; the scale at +0x40 of the string).
-struct LabelFont
+// A label's font as its string is drawn (K1FontInfo.h), and its line's height in pixels.
+struct LabelFont : KmrpFontK1
 {
-    const char* upperLeft = nullptr;
-    const char* lowerRight = nullptr;
-    float texels = 0.0f, spacing = 0.0f, scale = 1.0f;
     int lineHeight = 0;
 };
 
 bool FontOfLabel(void* label, LabelFont& out)
 {
-    void* string = At<void*>(Part(label, kLabelText), 0x14);
-    void* font = string ? At<void*>(string, 0x18) : nullptr;
-    if (!font) return false;
-    const char* info = reinterpret_cast<const char*(__thiscall*)(void*)>((*reinterpret_cast<void***>(font))[0x38 / 4])(font);
-    if (!info) return false;
-    out.upperLeft = *reinterpret_cast<const char* const*>(info + 0x18);
-    out.lowerRight = *reinterpret_cast<const char* const*>(info + 0x24);
-    if (!out.upperLeft || !out.lowerRight) return false;
-    out.scale = At<float>(string, 0x40);
-    if (!(out.scale > 0.01f && out.scale < 100.0f)) out.scale = 1.0f;
-    out.texels = *reinterpret_cast<const float*>(info + 0x0C);
-    out.spacing = *reinterpret_cast<const float*>(info + 0x10);
-    out.lineHeight = static_cast<int>(*reinterpret_cast<const float*>(info + 0x04) * out.scale * 100.0f + 0.5f);
+    if (!KmrpFontOfStringK1(At<void*>(Part(label, kLabelText), 0x14), out)) return false;
+    out.lineHeight = static_cast<int>(out.height * out.scale * 100.0f + 0.5f);
     return out.lineHeight > 0;
 }
 
@@ -438,8 +422,7 @@ int WideIn(const LabelFont& f, const char* text)
     if (!text) return 0;
     float sum = 0.0f;
     for (; *text; ++text) {
-        const int glyph = static_cast<unsigned char>(*text) * 12;
-        sum += (*reinterpret_cast<const float*>(f.lowerRight + glyph) - *reinterpret_cast<const float*>(f.upperLeft + glyph)) * f.texels + f.spacing;
+        sum += f.Span(*text) * f.texels + f.spacing;
     }
     return static_cast<int>(sum * f.scale * 100.0f + 0.999f);
 }
@@ -1706,31 +1689,11 @@ void PauseNotice(void* pause, void* client)
         g_pauseKept.pressShown = (At<int>(press, kControlFlags) & kControlVisible) != 0;
     }
 
-    // The font's measures, from the first label's string as it is drawn
-    // (CAurGUIStringInternal: the font at +0x18, its information by the virtual at
-    // +0x38: fontheight +0x04, texturewidth +0x0C, spacingR +0x10, the glyphs' two
-    // coordinate arrays at +0x18 and +0x24; the scale at +0x40 of the string).
-    void* string = At<void*>(Part(reason, kLabelText), 0x14);
-    void* font = string ? At<void*>(string, 0x18) : nullptr;
-    if (!font) return;
-    const char* info = reinterpret_cast<const char*(__thiscall*)(void*)>((*reinterpret_cast<void***>(font))[0x38 / 4])(font);
-    if (!info) return;
-    const char* upperLeft = *reinterpret_cast<const char* const*>(info + 0x18);
-    const char* lowerRight = *reinterpret_cast<const char* const*>(info + 0x24);
-    if (!upperLeft || !lowerRight) return;
-    float scale = At<float>(string, 0x40);
-    if (!(scale > 0.01f && scale < 100.0f)) scale = 1.0f;
-    const float texels = *reinterpret_cast<const float*>(info + 0x0C), spacing = *reinterpret_cast<const float*>(info + 0x10);
-    const auto wide = [&](const char* text) {
-        float sum = 0.0f;
-        for (; *text; ++text) {
-            const int glyph = static_cast<unsigned char>(*text) * 12;
-            sum += (*reinterpret_cast<const float*>(lowerRight + glyph) - *reinterpret_cast<const float*>(upperLeft + glyph)) * texels + spacing;
-        }
-        return static_cast<int>(sum * scale * 100.0f + 0.999f);
-    };
-    const int lineHeight = static_cast<int>(*reinterpret_cast<const float*>(info + 0x04) * scale * 100.0f + 0.5f);
-    if (lineHeight <= 0) return;
+    // The font's measures, from the first label's string as it is drawn.
+    LabelFont font;
+    if (!FontOfLabel(reason, font)) return;
+    const auto wide = [&](const char* text) { return WideIn(font, text); };
+    const int lineHeight = font.lineHeight;
 
     // The words before the picture: the reason's first line (the PC puts "Press the
     // Pause key ..." on a second line for an enemy or a mine sighted), a full stop
@@ -1771,25 +1734,10 @@ void PauseNotice(void* pause, void* client)
     int firstWide = wide(first), secondWide = wide(second);
     // The second label in its own string's measures, where it has one: its words
     // reached the box's frame in the first build of this line.
-    {
-        void* own = At<void*>(Part(press, kLabelText), 0x14);
-        void* ownFont = own ? At<void*>(own, 0x18) : nullptr;
-        const char* ownInfo = ownFont
-            ? reinterpret_cast<const char*(__thiscall*)(void*)>((*reinterpret_cast<void***>(ownFont))[0x38 / 4])(ownFont) : nullptr;
-        if (ownInfo && *reinterpret_cast<const char* const*>(ownInfo + 0x18) && *reinterpret_cast<const char* const*>(ownInfo + 0x24)) {
-            const char* ul = *reinterpret_cast<const char* const*>(ownInfo + 0x18);
-            const char* lr = *reinterpret_cast<const char* const*>(ownInfo + 0x24);
-            float ownScale = At<float>(own, 0x40);
-            if (!(ownScale > 0.01f && ownScale < 100.0f)) ownScale = 1.0f;
-            float sum = 0.0f;
-            for (const char* c = second; *c; ++c) {
-                const int g = static_cast<unsigned char>(*c) * 12;
-                sum += (*reinterpret_cast<const float*>(lr + g) - *reinterpret_cast<const float*>(ul + g)) *
-                       *reinterpret_cast<const float*>(ownInfo + 0x0C) + *reinterpret_cast<const float*>(ownInfo + 0x10);
-            }
-            const int measured = static_cast<int>(sum * ownScale * 100.0f + 0.999f);
-            if (measured > secondWide) secondWide = measured;
-        }
+    LabelFont own;
+    if (FontOfLabel(press, own)) {
+        const int measured = WideIn(own, second);
+        if (measured > secondWide) secondWide = measured;
     }
     const int top = edge + (glyph - lineHeight) / 2;
     set[0] = {end - slack, top, firstWide + 2 * slack, lineHeight};
@@ -1899,12 +1847,9 @@ int TallestDescription(void* hud, void* menu, const char* usualEntry, String* no
     static bool unmeasured = false;
     void* label = Part(hud, kHudDescription);
     void* string = At<void*>(Part(label, kLabelText), 0x14);
-    void* font = string ? At<void*>(string, 0x18) : nullptr;
-    if (!font) return tallest;
-    const char* info = reinterpret_cast<const char*(__thiscall*)(void*)>((*reinterpret_cast<void***>(font))[0x38 / 4])(font);
-    if (!info) return tallest;
-    const Measure now{info, *reinterpret_cast<const float*>(info + 0x04), *reinterpret_cast<const float*>(info + 0x0C),
-                      At<Extent>(label, kControlExtent).width};
+    KmrpFontK1 font;
+    if (!KmrpFontOfStringK1(string, font)) return tallest;
+    const Measure now{font.info, font.height, font.texels, At<Extent>(label, kControlExtent).width};
     if (!(now == measuredWith)) {
         for (auto& item : heights) item.second = -1;
         tallest = 0;

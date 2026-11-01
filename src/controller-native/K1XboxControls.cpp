@@ -2722,37 +2722,11 @@ constexpr std::ptrdiff_t K1_TEXT_CHARS_OFFSET = 0x18;        // its CSWGuiTextPa
 // engine breaks it (1: the whole caption on one line).
 int MeasureK1CaptionByFont(void* string, const char* chars, int* lineHeight, int wrapLines = 0)
 {
-    if (!IsReadableK1(string, 0x44)) {
+    KmrpFontK1 font;
+    if (!KmrpFontOfStringK1(string, font)) {
         return 0;
     }
-    void* const font = *reinterpret_cast<void**>(static_cast<char*>(string) + 0x18);
-    if (!IsReadableK1(font, sizeof(void*))) {
-        return 0;
-    }
-    void** const vtable = *reinterpret_cast<void***>(font);
-    if (!IsReadableK1(vtable, 0x3C)) {
-        return 0;
-    }
-    const char* const info = reinterpret_cast<const char*(__thiscall*)(void*)>(vtable[0x38 / 4])(font);
-    if (!IsReadableK1(info, 0x28)) {
-        return 0;
-    }
-    const char* const upperLeft = *reinterpret_cast<const char* const*>(info + 0x18);
-    const char* const lowerRight = *reinterpret_cast<const char* const*>(info + 0x24);
-    if (!IsReadableK1(upperLeft, 256 * 12) || !IsReadableK1(lowerRight, 256 * 12)) {
-        return 0;
-    }
-    float scale = *reinterpret_cast<const float*>(static_cast<char*>(string) + 0x40);
-    if (!(scale > 0.01f && scale < 100.0f)) {
-        scale = 1.0f;
-    }
-    const float texels = *reinterpret_cast<const float*>(info + 0x0C);
-    const float spacing = *reinterpret_cast<const float*>(info + 0x10);
-    const auto advance = [&](char c) {
-        const int glyph = static_cast<unsigned char>(c) * 12;
-        return (*reinterpret_cast<const float*>(lowerRight + glyph) -
-                *reinterpret_cast<const float*>(upperLeft + glyph)) * texels + spacing;
-    };
+    const auto advance = [&](char c) { return font.Span(c) * font.texels + font.spacing; };
     // A caption the engine has broken into lines ("Auto Level / Up" on the Character
     // screen) is as wide as its widest line: the lines' lengths are at [+0x34] of the
     // string object and their number at +0x38, a negative length meaning the same
@@ -2848,9 +2822,9 @@ int MeasureK1CaptionByFont(void* string, const char* chars, int* lineHeight, int
         return 0;
     }
     if (lineHeight) {
-        *lineHeight = static_cast<int>(*reinterpret_cast<const float*>(info + 0x04) * scale * 100.0f + 0.5f);
+        *lineHeight = static_cast<int>(font.height * font.scale * 100.0f + 0.5f);
     }
-    return static_cast<int>(width * scale * 100.0f + 0.5f);
+    return static_cast<int>(width * font.scale * 100.0f + 0.5f);
 }
 
 // `wrapLines`: see MeasureK1CaptionByFont.
