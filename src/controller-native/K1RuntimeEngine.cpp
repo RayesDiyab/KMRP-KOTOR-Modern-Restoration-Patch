@@ -8,8 +8,7 @@
 #include "K1RuntimeResolution.h"
 #include "K1RuntimeAssets.h"
 #include "NativeEngine.generated.h"
-#include "../../macos/tools/kmrp-iconsize.h"
-#include <cmath>
+#include "K1EngineFields.h"
 #include <array>
 
 namespace {
@@ -32,44 +31,9 @@ bool FieldInForce(const NativeField& field)
     return true;
 }
 
-int RoundEven(double value)
-{
-    const double lower = std::floor(value), fraction = value - lower;
-    return static_cast<int>(lower + (fraction > .5 ||
-        (fraction == .5 && std::fmod(lower, 2.) != 0.) ? 1 : 0));
-}
-
 std::array<std::uint8_t, 4> FieldValue(const NativeField& f, int width, int height)
 {
-    const float scale = height > 720 ? static_cast<float>(height) / 720.f : 1.f;
-    const float marker = scale > 127.f / 16.f ? 127.f / 16.f : scale;
-    int value = 0;
-    std::array<std::uint8_t, 4> result{};
-    switch (f.kind) {
-    case 1: value = width; break;
-    case 2: value = height; break;
-    case 3:
-        value = RoundEven(static_cast<float>(f.base) * scale);
-        // The Icon Size slider (issue 80, kmrp-iconsize.h): the feat and power chart rows
-        // (CSWGuiSkillFlowChart::AddPowerSet, AddFeatSet) and the Skills tab's rows
-        // (CSWGuiInGameSkillEntry) grow with their icons where the icons outgrow them. At
-        // the default (50%) every value is as before.
-        if (f.va == 0x006CD8D9 || f.va == 0x006CDB79)
-            value = kmrp_icon_chain_row(value, scale, KmrpIconSizePercentK1());
-        else if (f.va == 0x006AB8EF || f.va == 0x006ACB20)
-            value = kmrp_icon_skill_row(value, scale, KmrpIconSizePercentK1());
-        break;
-    case 4: value = -width; break;
-    case 5: value = -height; break;
-    case 6: value = RoundEven((width / 2) * 512 / 440.0); break;
-    case 7: value = width / 2; break;
-    case 8: value = height / 2; break;
-    case 9: std::memcpy(result.data(), &scale, 4); return result;
-    case 10: value = RoundEven(static_cast<float>(f.base) * marker); if (value < 1) value = 1; break;
-    case 11: value = -RoundEven(static_cast<float>(-f.base) * marker); if (value > -1) value = -1; break;
-    }
-    std::memcpy(result.data(), &value, f.size);
-    return result;
+    return KmrpEngineFieldValue(f.va, f.size, f.kind, f.base, width, height, KmrpIconSizePercentK1());
 }
 
 std::uint32_t FieldAddress(const NativeField& field)

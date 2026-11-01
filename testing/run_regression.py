@@ -68,6 +68,7 @@ TESTS = {
     "Test-ControllerPromptAssets": ("full", py("Test-ControllerPromptAssets"), [], ""),
     "Test-DpiCompatibility": ("full", ps("Test-DpiCompatibility"), [], ""),
     "Test-DriverCompatImports": ("quick", py("Test-DriverCompatImports"), [], ""),
+    "Test-EngineFields": ("quick", py("Test-EngineFields"), [], ""),
     "Test-FontAtlasScale": ("full", py("Test-FontAtlasScale"), [], ""),
     "Test-GameArt": ("full", py("Test-GameArt", STEAM_GAME), [STEAM_GAME], ""),
     "Test-GeneratedGuiGeometry": ("full", py("Test-GeneratedGuiGeometry"), [], ""),
