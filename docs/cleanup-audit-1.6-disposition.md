@@ -92,10 +92,10 @@ tests from before this cycle were not all re-proved.
 | PAD-7 | Motors may hold through a movie | Open | | Suspected; on the checklist to measure |
 | PAD-8 | Stale saber hum after a load | Tested | `5576e8b` | Test-RumbleMixer |
 | GUI-6 | Picture references never released | Open | | |
-| GUI-7 | Weakest key reader | Open | | |
+| GUI-7 | Weakest key reader | Tested | this cycle | Test-GameArtFailure: bad keys refused, a good one read; the old file ends in an access violation |
 | GUI-9 | Badge signature ignores scale | Open | | |
 | GUI-10 | "Override's font" for KMRP's own | Tested | `5576e8b` | One log line, read |
-| GUI-11 | Unchecked allocation | Open | | |
+| GUI-11 | Unchecked allocation | Tested | this cycle | Test-GameArtFailure fails each of a picture's 7 allocations in turn. `add_texture`'s path has the same checks but is not run: it needs a texture pack |
 | GUI-12 | `size_t` wrap on 32-bit | Open | | |
 | INS-09 | Override restore cannot resume | Tested | `cf60ec7` | Case 19 |
 | INS-10 | Linux restore does less | In-game | `cf60ec7` | Art cache removal compiled, not run on Linux. Kept: Linux sets no DPI value, and a `C:\` row is skipped on purpose |

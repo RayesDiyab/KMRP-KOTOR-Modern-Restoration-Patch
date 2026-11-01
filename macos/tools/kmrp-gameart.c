@@ -287,15 +287,15 @@ unsigned char *KmrpReadPreloadTexture(const char *game, const char *assets, cons
 
 static uint8_t *flip_rows(const uint8_t *pixels, int width, int height) {
     size_t stride = (size_t)width * 4;
-    uint8_t *out = malloc(stride * height);
-    for (int y = 0; y < height; y++) memcpy(out + (size_t)(height - 1 - y) * stride, pixels + (size_t)y * stride, stride);
+    uint8_t *out = pixels ? malloc(stride * height) : NULL;
+    for (int y = 0; out && y < height; y++) memcpy(out + (size_t)(height - 1 - y) * stride, pixels + (size_t)y * stride, stride);
     return out;
 }
 
 static uint8_t *nearest(const uint8_t *pixels, int width, int height, int factor) {
     int nw = width * factor, nh = height * factor;
-    uint8_t *out = malloc((size_t)nw * nh * 4);
-    for (int y = 0; y < nh; y++)
+    uint8_t *out = pixels ? malloc((size_t)nw * nh * 4) : NULL;
+    for (int y = 0; out && y < nh; y++)
         for (int x = 0; x < nw; x++)
             memcpy(out + ((size_t)y * nw + x) * 4, pixels + ((size_t)(y / factor) * width + x / factor) * 4, 4);
     return out;
@@ -303,7 +303,8 @@ static uint8_t *nearest(const uint8_t *pixels, int width, int height, int factor
 
 /* AbilityIconGenerator.Resize (and kmrp-abilityicons.c, resize_rgba in the build). */
 static uint8_t *resize(const uint8_t *pixels, int width, int height, int new_width, int new_height) {
-    uint8_t *result = malloc((size_t)new_width * new_height * 4);
+    uint8_t *result = pixels ? malloc((size_t)new_width * new_height * 4) : NULL;
+    if (!result) return NULL;
     double x_ratio = (double)width / new_width;
     double y_ratio = (double)height / new_height;
     for (int y = 0; y < new_height; y++) {
@@ -339,7 +340,8 @@ static uint8_t *resize(const uint8_t *pixels, int width, int height, int new_wid
 static Buffer tga(const uint8_t *bottom_up, int width, int height) {
     Buffer b;
     b.size = 18 + (size_t)width * height * 4;
-    b.data = calloc(1, b.size);
+    b.data = bottom_up ? calloc(1, b.size) : NULL;
+    if (!b.data) { b.size = 0; return b; }
     b.data[2] = 2;
     b.data[12] = width & 0xff; b.data[13] = (width >> 8) & 0xff;
     b.data[14] = height & 0xff; b.data[15] = (height >> 8) & 0xff;
@@ -382,10 +384,12 @@ static int add_texture(const Buffer *erf, const char *resref, const char *out_na
     uint8_t *scaled = nearest_on_multiples && w == h && size % w == 0
         ? nearest(top_down, w, h, size / w) : resize(top_down, w, h, size, size);
     uint8_t *out_rows = flip_rows(scaled, size, size);
-    Output *o = &outputs[output_count++];
+    Output *o = &outputs[output_count];
     snprintf(o->name, sizeof o->name, "%s.tga", out_name);
     o->file = tga(out_rows, size, size);
     free(bottom_up); free(top_down); free(scaled); free(out_rows);
+    if (!o->file.data) return fail("no memory for a texture");
+    output_count++;
     derived(o->name, resref, size, size, 0, 0, nearest_on_multiples ? "nearest" : "linear");
     return 1;
 }
@@ -414,7 +418,7 @@ int KmrpDeriveImage(const char *source, int canvas, int picture, int left, int b
     uint8_t *top_down = flip_rows(bottom_up, w, h);
     uint8_t *scaled = filter && strcmp(filter, "nearest") == 0 && w == h && picture % w == 0
         ? nearest(top_down, w, h, picture / w) : resize(top_down, w, h, picture, picture);
-    uint8_t *drawn = calloc((size_t)canvas * canvas, 4);
+    uint8_t *drawn = scaled ? calloc((size_t)canvas * canvas, 4) : NULL;
     const int top = canvas - bottom - picture;
     for (int y = 0; drawn && y < picture; y++)
         memcpy(drawn + ((size_t)(top + y) * canvas + left) * 4, scaled + (size_t)y * picture * 4, (size_t)picture * 4);
@@ -452,18 +456,18 @@ static Buffer keyed_resource(const char *key_path, const char *resref, int type)
     uint32_t bif_count = u32(key.data + 8), key_count = u32(key.data + 12);
     uint32_t file_table = u32(key.data + 16), key_table = u32(key.data + 20);
     for (uint32_t i = 0; i < key_count; i++) {
-        size_t at = key_table + (size_t)i * 22;
+        uint64_t at = (uint64_t)key_table + (uint64_t)i * 22;
         if (at + 22 > key.size) break;
         char name[17] = { 0 };
         memcpy(name, key.data + at, 16);
         if (strcasecmp(name, resref) != 0 || u16(key.data + at + 16) != type) continue;
         uint32_t id = u32(key.data + at + 18), bif_index = id >> 20, index = id & 0xFFFFF;
-        if (bif_index >= bif_count) break;
-        size_t entry = file_table + (size_t)bif_index * 12;
+        uint64_t entry = (uint64_t)file_table + (uint64_t)bif_index * 12;
+        if (bif_index >= bif_count || entry + 12 > key.size) break;
         uint32_t name_offset = u32(key.data + entry + 4);
         uint16_t name_length = u16(key.data + entry + 8);
         char bif_path[4096], relative[512] = { 0 };
-        if (name_length >= sizeof relative) break;
+        if (name_length >= sizeof relative || (uint64_t)name_offset + name_length > key.size) break;
         memcpy(relative, key.data + name_offset, name_length);
         for (char *p = relative; *p; p++) if (*p == '\\') *p = '/';
         /* Either separator: on Windows the module passes C:\...\chitin.key, and with '/'
@@ -480,13 +484,14 @@ static Buffer keyed_resource(const char *key_path, const char *resref, int type)
         free(key.data);
         if (!bif.data || bif.size < 20 || memcmp(bif.data, "BIFFV1  ", 8) != 0) { free(bif.data); return none; }
         uint32_t variable_count = u32(bif.data + 8), variable_table = u32(bif.data + 16);
-        size_t record = variable_table + (size_t)index * 16;
+        uint64_t record = (uint64_t)variable_table + (uint64_t)index * 16;
         if (index >= variable_count || record + 16 > bif.size || (u32(bif.data + record) & 0xFFFFF) != index) {
             free(bif.data); return none;
         }
         uint32_t offset = u32(bif.data + record + 4), size = u32(bif.data + record + 8);
         if ((uint64_t)offset + size > bif.size) { free(bif.data); return none; }
         Buffer out = { malloc(size ? size : 1), size };
+        if (!out.data) { free(bif.data); return none; }
         memcpy(out.data, bif.data + offset, size);
         free(bif.data);
         return out;
