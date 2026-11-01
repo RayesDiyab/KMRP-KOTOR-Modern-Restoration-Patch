@@ -132,9 +132,36 @@ that ceiling, and the check reads the buffer inside the function. It reports 106
 The check's other warning stands: three badges built and never referenced (`kmrpa_clssel`,
 `kmrpl_pzkflip`, `kmrpx_pzkplay`). It is not this finding's.
 
-## F7. `Test-SwoopPrompt` fails on the last commit already (open)
+## F7. `Test-SwoopPrompt` fails on the last commit already (fixed)
 
-Its harness compiles a slice of `K1NativeJoystick.cpp` that calls `KmrpDrawnPictureK1`
-without a declaration in the slice: the same error with the last commit's sources as after
-F1.
+Its harness compiles a slice of `K1NativeJoystick.cpp` that calls `KmrpDrawnPictureK1`, and
+the harness never got that function when the call came in `0ae9175` (2026-10-28), so the
+test had not compiled since. The harness now has it, drawing families 1 and 3 and naming
+none for 0 and 2, so both ways the prompt can load are checked. **Passes: 47 checks.**
 
+## F8. `Test-GuiAudit` stopped at a badge KMRP's sets no longer carry (fixed; findings stand)
+
+Since `b1148c9` (2026-10-27) KMRP's sets carry no controller art, and the audit's badge step
+still read each listed badge from them, so it stopped at `kmrpb_charexit.tga`. It reads only
+the badges a set draws now, and the report says the badge aspect check is untested when
+there are none. The audit runs to its end again: 66 listed and 606 blended sizes, 394 helper
+rejections, 1,611,456 control instances. Mac artifact builds were skipped (`--skip-build`).
+
+**It still exits 1, and that is the audit's design:** "A nonzero exit with KMRP findings is
+expected until the maintainer reviews them". Finding groups: KMRP 1,269, inherited 891, by
+design 219. The last report's figures are 1,651, 889 and 219 (`GuiAudit-2026-10-11.md`). Nothing
+was exempted, and none of the 1,269 was reviewed here. The test is run with `--report`
+outside `testing/` while it is only being checked, so it leaves no dated report in the repository.
+
+## F9. `Test-ControllerPromptAssets` stopped at the galaxy map (fixed)
+
+Six hints added on 2026-10-28 have no entry in `PROMPT_STRREFS`: Travel and Cancel on the galaxy
+map, OK and Cancel on the save name popup, and Pazaak setup's `BTN_YTEXT` and `BTN_ATEXT`. The
+builder takes a missing entry as no wording (`.get`), the test demanded one, and it had not got
+past the first. Their rows in `kmrp_prompts.txt` bake a width of 0 and no variants, and no
+controller source reads that file, so a table entry would change nothing there on Windows.
+
+The test names the six (`RUNTIME_CAPTIONED_TARGETS`), checks that they bake nothing, and fails
+for a seventh button without an entry, or if one of the six gains one. **Passes: 38,544 badged
+buttons in 66 sets.** What was not read: whether the Mac's own badges need a width for these
+six, since its build keeps controller art in its sets.

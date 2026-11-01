@@ -63,6 +63,13 @@ template<typename T> T EngineFn(std::uintptr_t address) {
     if (address==0x004402F0) return reinterpret_cast<T>(&FindPart);
     return nullptr;
 }
+// The controller patch draws the prompt (families 1 and 3 here); KMRP's module, which has no
+// pictures to draw, gives no name and loads the one it carries (0 and 2).
+bool KmrpDrawnPictureK1(const char* name, char out[17]) {
+    if (name[3]!='s' && name[3]!='d') return false;
+    std::strcpy(out,"kmzdrawn_");out[9]=name[3];out[10]='\0';
+    return true;
+}
 // KMRP_PRODUCTION_PROMPT_HELPER
 
 int checks=0;
@@ -77,7 +84,10 @@ int main() {
     std::strcpy(originals[0].name,"abutton");std::strcpy(originals[1].name,"other");std::strcpy(originals[2].name,"abutton_custom");
     for(int i=0;i<3;++i) originalRefs[i].texture=&originals[i];
     const char letters[]="psnd";
-    for(int i=0;i<4;++i) { std::strcpy(glyphTextures[i].name,"kmrpp_swoop");glyphTextures[i].name[3]=letters[i];glyphRefs[i].texture=&glyphTextures[i]; }
+    for(int i=0;i<4;++i) {
+        std::strcpy(glyphTextures[i].name,"kmrpp_swoop");glyphTextures[i].name[3]=letters[i];glyphRefs[i].texture=&glyphTextures[i];
+        if (i&1) { std::strcpy(glyphTextures[i].name,"kmzdrawn_");glyphTextures[i].name[9]=letters[i];glyphTextures[i].name[10]='\0'; }
+    }
     *FieldAt<void*>(&fakeInternal,0x18)=&fakeModule; *FieldAt<void*>(&fakeModule,0x48)=&fakeArea;
     *FieldAt<void*>(&fakeArea,0x264)=&race; *FieldAt<int>(&race,0x80)=1;
     *FieldAt<void*>(&race,0x24)=&fakePlayer; *FieldAt<void*>(&fakePlayer,0x68)=attached; *FieldAt<int>(&fakePlayer,0x6C)=4;

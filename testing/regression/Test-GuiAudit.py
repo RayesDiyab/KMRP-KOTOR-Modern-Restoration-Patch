@@ -252,7 +252,12 @@ class Audit:
     def badges(self, wh, table, read, scope, guis):
         from build_controller_prompt_textures import PROMPT_TARGETS
         by_resref={t.resref:t for t in PROMPT_TARGETS}
-        for badge in table[5]:
+        # KMRP's sets carry no badges since 2026-10-27: Windows' controller patch draws its
+        # own, and a blend table from such sets marks none as drawn.
+        drawn=[b for b in table[5] if b['drawn']]
+        note='UNTESTED badge aspect: these sets carry no badges (the controller patch draws its own).'
+        if not drawn and note not in self.notes: self.notes.append(note)
+        for badge in drawn:
             base='kmrp'+badge['resref'][4:]
             target=by_resref.get(base) or by_resref[base.rstrip('0123456789')]
             control=next(c for c in guis[badge['gui']].children if c.tag==target.tag)

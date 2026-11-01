@@ -160,6 +160,19 @@ def verify_placement_manifest(archive, archive_name, names, gui_cache):
                     f"{archive_name}: {target.resref} baked width {baked} != measured {widest:.2f}")
             continue
 
+        # Hints added 2026-10-28 and placed by the patch's own badges from the caption the
+        # game shows: no wording in the table, so nothing baked and nothing to re-measure.
+        if (target.gui, target.tag) in RUNTIME_CAPTIONED_TARGETS:
+            if (target.gui, target.tag) in PROMPT_STRREFS:
+                raise AssertionError(
+                    f"{target.gui}:{target.tag} has variants now: take it off "
+                    "RUNTIME_CAPTIONED_TARGETS")
+            if encoded != "-" or baked != 0:
+                raise AssertionError(
+                    f"{archive_name}: {target.resref} bakes {baked} and {encoded} without a "
+                    "wording in the table")
+            continue
+
         variants = PROMPT_STRREFS[(target.gui, target.tag)]
         # Except where the panel sets the caption in code: the inventory filter's
         # .gui STRREF is replaced by one of six "Show ... Items" wordings before it
@@ -196,6 +209,13 @@ def verify_placement_manifest(archive, archive_name, names, gui_cache):
                 raise AssertionError(
                     f"{archive_name}: container.gui BTN_GIVEITEMS is {width}px, its caption "
                     f"and badge need {need:.1f}px")
+
+
+RUNTIME_CAPTIONED_TARGETS = {
+    ("galaxymap.gui", "BTN_ACCEPT"), ("galaxymap.gui", "BTN_BACK"),
+    ("savename.gui", "BTN_OK"), ("savename.gui", "BTN_CANCEL"),
+    ("pazaaksetup.gui", "BTN_YTEXT"), ("pazaaksetup.gui", "BTN_ATEXT"),
+}
 
 
 # A glyph that differs from itself flipped upside down by less than this (mean of every
