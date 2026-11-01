@@ -117,6 +117,13 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: a failed art helper is tried again (audit GUI-5)** (2026-11-01). Each helper reads the
+  106 MB texture pack whole, which a game short of memory can fail, and the set was sealed
+  without its icons or tutorial art for good. The set is still used, but is left unsealed for the
+  next two starts, and a third failure seals it, as that is the files and not the moment, and
+  every start would otherwise rebuild it. A missing game file is no failure. Test-AssetPrepare
+  case 10.
+
 - **Testing: the rumble mixer, the live controller suite and two baseline failures (audit
   TST-07, coverage list)** (2026-11-01). Test-RumbleMixer runs the shipped mixer: the evaluator,
   the maximum per motor, modes, merging, keys, held loops, a full table and the saber hum's

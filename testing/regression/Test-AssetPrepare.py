@@ -22,7 +22,9 @@ makes from the player's own game are left out, which is not an error). It checks
   7. a byte wrong in a pack's stored data: no set is marked complete with wrong files;
   8. a set a stopped run left without its marker, and one whose file went missing under its
      marker: the next run makes them again;
-  9. a cache folder that cannot be made: nothing is made, and no crash.
+  9. a cache folder that cannot be made: nothing is made, and no crash;
+ 10. a game whose files the art helpers cannot read: the set is used, not sealed, the next two
+     runs try again, and the third seals it.
 
 It starts no game. Windows only (the module is Windows'). It takes about two minutes on
 the maintainer's PC.
@@ -222,6 +224,24 @@ def main() -> int:
         code, count = finish(run(MODULE, game, blocked))
         check(code != 0 and count == -1 and code & 0xC0000000 != 0xC0000000,
               f"a cache that cannot be made: nothing is made, no crash (exit {code:#x}, made {count})")
+
+        # 10. Art helpers that fail on files that are there.
+        broken = tmp / "broken-game"
+        (broken / "TexturePacks").mkdir(parents=True)
+        (broken / "swkotor.ini").write_text("[Graphics Options]\nWidth=1920\nHeight=1080\n")
+        (broken / "TexturePacks" / "swpc_tex_gui.erf").write_bytes(b"not a texture pack")
+        (broken / "chitin.key").write_bytes(b"not a key")
+        local10 = tmp / "broken"
+        local10.mkdir()
+        code, first = finish(run(MODULE, broken, local10))
+        check(code == 0 and first >= 1, f"helpers that fail do not stop the sets ({first} made)")
+        sealed = [len(cache_state(local10)[2])]
+        finish(run(MODULE, broken, local10))
+        sealed.append(len(cache_state(local10)[2]))
+        finish(run(MODULE, broken, local10))
+        sealed.append(len(cache_state(local10)[2]))
+        check(sealed[0] == 0 and sealed[1] == 0 and sealed[2] == first,
+              f"not sealed at the first two runs, sealed at the third (sets marked: {sealed})")
     print()
     if failures:
         print(f"{len(failures)} check(s) failed")

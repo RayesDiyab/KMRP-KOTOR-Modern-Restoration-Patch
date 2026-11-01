@@ -552,8 +552,9 @@ bool Complete(const std::wstring& directory, const std::string& stamp)
            std::string(text.begin(), text.end()) == stamp + Contents(directory);
 }
 
+// `seal` false after the fill: the folder is used, but not marked finished.
 template<class Fill>
-bool Build(const std::wstring& directory, const std::string& stamp, Fill fill)
+bool Build(const std::wstring& directory, const std::string& stamp, Fill fill, const bool* seal = nullptr)
 {
     if (Complete(directory, stamp)) return true;
     const std::wstring work = directory + L".tmp" + Pid();
@@ -565,6 +566,7 @@ bool Build(const std::wstring& directory, const std::string& stamp, Fill fill)
         RemoveFlat(work);
         return false;
     }
+    if (seal && !*seal) return true;
     const std::string marker = stamp + Contents(directory);
     return WriteNew(directory + L".complete", std::vector<unsigned char>(marker.begin(), marker.end()));
 }
@@ -1510,7 +1512,14 @@ bool BuildSet(int width, int height, std::wstring& directory)
     const std::string stamp = std::to_string(width) + "x" + std::to_string(height) + " pack " + FileStamp(packPath) +
                               " key " + FileStamp(keyPath) + " art 3\n";
     directory = root + L"\\sets\\" + std::to_wstring(width) + L"x" + std::to_wstring(height);
-    return Build(directory, stamp, [&](const std::wstring& work) {
+    // An art helper that failed with the game's files there, which a game short of memory can
+    // do (each reads the 106 MB texture pack whole): the set is used, but it is not sealed, so
+    // the next two starts try again. It was sealed for good until 2026-11-01 (audit GUI-5). A
+    // third failure is the files themselves, a replaced pack say, and is sealed, or every
+    // start would rebuild the set. The game's files absent is no failure.
+    const std::wstring triesPath = directory + L".tries";
+    bool seal = true;
+    const bool built = Build(directory, stamp, [&](const std::wstring& work) {
         // Where the time goes, for the debug log: the pack's files, the blend helper, the
         // check against the index, the icons, the game's art, the swoop HUD.
         ULONGLONG mark = GetTickCount64(), part[6]{};
@@ -1587,12 +1596,22 @@ bool BuildSet(int width, int height, std::wstring& directory)
             }
             fclose(list);
         }
-        KmrpAbilityIcons(pack.c_str(), static_cast<unsigned>(height), directory8.c_str(), reserved.c_str());
+        const bool gameFiles = GetFileAttributesW(packPath.c_str()) != INVALID_FILE_ATTRIBUTES &&
+                               GetFileAttributesW(keyPath.c_str()) != INVALID_FILE_ATTRIBUTES;
+        const int icons = KmrpAbilityIcons(pack.c_str(), static_cast<unsigned>(height), directory8.c_str(), reserved.c_str());
         DeleteFileW(reservedW.c_str());
+        if (icons != 0 && gameFiles) {
+            seal = false;
+            char line[160];
+            sprintf_s(line, "[KMRP] warning: the skill and feat icons for %dx%d could not be made from the game's files",
+                      width, height);
+            KmrpRuntimeLog(line);
+        }
         lap(3);
         // All or nothing: without its files the tutorial popup tiles the game's small icon,
         // so a failure is always written (it was silent until 2026-10-23).
         if (KmrpGameArt(pack.c_str(), key.c_str(), static_cast<unsigned>(height), directory8.c_str()) != 0) {
+            if (gameFiles) seal = false;
             char line[200];
             sprintf_s(line, "[KMRP] warning: the tutorial popup's icons, tutorial.2da and the row frames for %dx%d "
                       "could not be made from the game's files", width, height);
@@ -1617,8 +1636,15 @@ bool BuildSet(int width, int height, std::wstring& directory)
                       "game art %llu, swoop %llu)", part[0], part[1], part[2], part[3], part[4], part[5]);
             KmrpRuntimeLog(line);
         }
+        if (seal) return true;
+        std::vector<unsigned char> tries;
+        const std::size_t count = Read(triesPath, tries) ? tries.size() : 0;
+        if (count >= 2) { seal = true; DeleteFileW(triesPath.c_str()); return true; }
+        WriteNew(triesPath, std::vector<unsigned char>(count + 1, '.'));
         return true;
-    });
+    }, &seal);
+    if (built && seal) DeleteFileW(triesPath.c_str());
+    return built;
 }
 
 // This run's folder for a set: links to its files but for what the player's Override
