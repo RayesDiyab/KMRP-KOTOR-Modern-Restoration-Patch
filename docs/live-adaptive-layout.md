@@ -392,7 +392,7 @@ files, every screen). For such a file, the maintainer's three rules (2026-10-31)
 
 | Where | What happens |
 | --- | --- |
-| at the file's own size | exactly as its author left it: the rules convert a canvas to itself unchanged; KMRP's calibration of the game's layout is not applied |
+| at the file's own size | exactly as its author left it: nothing of KMRP's layout runs on it, gutters, row heights, list fits, popup and map box included (since 2026-11-01, audit GUI-8; until then those steps ran and this row was false), and only KMRP's cues, which add controls of their own, go on; KMRP's calibration of the game's layout is not applied |
 | at another size | each control **only scaled** from the game's (every field within the rounding pixel of the game's value under the same rules) is placed where KMRP places the game's, its calibration applied once; every other control keeps the file's own placing, converted from the file's canvas by the rules |
 | ambiguous (any other control) | the mod's placing wins: whether its values hold the author's move, an earlier scaling, a calibration of its own or all of them cannot be told from the values, so no correction is invented; the skipped calibration is reported |
 

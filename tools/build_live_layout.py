@@ -763,6 +763,9 @@ def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height:
         return None
     base, game_base = base_of(source), base_of(vanilla)
     own_canvas = base != game_base
+    # At its own size a file already scaled is left as its author left it; only KMRP's cues,
+    # which add controls of their own, go on (ll_layout).
+    as_left = own_canvas and tuple(base) == (width, height)
     own = {key: extent(s) for key, s, _ in structures(vanilla)}
     own_align = {key: alignment(s) for key, s, _ in structures(vanilla)}
     own_fill = {key: fill_style(s) for key, s, _ in structures(vanilla)}
@@ -831,13 +834,13 @@ def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height:
                         changed = True
         if not changed:
             break
-    for _, struct, _, _, out, _, _ in geometry:
+    for _, struct, _, _, out, _, _ in [] if as_left else geometry:
         e = child(struct, "EXTENT")
         for f, x in zip(FIELDS, out):
             e.set_int32(f, x)
     # 3. The rest of each structure's fields, three ways: gold's only where the file still
     # has the game's.
-    for (key, struct, ctype), (_, _, v4, _, _, _, _) in zip(structures(source), geometry):
+    for (key, struct, ctype), (_, _, v4, _, _, _, _) in [] if as_left else zip(structures(source), geometry):
         row = rows.get(key)
         unmoved = row is not None and not own_canvas and own.get(key) == v4
         if unmoved and row[2] is not None and (width, height) == GOLD_SIZE and struct.exists("PADDING"):
@@ -865,7 +868,7 @@ def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height:
                 and dim == dimension(own_structs[key])):
             child(struct, "BORDER").set_int32("DIMENSION", row[6])
     # The build's gutters, never reducing one but for the hand-set ones.
-    for key, struct, ctype in structures(source):
+    for key, struct, ctype in [] if as_left else structures(source):
         if key[1] or ctype != LISTBOX or not struct.exists("PADDING"):
             continue
         tag = key[0].upper()
@@ -876,22 +879,22 @@ def layout(name: str, vanilla: GFFStruct, source: GFFStruct, width: int, height:
                 g = gutter(unit, height)
                 if force or struct.get_int32("PADDING") < g:
                     struct.set_int32("PADDING", g)
-    lists = [(t, k, b) for (s, t), (k, b) in sorted(ROW_LISTS.items()) if s == name]
+    lists = [] if as_left else [(t, k, b) for (s, t), (k, b) in sorted(ROW_LISTS.items()) if s == name]
     cue = name in R3_CUE_SCREENS and cue_template(source) is not None
     extra_cues = name in (SWAP_CUE_SCREEN, TAB_CUE_SCREEN)
     # The Feedback rows' template is scaled from the game's own height: not for a file
     # already scaled, whose template is its own (ll_layout).
     feedback = name == FEEDBACK_LIST[0] and not own_canvas
     entry = name == ENTRY_SCREEN
-    centre = name == "scriptselect.gui"
-    journal = name == "journal.gui"
-    widen = name == CONTAINER_SCREEN and caption is not None
-    popup = name == POPUP_SCREEN
+    centre = name == "scriptselect.gui" and not as_left
+    journal = name == "journal.gui" and not as_left
+    widen = name == CONTAINER_SCREEN and caption is not None and not as_left
+    popup = name == POPUP_SCREEN and not as_left
     badge = BADGE_SCREENS.get(name) if donor is not None else None
     # The area map's picture control: half the screen's width and height, centred, 14 px
     # lower for the renderer's top inset (analyze_resolution_guis.geometry,
     # set_map_control_extent; reverse-engineering/area-map-surface.md). Every size, 3440x1440 too.
-    if name == MAP_SCREEN:
+    if name == MAP_SCREEN and not as_left:
         target = next((s for k, s, _ in structures(source) if k == (MAP_TAG, "")), None)
         if target is not None:
             box = map_control_box(width, height)

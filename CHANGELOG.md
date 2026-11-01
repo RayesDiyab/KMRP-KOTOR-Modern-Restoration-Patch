@@ -117,6 +117,13 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: a mod's already-scaled screen stays as its author made it (approved decision 5, audit
+  GUI-8)** (2026-11-01). The rule said such a file, at its own size, was left exactly as its author
+  left it, and it was not: KMRP's gutters, centred rows, Journal fit, row heights, popup and map box
+  all still ran on it. Now nothing of KMRP's layout does, and only its cues, which add controls of
+  their own, go on. Test-ModCompatibility gives such files gutters of their own, which must survive,
+  and fails without the fix. A game's own file and a mod's file at another size are unchanged.
+
 - **`vendor/` is retired (approved decision 7)** (2026-11-01). The name said the code was someone
   else's and untouched, and it had been neither for a long time. `K1XboxControls.cpp` moves up
   beside the rest, and what was left of `K1XboxControlsXInput` after the keystroke path is

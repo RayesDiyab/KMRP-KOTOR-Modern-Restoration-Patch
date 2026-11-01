@@ -591,7 +591,7 @@ def test_layouts(helper: Path, tmp: Path) -> None:
 
     # Already-scaled files: every full-screen screen, laid out for 1920x1080 by Live Adaptive
     # Layout itself, then given as a mod's file.
-    tested = 0
+    tested = authored_lists = 0
     for name in sorted(rows):
         vanilla = read_gff((ll.VANILLA / name).read_bytes()).root
         if ll.extent(vanilla) != [0, 0, *ll.base_of(vanilla)]:
@@ -615,6 +615,20 @@ def test_layouts(helper: Path, tmp: Path) -> None:
                 # At its own size exactly as it went in: never scaled twice.
                 off = [(k, got[k], given[k]) for k in given if got.get(k) != given[k]]
                 check(not off, f"{name} at {w}x{h} from 1920x1080: it was scaled twice: {off[:2]}")
+                # And nothing else of KMRP's reaches it (audit GUI-8): this list's gutter is the
+                # author's, smaller than any KMRP would make it.
+                mod = read_gff(scaled.read_bytes())
+                lists = [c for c in mod.root.acquire("CONTROLS", GFFList(), GFFList) if c.exists("PADDING")]
+                if lists:
+                    for control in lists:
+                        control.set_int32("PADDING", 1)
+                    authored = tmp / f"authored-{name}"
+                    write_gff(mod, authored, ResourceType.GUI)
+                    code, _ = live(helper, name, authored, w, h, out)
+                    kept = [c.get_int32("PADDING") for c in read_gff(out.read_bytes()).root.acquire("CONTROLS", GFFList(), GFFList)
+                            if c.exists("PADDING")]
+                    check(code == 0 and kept == [1] * len(lists), f"{name}: its own gutters were changed at its own size: {kept[:4]}")
+                    authored_lists += 1
             else:
                 # Each top-level control either converted from the file's canvas (its centre
                 # where it was, as a share of the screen, within 2%: the file's own placing
@@ -637,6 +651,7 @@ def test_layouts(helper: Path, tmp: Path) -> None:
             check(python is not None and extents(python) == got, f"{name} at {w}x{h}: C and Python differ (scaled)")
             check("not scaled twice" in notes, f"{name}: the canvas was not noted")
     check(tested >= 5, f"only {tested} screens tested already scaled")
+    check(authored_lists >= 3, f"only {authored_lists} screens with a list tried with their own gutters")
 
     # A file scaled by the rules alone, nothing calibrated or moved: at another size each
     # control only scaled gets KMRP's calibration once (rule 2), so the key list stands

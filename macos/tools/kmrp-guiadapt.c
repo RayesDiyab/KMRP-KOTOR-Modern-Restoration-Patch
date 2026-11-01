@@ -745,10 +745,16 @@ static void ll_layout(const char *name, const LLFile *file, Gff *source, const G
         }
         if (!changed) break;
     }
-    if (own_canvas && (bw == width && bh == height))
+    /* At its own size a file already scaled goes no further: not its places, gutters, row
+     * heights, list fits, popup or map box. Those steps ran on it until 2026-11-01 and the
+     * rule below this said it was left alone (audit GUI-8, approved decision 5). KMRP's cues,
+     * which add controls of their own, come after this function. */
+    if (own_canvas && bw == width && bh == height) {
         ll_note("%s: kept exactly as made for %dx%d; KMRP's calibration of the game's layout is not applied to it",
                 name, bw, bh);
-    else if (own_canvas) {
+        return;
+    }
+    if (own_canvas) {
         if (calibrated - released > 0)
             ll_note("%s: %d controls only scaled from the game's: KMRP's calibration applied once", name, calibrated - released);
         if (kept_own + released > 0)
