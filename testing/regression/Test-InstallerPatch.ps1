@@ -44,7 +44,7 @@
     Cases 13 to 17 (2026-11-01, audit INS-02 to INS-04): KPM taking the runtime over and
     KMRP installing over that; a manifest without ini rows; an install failing near its
     end, its rollback succeeding and its rollback blocked by a held file; and the
-    installer killed at eight moments, each followed by an install and a restore. Which
+    installer killed at fifteen moments, each followed by an install and a restore. Which
     stage a kill lands on varies from run to run, and the log says.
 
     Cases 18 to 21 (2026-11-01, audit INS-05 to INS-09): a damaged manifest; a restore
@@ -104,6 +104,12 @@ function Get-Sha([string]$path) { (Get-FileHash -LiteralPath $path -Algorithm SH
 function Invoke-Installer([string[]]$arguments) {
     $process = Start-Process -FilePath $Installer -ArgumentList $arguments -Wait -PassThru
     return $process.ExitCode
+}
+# Why the installer last stopped, which it writes beside itself.
+function Get-InstallerError {
+    $log = Join-Path (Split-Path -Parent $Installer) "KMRP.startup-error.log"
+    if (Test-Path -LiteralPath $log) { return ([IO.File]::ReadAllLines($log) | Select-Object -First 1) }
+    return "no error log"
 }
 function New-Fixture([string]$name) {
     $folder = Join-Path $WorkRoot $name
@@ -594,7 +600,7 @@ try {
     Set-KmrpSettings $true $true
     # Where the installer happens to be at each delay does not matter: what is left must
     # always be something the next run can deal with.
-    foreach ($delay in 150, 250, 350, 450, 600, 800, 1100, 1500) {
+    foreach ($delay in 150, 200, 250, 275, 300, 325, 350, 375, 400, 450, 500, 600, 800, 1100, 1500) {
         $game = New-Fixture "killed-$delay"
         $folder = Split-Path -Parent $game
         $before = Get-Listing $folder
@@ -608,7 +614,9 @@ try {
                  elseif (Test-Path -LiteralPath (Join-Path $folder "KMRP\kpm.manifest")) { "with the manifest only" }
                  else { "before any change" }
         Write-Host "    stopped after $delay ms, $stage"
-        Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "$delay ms: the next install succeeds"
+        $code = Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")
+        Assert ($code -eq 0) "$delay ms: the next install succeeds"
+        if ($code -ne 0) { Write-Host "    $(Get-InstallerError)"; continue }
         Assert ((Get-Content -LiteralPath (Join-Path $folder "KMRP\kpm.manifest") -Raw) -notmatch '(?m)^incomplete') "$delay ms: and is complete"
         Assert (Test-Path -LiteralPath (Join-Path $folder "binkw32Hooked.dll")) "$delay ms: it used KMRP's own runtime, not KPM's"
         Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "$delay ms: the restore succeeds"

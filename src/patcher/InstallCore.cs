@@ -998,6 +998,9 @@ namespace Kmrp
 
     internal static class IniOperations
     {
+        private const string TemporaryInfix = ".kotor-ui-new-";
+        // What a stopped write leaves beside swkotor.ini (KpmEdition.RemoveInProgress).
+        internal const string TemporaryPattern = "swkotor.ini" + TemporaryInfix + "*.tmp";
         internal const int DefaultWidth = 3440;
         internal const int DefaultHeight = 1440;
         private const string GraphicsSection = "Graphics Options";
@@ -1508,14 +1511,13 @@ namespace Kmrp
 
         private static void WriteBytesAtomically(string path, byte[] data)
         {
-            string temporaryPath = path + ".kotor-ui-new-" + Guid.NewGuid().ToString("N") + ".tmp";
+            string temporaryPath = path + TemporaryInfix + Guid.NewGuid().ToString("N") + ".tmp";
             try
             {
                 WriteBytesNew(temporaryPath, data);
-                if (File.Exists(path))
-                    FileGuard.Replace(temporaryPath, path);
-                else
-                    File.Move(temporaryPath, path);
+                // In one step: a kill while File.Replace had the old file aside left the
+                // player with no swkotor.ini at all.
+                FileGuard.MoveOver(temporaryPath, path);
             }
             finally
             {
@@ -1946,6 +1948,38 @@ namespace Kmrp
             catch (UnauthorizedAccessException error)
             {
                 throw new IOException(InUseMessage(targetPath), error);
+            }
+        }
+
+        /// <summary>The temporary file renamed over the target in one step, tried again as
+        /// Replace is while something holds the target. For a file a stopped install must
+        /// find whole or not at all: File.Replace moves the old file aside before the new one
+        /// is in, and a kill between the two left no manifest (Test-InstallerPatch Case 17,
+        /// 2026-11-01). Unlike Replace it keeps neither the target's permissions nor its
+        /// attributes, so it is for KMRP's own files.</summary>
+        internal static void MoveOver(string temporaryPath, string targetPath)
+        {
+            int delay = 60;
+            for (int attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    ClearReadOnly(targetPath);
+                    InstallPlatform.MoveOver(temporaryPath, targetPath);
+                    return;
+                }
+                catch (IOException error)
+                {
+                    if (attempt == Attempts)
+                        throw new IOException(InUseMessage(targetPath), error);
+                }
+                catch (UnauthorizedAccessException error)
+                {
+                    if (attempt == Attempts)
+                        throw new IOException(InUseMessage(targetPath), error);
+                }
+                System.Threading.Thread.Sleep(delay);
+                delay *= 2;
             }
         }
 

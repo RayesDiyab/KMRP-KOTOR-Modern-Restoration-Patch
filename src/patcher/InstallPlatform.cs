@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 
 namespace Kmrp
 {
@@ -28,6 +29,7 @@ namespace Kmrp
         static partial void OnKpmSettingsPath(ref string path);
         static partial void OnLocalPath(ref string path);
         static partial void OnGameRunning(string executablePath, ref bool running);
+        static partial void OnMoveOver(string from, string to, ref bool moved);
 
         /// <summary>A path a Windows program wrote (KPM's settings), as this system names it: the
         /// same on Windows; under Proton, Wine's drive letters turned into Linux folders.</summary>
@@ -43,6 +45,17 @@ namespace Kmrp
         {
             OnKpmSettingsPath(ref path);
             return path;
+        }
+
+        /// <summary>FROM renamed over TO in one step, so nothing can stop between the old file
+        /// and the new one (FileGuard.MoveOver). Each system's rename does this; .NET's File.Replace
+        /// moves the old file aside first, and .NET Framework's File.Move will not overwrite.</summary>
+        internal static void MoveOver(string from, string to)
+        {
+            bool moved = false;
+            OnMoveOver(from, to, ref moved);
+            if (!moved)
+                throw new IOException("This build cannot rename over a file.");
         }
 
         /// <summary>The game is running from EXECUTABLEPATH (InstallGuard).</summary>

@@ -1595,10 +1595,7 @@ namespace Kmrp
                 if (new FileInfo(temporary).Length != length)
                     throw new IOException(Path.GetFileName(path) + " could not be written in full.");
                 recorded(GoldPatch.HashFile(temporary));
-                if (File.Exists(path))
-                    FileGuard.Replace(temporary, path);
-                else
-                    File.Move(temporary, path);
+                FileGuard.MoveOver(temporary, path);
             }
             finally
             {
@@ -1611,20 +1608,16 @@ namespace Kmrp
             WriteWhole(path, data.Length, temporary => File.WriteAllBytes(temporary, data), recorded);
         }
 
-        /// <summary>What a stopped WriteWhole can leave, and what Windows' own file replace
-        /// can leave of the manifest, which it rewrites for every row (Test-InstallerPatch
-        /// Case 17 stopped one there, 2026-11-01).</summary>
+        /// <summary>What a stopped WriteWhole or swkotor.ini write can leave.</summary>
         private static void RemoveInProgress(string folder)
         {
-            string own = GamePath.Combine(folder, KmrpFolder.Name);
             foreach (string place in new[] { folder, GamePath.Combine(folder, PatchFolder),
-                                             GamePath.Combine(folder, OptionsFolder), own })
+                                             GamePath.Combine(folder, OptionsFolder), GamePath.Combine(folder, KmrpFolder.Name) })
                 if (Directory.Exists(place))
                     foreach (string path in Directory.GetFiles(place, "*" + InProgressSuffix))
                         FileGuard.Discard(path);
-            if (Directory.Exists(own))
-                foreach (string path in Directory.GetFiles(own, Path.GetFileName(KmrpFolder.KpmManifest) + "~RF*.TMP"))
-                    FileGuard.Discard(path);
+            foreach (string path in Directory.GetFiles(folder, IniOperations.TemporaryPattern))
+                FileGuard.Discard(path);
         }
 
         // Never clobber a file this installer did not write.

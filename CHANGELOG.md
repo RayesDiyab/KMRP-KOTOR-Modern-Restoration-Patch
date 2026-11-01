@@ -117,6 +117,20 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: a kill can no longer leave an install with no record (audit INS-03 again)**
+  (2026-11-01). The kill test found what the first fix missed: `File.Replace` moves the old file
+  aside before the new one is in, so a kill in that instant left no manifest, the runtime
+  unrecorded and the next run calling it KPM's. The same step could leave a player with no
+  `swkotor.ini`. Both now rename in one step (`FileGuard.MoveOver`, `MoveFileEx` on Windows, a
+  rename on Linux). It keeps neither the target's permissions nor its attributes, so it is used
+  for KMRP's own writes only, and Replace stays for `swkotor.exe`. The running-game check treated
+  any sharing violation as the game, so a virus scanner reading `swkotor.exe` could refuse an
+  install: it now tries for as long as `FileGuard` does, about two seconds, which is also how long
+  a real refusal takes. The next run removes the `swkotor.ini.kotor-ui-new-*.tmp` a stopped write
+  leaves. Test-InstallerPatch case 17 kills at fifteen moments and prints the installer's reason
+  when one fails. The failure that led to the check's change was seen once and not reproduced by
+  hand, so the scanner is the likely cause, not a proven one.
+
 - **Fixed: a file taken out of the art cache is made again** (2026-11-01). A finished set's
   marker held only its build's text, so a file removed afterwards, by a virus scanner say, was
   never made again and the game went without it. The marker now also records the folder's files

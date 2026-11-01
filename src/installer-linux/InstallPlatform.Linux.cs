@@ -59,6 +59,12 @@ namespace Kmrp
             report?.Invoke("Removed KMRP's art cache from the game's Proton prefix.");
         }
 
+        static partial void OnMoveOver(string from, string to, ref bool moved)
+        {
+            File.Move(from, to, true);
+            moved = true;
+        }
+
         static partial void OnHighestRefresh(int[] size, ref int rate)
         {
             rate = LinuxDisplay.HighestRefresh(size);
