@@ -69,7 +69,7 @@ exported by ordinal 100 rather than by name, as button bit `0x0400`. The module
 currently resolves its entry point by name:
 
 ```cpp
-// K1XboxControlsXInput.cpp, the XInput loader
+// K1InputDevice.cpp, the XInput loader
 g_getState = reinterpret_cast<XInputGetStateFn>(
     GetProcAddress(module, "XInputGetState"));
 ```
@@ -81,7 +81,7 @@ button bits for the analogue triggers, and one of them is already `0x0400` —
 the same value real XInput uses for Guide:
 
 ```cpp
-// K1XboxControlsXInput.cpp, the trigger bit constants
+// K1InputDevice.cpp, the trigger bit constants
 constexpr std::uint16_t XI_LEFT_TRIGGER  = 0x0400;   // collides with GUIDE
 constexpr std::uint16_t XI_RIGHT_TRIGGER = 0x0800;
 ```
@@ -123,7 +123,7 @@ held XInput slot 0; the physical controller was on slot 1. `ReadPad` takes the
 first slot that answers and **stays on it** until that slot goes quiet:
 
 ```cpp
-// K1XboxControlsXInput.cpp, ReadPad  (abridged)
+// K1InputDevice.cpp, ReadPad  (abridged)
 bool ReadPad(XInputState* out)
 {
     if (g_padSlot >= 0) {                       // sticky
@@ -374,8 +374,8 @@ code they quote.
 | claim | how |
 | --- | --- |
 | Guide is masked by `XInputGetState`, exposed by `XInputGetStateEx` ordinal 100 as `0x0400` | Microsoft's documented XInput behaviour; **not** measured on this machine |
-| `XI_LEFT_TRIGGER` already uses `0x0400` | read from the constant in `K1XboxControlsXInput.cpp` |
-| `ReadPad` sticks to the first answering slot | read from `ReadPad` in `K1XboxControlsXInput.cpp` |
+| `XI_LEFT_TRIGGER` already uses `0x0400` | read from the constant in `K1InputDevice.cpp` |
+| `ReadPad` sticks to the first answering slot | read from `ReadPad` in `K1InputDevice.cpp` |
 | A virtual pad on a lower slot disables a real one | observed twice in both directions on 2026-09-06 |
 | Physical pads report NIMH/ALKALINE, ViGEm reports WIRED | measured on both this session |
 | Abilities member offsets | `kotor1_0_3.db`, corroborated by `description_listbox` matching the shipping constant |

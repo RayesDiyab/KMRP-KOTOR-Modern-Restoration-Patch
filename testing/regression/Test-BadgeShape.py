@@ -22,7 +22,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "src/controller-native"
 SHAPES = SRC / "K1ControllerBadgeShapes.inc"
-CONTROLS = SRC / "vendor/K1XboxControls.cpp"
+CONTROLS = SRC / "K1XboxControls.cpp"
 
 # Across and down, as a layout scales a button.
 EVEN = [1.0, 1.25, 4 / 3, 1.5, 2.0, 3.0, 4.0, 6.0]

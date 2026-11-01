@@ -7,7 +7,7 @@ Two things make this necessary rather than just calling `pad.py`:
     shell command run from the agent's side takes focus for a moment. So the
     window has to be restored and re-fronted immediately before input is sent.
   * The controller module ignores input unless the game is the foreground window
-    (`GameHasFocus()` in K1XboxControlsXInput.cpp compares the foreground
+    (`GameHasFocus()` in K1InputDevice.cpp compares the foreground
     window's process id to its own), so sending to an unfocused game silently
     does nothing -- which looks exactly like the pad not working.
 

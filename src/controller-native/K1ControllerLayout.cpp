@@ -17,7 +17,7 @@ bool ControllerConfirmHeldK1();
 std::uint16_t KmrpPadButtonsK1();     // the pad's buttons as pressed (K1NativeJoystick.cpp)
 bool KmrpPadPresentK1();              // a pad answered the last read (K1NativeJoystick.cpp)
 void KmrpPadFocusExcludeK1(void* control, bool excluded);   // off the pad's focus (K1NativeJoystick.cpp)
-bool KmrpQueueLayoutPanelK1(void* panel);   // the screen's pictures for the background (vendor/K1XboxControls.cpp)
+bool KmrpQueueLayoutPanelK1(void* panel);   // the screen's pictures for the background (K1XboxControls.cpp)
 bool KmrpPicturesSettledK1();               // a frame went by with nothing left to draw (the same)
 const char* KmrpLogicalFillK1(const char* fill);                     // the picture a fill stands for (the same)
 const char* KmrpDrawnFillK1(const void* params, const char* fill);   // the drawing made of it for a border
@@ -568,7 +568,7 @@ bool updateSummaryBadge(void* panel, const int* ok) {
 
 // The Controller Layout entry's A, while it has its screen's focus and a pad is
 // in use -- FocusOnly, as Mouse and Key Mapping above it
-// (vendor/K1XboxControls.cpp). The button is bound here at run time, so it has no
+// (K1XboxControls.cpp). The button is bound here at run time, so it has no
 // offset in that file's tables; it is painted through KmrpPaintLayoutEntryPromptK1,
 // which keeps the resref there. Repainted only on a change.
 void updateEntryBadges() {
@@ -1641,7 +1641,7 @@ void layoutTag(int i, char (&tag)[24]) {
 // screen is made as it is when opened, kmrplayout loaded and every control bound, but never
 // added to the manager or shown; each control's picture is queued, and the copy taken apart
 // as destroy() takes the screen apart. A few milliseconds on the game thread; the drawing is
-// on the patch's own (vendor/K1XboxControls.cpp, K1BackgroundWorker). Done again only for
+// on the patch's own (K1XboxControls.cpp, K1BackgroundWorker). Done again only for
 // another size, and tried again later when the layout file is not there yet.
 //
 // When, by events and not by time (the maintainer, 2026-10-28: after the last thing the

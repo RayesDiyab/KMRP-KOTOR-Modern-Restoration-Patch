@@ -352,7 +352,7 @@ PROMPT_TARGETS = (
     # too, and keep it.
     PromptTarget("classsel.gui", "BTN_BACK", 6, "B", "kmrpb_clsback"),
     # And A on the Select button the controller patch adds beside it with the pad in use
-    # (K1ClassSelectPad, vendor/K1XboxControls.cpp): the same button's shape, its glyph A.
+    # (K1ClassSelectPad, K1XboxControls.cpp): the same button's shape, its glyph A.
     PromptTarget("classsel.gui", "BTN_BACK", 6, "A", "kmrpa_clssel"),
     # The galaxy map's Travel and Cancel, which its dispatcher answers as A and B
     # whatever holds focus (K1_GALAXY_MAP_PROMPTS in the module), added 2026-10-28.

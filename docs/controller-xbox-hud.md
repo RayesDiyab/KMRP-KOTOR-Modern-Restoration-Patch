@@ -76,7 +76,7 @@ entry used from another list acts as from its own. An entry whose id the list al
 has is left out. With mouse or keyboard every list is the game's own and the PC HUD's
 slots and Stealth toggle are as they were: the engine makes the lists anew for every
 draw, so nothing of this is left once the pad is put down. The pad's left and right
-follow the places (`vendor/K1XboxControls.cpp`, `MoveFocus`:
+follow the places (`K1XboxControls.cpp`, `MoveFocus`:
 `{-1, 0, 5, 1, 2, 6, 3, 4}`, the PC slot numbers in place order).
 
 Why there: the routine and the list makers are each called from one place only
@@ -357,7 +357,7 @@ part's rectangle (`AurGUISetupViewport`, as the engine clips the target menu).
 With the mouse or keyboard in use the first hook puts the game's HUD back and
 returns, and the second has nothing to draw.
 
-Elsewhere: `MoveFocus` in `vendor/K1XboxControls.cpp` walks the row in its on-screen
+Elsewhere: `MoveFocus` in `K1XboxControls.cpp` walks the row in its on-screen
 order with the first place as "no slot"; `NativeActionBarK1` in
 `K1NativeJoystick.cpp` makes B disengage when there is no slot to let go of (with
 either HUD since 2026-10-19; with this one only, until then); the Disengage cue's

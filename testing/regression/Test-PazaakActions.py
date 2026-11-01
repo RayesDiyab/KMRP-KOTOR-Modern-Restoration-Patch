@@ -19,7 +19,7 @@ def main():
         begin = match.start()
         end = source.index('\n}', match.end()) + 2
         functions.append(source[begin:end])
-    badges = (ROOT / 'src/controller-native/vendor/K1XboxControls.cpp').read_text(encoding='utf-8')
+    badges = (ROOT / 'src/controller-native/K1XboxControls.cpp').read_text(encoding='utf-8')
     begin = badges.index('void KmrpPromptDimK1(')
     functions.append(badges[begin:badges.index('\n}', begin) + 2])
     production = '\n\n'.join(functions)

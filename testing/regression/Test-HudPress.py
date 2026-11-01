@@ -64,7 +64,7 @@ def main():
     checks += 4
 
     # The bark bubble's vtable is written by code.
-    native = (ROOT / "src/controller-native/vendor/K1XboxControls.cpp").read_text(encoding="utf-8")
+    native = (ROOT / "src/controller-native/K1XboxControls.cpp").read_text(encoding="utf-8")
     bark = int(re.search(r"K1_BARK_BUBBLE_PANEL_VTABLE\s*=\s*(0x[0-9A-Fa-f]+)", native).group(1), 16)
     needle = b"\xC7\x06" + struct.pack("<I", bark)              # mov dword ptr [esi], vtable
     assert needle in data or b"\xC7\x01" + struct.pack("<I", bark) in data, "no write of the bark vtable"

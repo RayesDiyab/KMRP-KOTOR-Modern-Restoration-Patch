@@ -18,7 +18,7 @@ all reverted in the same session.
 > What was done about it: each badge is drawn for the area its border really
 > fills, and where the two borders fill different areas the focused state has
 > a texture of its own, `kmf...` beside `kmr...`, which the controller code
-> asks for (`SetK1ControllerPromptFill`, `src/controller-native/vendor/K1XboxControls.cpp`).
+> asks for (`SetK1ControllerPromptFill`, `src/controller-native/K1XboxControls.cpp`).
 > That code runs in the controller patch's module (`kmrp-controller`) since
 > 2026-10-05. Details and what was seen:
 > [`docs/controller-standalone.md`](../docs/controller-standalone.md) and

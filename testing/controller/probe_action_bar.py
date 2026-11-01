@@ -6,7 +6,7 @@ CSWGuiMainInterface, and which of the seven action buttons it is. A module that
 counts presses it never delivered looks identical to a working one from its own
 diagnostics, which is the failure this avoids.
 
-Layout, from Saul0097's K1_CONFIG in vendor/K1XboxControls.cpp:
+Layout, from Saul0097's K1_CONFIG in K1XboxControls.cpp:
 
     mainInterface + 0x1C     the active (focused) control
     mainInterface + 0xBC     the target-action menu, 3 lists

@@ -1033,7 +1033,7 @@ legacy entry in "both" mode; the native one supersedes it.
 
 The bottom-right action bar is driven with the D-pad, through **Saul0097's
 existing implementation**, unchanged. `MoveFocus`, `CycleAction` and the activate
-callback in `vendor/K1XboxControls.cpp` already call `CSWGuiMainInterface`'s own
+callback in `K1XboxControls.cpp` already call `CSWGuiMainInterface`'s own
 functions; none of that was rewritten.
 
 | what | address | role |

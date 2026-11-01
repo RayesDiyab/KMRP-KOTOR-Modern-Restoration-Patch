@@ -117,6 +117,17 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **`vendor/` is retired (approved decision 7)** (2026-11-01). The name said the code was someone
+  else's and untouched, and it had been neither for a long time. `K1XboxControls.cpp` moves up
+  beside the rest, and what was left of `K1XboxControlsXInput` after the keystroke path is
+  `K1InputDevice`, 81 lines from 745: which device the player is on. Both files keep the credit to
+  Saul0097 and J in their first lines, and `THIRD_PARTY_NOTICES.md` keeps the licence, the
+  permissions and the measured table, with the old names beside the new. The file table in
+  `kmrp_controller.py` keeps them classed as before. The move alone left the controller module's
+  code the same: 174 bytes differ, its build hash and a 12 byte shift in where globals are placed,
+  as the new names change the link's order. `IsControllerGeneratedKeyK1` could only say false, as
+  nothing wrote its table, so that always-true test went with it.
+
 - **Removed: `--apply` from the installer (approved decisions 2 and 3)** (2026-11-01). No install
   has written a whole patched executable since 2026-09-29, and 778 lines of the installer existed
   only for this switch. Deleting them outright would have lost what checks the module's size values,

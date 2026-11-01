@@ -21,7 +21,7 @@ def main():
     options = parser.parse_args()
     out = ROOT / 'build/controller-standalone/preload-check'
     out.mkdir(parents=True, exist_ok=True)
-    vendor = (ROOT / 'src/controller-native/vendor/K1XboxControls.cpp').read_text(encoding='utf-8')
+    vendor = (ROOT / 'src/controller-native/K1XboxControls.cpp').read_text(encoding='utf-8')
     worker = function(vendor, 'void K1BackgroundWorker()')
     queue = function(vendor, 'void KmrpQueueControllerGuiWorkK1(')
     source = (ROOT / 'src/controller-native/K1ControllerPreload.cpp').read_text(encoding='utf-8')

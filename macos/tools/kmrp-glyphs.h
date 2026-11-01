@@ -7,7 +7,7 @@
  *
  * Used by the blend helper (kmrp-guiblend.c includes kmrp-glyphs.c, its functions then
  * private: KMRP_GLYPHS_API static) and by the controller module, which draws each badge at
- * the size of the label it shows it on (vendor/K1XboxControls.cpp).
+ * the size of the label it shows it on (K1XboxControls.cpp).
  */
 #ifndef KMRP_GLYPHS_H
 #define KMRP_GLYPHS_H

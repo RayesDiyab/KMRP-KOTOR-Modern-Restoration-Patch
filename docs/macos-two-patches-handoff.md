@@ -50,10 +50,10 @@ here changes one thing in it, the controller.
 | 4 | The installer's wording for a game KOTOR Patch Manager manages | `src/patcher/KmrpPatcher.cs`, `KpmEdition.cs` | **to do**: one line in `macos/installer-app/main.m` (section 4) |
 | 5 | The marker on a target is missing over half the screen at 3440x1440: found, **not fixed** | `assets/override-3440x1440/mipc210x7.gui` | **check** which HUD file the Mac loads; the fix is owed on both (section 5) |
 | 6 | Four pictures added to the glyph pack, one new glyph name | `third_party/Included/Xelu_Free_Controller&Key_Prompts/`, `tools/build_controller_prompt_textures.py` | **build and check**: the build fails without the files (section 6) |
-| 7 | The controller patch lays itself out on any interface; Level Up and Auto Level Up; the pause notice and the target's circle in the Xbox-style HUD | `vendor/K1XboxControls.cpp`, `K1XboxHud.cpp` | **nothing to do** while the Mac has no standalone controller patch; two things to look at in the Mac's own controller (section 7) |
+| 7 | The controller patch lays itself out on any interface; Level Up and Auto Level Up; the pause notice and the target's circle in the Xbox-style HUD | `K1XboxControls.cpp`, `K1XboxHud.cpp` | **nothing to do** while the Mac has no standalone controller patch; two things to look at in the Mac's own controller (section 7) |
 | 8 | The Windows bank left out what the helper makes; the Xbox-style HUD's frames drawn | tracker items 20 and 21 | **nothing to do** (section 8) |
 | 10 | The list rows' centring is on Windows too, with two differences from the Mac's: a chart row's inset is 0, and the store's and the workbench's rows are set in from both borders | `src/controller-native/K1RuntimeLayout.cpp`, `K1ListRows.inc`, `kotor1-native-runtime.hooks.toml` | **decide** whether the Mac takes the two differences (section 10) |
-| 11 | The store has controller badges: A, X and B | `tools/build_controller_prompt_textures.py`, `vendor/K1XboxControls.cpp` | **to do** in the Mac's controller: the store's three buttons (section 11) |
+| 11 | The store has controller badges: A, X and B | `tools/build_controller_prompt_textures.py`, `K1XboxControls.cpp` | **to do** in the Mac's controller: the store's three buttons (section 11) |
 
 ## 2. KMRP and the controller are two patches
 

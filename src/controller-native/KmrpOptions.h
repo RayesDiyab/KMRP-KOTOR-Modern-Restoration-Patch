@@ -141,7 +141,7 @@ inline bool KmrpDebugLogs()
 // they change (each panel's type, size and active control, and every control of the
 // one the pad navigates; LogMenuSnapshotK1), each move the pad makes on a screen and
 // from where to what (NavigateFocusK1), and the badges placed again after a screen is
-// laid out for another size (K1BadgesLaidOutAgain, vendor/K1XboxControls.cpp).
+// laid out for another size (K1BadgesLaidOutAgain, K1XboxControls.cpp).
 inline int KmrpDebugLevel()
 {
     static const int level = KmrpPatchOption(L"debug-logs", 0);

@@ -71,7 +71,7 @@ def main():
 
     assets = (SRC / "K1RuntimeAssets.cpp").read_text(encoding="utf-8")
     standalone = (SRC / "K1ControllerStandalone.cpp").read_text(encoding="utf-8")
-    pictures = (SRC / "vendor/K1XboxControls.cpp").read_text(encoding="utf-8")
+    pictures = (SRC / "K1XboxControls.cpp").read_text(encoding="utf-8")
     for source in (assets, standalone):
         assert '#include "K1ResourceFolder.h"' in source
         assert "0x5E6880" not in source and "0x408800" not in source, "a second copy of registration"

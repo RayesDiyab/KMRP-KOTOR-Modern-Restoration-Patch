@@ -257,7 +257,7 @@ No `kmrp-kpm.dat` is written. The installer still embeds the template and
 executable the checks below compare.
 
 The installer embeds the template as `Kmrp.engine.source`.
-[`WindowsEnginePatch.cs`](../src/patcher/WindowsEnginePatch.cs) validates its
+[`WindowsEnginePatch.cs`](../testing/reference/WindowsEnginePatch.cs) validates its
 checksum, layout, site ranges and relocation ownership, then specializes its
 values through the existing `ResolutionPatch`. A scratch layout array preserves
 the established FILE coordinates; it has no executable header and is never

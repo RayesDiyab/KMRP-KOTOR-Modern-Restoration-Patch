@@ -344,7 +344,7 @@ Every screen of both flows carries badges, 42 in all. The class portraits
 carry art and take none. The +/− arrows carry art too and keep it (*Settings
 screens*, below). Each glyph is a button the screen's own
 dispatcher answers; the handler addresses are in the module's tables
-(`src/controller-native/vendor/K1XboxControls.cpp`, beside
+(`src/controller-native/K1XboxControls.cpp`, beside
 `K1_CLASS_SELECT_PROMPTS`). Tags, indices, empty fills and widths were checked
 in all 49 archives before the targets went in.
 
@@ -650,7 +650,7 @@ the sort was on Back, which no badge named; the badges followed, `kmrpa_jrndone`
 Active/Completed and RB, the Xbox's Black, the sort. The badges are `kmrpy_jrndone`
 and `kmrprb_jrnsort` (`tools/build_controller_prompt_textures.py`,
 `tools/build_tab_screen_prompts.py`, `K1_JOURNAL_PROMPTS` in
-`vendor/K1XboxControls.cpp`). Not seen in the game.
+`K1XboxControls.cpp`). Not seen in the game.
 
 **Known cosmetic limit.** Map's Party Selection and Return To Ebon Hawk rows are
 39px tall against an 84px Close, so their glyphs are correspondingly smaller.

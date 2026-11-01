@@ -106,7 +106,7 @@ first integration was built from Saul0097's two source files alone, from an x86
 MSVC native-tools environment, with:
 
 ```text
-cl /nologo /Brepro /O2 /EHsc /MT /LD K1XboxControls.cpp K1XboxControlsXInput.cpp /link /Brepro /DEF:exports.def /OUT:kmrp-controller.module /INCREMENTAL:NO
+cl /nologo /Brepro /O2 /EHsc /MT /LD K1XboxControls.cpp K1InputDevice.cpp /link /Brepro /DEF:exports.def /OUT:kmrp-controller.module /INCREMENTAL:NO
 ```
 
 Two consecutive builds produced the same 130,560-byte SHA-256, the first
@@ -357,7 +357,7 @@ The module required an XInput device and the game's default key bindings. It is
 an input translator: with three exceptions it presses keyboard keys rather than
 talking to the GUI, so what a button does is whatever that key does in the
 current context. The table below gives the scancode each button sends, read from
-`BUTTON_BINDINGS` in `K1XboxControlsXInput.cpp`, and then what the game does with
+`BUTTON_BINDINGS` in `K1InputDevice.cpp`, and then what the game does with
 it in each context.
 
 | Button | Sends | In gameplay | In a menu |

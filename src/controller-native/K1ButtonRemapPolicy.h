@@ -31,7 +31,7 @@ enum Button : int { A, B, X, Y, LB, RB, LT, RT, L3, R3, ButtonCount, None = -1 }
 
 // Each button's bit in the pad's button word: XInput's own, with the two triggers
 // folded into the two bits XInput leaves unused (0x0400, 0x0800), as the prompt layer
-// folds them (vendor/K1XboxControlsXInput.cpp).
+// folds them (K1InputDevice.cpp).
 constexpr std::uint16_t Mask[ButtonCount] = {
     0x1000, 0x2000, 0x4000, 0x8000, 0x0100, 0x0200, 0x0400, 0x0800, 0x0040, 0x0080};
 constexpr std::uint16_t TriggerBits = 0x0400 | 0x0800;

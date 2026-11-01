@@ -2,7 +2,7 @@
 // The pad on KMRP's own option pages (K1TextOptions.cpp, K1HudOptions.cpp) and their
 // entry buttons on Graphics Options. Those are built at run time, so they are in none
 // of the controller patch's tables of the game's screens; they ask it by name
-// (vendor/K1XboxControls.cpp, exported by kmrp-controller.dll): whether the pad is the
+// (K1XboxControls.cpp, exported by kmrp-controller.dll): whether the pad is the
 // device in use, its glyph family, to keep a control off the pad's focus, and to paint
 // the A an entry button shows while focused. Without the controller patch every answer
 // is "no pad" and nothing here draws or skips anything.

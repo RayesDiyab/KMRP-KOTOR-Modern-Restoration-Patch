@@ -34,7 +34,7 @@ HOST, PORT = "127.0.0.1", 8787
 GUI_MANAGER_PTR = 0x007A39F4
 
 # Panel VTABLE -> (name, byte offset of its Default button), from Saul0097's
-# constants in vendor/K1XboxControls.cpp. Keyed by vtable, not dispatcher:
+# constants in K1XboxControls.cpp. Keyed by vtable, not dispatcher:
 # INGAME_GAMEPLAY and OPTIONS_MOUSE share dispatcher 0x006E6180.
 DEFAULT_BUTTONS = {
     0x00758E00: ("INGAME_GAMEPLAY", 0x0788),

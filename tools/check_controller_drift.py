@@ -183,7 +183,7 @@ def main() -> int:
         # orphaned (2026-11-01).
         native = kc.ROOT / "src" / "controller-native"
         source = "\n".join(path.read_text(encoding="utf-8") for path in
-                           (native / "vendor" / "K1XboxControls.cpp", native / "K1NativeJoystick.cpp"))
+                           (native / "K1XboxControls.cpp", native / "K1NativeJoystick.cpp"))
         wanted = {name.lower()
                   for name in re.findall(r'"(kmrp[a-z_0-9]+)"', source)}
         unbuilt = sorted(wanted - built)
@@ -265,7 +265,7 @@ def main() -> int:
     # is up. Equip and Quest Items shipped in exactly that state -- art, tables,
     # offsets and textures all correct and all unreachable.
     try:
-        vendor = (kc.ROOT / "src" / "controller-native" / "vendor"
+        vendor = (kc.ROOT / "src" / "controller-native"
                   / "K1XboxControls.cpp").read_text(encoding="utf-8")
 
         def between(start, text):

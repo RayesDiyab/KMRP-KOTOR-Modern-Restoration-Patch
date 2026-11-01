@@ -67,7 +67,7 @@
 int KmrpFocusedActionSlotK1(void* mainInterface);
 // The same, whether or not another screen is in front of the HUD.
 int KmrpHeldActionSlotK1(void* mainInterface);
-// K1XboxControlsXInput.cpp: the pad is the device in use. K1NativeJoystick.cpp: the
+// K1InputDevice.cpp: the pad is the device in use. K1NativeJoystick.cpp: the
 // cue label on a panel that follows the control at an offset.
 bool IsControllerInputActiveK1();
 void* KmrpGuiCueK1(void* panel, std::size_t follow);
@@ -75,7 +75,7 @@ void ControllerLogK1(const char* text);     // K1NativeJoystick.cpp, the debug l
 
 extern "C" char __cdecl KmrpGlyphLetterK1();   // the pad family's letter in a texture's name (K1NativeJoystick.cpp)
 
-const char* KmrpLogicalFillK1(const char* fill);     // vendor/K1XboxControls.cpp
+const char* KmrpLogicalFillK1(const char* fill);     // K1XboxControls.cpp
 const char* KmrpDrawnFillK1(const void* params, const char* fill);   // the same
 void KmrpStampPictureK1(void* control, std::ptrdiff_t paramsOffset, const char* name);   // the same
 
@@ -302,7 +302,7 @@ bool SameName(const char* a, const char* b)
 void SetFill(void* params, const char name[16])
 {
     // The controller patch draws its frames at the size they are shown and gives the border
-    // the drawing's own name (vendor/K1XboxControls.cpp): a fill that is that drawing stands
+    // the drawing's own name (K1XboxControls.cpp): a fill that is that drawing stands
     // for the frame asked for (KmrpLogicalFillK1), and a frame set again, after the game has
     // written its own over it, is set as the drawing already made for this border
     // (KmrpDrawnFillK1), not as the bare name, which is no texture the patch carries.

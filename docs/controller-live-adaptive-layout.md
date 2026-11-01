@@ -132,7 +132,7 @@ samples; integer arithmetic only.
 ### `kmrp-glyphs.bin`
 
 Written by `pack_glyphs` in [`tools/build_controller_assets.py`](../tools/build_controller_assets.py),
-read by `FindK1Glyph` in `vendor/K1XboxControls.cpp`.
+read by `FindK1Glyph` in `K1XboxControls.cpp`.
 
 | Part | Layout |
 | --- | --- |
@@ -199,7 +199,7 @@ call at 0x006E0F1E is `push 0; mov ecx, edi; call 0x006DF690` after
 
 ## 4. The module: what decides what to draw, at what size, and when
 
-All in `src/controller-native/vendor/K1XboxControls.cpp` unless named; built only into
+All in `src/controller-native/K1XboxControls.cpp` unless named; built only into
 the controller patch (`KMRP_CONTROLLER_STANDALONE`). KMRP's own module has stubs that
 draw nothing (`KmrpLogicalFillK1` returns its argument, and so on).
 

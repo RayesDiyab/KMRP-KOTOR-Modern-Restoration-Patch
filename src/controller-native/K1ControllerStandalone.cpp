@@ -214,7 +214,7 @@ bool RegisterDirectory()
 }
 
 // A file written into the folder after it was registered (a badge drawn at the size it is
-// shown, vendor/K1XboxControls.cpp, issue 68) is found once the folder is listed anew:
+// shown, K1XboxControls.cpp, issue 68) is found once the folder is listed anew:
 // 0x4088E0, as K1RuntimeAssets.cpp's RegisterFolder does for a set whose files changed.
 bool KmrpControllerRelistK1()
 {

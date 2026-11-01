@@ -478,7 +478,7 @@ in the normal state or the focused one (a border's inset is a number of pixels a
 rescaled button keeps, so Options' Close was right until focused), the button
 carries no badge and the texture is drawn on a label of the patch's own: as tall as
 the button's fill area and as wide as the made-for shape makes it at that height
-(`vendor/K1XboxControls.cpp`, `ShowK1BadgeOverlay`). The label is constructed, given
+(`K1XboxControls.cpp`, `ShowK1BadgeOverlay`). The label is constructed, given
 the panel as parent and the next free ID, and added to the panel's control array
 with the engine's `CExoArrayList::Add` (`0x00671C00`), as
 `CSWGuiPanel::InitControl` (`0x0040B930`) files a loaded control; its fill is set to

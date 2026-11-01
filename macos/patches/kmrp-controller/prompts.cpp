@@ -1,8 +1,8 @@
 // KMRP for macOS, controller support: the button prompts, and which device the player is on.
 //
-// The Mac port of the prompt layer in src/controller-native/vendor/K1XboxControls.cpp
+// The Mac port of the prompt layer in src/controller-native/K1XboxControls.cpp
 // (UpdateK1ControllerPrompts, Saul0097's, with KMRP's changes) and of the device bookkeeping
-// around it (IsControllerInputActiveK1 in K1XboxControlsXInput.cpp, MouseIsBeingUsedK1 and
+// around it (IsControllerInputActiveK1 in K1InputDevice.cpp, MouseIsBeingUsedK1 and
 // UpdateK1CursorState in K1XboxControls.cpp), with the same rules; the reasoning behind each is
 // written there. A badge is a texture swap on a button's own borders: while the pad is in use
 // each screen's bound buttons show the pad's button for them (A on OK, B on Back, ...) in the

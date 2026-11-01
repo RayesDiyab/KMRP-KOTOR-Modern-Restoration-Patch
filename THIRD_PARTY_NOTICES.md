@@ -216,7 +216,7 @@ How much of it is KMRP's, measured on 2026-09-29 against
 | | Lines | KMRP | Saul0097 |
 | --- | --- | --- | --- |
 | KMRP's own files (`K1NativeJoystick`, `K1Rumble`, `K1ControllerLayout`, `K1ControllerBackend`, with headers) | 8,143 | 8,143 | 0 |
-| The three files that began as his (`vendor/K1XboxControls.cpp`, `K1XboxControlsXInput.cpp` and `.h`) | 5,420 | 1,843 | 3,577 |
+| The three files that began as his (`K1XboxControls.cpp`, `K1InputDevice.cpp` and `.h`, until 2026-11-01 `vendor/K1XboxControls.cpp`, `vendor/K1XboxControlsXInput.cpp` and `.h`; the table is as measured on 2026-09-29, before 2,811 lines of his keystroke path left them) | 5,420 | 1,843 | 3,577 |
 | **All C++** | 13,563 | **9,986 (74%)** | 3,577 (26%) |
 | Hooks in `kotor1.hooks.toml` | 44 | **38 (86%)** | 6 |
 

@@ -95,7 +95,7 @@ relocated offsets while the backend probe is active:
 | Done | `0x28B0` | `0x8C3C` |
 | Back | `0x36F4` | `0x9A80` |
 
-`vendor/K1XboxControls.cpp` also bypasses its stock three-row navigation repair
+`K1XboxControls.cpp` also bypasses its stock three-row navigation repair
 for this backend. The roster's own MOVETO links and page rebinding handle the
 four-row pages. The normal nine-slot path retains its existing behaviour.
 

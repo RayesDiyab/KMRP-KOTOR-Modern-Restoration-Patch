@@ -105,7 +105,7 @@ def module_sources(script: str) -> list[Path]:
     kmrp.dll, build_controller_standalone.cmd for the controller patch's module)."""
     text = (NATIVE / script).read_text(encoding="utf-8")
     names = set(re.findall(r"([\w]+\.cpp)", text))
-    return sorted(p for p in list(NATIVE.glob("*.cpp")) + list(NATIVE.glob("vendor/*.cpp")) if p.name in names)
+    return sorted(p for p in list(NATIVE.glob("*.cpp")) if p.name in names)
 
 
 def definitions(files: list[Path]) -> dict[str, str]:
@@ -228,7 +228,7 @@ def modules_section(out: list[str]) -> None:
     runtime = (NATIVE / "build_native_runtime.cmd").read_text(encoding="utf-8")
     controller = (NATIVE / "build_controller_standalone.cmd").read_text(encoding="utf-8")
     files = [p for p in list(NATIVE.glob("*.cpp")) + list(NATIVE.glob("*.h")) + list(NATIVE.glob("*.inc"))
-             + list(NATIVE.glob("vendor/*.cpp"))]
+            ]
     rows = sorted(((sum(1 for _ in p.open(encoding="utf-8", errors="replace")), p) for p in files), reverse=True)
     out.append("| lines | file | in kmrp.dll | in kmrp-controller.dll | audit |")
     out.append("| --- | --- | --- | --- | --- |")

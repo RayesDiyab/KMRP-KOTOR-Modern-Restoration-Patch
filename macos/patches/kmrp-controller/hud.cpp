@@ -2,7 +2,7 @@
 // on it, X and Y on the combat buttons.
 //
 // The Mac port of NativeActionBarK1 and the action-bar logic it drives (Saul0097's
-// MoveFocus / CycleAction / activate in src/controller-native/vendor/K1XboxControls.cpp, and
+// MoveFocus / CycleAction / activate in src/controller-native/K1XboxControls.cpp, and
 // PressHudButtonK1): the same seven slots (three target actions, four personal ones), the same
 // moves, performed on the HUD's own frame. Windows calls the slots' handlers directly with the
 // slot; the Mac's handlers read the press from the control they are given, so the slot's label

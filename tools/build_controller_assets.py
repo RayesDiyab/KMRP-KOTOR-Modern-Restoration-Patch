@@ -107,7 +107,7 @@ def build_swoop_prompt_tga(family: str) -> bytes:
     canvas = canvas.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
     header = struct.pack("<BBBHHBHHHHBB", 0, 0, 2, 0, 0, 0, 0, 0, 128, 128, 32, 0x08)
     tga = header + canvas.tobytes("raw", "BGRA") + b"\0" * 8 + b"TRUEVISION-XFILE.\0"
-    # The module draws it for the screen's size (KmrpDrawnPictureK1, vendor/K1XboxControls.cpp):
+    # The module draws it for the screen's size (KmrpDrawnPictureK1, K1XboxControls.cpp):
     # the tile's A where the tile is pasted.
     parts = [(f, glyph, left + 24, top + 17, w, h)
              for f, glyph, left, top, w, h in SCENES[hashlib.sha256(tile_tga).hexdigest()][2]]
@@ -255,7 +255,7 @@ def make(work: Path) -> dict:
                                     fill_insets=True)
     # Each badge's glyph and its exact box, for K1ControllerBadgeShapes.inc (badge_shapes),
     # and every glyph's outlines: the module draws each badge again at the size of the label
-    # it shows it on (issue 68, vendor/K1XboxControls.cpp).
+    # it shows it on (issue 68, K1XboxControls.cpp).
     # The boxes are compiled into the module, so they go beside the bank, not into it.
     OUT.mkdir(parents=True, exist_ok=True)
     shutil.copy2(work / "prompts" / BADGE_BOXES_NAME, OUT / BADGE_BOXES_NAME)
@@ -310,7 +310,7 @@ def make(work: Path) -> dict:
     scenes = scenes_for(files)
     glyph_bank.write_bytes(pack_glyphs(scenes))
     # The badges and the pictures made from one glyph are drawn by the module at the size
-    # they are shown (vendor/K1XboxControls.cpp), so the patch does not carry them
+    # they are shown (K1XboxControls.cpp), so the patch does not carry them
     # (2026-10-27). They are still made, for the badge table (badge_shapes) and the tests,
     # into build/controller-standalone/made (pack). With --carry-drawn they are carried
     # again, as they were until then: the module shows a carried one wherever drawing fails

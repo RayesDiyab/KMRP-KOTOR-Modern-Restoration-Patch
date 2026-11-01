@@ -1,13 +1,16 @@
+// The action bar, focus and device-switch policy here began as Saul0097's KPM Xbox Controls for
+// KOTOR 1, itself built on J's Expanded Keyboard Control from KOTOR Patch Manager, MIT, used
+// with their permission; most of this file is KMRP's now (THIRD_PARTY_NOTICES.md).
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <windows.h>
-#include "../K1EngineMemory.h"
+#include "K1EngineMemory.h"
 
-#include "K1XboxControlsXInput.h"
-#include "../K1PartyRosterState.h"
-#include "../K1CaptionInk.h"
+#include "K1InputDevice.h"
+#include "K1PartyRosterState.h"
+#include "K1CaptionInk.h"
 
 bool ControllerTypesByItselfK1();   // K1ControllerBackend.cpp
 void ControllerLogK1(const char* text);     // K1NativeJoystick.cpp, the debug log
@@ -1552,7 +1555,7 @@ struct BadgeShape {
     // width, height in hundred-thousandths of it), as the build placed it (issue 68).
     const char* glyphName; int boxLeft, boxTop, boxWidth, boxHeight;
 };
-#include "../K1ControllerBadgeShapes.inc"
+#include "K1ControllerBadgeShapes.inc"
 
 struct K1BadgeRect { int left, top, width, height; };
 
@@ -1567,8 +1570,8 @@ struct K1BadgeRect { int left, top, width, height; };
 // a TXI that turns mipmaps off, and shown on a label that size: one texel per pixel.
 // Wherever that fails the stretched texture is shown, as before.
 }   // the anonymous namespace the drawer's C header must not be inside
-#include "../../../macos/tools/kmrp-glyphs.h"
-#include "../KmrpOptions.h"
+#include "../../macos/tools/kmrp-glyphs.h"
+#include "KmrpOptions.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -4633,8 +4636,7 @@ extern "C" void __cdecl KmrpNoteKeyboardK1(void* record, int inputDevice)
         static_cast<BufferedInputRecord*>(record);
     if (input &&
         inputDevice == *reinterpret_cast<int*>(K1_CONFIG.keyboardDeviceIndex) &&
-        (input->value & KEY_PRESSED) != 0 &&
-        !IsControllerGeneratedKeyK1(input->offset)) {
+        (input->value & KEY_PRESSED) != 0) {
         // A Steam Controller types by itself while it is held: its stick is also
         // the arrow keys and its buttons Enter and Escape, unless Steam or the
         // program reading it turns that off, and an emulated one (PadForge) does

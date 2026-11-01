@@ -37,7 +37,7 @@ cl /nologo /MP /Brepro /std:c++17 /O2 /fp:strict /EHsc /MT /LD /DKMRP_CONTROLLER
   src\controller-native\K1XboxHud.cpp ^
   src\controller-native\K1MovieWindow.cpp src\controller-native\K1CursorConfinement.cpp ^
   src\controller-native\K1StatusSummary.cpp src\controller-native\K1PartyPortraits.cpp ^
-  src\controller-native\vendor\K1XboxControls.cpp src\controller-native\vendor\K1XboxControlsXInput.cpp ^
+  src\controller-native\K1XboxControls.cpp src\controller-native\K1InputDevice.cpp ^
   macos\tools\kmrp-glyphs.c ^
   build\controller-standalone\kmrp-preload-gui.obj build\controller-standalone\kmrp-preload-texture.obj ^
   build\controller-standalone\controller-assets.res ^

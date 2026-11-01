@@ -24,7 +24,7 @@ Two implementations are compiled into the same module binary:
 
 | path | source | how input reaches the game |
 | --- | --- | --- |
-| **legacy** | `src/controller-native/vendor/K1XboxControls.cpp`, `vendor/K1XboxControlsXInput.cpp` (Saul0097's KPM Xbox Controls K1 1.2, as modified by KMRP) | reads XInput, **synthesises keystrokes** into the game's keyboard path |
+| **legacy** | `src/controller-native/K1XboxControls.cpp`, `K1InputDevice.cpp` (Saul0097's KPM Xbox Controls K1 1.2, as modified by KMRP) | reads XInput, **synthesises keystrokes** into the game's keyboard path |
 | **native** | `src/controller-native/K1NativeJoystick.cpp` | feeds XInput into KOTOR's **own retained joystick pipeline**, as DirectInput records |
 
 Every claim below is read out of those tracked sources, by the symbol named, or
@@ -33,7 +33,7 @@ pointed at line numbers; all five had drifted, so it names symbols instead.) Not
 executable; the byte-level evidence for the native events lives in
 [`../reverse-engineering/retained-xbox-gui-events.md`](../reverse-engineering/retained-xbox-gui-events.md).
 Only one path's input transport is active at a time: `PollXInputK1()` has exactly
-one call site, in `DispatchMenuInputK1` (`vendor/K1XboxControls.cpp`), and that
+one call site, in `DispatchMenuInputK1` (`K1XboxControls.cpp`), and that
 hook is installed by neither shipped patch.
 (`testing/controller/select_controller_path.py`, which dropped or kept it for
 comparison, writes the install layout of before 2026-09-29 and has not been
@@ -41,7 +41,7 @@ brought up to the two patches.)
 
 ## Button parity
 
-Legacy from `BUTTON_BINDINGS` in `vendor/K1XboxControlsXInput.cpp`. Native from
+Legacy from `BUTTON_BINDINGS` in `K1InputDevice.cpp`. Native from
 `K1_BUTTONS`, `K1_TRIGGERS`, `K1_DPAD`, `K1_STICK_CLICKS` and
 `K1_GAMEPLAY_ACTIONS` in `K1NativeJoystick.cpp`.
 
@@ -86,7 +86,7 @@ Xbox's arrangement already, so the four shoulder rows are now equivalent.
 | Right stick | `A`/`D` taps | `CSWCModule::RotateCamera` | native is strictly better |
 
 **Four legacy buttons send two scancodes at once** — the `secondary` column,
-applied in `vendor/K1XboxControlsXInput.cpp` where `binding.secondary` is added
+applied in `K1InputDevice.cpp` where `binding.secondary` is added
 to the wanted keys (this pointed at line 605 until 2026-09-25; the code has moved
 to 614). A is `Return`+`R`, X is
 `G`+`End`, Y is `F`+`Home`, LB is `Space`+`Insert`. Of the four second keys,

@@ -518,7 +518,7 @@ stood after item 67, where an insertion had pushed it.)
 
 **Build, 2026-10-19; not yet seen in the game.**
 
-- **The pointer guard.** `MouseIsBeingUsedK1` (`vendor/K1XboxControls.cpp`) passed over
+- **The pointer guard.** `MouseIsBeingUsedK1` (`K1XboxControls.cpp`) passed over
   every pointer movement while any pad had been held in the last 1.5 s
   (`ControllerHeldRecentlyK1`, now removed), so the change from the pad to the mouse
   waited up to 1.5 s. It now passes over the pointer only while a Steam Controller or
@@ -538,7 +538,7 @@ stood after item 67, where an insertion had pushed it.)
 **Build, 2026-10-19; not yet seen in the game.** The controller module exports four more
 functions (`tools/build_controller_kpatch.py`, `functions()`): `KmrpPadInUseK1`,
 `KmrpGlyphLetterK1`, `KmrpPadFocusSkipK1` (`K1NativeJoystick.cpp`) and
-`KmrpPaintGraphicsEntryPromptK1` (`vendor/K1XboxControls.cpp`, Advanced Options' A badge
+`KmrpPaintGraphicsEntryPromptK1` (`K1XboxControls.cpp`, Advanced Options' A badge
 `kmrpa_optgfxadvn` on KMRP's two entry buttons, which are its size). KMRP's pages find
 them by name (`K1OptionsPad.h`): the Text Size page has Link above the sliders and opens
 on it; the HUD Size page has two tabs, a middle button for the other tab, Link above
@@ -729,7 +729,7 @@ installer gains a seventh option it can follow the same look
 **State, 2026-10-19: to do.** Issue 49, the maintainer's decision: "It should be classic
 everywhere", with no second layout. Windows changed the controller module
 (`src/controller-native/K1NativeJoystick.cpp`, `K1ButtonRemapPolicy.h`, `K1ButtonRemap.cpp`,
-`K1ControllerLayout.cpp`, `K1XboxHud.cpp`, `vendor/K1XboxControls.cpp`) and the shared
+`K1ControllerLayout.cpp`, `K1XboxHud.cpp`, `K1XboxControls.cpp`) and the shared
 tools; the CHANGELOG's entry of the same day has every row. Nothing of it was seen in play
 on Windows yet either.
 
@@ -949,7 +949,7 @@ map still fills its frame.
 
 **To do on the Mac** (ad968de, 2026-10-17; `src/controller-native/K1PartyRosterGui.cpp` and
 `.h`, `K1PartyRosterState.h`, `AdaptPartyRosterK1` in `K1RuntimeAssets.cpp`,
-`K1RuntimeLayout.cpp`, `K1NativeJoystick.cpp`, `vendor/K1XboxControls.cpp`;
+`K1RuntimeLayout.cpp`, `K1NativeJoystick.cpp`, `K1XboxControls.cpp`;
 `reverse-engineering/party-roster-compatibility.md`). With KOTOR Patch Manager's Party Roster
 Limit 32, the party screen is built at run time from KMRP's layout when the roster patch ships
 no layout, and a layout the patch ships gets KMRP's geometry, written into a folder searched
@@ -1011,7 +1011,7 @@ measured. Item 83 is the second guard at the engine.
 ## 95. Glyph buttons are hints: the D-pad never lands on them
 
 **To do on the Mac** (2026-10-22; `KmrpPadHintControlK1` in
-`src/controller-native/vendor/K1XboxControls.cpp`, `ControlIsNavigableK1` in
+`src/controller-native/K1XboxControls.cpp`, `ControlIsNavigableK1` in
 `K1NativeJoystick.cpp`). On every screen with a glyph table, a button whose glyph is always
 shown (or shown while the focus is elsewhere, FocusFallback) works by its pad button whatever
 has the focus, so the pad's focus layer never chooses it; a FocusOnly glyph marks what A
@@ -1069,7 +1069,7 @@ badges, so `macos/build.sh` passes `--controller-art` to `prepare_universal_reso
 and the Mac's sets are as before. Two guards: the Mac build stops if it would reuse sets
 without badges (`--reuse-resources` after a Windows build), and `build_gui_blend_table.py`
 stops on sets of which some carry badges and some do not. Windows' controller patch now
-draws its badges at run time, at the size each is shown (`vendor/K1XboxControls.cpp`,
+draws its badges at run time, at the size each is shown (`K1XboxControls.cpp`,
 `K1DrawnBadge`, from `kmrp-glyphs.bin` with `macos/tools/kmrp-glyphs.c`, which is plain C
 the Mac can compile as it is). When the Mac's controller draws
 its own badges at run time, as Windows' is about to, the option can go. **How to check:** a
@@ -1661,7 +1661,7 @@ throttled re-check there if so. Not built or run on a Mac.
 
 Two Windows fixes the Mac needs checked, as its `hud.cpp` follows the same rules. A
 `CSWGuiBarkBubble` above the HUD takes no input, so Windows' `IsGameplayHudActive` now passes
-it (`vendor/K1XboxControls.cpp`): check whether `HudActive` (`hud.cpp:88`) stops at the bark's
+it (`K1XboxControls.cpp`): check whether `HudActive` (`hud.cpp:88`) stops at the bark's
 vtable. A D-pad request is now raised only in the player's input class
 (`RequestNavigationK1`), since the HUD's update does not run in menus: check the Mac's. The Mac
 already presses HUD controls through their own input call (`Press`, `hud.cpp:175`), which is

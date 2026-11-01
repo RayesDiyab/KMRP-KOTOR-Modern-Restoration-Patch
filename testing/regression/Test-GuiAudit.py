@@ -538,7 +538,7 @@ class Audit:
         checks = [
             ('Mac focus requires Selectable', 'Selectable(hud, active)' in body('macos/patches/kmrp-controller/hud.cpp','bool ActionBarFocused()')),
             ('Mac activate requires Selectable', bool(__import__('re').search(r'pending\.activate\s*&&\s*active\s*>=\s*0\s*&&\s*Selectable\(hud, active\)',(ROOT/'macos/patches/kmrp-controller/hud.cpp').read_text()))),
-            ('Windows focus requires selectable action', 'IsActionButtonSelectable(' in body('src/controller-native/vendor/K1XboxControls.cpp','bool IsActionBarFocused(')),
+            ('Windows focus requires selectable action', 'IsActionButtonSelectable(' in body('src/controller-native/K1XboxControls.cpp','bool IsActionBarFocused(')),
             # KMRP's own GUI frame (K1CoreFrames.cpp since 2026-10-31, issue 82 F1). Until then
             # this read CoreGuiFrameK1, a frame no patch hooked any more since 2026-10-05.
             ('Windows core frame calls StatusSummaryFrameK1', 'StatusSummaryFrameK1(guiManager)' in body('src/controller-native/K1CoreFrames.cpp','extern "C" void __cdecl KmrpCoreGuiWorkK1('))]
@@ -594,7 +594,7 @@ class Audit:
                 *(ROOT/'macos/patches').rglob('*.cpp'),*(ROOT/'macos/patches').rglob('*.h'),
                 *(ROOT/'macos/patches').rglob('*.toml'),ROOT/'src/controller-native/K1ControllerLayout.cpp',
                 ROOT/'src/controller-native/K1StatusSummary.cpp',ROOT/'src/controller-native/K1GuiControls.h',
-                ROOT/'src/controller-native/K1NativeJoystick.cpp',ROOT/'src/controller-native/vendor/K1XboxControls.cpp',
+                ROOT/'src/controller-native/K1NativeJoystick.cpp',ROOT/'src/controller-native/K1XboxControls.cpp',
                 ROOT/'src/patcher/GuiBlend.cs']}
         for label,paths in corpora.items():
             fingerprint,count=corpus_fingerprint(paths);self.game_inputs[label]=fingerprint

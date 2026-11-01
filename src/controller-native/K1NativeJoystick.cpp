@@ -43,13 +43,13 @@
 #include <cstring>
 #include <vector>
 
-// Defined in vendor/K1XboxControlsXInput.cpp, at global scope. Declared here
+// Defined in K1InputDevice.cpp, at global scope. Declared here
 // rather than by including that header, and ABOVE the anonymous namespace
 // below -- inside it the declaration would take internal linkage and fail
 // to resolve, which is exactly what it did.
 bool IsControllerInputActiveK1();
 
-// Defined in vendor/K1XboxControls.cpp beside the panel vtables and control
+// Defined in K1XboxControls.cpp beside the panel vtables and control
 // offsets it reads. Declared here for the same linkage reason as above.
 bool MessageBoxCancelHasFocusK1(void* panel);
 
@@ -110,7 +110,7 @@ constexpr int         K1_PAD_STATE_SLOTS      = 4;
 
 // Input classes, matching keymap.2da's IC* columns.
 // The gameplay HUD's bottom-right action bar is driven through Saul0097's
-// existing implementation in vendor/K1XboxControls.cpp, which calls the engine's
+// existing implementation in K1XboxControls.cpp, which calls the engine's
 // own CSWGuiMainInterface functions:
 //
 //   getIsSelectable   0x004189D0    can this slot take focus
@@ -138,7 +138,7 @@ extern "C" void __cdecl KmrpActionBarReleaseK1(void* mainInterface);
 // every badge texture in the patch sat there unused.
 extern "C" void __cdecl KmrpUpdatePromptsK1();
 extern "C" void* __cdecl KmrpDescriptionPaneK1(void* panel);
-// vendor/K1XboxControls.cpp: a button whose glyph is always shown on its panel, a hint
+// K1XboxControls.cpp: a button whose glyph is always shown on its panel, a hint
 // the pad presses by its own button and never lands on.
 extern "C" int __cdecl KmrpPadHintControlK1(void* panel, void* control);
 extern "C" void __cdecl KmrpUpdateCursorK1();
@@ -3511,7 +3511,7 @@ constexpr DefaultButtonK1 K1_OK_BUTTONS[] = {
 // Square is Cancel on character creation's two step lists, custom and quick (the
 // maintainer, 2026-10-28: "please add square for cancel (it should not be focusable)"),
 // pressed as OK is above, wherever the focus is; its badge is X there and the D-pad never
-// lands on it (vendor/K1XboxControls.cpp, K1_CUSTOM_CHARGEN_PROMPTS). BTN_CANCEL at the
+// lands on it (K1XboxControls.cpp, K1_CUSTOM_CHARGEN_PROMPTS). BTN_CANCEL at the
 // offsets of those badges.
 constexpr DefaultButtonK1 K1_CANCEL_BUTTONS[] = {
     {0x007595E0, 0x1FC0},   // custom character creation
@@ -3878,7 +3878,7 @@ void PressFocusedRaiseButtonK1(void*)
 // A's.
 //
 // READ FROM THE EXECUTABLE, NOT YET PLAYED. The legacy keyboard layer did the same
-// with Enter (vendor/K1XboxControls.cpp, PENDING_K1_PAZAAK_GAME_PLAY_CARD).
+// with Enter (K1XboxControls.cpp, PENDING_K1_PAZAAK_GAME_PLAY_CARD).
 constexpr std::uintptr_t K1_PAZAAK_GAME_DISPATCHER = 0x0067E8F0;
 constexpr std::size_t    K1_PAZAAK_HAND_CARDS      = 0x2DE0;
 constexpr std::size_t    K1_PAZAAK_HAND_STRIDE     = 0x031C;
@@ -4634,7 +4634,7 @@ void KmrpPadFocusExcludeK1(void* control, bool excluded)
 
 // KMRP's own option pages and their entry buttons, built in KMRP's module, ask the pad
 // through these by name (K1OptionsPad.h), with KmrpGlyphLetterK1 below and
-// KmrpPaintGraphicsEntryPromptK1 (vendor/K1XboxControls.cpp). Since 2026-10-19.
+// KmrpPaintGraphicsEntryPromptK1 (K1XboxControls.cpp). Since 2026-10-19.
 extern "C" int __cdecl KmrpPadInUseK1()
 {
     return IsControllerInputActiveK1() ? 1 : 0;
@@ -4645,14 +4645,14 @@ extern "C" void __cdecl KmrpPadFocusSkipK1(void* control, int skipped)
     KmrpPadFocusExcludeK1(control, skipped != 0);
 }
 
-// The picture a fill stands for (vendor/K1XboxControls.cpp), and the drawing made of a
+// The picture a fill stands for (K1XboxControls.cpp), and the drawing made of a
 // picture for one border.
 const char* KmrpLogicalFillK1(const char* fill);
 const char* KmrpDrawnFillK1(const void* params, const char* fill);
 // The swoop prompt drawn for this screen's size, its name in `out` (the same file).
 bool KmrpDrawnPictureK1(const char* name, char out[17]);
 
-// For the prompt layer in vendor/K1XboxControls.cpp, which names the Xbox art.
+// For the prompt layer in K1XboxControls.cpp, which names the Xbox art.
 extern "C" char __cdecl KmrpGlyphLetterK1()
 {
     const int family = g_stick.glyphFamily;
@@ -4673,7 +4673,7 @@ void MatchCueFamilyK1(void* label)
 {
     char* const params = static_cast<char*>(label) + K1_LABEL_BORDER_PARAMS;
     // The name it stands for where the controller patch drew the picture at its size
-    // (KmrpLogicalFillK1, vendor/K1XboxControls.cpp): that drawing's own name is "kmz".
+    // (KmrpLogicalFillK1, K1XboxControls.cpp): that drawing's own name is "kmz".
     char shown[17] = {};
     std::memcpy(shown, params + K1_BORDER_PARAMS_FILL, 16);
     char resref[16] = {};
@@ -5406,7 +5406,7 @@ void ForgetClassSelectPadK1(void* panel)
 // moves the focused card (0x2A, HandleMoveCard 0x006807E0) and the game sets its caption to
 // Add Card or Remove Card as LT and RT (0x35, 0x36) move between the lists. Play is
 // m_btnAccept (+0x7108); the dispatcher has no A, so A presses it (K1_BUTTON_REMAPS). Both are
-// hints, never focused (K1_PAZAAK_SETUP_PROMPTS, vendor/K1XboxControls.cpp).
+// hints, never focused (K1_PAZAAK_SETUP_PROMPTS, K1XboxControls.cpp).
 constexpr std::uintptr_t K1_PAZAAK_SETUP_VTABLE = 0x007532E8;
 constexpr std::size_t    K1_PAZAAK_SETUP_TITLE  = 0x0064;
 constexpr std::size_t    K1_PAZAAK_SETUP_AVAIL  = 0x01A4;     // 18 CSWGuiPazaakCard, 0x31C apart
@@ -6715,7 +6715,7 @@ bool SetFocusK1(void* panel, void* target)
 // The settings rows whose value is stepped by a - and a + either side of it
 // (2026-09-25). Left and Right on the row press them the way a click does --
 // the arrow's own registered 0x27, as the keyboard path always has
-// (CaptureK1SettingsCycle, vendor/K1XboxControls.cpp) -- and the focus stays on
+// (CaptureK1SettingsCycle, K1XboxControls.cpp) -- and the focus stays on
 // the value. Before, the pad only ever moved the focus spatially: Right from the
 // value reached the +, and Right again found nothing ("pressing D-pad right
 // doesn't change the settings", play-test that day). Gameplay's Difficulty has
@@ -6869,7 +6869,7 @@ bool NavigatePointsScreenK1(void* panel, void* active, const PointsScreenK1& s,
 // as the game's own two do: the old planet's button unselected (vtable +0x40), the party
 // table's selected planet set (0x00563B60, its +0xE0), the new button selected and the
 // planet shown (DisplayPlanet 0x006933A0, ret 8). Travel and Cancel are A and B whatever
-// holds focus, and are never focused (K1_GALAXY_MAP_PROMPTS, vendor/K1XboxControls.cpp).
+// holds focus, and are never focused (K1_GALAXY_MAP_PROMPTS, K1XboxControls.cpp).
 constexpr std::uintptr_t K1_GALAXY_MAP_DISPATCHER  = 0x00695980;
 constexpr std::size_t    K1_GALAXY_PLANETS         = 0x64;          // 16 buttons, by planet
 constexpr std::size_t    K1_GALAXY_PLANET_STRIDE   = 0x1C4;

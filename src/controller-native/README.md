@@ -100,8 +100,8 @@ mapping are in `docs/controller-native-path.md`.
 | `K1PartyPortraits.cpp` | KMRP | both modules: the Party Roster Limit 32 portraits repaired; in KMRP's module it finds no bindings and does nothing (F1 report) (from `K1NativeJoystick.cpp`) |
 | `K1PopupFit.cpp` | KMRP | the message popup fitted to its contents, the Mac's `popup_fit.cpp` on Windows' offsets (2026-09-30; `docs/windows-changes-from-macos.md`, item 1). Not controller code: part of KMRP's patch, not of the controller patch |
 | `K1GrantedPopup.cpp` | KMRP | the granted popup's rows like the inventory's, the Mac's `granted_popup.cpp` on Windows' offsets (2026-09-30; item 10). Not controller code either |
-| `vendor/K1XboxControls.cpp` | Saul0097, modified by KMRP | movie skipping, the action bar, focus fixes, cursor and device-switch policy |
-| `vendor/K1XboxControlsXInput.cpp` / `.h` | Saul0097, modified by KMRP | XInput reading and the last-input-device state the prompts depend on |
+| `K1XboxControls.cpp` | Saul0097, modified by KMRP | movie skipping, the action bar, focus fixes, cursor and device-switch policy |
+| `K1InputDevice.cpp` / `.h` | Saul0097, modified by KMRP | XInput reading and the last-input-device state the prompts depend on |
 | `exports.def` | KMRP | the module's exports, including the native hooks |
 | `kotor1.hooks.toml` | Saul0097, modified by KMRP | hook addresses, including the native entries |
 
@@ -130,7 +130,7 @@ the convention this repository already used for its changes to that project.
 The clone under `build/research/` is left pristine and is **not** part of the
 build. **Regenerate the diff whenever the five files change**, not only after an
 upstream update: copy upstream's `K1XboxControls.cpp`,
-`K1XboxControlsXInput.cpp`, `K1XboxControlsXInput.h`, `exports.def` and
+`K1InputDevice.cpp`, `K1InputDevice.h`, `exports.def` and
 `kotor1.hooks.toml` into an empty git repository and commit them, copy ours over
 the top (the vendor files from `vendor/`), and write `git diff` to that file.
 Applying it to a checkout of upstream commit `78e7eaa` must reproduce all five

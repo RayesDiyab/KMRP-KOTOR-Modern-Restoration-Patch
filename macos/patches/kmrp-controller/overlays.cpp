@@ -9,7 +9,7 @@
   Windows): the controller patch fits itself to whatever interface is loaded, from what it
   measures in the running game, and takes nothing from another patch; a badge's width and
   height never change apart. This is the port of Windows' ShowK1BadgeOverlay and its companions
-  (src/controller-native/vendor/K1XboxControls.cpp).
+  (src/controller-native/K1XboxControls.cpp).
 
   The shape each badge was made for is K1ControllerBadgeShapes.inc, the file Windows compiles
   (tools/build_controller_assets.py --badge-shapes): the Mac game's layouts and this patch's

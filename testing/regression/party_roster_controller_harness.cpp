@@ -9,7 +9,7 @@ static HMODULE FakeModule(LPCWSTR name) { return name && !rosterLoaded?nullptr:r
 static FARPROC FakeSymbol(HMODULE,LPCSTR) {return reinterpret_cast<FARPROC>(1);}
 #define GetModuleHandleW FakeModule
 #define GetProcAddress FakeSymbol
-#include "../../src/controller-native/vendor/K1XboxControls.cpp"
+#include "../../src/controller-native/K1XboxControls.cpp"
 #undef GetModuleHandleW
 #undef GetProcAddress
 int main() {
