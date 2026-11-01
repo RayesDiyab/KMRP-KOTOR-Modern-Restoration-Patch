@@ -9,11 +9,11 @@ The findings' full record is [`cleanup-audit-1.6-disposition.md`](cleanup-audit-
 
 ## Before you start
 
-**Installed in the Steam folder on 2026-11-01:** installer `9466F0A9...`, from commit `f1643d3`, `kmrp.dll`
-`09B8159B...`, `kmrp-controller.dll` `3394B7BF...`, debug logs on. A later build needs its own install.
-What it replaced is in `KMRP\backups\before-save-button-2026-11-01`, the build before that in
-`before-font-refit-2026-11-01`, and what the audit build replaced in `before-audit-build-2026-11-01`,
-each with `hashes.txt`.
+**Installed in the Steam folder on 2026-11-01:** installer `95541ADB...`, from commit `5922c1c`, `kmrp.dll`
+`32C79C6D...`, `kmrp-controller.dll` `3394B7BF...`, debug logs on. A later build needs its own install.
+What it replaced is in `KMRP\backups\before-save-fixes-2026-11-01`, the builds before that in
+`before-save-button-2026-11-01` and `before-font-refit-2026-11-01`, and what the audit build replaced
+in `before-audit-build-2026-11-01`, each with `hashes.txt`.
 
 **Check first:** the audit build's install also moved K1 Modern Driver Compatibility from the standalone 2.0.0
 (`dinput8.dll` and an `.asi`) to the bundled 2.0.1 patch, as this build is meant to. That route has
