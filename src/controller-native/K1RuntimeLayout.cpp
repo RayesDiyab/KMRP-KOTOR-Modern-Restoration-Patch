@@ -6,15 +6,19 @@
 #include "K1TextOptions.h"
 #include "K1HudOptions.h"
 #include "K1TextLayout.h"
+#include "K1TextRows.h"
 #include "../../macos/tools/kmrp-iconsize.h"
 #include <windows.h>
 #include "K1EngineMemory.h"
 #include <map>
 #include <vector>
 #include <string>
+#include <cstdio>
 #include <cstring>
 #include <cstdint>
 #include <cmath>
+
+void KmrpRuntimeLog(const char* line);
 
 namespace {
 struct Extent { int left, top, width, height; };
@@ -579,19 +583,26 @@ void SetBoxExtent(void* drawable, const Extent& box)
     if (table) reinterpret_cast<RowSetExtent>(table[1])(drawable, &box);
 }
 
-void __fastcall SkillRowExtent(void* self, void*, const Extent* extent)
+void SizeSkillIcon(void* icon, const Extent& cell)
 {
-    g_skillRowExtent(self, extent);
-    if (!(g_iconsScaled = g_iconsScaled || KmrpIconSizePercentK1() != KMRP_ICON_DEFAULT)) return;
-    // The game places nothing for a row no wider than its icon square (it returns before
-    // setting the row's extent): its icon's box is then still the last one this gave it.
-    if (std::memcmp(&At<Extent>(self, 4), extent, sizeof(Extent))) return;
-    void* icon = static_cast<char*>(self) + 0x29C;
     const int side = IconSide(At<void*>(icon, 0x70));
     if (!side) return;
     unsigned& flags = At<unsigned>(icon, 0x14 + 0x1C);
     flags = (flags & ~3u) | 2u;   // the fill drawn at its area's size (CSWGuiBorder::Draw, style 2)
-    SetBoxExtent(icon, CentredSquare(At<Extent>(icon, 4), side));
+    const Extent box = CentredSquare(cell, side);
+    if (std::memcmp(&At<Extent>(icon, 4), &box, sizeof box)) SetBoxExtent(icon, box);
+}
+
+void __fastcall SkillRowExtent(void* self, void*, const Extent* extent)
+{
+    g_skillRowExtent(self, extent);
+    if (!KmrpSkillIconOwnedK1()) return;
+    // The game places nothing for a row no wider than its icon square (it returns before
+    // setting the row's extent): its icon's box is then still the last one this gave it.
+    if (std::memcmp(&At<Extent>(self, 4), extent, sizeof(Extent))) return;
+    void* icon = static_cast<char*>(self) + 0x29C;
+    const Extent cell = At<Extent>(icon, 4);
+    SizeSkillIcon(icon, cell);
 }
 
 void __fastcall ChainRowExtent(void* self, void*, const Extent* extent)
@@ -802,6 +813,23 @@ extern "C" void __cdecl KmrpControlDestroyedK1(void* control)
     }
 }
 
+bool KmrpSkillIconOwnedK1()
+{
+    return g_iconsScaled = g_iconsScaled || KmrpIconSizePercentK1() != KMRP_ICON_DEFAULT;
+}
+
+void KmrpSizeSkillIconK1(void* icon, const void* cell)
+{
+    SizeSkillIcon(icon, *static_cast<const Extent*>(cell));
+}
+
+static void LogSkipped(const std::string& resource, const char* what)
+{
+    char line[200];
+    sprintf_s(line, "[KMRP] a change of size left %s of %.32s as it was", what, resource.c_str());
+    KmrpRuntimeLog(line);
+}
+
 bool KmrpRuntimeLayoutDimensions(void* manager, int width, int height)
 {
     if (!previousWidth) { previousWidth = width; previousHeight = height; return true; }
@@ -826,14 +854,17 @@ bool KmrpRuntimeLayoutDimensions(void* manager, int width, int height)
         Gff gff;
         std::wstring name(item.second.resource.begin(), item.second.resource.end());
         if (!gff.load(KmrpRuntimeLayoutFile(name + L".gui"))) continue;
+        // One odd file costs its own panel, or one control's place, and nothing else. It ended
+        // the whole change here until 2026-11-01, half done, and the game then asked again
+        // every frame, reading the file each time (audit GUI-3).
         Extent root;
-        if (!gff.extent(0, root)) return false;
+        if (!gff.extent(0, root)) { LogSkipped(item.second.resource, "its root"); continue; }
         const Extent old = At<Extent>(panel, 4);
         if (old.width != previousWidth && old.left == (previousWidth - old.width) / 2) root.left = (width - root.width) / 2;
         if (old.height != previousHeight && old.top == (previousHeight - old.height) / 2) root.top = (height - root.height) / 2;
         changes.push_back({panel, root});
         std::map<std::string, Extent> file;
-        if (!FileExtents(gff, file)) return false;
+        if (!FileExtents(gff, file)) { LogSkipped(item.second.resource, "its controls"); continue; }
         std::map<std::string, ListFile> lists;
         FileLists(gff, lists);
         FileBars(gff, item.second.resource, item.second.bars);
@@ -842,7 +873,10 @@ bool KmrpRuntimeLayoutDimensions(void* manager, int width, int height)
             if (found == item.second.controls.end()) continue;
             Control& tracked = found->second;
             void* control = tracked.pointer;
-            if (At<void*>(control, 0x34) != panel || At<std::uintptr_t>(control, 0) != tracked.table) return false;
+            if (At<void*>(control, 0x34) != panel || At<std::uintptr_t>(control, 0) != tracked.table) {
+                LogSkipped(item.second.resource, entry.first.c_str());
+                continue;
+            }
             const Extent actual = At<Extent>(control, 4);
             Extent now = actual;
             now.width -= tracked.rowsRight;   // the rows' share is put back below, for the new size

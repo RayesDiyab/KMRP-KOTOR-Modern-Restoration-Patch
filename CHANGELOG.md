@@ -117,6 +117,16 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: Icon Size owns the skill icon, and one odd layout no longer stops a size change (audit
+  GUI-2, GUI-3)** (2026-11-01). Two rules sized a skill row's icon, Text Size and the Icon Size
+  slider, and each undid the other, so with the slider moved in a session or Text Size above 50%
+  skill icons followed whichever ran last. The slider owns that icon now (approved decision 4), in
+  the box the row gives it; a game that never moves the slider runs as before. A size change
+  stopped at the first layout it could not read, half done, and asked again every frame reading
+  the file each time: the odd panel or control now keeps its place and the rest go on, with a line
+  in the log. Test-TextRows has a skill row, which fails without the fix. GUI-3 has no test: it needs
+  the game's panels. Neither is seen in a game: both are on the gameplay checklist.
+
 - **Fixed: a failed art helper is tried again (audit GUI-5)** (2026-11-01). Each helper reads the
   106 MB texture pack whole, which a game short of memory can fail, and the set was sealed
   without its icons or tutorial art for good. The set is still used, but is left unsealed for the

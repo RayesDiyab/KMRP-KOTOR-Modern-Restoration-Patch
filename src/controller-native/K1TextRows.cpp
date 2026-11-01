@@ -30,6 +30,7 @@ bool Valid(const Rect& r) { return r.width > 0 && r.width <= 32767 && r.height >
 // instead of the row's (see Stretch); zero for classes that pass the row through.
 // icon: the first of the three icon borders, 0x74 apart, each a native square.
 // chart: a feat or power chart row (see Chart), no text of its own.
+constexpr unsigned kSkillIcon = 0x1B4;
 struct Kind { unsigned text = 0, amount = 0; bool content = false; unsigned frame = 0, hilight = 0, icon = 0; bool chart = false; };
 Kind Type(void* row) {
     switch (At<std::uintptr_t>(row, 0)) {
@@ -177,7 +178,12 @@ void Stretch(void* row) {
                        newFrame.width - s.insetLeft - s.insetRight,
                        newFrame.height - s.insetTop - s.insetBottom};
     if (!Valid(newFrame) || !Valid(newText)) return;
+    // Two rules sized a skill row's icon: this one, by Text Size, and the Icon Size slider's. Each
+    // undid the other, so until 2026-11-01 skill icons followed whichever ran last (audit GUI-2).
+    // The slider owns it (the maintainer, decision 4), in the box this gives the row's icon.
+    const unsigned sized = kind.icon == kSkillIcon && KmrpSkillIconOwnedK1() ? kind.icon + 2 * 0x74 : 0;
     for (unsigned part = 0; part < 3; ++part) {
+        if (sized && kind.icon + part * 0x74 == sized) continue;
         unsigned& flags = At<unsigned>(Part(row, kind.icon + part * 0x74), kBorderFillFlags);
         if (!s.fillKnown) s.fill[part] = flags & 3u;
         const unsigned style = side > s.icon ? 2u : s.fill[part];
@@ -186,6 +192,7 @@ void Stretch(void* row) {
     s.fillKnown = true;
     if (!Same(icon, newIcon))
         for (unsigned part = 0; part < 3; ++part) Extent(Part(row, kind.icon + part * 0x74), newIcon);
+    if (sized) KmrpSizeSkillIconK1(Part(row, sized), &newIcon);
     if (!Same(frame, newFrame)) {
         Extent(frameBorder, newFrame);
         Extent(Part(row, kind.hilight), newFrame);

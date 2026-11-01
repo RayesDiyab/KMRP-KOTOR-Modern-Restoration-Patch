@@ -121,6 +121,16 @@ double KmrpTextNaturalLineHeightK1(void* p) { return At<float>(p,0x58); }
 unsigned KmrpTextLayoutGenerationK1() { return generation; }
 int textPercent = 50;
 int KmrpTextSizePercentK1() { return textPercent; }
+// The Icon Size slider, as far as a row sees it: 40 px in the box it is given.
+bool skillOwned = false;
+int skillSized = 0;
+bool KmrpSkillIconOwnedK1() { return skillOwned; }
+void KmrpSizeSkillIconK1(void* icon, const void* cell) {
+    ++skillSized;
+    const Rect box = *static_cast<const Rect*>(cell);
+    At<unsigned>(icon, 0x30) = (At<unsigned>(icon, 0x30) & ~3u) | 2u;
+    At<Rect>(icon, 4) = {box.left + (box.width - 40) / 2, box.top + (box.height - 40) / 2, 40, 40};
+}
 int main() {
     Object a,b,c,list;
     Init(a,0x7568F8,84,95); Init(b,0x756850,84,30); Init(c,0x757108,84,48);
@@ -290,6 +300,26 @@ int main() {
         assert(chartSaved[0].height==100 && At<Rect>(a.ptr(),4).height==100);
         assert(At<Rect>(Part(a.ptr(),0xD0),0x14).width==64 && At<Rect>(Part(a.ptr(),0x428),0x14).width==32);
         KmrpTextRowsForgetK1(a.ptr());KmrpTextRowsForgetK1(b.ptr());KmrpTextRowsForgetK1(list.ptr());
+    }
+    {
+        // A skill row. At the default the three icon parts move together, as an item's.
+        Object skill;
+        Init(skill,0x755ED0,84,95);Set(skill.ptr(),nullptr,&At<Rect>(skill.ptr(),4));
+        void* skillRows[]={skill.ptr()};Rect skillSaved[]={At<Rect>(skill.ptr(),4)};
+        InitList(list,skillRows,skillSaved,1,false);
+        textPercent=65;++generation;KmrpTextRowsK1(list.ptr());
+        assert(skillSized==0 && At<Rect>(Part(skill.ptr(),0x29C),4).width==109);
+        // With the slider moved it owns the third, in the box the row gives the icon, and
+        // Text Size neither resizes it nor resets its fill, whichever order they run in.
+        skillOwned=true;++generation;KmrpTextRowsK1(list.ptr());
+        assert(skillSized>0 && At<Rect>(Part(skill.ptr(),0x29C),4).width==40);
+        const Rect first=At<Rect>(Part(skill.ptr(),0x1B4),4), third=At<Rect>(Part(skill.ptr(),0x29C),4);
+        assert(first.width==109 && std::abs(2*third.left+third.width-(2*first.left+first.width))<=1);
+        assert((At<unsigned>(Part(skill.ptr(),0x29C),0x30)&3)==2);
+        ++generation;KmrpTextRowsK1(list.ptr());
+        assert(At<Rect>(Part(skill.ptr(),0x29C),4).width==40 && (At<unsigned>(Part(skill.ptr(),0x29C),0x30)&3)==2);
+        skillOwned=false;textPercent=50;++generation;KmrpTextRowsK1(list.ptr());
+        KmrpTextRowsForgetK1(skill.ptr());KmrpTextRowsForgetK1(list.ptr());
     }
     std::cout<<"Native row adapter: expansion, shrink, counters, cache, scroll, selection, unequal mode and charts passed\n";
 }

@@ -65,6 +65,8 @@ void InitList(Mock::Bytes& list,void** rows,Rect* saved,int count,bool unequal) 
     for(int i=0;i<count;++i)saved[i]=At<Rect>(rows[i],4);
 }
 }
+bool KmrpSkillIconOwnedK1() {return false;}
+void KmrpSizeSkillIconK1(void*, const void*) {}
 int KmrpTextSizePercentK1() {return 50;}  // the size before text options: icons stay native
 void* KmrpTextRowsTestFunctionK1(std::uintptr_t address) {
     if(address==0x41B140)return reinterpret_cast<void*>(&Integration::Organize);
