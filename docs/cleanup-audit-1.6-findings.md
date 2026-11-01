@@ -14,11 +14,11 @@ the code until it is agreed and done in its own small, tested step.
 | Section | Items | Audited |
 | --- | --- | --- |
 | 1.1 KMRP's hooks | 36 | 36 |
-| 1.2 the controller patch's hooks | 38 | 8 |
+| 1.2 the controller patch's hooks | 38 | 38 |
 | 1.3 to 1.5 bundled patches | 65 | not KMRP's code: no site overlaps another, measured 2026-11-01 |
-| 2 engine recipe | 89 runs, 57 operands | 0 |
-| 3 run-time writes | 10 | 0 |
-| 4 source files | 80 | 0 |
+| 2 engine recipe | 87 runs, 59 operands (corrected from 89 and 57) | all |
+| 3 run-time writes | 10, and 2 the list misses | all |
+| 4 source files | 80, and those the list misses | all, see the report |
 
 ## F1. `kmrp.dll` compiles the whole controller code base (fixed, `80f9277`)
 
@@ -270,3 +270,17 @@ and against the handler. Corrected from the first pass: `0x0040BE70` (F10);
 was wrong, as the mipmap correction runs once a session; `0x0041A9D0`, a "12-line prefix" is 5;
 `0x0040CF70`, five forget calls, not four; `0x0062785F`, not a game bug on its own sizes but
 needed for KMRP's. The grass and save entries no longer say "game bug fix" without qualification.
+
+## Corrections from the full audit (2026-11-01)
+
+The full result is [`cleanup-audit-1.6-report.md`](cleanup-audit-1.6-report.md). It corrects these
+statements above, which are left as they were written.
+
+| Finding | Said | Correct |
+| --- | --- | --- |
+| F3 | Five exports because `check_patcher_hook_table.py` needs one per dispatcher | That tool was removed on 2026-10-04, and KPM allows one function on several sites (`KmrpListRowK1`). The exports are tidiness only |
+| F4 | The `VirtualQuery` calls of `K1RuntimeResolution.cpp` ask about a slot about to be written | True at `:192` and `:257`. `ReadViewport` (`:36-41`) is a plain read check, not merged |
+| F8 | 1,269 groups against 1,651 on 2026-10-11, without saying why | 392 groups left because the badge check no longer runs, and 10 are new. **No finding was fixed** (TST-03) |
+| F9 | A table entry would change nothing on Windows | False with the controller patch alone: the width reaches `K1ControllerBadgeShapes.inc` (TST-04) |
+| F11 | The second test is the one that tests behaviour | It tests one inline range check; rebuilt, it still would not test today's rule (TST-05) |
+| F12 | The comment at `K1HudOptions.cpp:83` says the copy is deliberate | It does not. `KmrpXboxHudK1` is 482 lines, 364 of code; `KmrpXboxHudBarsK1` 160 and 136 |

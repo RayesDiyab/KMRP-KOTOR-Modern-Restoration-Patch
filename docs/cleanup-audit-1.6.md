@@ -55,44 +55,44 @@ From the `patch_config.toml` sections the build makes. A bundled patch of anothe
 
 | # | address | type | function | defined in | when | params | what it is for | audit |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | `0x00404D96` | detour | `NativeMovieFrameK1` | `src/controller-native/K1NativeJoystick.cpp:2469` | always | 1 | Poll XInput once per Bink frame; the normal ProcessInput hook does not run while a movie owns the game loop. This must sit INSIDE the loo... | [ ] |
-| 2 | `0x00407235` | detour | `ControllerPrepareResourcesK1` | `src/controller-native/K1ControllerStandalone.cpp:372` | always | 1 | (no comment) | keep: the controller's resource preparation, its own site so it works without KMRP (F2) |
-| 3 | `0x00409B80` | detour | `NativePanelLoadedK1` | `src/controller-native/K1NativeJoystick.cpp:2828` | always | 3 | (no comment) | [ ] |
-| 4 | `0x00409E60` | detour | `GuardPanelEchoK1` | `src/controller-native/K1NativeJoystick.cpp:3688` | always | 3 | The echo guard, on every panel. CSWGuiPanel::HandleInputEvent, 0x00409E60, hands an event to the focused control, [panel+0x1C]; when that... | [ ] |
-| 5 | `0x0040C1F6` | detour | `NativeNoteMouseK1` | `src/controller-native/K1NativeJoystick.cpp:2539` | always | 3 | Clear keyboard focus when the mouse moves over an action button. | [ ] |
-| 6 | `0x0040C8E0` | detour | `GuardReleaseTargetK1` | `src/controller-native/K1NativeJoystick.cpp:3780` | always | 3 | A release goes where its press went, as the mouse's does: CSWGuiManager:: HandleInputEvent 0x0040C8E0, where every pad and key event reac... | [ ] |
-| 7 | `0x0040CE70` | detour | `NativeGuiFrameK1` | `src/controller-native/K1NativeJoystick.cpp:7364` | always | 1 | The GUI's own per-frame update, where KMRP's focus navigation performs its moves. It has to be here rather than in the input hook: CSWGui... | [ ] |
-| 8 | `0x0040CFAB` | detour | `NativePanelDestroyedK1` | `src/controller-native/K1NativeJoystick.cpp:2843` | always | 1 | (no comment) | [ ] |
-| 9 | `0x005E24E0` | detour | `NativeJoystickInitK1` | `src/controller-native/K1NativeJoystick.cpp:1997` | always | 1 | Register the joystick descriptions and raise the device count, once the input singleton exists. Idempotent; runs every frame and returns... | [ ] |
-| 10 | `0x005E271E` | detour | `NativeNoteKeyboardK1` | `src/controller-native/K1NativeJoystick.cpp:2534` | always | 2 | Capture raw keyboard input before KOTOR applies its key bindings. | [ ] |
-| 11 | `0x005E30F6` | detour | `NativeJoystickBufferK1` | `src/controller-native/K1NativeJoystick.cpp:2945` | always | 1 | Replace CExoRawInputInternal::GetJoystickBuffer. Hooked past the entry, where esi holds the caller's record buffer -- at the true entry i... | [ ] |
-| 12 | `0x005F74B0` | detour | `NativeRumbleStopK1` | `src/controller-native/K1Rumble.cpp:1059` | always | 2 | CClientExoAppInternal::StopRumblePattern, 0x005F74B0, at its entry. ecx is the object; [esp+4] the index. Observes: the engine's search o... | [ ] |
-| 13 | `0x005F7617` | detour | `NativeRumbleK1` | `src/controller-native/K1NativeJoystick.cpp:2404` | always | 4 | Route the engine's own rumble to XInput. KOTOR still runs the Xbox build's rumble subsystem. UpdateRumble at 0x005F7500 walks the active... | [ ] |
-| 14 | `0x005FB49F` | detour | `NativeRumblePlayK1` | `src/controller-native/K1Rumble.cpp:1028` | always | 2 | CClientExoAppInternal::PlayRumblePattern, 0x005FB490, at its index test: 005FB491  mov ebp,[esp+8]        the pattern index 005FB499  jl... | [ ] |
-| 15 | `0x005FB98E` | detour | `NativeRumbleCutoffK1` | `src/controller-native/K1Rumble.cpp:1080` | always | 1 | CClientExoAppInternal::LookUpAndPerformRumbleWithCutOff, 0x005FB960, just after its frame and local string are built: 005FB961  mov ebp,e... | [ ] |
-| 16 | `0x006039CF` | detour | `NativeCameraFrameK1` | `src/controller-native/K1NativeJoystick.cpp:2940` | always | 1 | Apply the right-stick camera turn, immediately after UpdateCamera has run. The timing is the whole point, and getting it wrong is why an... | [ ] |
-| 17 | `0x0060DE20` | detour | `NativeSaberContactK1` | `src/controller-native/K1Rumble.cpp:1176` | always | 1 | CSWCCreature::ShowLightSaberContactVisual, 0x0060DE20, at its entry; ecx is the wielder. Reached from the attack animation's hit-contact... | [ ] |
-| 18 | `0x00617EB0` | detour | `NativeMeleeHitK1` | `src/controller-native/K1Rumble.cpp:1191` | always | 1 | HitEvent, 0x00617EB0, the creature animation event "hit" (registered by CSWCCreature::RegisterCallbacks, 0x0061AB40): the impact moment o... | [ ] |
-| 19 | `0x0063C4F0` | detour | `NativeParryK1` | `src/controller-native/K1Rumble.cpp:1211` | always | 1 | CSWCObject::AnimationParry, 0x0063C4F0, at its entry; ecx is the object parrying. The stolen `test ecx,ecx` sets the flags the `je` at 0x... | [ ] |
-| 20 | `0x00646BA0` | detour | `NativeSaberPowerK1` | `src/controller-native/K1Rumble.cpp:1150` | always | 2 | CSWCItem::ResolveCreaturePoweredAnimations, 0x00646BA0, at its entry. ecx is the item; [esp+4] the power flag. CSWCItem::PowerItem (0x006... | [ ] |
-| 21 | `0x00670FB0` | detour | `NativeMiniGameAxisK1` | `src/controller-native/K1NativeJoystick.cpp:8289` | always | 2 | (no comment) | [ ] |
-| 22 | `0x00679940` | detour | `NativeJoystickMovementK1` | `src/controller-native/K1NativeJoystick.cpp:7893` | always | 1 | Override the movement axes at the single point every control scheme passes through. ProcessInput has already clamped the keyboard values... | [ ] |
-| 23 | `0x00679B71` | detour | `NativeJoystickSkipNormalizeK1` | `src/controller-native/K1NativeJoystick.cpp:7984` | always | 1 | Bypass Control's own Vector::Normalize, but only while the stick is driving. That call is correct for the keyboard, where each axis is ex... | [ ] |
-| 24 | `0x00685ED0` | detour | `KmrpXboxHudBarsK1` | `src/controller-native/K1XboxHud.cpp:1354` | always | 1 | (no comment) | [ ] |
-| 25 | `0x00686BA0` | detour | `NativeActionBarK1` | `src/controller-native/K1NativeJoystick.cpp:2854` | always | 1 | Process captured keyboard input during the gameplay HUD update. | [ ] |
-| 26 | `0x0068947A` | detour | `KmrpXboxHudListsK1` | `src/controller-native/K1XboxHud.cpp:2616` | always | 1 | (no comment) | [ ] |
-| 27 | `0x0068AB10` | detour | `KmrpXboxHudK1` | `src/controller-native/K1XboxHud.cpp:1974` | always | 1 | (no comment) | [ ] |
-| 28 | `0x0068B170` | detour | `ClearActionBarControlsK1` | `src/controller-native/vendor/K1XboxControls.cpp:7246` | always | 1 | Clear cached HUD state when KOTOR destroys the gameplay interface. | [ ] |
-| 29 | `0x006C00C0` | detour | `KmrpXboxHudPauseReasonK1` | `src/controller-native/K1XboxHud.cpp:2663` | always | 1 | (no comment) | [ ] |
-| 30 | `0x006C02A4` | detour | `KmrpXboxHudPauseReasonDoneK1` | `src/controller-native/K1XboxHud.cpp:2672` | always | 1 | (no comment) | [ ] |
-| 31 | `0x006C2400` | detour | `ResolveSoloModeConfirmK1` | `src/controller-native/K1NativeJoystick.cpp:2230` | always | 3 | CSWGuiInGameSoloModeQuery::HandleInputEvent, 0x006C2400. 006C2400  mov edx,[esp+8]     value 006C2404  test edx,edx        a release (0)... | keep: solo-mode popup, A on Cancel becomes B |
-| 32 | `0x006D4440` | detour | `NativeMuzzleFlashK1` | `src/controller-native/K1Rumble.cpp:1226` | always | 1 | CSWCProjectile::CreateMuzzleFlash, 0x006D4440, at its entry; ecx is the projectile. The stolen `mov ebx,[esp+8]` is ESP-relative, and KPM... | [ ] |
-| 33 | `0x006E0CF0` | detour | `ResolveResolutionConfirmK1` | `src/controller-native/K1NativeJoystick.cpp:2246` | always | 3 | CSWGuiOptionsResolution::HandleInputEvent, 0x006E0CF0. Its frame is built on EBP, so the event is read later as [ebp+8]; at the entry it... | keep: resolution popup, confirm once (2026-10-28 double pop) |
-| 34 | `0x006F28C0` | detour | `GuardPowersConfirmK1` | `src/controller-native/K1NativeJoystick.cpp:2394` | always | 3 | (no comment) | keep: thin export over GuardChargenConfirmK1 (one per dispatcher, already shared) |
-| 35 | `0x006F4680` | detour | `GuardFeatsConfirmK1` | `src/controller-native/K1NativeJoystick.cpp:2389` | always | 3 | (no comment) | keep: as above |
-| 36 | `0x006F6A10` | detour | `GuardSkillsConfirmK1` | `src/controller-native/K1NativeJoystick.cpp:2384` | always | 3 | (no comment) | keep: as above |
-| 37 | `0x006F8880` | detour | `GuardAbilitiesConfirmK1` | `src/controller-native/K1NativeJoystick.cpp:2379` | always | 3 | (no comment) | keep: as above |
-| 38 | `0x006F8FF0` | detour | `GuardPortraitConfirmK1` | `src/controller-native/K1NativeJoystick.cpp:2399` | always | 3 | (no comment) | keep: as above |
+| 1 | `0x00404D96` | detour | `NativeMovieFrameK1` | `src/controller-native/K1NativeJoystick.cpp:2469` | always | 1 | Poll XInput once per Bink frame; the normal ProcessInput hook does not run while a movie owns the game loop. This must sit INSIDE the loo... | change: KMRP's preload call leaves it (THR-1) |
+| 2 | `0x00407235` | detour | `ControllerPrepareResourcesK1` | `src/controller-native/K1ControllerStandalone.cpp:372` | always | 1 | (no comment) | keep (F2) |
+| 3 | `0x00409B80` | detour | `NativePanelLoadedK1` | `src/controller-native/K1NativeJoystick.cpp:2828` | always | 3 | (no comment) | change: split the shared body into load and forget halves |
+| 4 | `0x00409E60` | detour | `GuardPanelEchoK1` | `src/controller-native/K1NativeJoystick.cpp:3688` | always | 3 | The echo guard, on every panel. CSWGuiPanel::HandleInputEvent, 0x00409E60, hands an event to the focused control, [panel+0x1C]; when that... | keep; `retained-xbox-gui-events.md` |
+| 5 | `0x0040C1F6` | detour | `NativeNoteMouseK1` | `src/controller-native/K1NativeJoystick.cpp:2539` | always | 3 | Clear keyboard focus when the mouse moves over an action button. | keep; flags lead closed (MEM) |
+| 6 | `0x0040C8E0` | detour | `GuardReleaseTargetK1` | `src/controller-native/K1NativeJoystick.cpp:3780` | always | 3 | A release goes where its press went, as the mouse's does: CSWGuiManager:: HandleInputEvent 0x0040C8E0, where every pad and key event reac... | keep |
+| 7 | `0x0040CE70` | detour | `NativeGuiFrameK1` | `src/controller-native/K1NativeJoystick.cpp:7364` | always | 1 | The GUI's own per-frame update, where KMRP's focus navigation performs its moves. It has to be here rather than in the input hook: CSWGui... | change: name its inline blocks; THR-7. Not the same job as `0x0040CE76` |
+| 8 | `0x0040CFAB` | detour | `NativePanelDestroyedK1` | `src/controller-native/K1NativeJoystick.cpp:2843` | always | 1 | (no comment) | change: forget half of the split; not the same job as `0x0040CF70` |
+| 9 | `0x005E24E0` | detour | `NativeJoystickInitK1` | `src/controller-native/K1NativeJoystick.cpp:1997` | always | 1 | Register the joystick descriptions and raise the device count, once the input singleton exists. Idempotent; runs every frame and returns... | keep; document: it does not feed the camera |
+| 10 | `0x005E271E` | detour | `NativeNoteKeyboardK1` | `src/controller-native/K1NativeJoystick.cpp:2534` | always | 2 | Capture raw keyboard input before KOTOR applies its key bindings. | keep; document: it also swallows keys |
+| 11 | `0x005E30F6` | detour | `NativeJoystickBufferK1` | `src/controller-native/K1NativeJoystick.cpp:2945` | always | 1 | Replace CExoRawInputInternal::GetJoystickBuffer. Hooked past the entry, where esi holds the caller's record buffer -- at the true entry i... | keep |
+| 12 | `0x005F74B0` | detour | `NativeRumbleStopK1` | `src/controller-native/K1Rumble.cpp:1059` | always | 2 | CClientExoAppInternal::StopRumblePattern, 0x005F74B0, at its entry. ecx is the object; [esp+4] the index. Observes: the engine's search o... | keep |
+| 13 | `0x005F7617` | detour | `NativeRumbleK1` | `src/controller-native/K1NativeJoystick.cpp:2404` | always | 4 | Route the engine's own rumble to XInput. KOTOR still runs the Xbox build's rumble subsystem. UpdateRumble at 0x005F7500 walks the active... | move to `K1Rumble.cpp` |
+| 14 | `0x005FB49F` | detour | `NativeRumblePlayK1` | `src/controller-native/K1Rumble.cpp:1028` | always | 2 | CClientExoAppInternal::PlayRumblePattern, 0x005FB490, at its index test: 005FB491  mov ebp,[esp+8]        the pattern index 005FB499  jl... | keep |
+| 15 | `0x005FB98E` | detour | `NativeRumbleCutoffK1` | `src/controller-native/K1Rumble.cpp:1080` | always | 1 | CClientExoAppInternal::LookUpAndPerformRumbleWithCutOff, 0x005FB960, just after its frame and local string are built: 005FB961  mov ebp,e... | keep; sees lookups past the cutoff, which play never does |
+| 16 | `0x006039CF` | detour | `NativeCameraFrameK1` | `src/controller-native/K1NativeJoystick.cpp:2940` | always | 1 | Apply the right-stick camera turn, immediately after UpdateCamera has run. The timing is the whole point, and getting it wrong is why an... | keep; document: the site is in UpdateCamera's caller |
+| 17 | `0x0060DE20` | detour | `NativeSaberContactK1` | `src/controller-native/K1Rumble.cpp:1176` | always | 1 | CSWCCreature::ShowLightSaberContactVisual, 0x0060DE20, at its entry; ecx is the wielder. Reached from the attack animation's hit-contact... | keep |
+| 18 | `0x00617EB0` | detour | `NativeMeleeHitK1` | `src/controller-native/K1Rumble.cpp:1191` | always | 1 | HitEvent, 0x00617EB0, the creature animation event "hit" (registered by CSWCCreature::RegisterCallbacks, 0x0061AB40): the impact moment o... | keep |
+| 19 | `0x0063C4F0` | detour | `NativeParryK1` | `src/controller-native/K1Rumble.cpp:1211` | always | 1 | CSWCObject::AnimationParry, 0x0063C4F0, at its entry; ecx is the object parrying. The stolen `test ecx,ecx` sets the flags the `je` at 0x... | keep |
+| 20 | `0x00646BA0` | detour | `NativeSaberPowerK1` | `src/controller-native/K1Rumble.cpp:1150` | always | 2 | CSWCItem::ResolveCreaturePoweredAnimations, 0x00646BA0, at its entry. ecx is the item; [esp+4] the power flag. CSWCItem::PowerItem (0x006... | keep |
+| 21 | `0x00670FB0` | detour | `NativeMiniGameAxisK1` | `src/controller-native/K1NativeJoystick.cpp:8289` | always | 2 | (no comment) | keep |
+| 22 | `0x00679940` | detour | `NativeJoystickMovementK1` | `src/controller-native/K1NativeJoystick.cpp:7893` | always | 1 | Override the movement axes at the single point every control scheme passes through. ProcessInput has already clamped the keyboard values... | keep; document: it writes nothing |
+| 23 | `0x00679B71` | detour | `NativeJoystickSkipNormalizeK1` | `src/controller-native/K1NativeJoystick.cpp:7984` | always | 1 | Bypass Control's own Vector::Normalize, but only while the stick is driving. That call is correct for the keyboard, where each axis is ex... | keep; document: it always returns 1 |
+| 24 | `0x00685ED0` | detour | `KmrpXboxHudBarsK1` | `src/controller-native/K1XboxHud.cpp:1354` | always | 1 | (no comment) | keep site; split the function (S-3) |
+| 25 | `0x00686BA0` | detour | `NativeActionBarK1` | `src/controller-native/K1NativeJoystick.cpp:2854` | always | 1 | Process captured keyboard input during the gameplay HUD update. | keep |
+| 26 | `0x0068947A` | detour | `KmrpXboxHudListsK1` | `src/controller-native/K1XboxHud.cpp:2616` | always | 1 | (no comment) | keep; replaced `0x00689410` in `e634603` |
+| 27 | `0x0068AB10` | detour | `KmrpXboxHudK1` | `src/controller-native/K1XboxHud.cpp:1974` | always | 1 | (no comment) | keep site; split the function (S-3) |
+| 28 | `0x0068B170` | detour | `ClearActionBarControlsK1` | `src/controller-native/vendor/K1XboxControls.cpp:7246` | always | 1 | Clear cached HUD state when KOTOR destroys the gameplay interface. | merge into `0x0040CFAB`, needs a crash test (likely) |
+| 29 | `0x006C00C0` | detour | `KmrpXboxHudPauseReasonK1` | `src/controller-native/K1XboxHud.cpp:2663` | always | 1 | (no comment) | unverified: may be superseded by `0x006C02A4`, needs a film |
+| 30 | `0x006C02A4` | detour | `KmrpXboxHudPauseReasonDoneK1` | `src/controller-native/K1XboxHud.cpp:2672` | always | 1 | (no comment) | keep |
+| 31 | `0x006C2400` | detour | `ResolveSoloModeConfirmK1` | `src/controller-native/K1NativeJoystick.cpp:2230` | always | 3 | CSWGuiInGameSoloModeQuery::HandleInputEvent, 0x006C2400. 006C2400  mov edx,[esp+8]     value 006C2404  test edx,edx        a release (0)... | keep |
+| 32 | `0x006D4440` | detour | `NativeMuzzleFlashK1` | `src/controller-native/K1Rumble.cpp:1226` | always | 1 | CSWCProjectile::CreateMuzzleFlash, 0x006D4440, at its entry; ecx is the projectile. The stolen `mov ebx,[esp+8]` is ESP-relative, and KPM... | keep |
+| 33 | `0x006E0CF0` | detour | `ResolveResolutionConfirmK1` | `src/controller-native/K1NativeJoystick.cpp:2246` | always | 3 | CSWGuiOptionsResolution::HandleInputEvent, 0x006E0CF0. Its frame is built on EBP, so the event is read later as [ebp+8]; at the entry it... | keep; one inert event value, 0x41 |
+| 34 | `0x006F28C0` | detour | `GuardPowersConfirmK1` | `src/controller-native/K1NativeJoystick.cpp:2394` | always | 3 | (no comment) | keep; F3's reason was wrong: tidiness only |
+| 35 | `0x006F4680` | detour | `GuardFeatsConfirmK1` | `src/controller-native/K1NativeJoystick.cpp:2389` | always | 3 | (no comment) | as above |
+| 36 | `0x006F6A10` | detour | `GuardSkillsConfirmK1` | `src/controller-native/K1NativeJoystick.cpp:2384` | always | 3 | (no comment) | as above |
+| 37 | `0x006F8880` | detour | `GuardAbilitiesConfirmK1` | `src/controller-native/K1NativeJoystick.cpp:2379` | always | 3 | (no comment) | as above |
+| 38 | `0x006F8FF0` | detour | `GuardPortraitConfirmK1` | `src/controller-native/K1NativeJoystick.cpp:2399` | always | 3 | (no comment) | as above |
 
 ### 1.3 `high-fps-fixes`, 36 hooks (D3M0 (bundled, unchanged))
 
@@ -180,93 +180,93 @@ From the `patch_config.toml` sections the build makes. A bundled patch of anothe
 
 | # | VA | len | feature | first named in | audit |
 | --- | --- | --- | --- | --- | --- |
-| 1 | `0x00403D6C` | 4 | movie display mode | `tools/build_windows_engine.py:114` | [ ] |
-| 2 | `0x00403D78` | 4 | movie display mode | `tools/build_windows_engine.py:114` | [ ] |
-| 3 | `0x00403EAD` | 4 | movie display mode | `tools/build_windows_engine.py:129` | [ ] |
-| 4 | `0x00403EB9` | 4 | movie display mode | `tools/build_windows_engine.py:129` | [ ] |
-| 5 | `0x00405734` | 1 | movies | `tools/build_windows_engine.py:108` | [ ] |
-| 6 | `0x004057AC` | 7 | movies | `tools/build_windows_engine.py:113` | [ ] |
-| 7 | `0x0040AA65` | 4 | core | `tools/build_windows_engine.py:130` | [ ] |
-| 8 | `0x0040AA85` | 4 | core | `tools/build_windows_engine.py:130` | [ ] |
-| 9 | `0x0040B6C7` | 4 | core | `tools/build_windows_engine.py:132` | [ ] |
-| 10 | `0x0040B6DA` | 4 | core | `tools/build_windows_engine.py:133` | [ ] |
-| 11 | `0x0040BA6C` | 4 | core | `tools/build_windows_engine.py:132` | [ ] |
-| 12 | `0x0040BA83` | 4 | core | `tools/build_windows_engine.py:133` | [ ] |
-| 13 | `0x00415E0D` | 5 | core | `tools/build_leading_newline_fix.py:37` | [ ] |
-| 14 | `0x00417992` | 10 | core | `tools/build_font_scale_wrapper.py:81` | [ ] |
-| 15 | `0x0041A2F2` | 15 | core | `tools/build_gutter_side_fix.py:68` | [ ] |
-| 16 | `0x0041B1C4` | 1 | core | `tools/build_listbox_padding_fix.py:57` | [ ] |
-| 17 | `0x0041B26B` | 1 | core | `tools/build_listbox_padding_fix.py:59` | [ ] |
-| 18 | `0x0041B339` | 1 | core | `tools/build_listbox_padding_fix.py:74` | [ ] |
-| 19 | `0x0041B3AE` | 1 | core | `tools/build_listbox_padding_fix.py:76` | [ ] |
-| 20 | `0x0041B46D` | 12 | core | `tools/build_gutter_side_fix.py:62` | [ ] |
-| 21 | `0x0041B48C` | 5 | core | `tools/build_gutter_side_fix.py:39` | [ ] |
-| 22 | `0x0041B507` | 2 | core | `tools/build_listbox_growth_fix.py:54` | [ ] |
-| 23 | `0x0041B52E` | 1 | core | `` | [ ] |
-| 24 | `0x0041B553` | 1 | core | `tools/build_listbox_padding_fix.py:61` | [ ] |
-| 25 | `0x0045992A` | 26 | core | `tools/build_minimap_zoom_fix.py:77` | [ ] |
-| 26 | `0x0045A3B7` | 6 | core | `tools/build_wrap_progress_fix.py:39` | [ ] |
-| 27 | `0x0045A3DC` | 6 | core | `tools/build_wrap_progress_fix.py:40` | [ ] |
-| 28 | `0x0045A5E0` | 16 | core | `tools/build_wrap_progress_fix.py:69` | [ ] |
-| 29 | `0x0045A850` | 7 | core | `tools/audit_native_text_paths.py:26` | [ ] |
-| 30 | `0x004A1770` | 13 | core | `tools/audit_native_text_paths.py:27` | [ ] |
-| 31 | `0x005F0C65` | 4 | core | `tools/build_windows_engine.py:131` | [ ] |
-| 32 | `0x005F0C6F` | 4 | core | `tools/build_windows_engine.py:131` | [ ] |
-| 33 | `0x005F5B3B` | 12 | movie display mode | `tools/build_windows_engine.py:114` | [ ] |
-| 34 | `0x005F92A8` | 2 | movie display mode | `tools/build_windows_engine.py:109` | [ ] |
-| 35 | `0x0062540D` | 4 | core | `tools/build_windows_engine.py:136` | [ ] |
-| 36 | `0x006256DC` | 11 | core | `tools/build_windows_engine.py:134` | [ ] |
-| 37 | `0x006256F6` | 4 | core | `tools/build_windows_engine.py:134` | [ ] |
-| 38 | `0x006256FC` | 27 | core | `tools/build_windows_engine.py:160` | [ ] |
-| 39 | `0x00625759` | 4 | core | `tools/build_windows_engine.py:135` | [ ] |
-| 40 | `0x00626F95` | 4 | core | `tools/build_windows_engine.py:136` | [ ] |
-| 41 | `0x0062B39B` | 5 | core | `tools/build_windows_engine.py:181` | [ ] |
-| 42 | `0x0068AC9F` | 5 | core | `tools/build_minimap_fog_fix.py:10` | [ ] |
-| 43 | `0x0068C4E3` | 4 | core | `tools/build_windows_engine.py:143` | [ ] |
-| 44 | `0x0068C4F4` | 8 | core | `` | [ ] |
-| 45 | `0x006928B3` | 4 | core | `tools/build_windows_engine.py:137` | [ ] |
-| 46 | `0x006928C3` | 4 | core | `tools/build_windows_engine.py:137` | [ ] |
-| 47 | `0x0069405B` | 4 | core | `tools/build_windows_engine.py:142` | [ ] |
-| 48 | `0x006940DC` | 4 | core | `tools/build_windows_engine.py:142` | [ ] |
-| 49 | `0x006944A8` | 6 | core | `tools/build_area_fog_fix.py:42` | [ ] |
-| 50 | `0x006944C4` | 6 | core | `tools/build_area_fog_fix.py:75` | [ ] |
-| 51 | `0x006946F4` | 5 | core | `tools/build_windows_engine.py:182` | [ ] |
-| 52 | `0x0069471A` | 13 | core | `tools/build_native_engine.py:62` | [ ] |
-| 53 | `0x00694763` | 4 | core | `tools/build_windows_engine.py:140` | [ ] |
-| 54 | `0x00694777` | 4 | core | `tools/build_native_engine.py:62` | [ ] |
-| 55 | `0x00694A13` | 4 | core | `tools/build_windows_engine.py:141` | [ ] |
-| 56 | `0x00694A39` | 5 | core | `tools/build_windows_engine.py:183` | [ ] |
-| 57 | `0x00694A53` | 4 | core | `tools/build_native_engine.py:63` | [ ] |
-| 58 | `0x00694AAC` | 5 | core | `tools/build_windows_engine.py:184` | [ ] |
-| 59 | `0x00694AC4` | 4 | core | `tools/build_windows_engine.py:141` | [ ] |
-| 60 | `0x00694AD0` | 5 | core | `tools/build_native_engine.py:63` | [ ] |
-| 61 | `0x0069505C` | 12 | core | `tools/build_windows_engine.py:138` | [ ] |
-| 62 | `0x00695082` | 12 | core | `tools/build_windows_engine.py:139` | [ ] |
-| 63 | `0x006A74D2` | 48 | core | `tools/build_letterbox_scale_wrapper.py:56` | [ ] |
-| 64 | `0x006A7560` | 50 | core | `tools/build_letterbox_scale_wrapper.py:62` | [ ] |
-| 65 | `0x006A7943` | 41 | core | `tools/build_letterbox_scale_wrapper.py:68` | [ ] |
-| 66 | `0x006A7B59` | 48 | core | `tools/build_letterbox_scale_wrapper.py:74` | [ ] |
-| 67 | `0x006A7CD0` | 28 | core | `tools/build_letterbox_scale_wrapper.py:92` | [ ] |
-| 68 | `0x006A7F3D` | 55 | core | `tools/build_letterbox_scale_wrapper.py:80` | [ ] |
-| 69 | `0x006A8C4C` | 44 | core | `tools/build_letterbox_scale_wrapper.py:86` | [ ] |
-| 70 | `0x006A8E1D` | 9 | core | `tools/build_letterbox_scale_wrapper.py:98` | [ ] |
-| 71 | `0x006AB8EF` | 4 | core | `tools/build_windows_engine.py:147` | [ ] |
-| 72 | `0x006ACB20` | 4 | core | `tools/build_windows_engine.py:147` | [ ] |
-| 73 | `0x006B4FA9` | 4 | core | `tools/build_windows_engine.py:146` | [ ] |
-| 74 | `0x006B527F` | 4 | core | `tools/build_windows_engine.py:146` | [ ] |
-| 75 | `0x006B5332` | 36 | core | `tools/build_windows_engine.py:148` | [ ] |
-| 76 | `0x006B55E3` | 4 | core | `tools/build_windows_engine.py:146` | [ ] |
-| 77 | `0x006C265F` | 4 | core | `tools/build_windows_engine.py:146` | [ ] |
-| 78 | `0x006C2704` | 49 | core | `tools/build_windows_engine.py:162` | [ ] |
-| 79 | `0x006C2A23` | 4 | core | `tools/build_windows_engine.py:146` | [ ] |
-| 80 | `0x006CD8D9` | 4 | core | `tools/build_windows_engine.py:147` | [ ] |
-| 81 | `0x006CDB79` | 4 | core | `tools/build_windows_engine.py:147` | [ ] |
-| 82 | `0x006DE012` | 4 | core | `tools/build_windows_engine.py:148` | [ ] |
-| 83 | `0x006DE031` | 1 | core | `tools/build_windows_engine.py:151` | [ ] |
-| 84 | `0x006DE08E` | 6 | core | `tools/build_windows_engine.py:153` | [ ] |
-| 85 | `0x006DE0D1` | 13 | core | `tools/build_windows_engine.py:154` | [ ] |
-| 86 | `0x0075477C` | 4 | core | `tools/build_windows_engine.py:186` | [ ] |
-| 87 | `0x00755788` | 3 | core | `tools/build_technical_reconstruction_doc.py:522` | [ ] |
+| 1 | `0x00403D6C` | 4 | movie display mode | `tools/build_windows_engine.py:114` | keep; guard matches the clean file |
+| 2 | `0x00403D78` | 4 | movie display mode | `tools/build_windows_engine.py:114` | keep; guard matches the clean file |
+| 3 | `0x00403EAD` | 4 | movie display mode | `tools/build_windows_engine.py:129` | keep; guard matches the clean file |
+| 4 | `0x00403EB9` | 4 | movie display mode | `tools/build_windows_engine.py:129` | keep; guard matches the clean file |
+| 5 | `0x00405734` | 1 | movies | `tools/build_windows_engine.py:108` | keep; guard matches the clean file |
+| 6 | `0x004057AC` | 7 | movies | `tools/build_windows_engine.py:113` | keep; guard matches the clean file |
+| 7 | `0x0040AA65` | 4 | core | `tools/build_windows_engine.py:130` | keep; guard matches the clean file |
+| 8 | `0x0040AA85` | 4 | core | `tools/build_windows_engine.py:130` | keep; guard matches the clean file |
+| 9 | `0x0040B6C7` | 4 | core | `tools/build_windows_engine.py:132` | keep; guard matches the clean file |
+| 10 | `0x0040B6DA` | 4 | core | `tools/build_windows_engine.py:133` | keep; guard matches the clean file |
+| 11 | `0x0040BA6C` | 4 | core | `tools/build_windows_engine.py:132` | keep; guard matches the clean file |
+| 12 | `0x0040BA83` | 4 | core | `tools/build_windows_engine.py:133` | keep; guard matches the clean file |
+| 13 | `0x00415E0D` | 5 | core | `tools/build_leading_newline_fix.py:37` | keep; guard matches the clean file |
+| 14 | `0x00417992` | 10 | core | `tools/build_font_scale_wrapper.py:81` | keep; document: `CSWGuiButton::SetStyle` |
+| 15 | `0x0041A2F2` | 15 | core | `tools/build_gutter_side_fix.py:68` | keep; guard matches the clean file |
+| 16 | `0x0041B1C4` | 1 | core | `tools/build_listbox_padding_fix.py:57` | keep; guard matches the clean file |
+| 17 | `0x0041B26B` | 1 | core | `tools/build_listbox_padding_fix.py:59` | keep; guard matches the clean file |
+| 18 | `0x0041B339` | 1 | core | `tools/build_listbox_padding_fix.py:74` | keep; guard matches the clean file |
+| 19 | `0x0041B3AE` | 1 | core | `tools/build_listbox_padding_fix.py:76` | keep; guard matches the clean file |
+| 20 | `0x0041B46D` | 12 | core | `tools/build_gutter_side_fix.py:62` | keep; guard matches the clean file |
+| 21 | `0x0041B48C` | 5 | core | `tools/build_gutter_side_fix.py:39` | keep; guard matches the clean file |
+| 22 | `0x0041B507` | 2 | core | `tools/build_listbox_growth_fix.py:54` | keep; guard matches the clean file |
+| 23 | `0x0041B52E` | 1 | core | `` | keep; guard matches the clean file |
+| 24 | `0x0041B553` | 1 | core | `tools/build_listbox_padding_fix.py:61` | keep; guard matches the clean file |
+| 25 | `0x0045992A` | 26 | core | `tools/build_minimap_zoom_fix.py:77` | keep; guard matches the clean file |
+| 26 | `0x0045A3B7` | 6 | core | `tools/build_wrap_progress_fix.py:39` | keep; whether it fires today unmeasured |
+| 27 | `0x0045A3DC` | 6 | core | `tools/build_wrap_progress_fix.py:40` | keep; whether it fires today unmeasured |
+| 28 | `0x0045A5E0` | 16 | core | `tools/build_wrap_progress_fix.py:69` | keep; guard matches the clean file |
+| 29 | `0x0045A850` | 7 | core | `tools/audit_native_text_paths.py:26` | remove: multiplies by 1.0 (E-1) |
+| 30 | `0x004A1770` | 13 | core | `tools/audit_native_text_paths.py:27` | remove: multiplies by 1.0 (E-1) |
+| 31 | `0x005F0C65` | 4 | core | `tools/build_windows_engine.py:131` | not applied; goes with `--apply` |
+| 32 | `0x005F0C6F` | 4 | core | `tools/build_windows_engine.py:131` | not applied; goes with `--apply` |
+| 33 | `0x005F5B3B` | 12 | movie display mode | `tools/build_windows_engine.py:114` | keep; guard matches the clean file |
+| 34 | `0x005F92A8` | 2 | movie display mode | `tools/build_windows_engine.py:109` | keep; guard matches the clean file |
+| 35 | `0x0062540D` | 4 | core | `tools/build_windows_engine.py:136` | keep; guard matches the clean file |
+| 36 | `0x006256DC` | 11 | core | `tools/build_windows_engine.py:134` | keep; guard matches the clean file |
+| 37 | `0x006256F6` | 4 | core | `tools/build_windows_engine.py:134` | keep; guard matches the clean file |
+| 38 | `0x006256FC` | 27 | core | `tools/build_windows_engine.py:160` | keep; real bytes belong in the recipe |
+| 39 | `0x00625759` | 4 | core | `tools/build_windows_engine.py:135` | keep; guard matches the clean file |
+| 40 | `0x00626F95` | 4 | core | `tools/build_windows_engine.py:136` | keep; guard matches the clean file |
+| 41 | `0x0062B39B` | 5 | core | `tools/build_windows_engine.py:181` | keep; guard matches the clean file |
+| 42 | `0x0068AC9F` | 5 | core | `tools/build_minimap_fog_fix.py:10` | keep; guard matches the clean file |
+| 43 | `0x0068C4E3` | 4 | core | `tools/build_windows_engine.py:143` | keep until the two HUD files are compared; a fixed 3440 |
+| 44 | `0x0068C4F4` | 8 | core | `` | keep; guard matches the clean file |
+| 45 | `0x006928B3` | 4 | core | `tools/build_windows_engine.py:137` | keep; guard matches the clean file |
+| 46 | `0x006928C3` | 4 | core | `tools/build_windows_engine.py:137` | keep; guard matches the clean file |
+| 47 | `0x0069405B` | 4 | core | `tools/build_windows_engine.py:142` | keep; guard matches the clean file |
+| 48 | `0x006940DC` | 4 | core | `tools/build_windows_engine.py:142` | keep; guard matches the clean file |
+| 49 | `0x006944A8` | 6 | core | `tools/build_area_fog_fix.py:42` | keep; guard matches the clean file |
+| 50 | `0x006944C4` | 6 | core | `tools/build_area_fog_fix.py:75` | keep; guard matches the clean file |
+| 51 | `0x006946F4` | 5 | core | `tools/build_windows_engine.py:182` | keep; guard matches the clean file |
+| 52 | `0x0069471A` | 13 | core | `tools/build_native_engine.py:62` | keep; guard matches the clean file |
+| 53 | `0x00694763` | 4 | core | `tools/build_windows_engine.py:140` | keep; guard matches the clean file |
+| 54 | `0x00694777` | 4 | core | `tools/build_native_engine.py:62` | keep; guard matches the clean file |
+| 55 | `0x00694A13` | 4 | core | `tools/build_windows_engine.py:141` | keep; guard matches the clean file |
+| 56 | `0x00694A39` | 5 | core | `tools/build_windows_engine.py:183` | keep; guard matches the clean file |
+| 57 | `0x00694A53` | 4 | core | `tools/build_native_engine.py:63` | keep; guard matches the clean file |
+| 58 | `0x00694AAC` | 5 | core | `tools/build_windows_engine.py:184` | keep; guard matches the clean file |
+| 59 | `0x00694AC4` | 4 | core | `tools/build_windows_engine.py:141` | keep; guard matches the clean file |
+| 60 | `0x00694AD0` | 5 | core | `tools/build_native_engine.py:63` | keep; guard matches the clean file |
+| 61 | `0x0069505C` | 12 | core | `tools/build_windows_engine.py:138` | keep; guard matches the clean file |
+| 62 | `0x00695082` | 12 | core | `tools/build_windows_engine.py:139` | keep; guard matches the clean file |
+| 63 | `0x006A74D2` | 48 | core | `tools/build_letterbox_scale_wrapper.py:56` | keep; guard matches the clean file |
+| 64 | `0x006A7560` | 50 | core | `tools/build_letterbox_scale_wrapper.py:62` | keep; guard matches the clean file |
+| 65 | `0x006A7943` | 41 | core | `tools/build_letterbox_scale_wrapper.py:68` | keep; guard matches the clean file |
+| 66 | `0x006A7B59` | 48 | core | `tools/build_letterbox_scale_wrapper.py:74` | keep; guard matches the clean file |
+| 67 | `0x006A7CD0` | 28 | core | `tools/build_letterbox_scale_wrapper.py:92` | keep; guard matches the clean file |
+| 68 | `0x006A7F3D` | 55 | core | `tools/build_letterbox_scale_wrapper.py:80` | keep; guard matches the clean file |
+| 69 | `0x006A8C4C` | 44 | core | `tools/build_letterbox_scale_wrapper.py:86` | keep; guard matches the clean file |
+| 70 | `0x006A8E1D` | 9 | core | `tools/build_letterbox_scale_wrapper.py:98` | keep; guard matches the clean file |
+| 71 | `0x006AB8EF` | 4 | core | `tools/build_windows_engine.py:147` | keep; guard matches the clean file |
+| 72 | `0x006ACB20` | 4 | core | `tools/build_windows_engine.py:147` | keep; guard matches the clean file |
+| 73 | `0x006B4FA9` | 4 | core | `tools/build_windows_engine.py:146` | keep; guard matches the clean file |
+| 74 | `0x006B527F` | 4 | core | `tools/build_windows_engine.py:146` | keep; guard matches the clean file |
+| 75 | `0x006B5332` | 36 | core | `tools/build_windows_engine.py:148` | keep; guard matches the clean file |
+| 76 | `0x006B55E3` | 4 | core | `tools/build_windows_engine.py:146` | keep; guard matches the clean file |
+| 77 | `0x006C265F` | 4 | core | `tools/build_windows_engine.py:146` | keep; guard matches the clean file |
+| 78 | `0x006C2704` | 49 | core | `tools/build_windows_engine.py:162` | keep; real bytes belong in the recipe |
+| 79 | `0x006C2A23` | 4 | core | `tools/build_windows_engine.py:146` | keep; guard matches the clean file |
+| 80 | `0x006CD8D9` | 4 | core | `tools/build_windows_engine.py:147` | keep; guard matches the clean file |
+| 81 | `0x006CDB79` | 4 | core | `tools/build_windows_engine.py:147` | keep; guard matches the clean file |
+| 82 | `0x006DE012` | 4 | core | `tools/build_windows_engine.py:148` | keep; guard matches the clean file |
+| 83 | `0x006DE031` | 1 | core | `tools/build_windows_engine.py:151` | keep; guard matches the clean file |
+| 84 | `0x006DE08E` | 6 | core | `tools/build_windows_engine.py:153` | keep; real bytes belong in the recipe |
+| 85 | `0x006DE0D1` | 13 | core | `tools/build_windows_engine.py:154` | keep; real bytes belong in the recipe |
+| 86 | `0x0075477C` | 4 | core | `tools/build_windows_engine.py:186` | keep; guard matches the clean file |
+| 87 | `0x00755788` | 3 | core | `tools/build_technical_reconstruction_doc.py:522` | remove: no reader left (E-2) |
 
 ### 2.2 Resolution operands, written again at every mode change
 
@@ -336,16 +336,16 @@ From the `patch_config.toml` sections the build makes. A bundled patch of anothe
 
 | # | what | where in the game | done by | audit |
 | --- | --- | --- | --- | --- |
-| 1 | engine recipe: every byte run below, the block and its relocations | see section 2 | `src/controller-native/K1RuntimeEngine.cpp:114` | [ ] |
-| 2 | resolution operands at each mode change (section 2.2) | see section 2.2 | `src/controller-native/K1RuntimeEngine.cpp:159` | [ ] |
-| 3 | start size in the game's own resolution checks | 0x005F0FB2, 0x005F5B84 | `src/controller-native/K1RuntimeResolution.cpp:278` | [ ] |
-| 4 | EnumDisplaySettingsA import slot, the display's modes filtered | 0x0073D3E4 | `src/controller-native/K1RuntimeResolution.cpp:112` | [ ] |
-| 5 | CSWGuiInGameSkillEntry::SetExtent vtable slot (issue 80 icons) | 0x00755ED4 | `src/controller-native/K1RuntimeLayout.cpp:266` | [ ] |
-| 6 | CSWGuiAbilityChain::SetExtent vtable slot (issue 80 icons) | 0x007578AC | `src/controller-native/K1RuntimeLayout.cpp:267` | [ ] |
-| 7 | SwapBuffers import slot, the offscreen frame (issue 14) | the game's gdi32 SwapBuffers slot | `src/controller-native/K1OffscreenFrame.cpp:420` | [ ] |
-| 8 | opengl32 hot patches: glCopyTexImage2D, glCopyTexSubImage2D, glReadPixels, wglGetProcAddress, wglMakeCurrent | opengl32.dll | `src/controller-native/K1OffscreenFrame.cpp:130` | [ ] |
-| 9 | joystick deadzone float set to 0 (KMRP's radial deadzone instead) | K1_JOY_MIN_USEABLE | `src/controller-native/K1NativeJoystick.cpp:77` | [ ] |
-| 10 | the game's cached hardware-mipmap answer set to 1 under K1DC | 0x0078E538 | `src/controller-native/K1CoreFrames.cpp:69` | [ ] |
+| 1 | engine recipe: every byte run below, the block and its relocations | see section 2 | `src/controller-native/K1RuntimeEngine.cpp:114` | change: installers' file format still parsed (E-3) |
+| 2 | resolution operands at each mode change (section 2.2) | see section 2.2 | `src/controller-native/K1RuntimeEngine.cpp:159` | keep |
+| 3 | start size in the game's own resolution checks | 0x005F0FB2, 0x005F5B84 | `src/controller-native/K1RuntimeResolution.cpp:278` | unverified: timing on Steam |
+| 4 | EnumDisplaySettingsA import slot, the display's modes filtered | 0x0073D3E4 | `src/controller-native/K1RuntimeResolution.cpp:112` | keep |
+| 5 | CSWGuiInGameSkillEntry::SetExtent vtable slot (issue 80 icons) | 0x00755ED4 | `src/controller-native/K1RuntimeLayout.cpp:266` | keep; the write is at `:620` |
+| 6 | CSWGuiAbilityChain::SetExtent vtable slot (issue 80 icons) | 0x007578AC | `src/controller-native/K1RuntimeLayout.cpp:267` | keep; the write is at `:621`, the class is CSWGuiSkillFlow |
+| 7 | SwapBuffers import slot, the offscreen frame (issue 14) | the game's gdi32 SwapBuffers slot | `src/controller-native/K1OffscreenFrame.cpp:420` | keep |
+| 8 | opengl32 hot patches: glCopyTexImage2D, glCopyTexSubImage2D, glReadPixels, wglGetProcAddress, wglMakeCurrent | opengl32.dll | `src/controller-native/K1OffscreenFrame.cpp:130` | keep four; `wglMakeCurrent` needs a counter (engine P8) |
+| 9 | joystick deadzone float set to 0 (KMRP's radial deadzone instead) | K1_JOY_MIN_USEABLE | `src/controller-native/K1NativeJoystick.cpp:77` | keep |
+| 10 | the game's cached hardware-mipmap answer set to 1 under K1DC | 0x0078E538 | `src/controller-native/K1CoreFrames.cpp:69` | keep |
 
 ## 4. The native modules' sources, largest first
 
@@ -353,76 +353,76 @@ Which module each file is built into is in `build_native_runtime.cmd` and `build
 
 | lines | file | in kmrp.dll | in kmrp-controller.dll | audit |
 | --- | --- | --- | --- | --- |
-| 8455 | `K1NativeJoystick.cpp` |  | yes | [ ] |
-| 7455 | `vendor/K1XboxControls.cpp` |  | yes | [ ] |
-| 2680 | `K1XboxHud.cpp` |  | yes | [ ] |
-| 2007 | `K1RuntimeAssets.cpp` | yes |  | [ ] |
-| 1780 | `K1ControllerLayout.cpp` |  | yes | [ ] |
-| 1305 | `K1Rumble.cpp` |  | yes | [ ] |
-| 973 | `K1TextLayout.cpp` | yes |  | [ ] |
-| 962 | `K1HudOptions.cpp` | yes |  | [ ] |
-| 944 | `K1RuntimeLayout.cpp` | yes |  | [ ] |
-| 745 | `vendor/K1XboxControlsXInput.cpp` |  | yes | [ ] |
-| 674 | `K1KpmApplier.cpp` |  |  | [ ] |
-| 645 | `K1TextOptions.cpp` | yes |  | [ ] |
-| 595 | `K1ControllerBackend.cpp` |  | yes | [ ] |
-| 460 | `K1TextRows.cpp` | yes |  | [ ] |
-| 422 | `K1OffscreenFrame.cpp` | yes |  | [ ] |
-| 412 | `K1PartyRosterGui.cpp` | yes |  | [ ] |
-| 403 | `K1ControllerStandalone.cpp` |  | yes | [ ] |
-| 347 | `K1RuntimeResolution.cpp` | yes |  | [ ] |
-| 290 | `K1CaptionInk.h` |  |  | [ ] |
-| 262 | `K1OptionsPad.h` |  |  | [ ] |
-| 255 | `K1RuntimeEngine.cpp` | yes |  | [ ] |
-| 241 | `K1PcHud.cpp` | yes |  | [ ] |
-| 217 | `K1KeyboardNavigation.cpp` | yes |  | [ ] |
-| 190 | `K1MovieWindow.cpp` | yes | yes | [ ] |
-| 187 | `K1ButtonRemapPolicy.h` |  |  | [ ] |
-| 186 | `K1ClassModelTrace.h` |  |  | [ ] |
-| 185 | `K1GrantedPopup.cpp` | yes |  | [ ] |
-| 183 | `K1HudOptionsPolicy.h` |  |  | [ ] |
-| 182 | `K1ControllerPreload.cpp` |  | yes | [ ] |
-| 182 | `K1AssetPack.cpp` | yes |  | [ ] |
-| 180 | `K1PcHudLayout.h` |  |  | [ ] |
-| 168 | `K1PopupFit.cpp` | yes |  | [ ] |
-| 154 | `K1ControllerBadgeShapes.inc` |  |  | [ ] |
-| 148 | `K1Xpress.cpp` |  | yes | [ ] |
-| 143 | `K1PartyRosterState.h` |  |  | [ ] |
-| 130 | `KmrpOptions.h` |  |  | [ ] |
-| 127 | `K1PcHudLayout.inc` |  |  | [ ] |
-| 126 | `K1XboxHudLayout.inc` |  |  | [ ] |
-| 122 | `K1CoreFrames.cpp` | yes |  | [ ] |
-| 118 | `K1StatusSummary.cpp` | yes | yes | [ ] |
-| 115 | `K1ClassSelectArt.h` |  |  | [ ] |
-| 112 | `K1GuiModelPreload.h` |  |  | [ ] |
-| 110 | `K1SliderGrip.h` |  |  | [ ] |
-| 93 | `K1GuiControls.h` | yes |  | [ ] |
-| 92 | `K1ListRows.inc` |  |  | [ ] |
-| 88 | `K1TextFitPolicy.h` |  |  | [ ] |
-| 86 | `K1ButtonRemap.cpp` |  | yes | [ ] |
-| 83 | `K1CursorConfinement.cpp` | yes | yes | [ ] |
-| 66 | `K1PartyPortraits.cpp` | yes | yes | [ ] |
-| 65 | `K1EngineMemory.h` | yes |  | [ ] |
-| 58 | `K1TextOptionsPolicy.h` |  |  | [ ] |
-| 51 | `K1StatusSummary.h` |  |  | [ ] |
-| 47 | `K1AssetPack.h` |  |  | [ ] |
-| 38 | `K1MovieWindow.h` |  |  | [ ] |
-| 35 | `K1NativeJoystick.h` |  |  | [ ] |
-| 32 | `K1RuntimeAssets.h` |  |  | [ ] |
-| 32 | `K1Rumble.h` |  |  | [ ] |
-| 24 | `K1RuntimeResolution.h` |  |  | [ ] |
-| 21 | `K1TextLayout.h` |  |  | [ ] |
-| 17 | `K1HudOptions.h` |  |  | [ ] |
-| 17 | `K1ControllerBackend.h` |  |  | [ ] |
-| 17 | `K1ButtonRemap.h` |  |  | [ ] |
-| 15 | `K1TextOptions.h` |  |  | [ ] |
-| 15 | `K1CursorConfinement.h` |  |  | [ ] |
-| 14 | `K1RuntimeLayout.h` |  |  | [ ] |
-| 13 | `K1Xpress.h` |  |  | [ ] |
-| 13 | `K1PartyRosterGui.h` |  |  | [ ] |
-| 13 | `K1GuiPreloadData.h` |  |  | [ ] |
-| 11 | `K1ControllerPreload.h` |  |  | [ ] |
-| 10 | `K1TextRows.h` |  |  | [ ] |
-| 6 | `K1RuntimeEngine.h` |  |  | [ ] |
-| 3 | `K1ControllerLayout.h` |  |  | [ ] |
+| 8455 | `K1NativeJoystick.cpp` |  | yes | see report sections 3 and 6 |
+| 7455 | `vendor/K1XboxControls.cpp` |  | yes | see report sections 3 and 6 |
+| 2680 | `K1XboxHud.cpp` |  | yes | see report sections 3 and 6 |
+| 2007 | `K1RuntimeAssets.cpp` | yes |  | see report sections 3 and 6 |
+| 1780 | `K1ControllerLayout.cpp` |  | yes | see report sections 3 and 6 |
+| 1305 | `K1Rumble.cpp` |  | yes | see report sections 3 and 6 |
+| 973 | `K1TextLayout.cpp` | yes |  | see report sections 3 and 6 |
+| 962 | `K1HudOptions.cpp` | yes |  | see report sections 3 and 6 |
+| 944 | `K1RuntimeLayout.cpp` | yes |  | see report sections 3 and 6 |
+| 745 | `vendor/K1XboxControlsXInput.cpp` |  | yes | see report sections 3 and 6 |
+| 674 | `K1KpmApplier.cpp` |  |  | see report sections 3 and 6 |
+| 645 | `K1TextOptions.cpp` | yes |  | see report sections 3 and 6 |
+| 595 | `K1ControllerBackend.cpp` |  | yes | see report sections 3 and 6 |
+| 460 | `K1TextRows.cpp` | yes |  | see report sections 3 and 6 |
+| 422 | `K1OffscreenFrame.cpp` | yes |  | see report sections 3 and 6 |
+| 412 | `K1PartyRosterGui.cpp` | yes |  | see report sections 3 and 6 |
+| 403 | `K1ControllerStandalone.cpp` |  | yes | see report sections 3 and 6 |
+| 347 | `K1RuntimeResolution.cpp` | yes |  | see report sections 3 and 6 |
+| 290 | `K1CaptionInk.h` |  |  | see report sections 3 and 6 |
+| 262 | `K1OptionsPad.h` |  |  | see report sections 3 and 6 |
+| 255 | `K1RuntimeEngine.cpp` | yes |  | see report sections 3 and 6 |
+| 241 | `K1PcHud.cpp` | yes |  | see report sections 3 and 6 |
+| 217 | `K1KeyboardNavigation.cpp` | yes |  | see report sections 3 and 6 |
+| 190 | `K1MovieWindow.cpp` | yes | yes | see report sections 3 and 6 |
+| 187 | `K1ButtonRemapPolicy.h` |  |  | see report sections 3 and 6 |
+| 186 | `K1ClassModelTrace.h` |  |  | see report sections 3 and 6 |
+| 185 | `K1GrantedPopup.cpp` | yes |  | see report sections 3 and 6 |
+| 183 | `K1HudOptionsPolicy.h` |  |  | see report sections 3 and 6 |
+| 182 | `K1ControllerPreload.cpp` |  | yes | see report sections 3 and 6 |
+| 182 | `K1AssetPack.cpp` | yes |  | see report sections 3 and 6 |
+| 180 | `K1PcHudLayout.h` |  |  | see report sections 3 and 6 |
+| 168 | `K1PopupFit.cpp` | yes |  | see report sections 3 and 6 |
+| 154 | `K1ControllerBadgeShapes.inc` |  |  | see report sections 3 and 6 |
+| 148 | `K1Xpress.cpp` |  | yes | see report sections 3 and 6 |
+| 143 | `K1PartyRosterState.h` |  |  | see report sections 3 and 6 |
+| 130 | `KmrpOptions.h` |  |  | see report sections 3 and 6 |
+| 127 | `K1PcHudLayout.inc` |  |  | see report sections 3 and 6 |
+| 126 | `K1XboxHudLayout.inc` |  |  | see report sections 3 and 6 |
+| 122 | `K1CoreFrames.cpp` | yes |  | see report sections 3 and 6 |
+| 118 | `K1StatusSummary.cpp` | yes | yes | see report sections 3 and 6 |
+| 115 | `K1ClassSelectArt.h` |  |  | see report sections 3 and 6 |
+| 112 | `K1GuiModelPreload.h` |  |  | see report sections 3 and 6 |
+| 110 | `K1SliderGrip.h` |  |  | see report sections 3 and 6 |
+| 93 | `K1GuiControls.h` | yes |  | see report sections 3 and 6 |
+| 92 | `K1ListRows.inc` |  |  | see report sections 3 and 6 |
+| 88 | `K1TextFitPolicy.h` |  |  | see report sections 3 and 6 |
+| 86 | `K1ButtonRemap.cpp` |  | yes | see report sections 3 and 6 |
+| 83 | `K1CursorConfinement.cpp` | yes | yes | see report sections 3 and 6 |
+| 66 | `K1PartyPortraits.cpp` | yes | yes | see report sections 3 and 6 |
+| 65 | `K1EngineMemory.h` | yes |  | see report sections 3 and 6 |
+| 58 | `K1TextOptionsPolicy.h` |  |  | see report sections 3 and 6 |
+| 51 | `K1StatusSummary.h` |  |  | see report sections 3 and 6 |
+| 47 | `K1AssetPack.h` |  |  | see report sections 3 and 6 |
+| 38 | `K1MovieWindow.h` |  |  | see report sections 3 and 6 |
+| 35 | `K1NativeJoystick.h` |  |  | see report sections 3 and 6 |
+| 32 | `K1RuntimeAssets.h` |  |  | see report sections 3 and 6 |
+| 32 | `K1Rumble.h` |  |  | see report sections 3 and 6 |
+| 24 | `K1RuntimeResolution.h` |  |  | see report sections 3 and 6 |
+| 21 | `K1TextLayout.h` |  |  | see report sections 3 and 6 |
+| 17 | `K1HudOptions.h` |  |  | see report sections 3 and 6 |
+| 17 | `K1ControllerBackend.h` |  |  | see report sections 3 and 6 |
+| 17 | `K1ButtonRemap.h` |  |  | see report sections 3 and 6 |
+| 15 | `K1TextOptions.h` |  |  | see report sections 3 and 6 |
+| 15 | `K1CursorConfinement.h` |  |  | see report sections 3 and 6 |
+| 14 | `K1RuntimeLayout.h` |  |  | see report sections 3 and 6 |
+| 13 | `K1Xpress.h` |  |  | see report sections 3 and 6 |
+| 13 | `K1PartyRosterGui.h` |  |  | see report sections 3 and 6 |
+| 13 | `K1GuiPreloadData.h` |  |  | see report sections 3 and 6 |
+| 11 | `K1ControllerPreload.h` |  |  | see report sections 3 and 6 |
+| 10 | `K1TextRows.h` |  |  | see report sections 3 and 6 |
+| 6 | `K1RuntimeEngine.h` |  |  | see report sections 3 and 6 |
+| 3 | `K1ControllerLayout.h` |  |  | see report sections 3 and 6 |
 
