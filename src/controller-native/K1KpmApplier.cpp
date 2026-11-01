@@ -13,28 +13,11 @@
 // block is moved by the difference -- the relocation table that
 // tools/kpm_relocations.py computes from the gold executable, and proves.
 //
-// (This paragraph is the four-patch edition's build, until 2026-10-04; nothing builds
-// it any more. The standalone module, K1RuntimeEngine.cpp, includes this file with
-// KMRP_NATIVE_RUNTIME and takes its features from the patch's options instead.)
-// The KPM edition is four patches (tools/build_kpatch.py, since removed): KMRP itself, and the
-// optional KMRP Controller, KMRP Movies and KMRP Map Notes. KPM installs a copy of
-// this module for each of them that has hooks (Map Notes has none); only the
-// core's, patches\kmrp.dll, applies anything. Which features it applies follows
-// which of those patches the player ticked, read from the patch_config.toml KPM
-// wrote:
-//
-//   core       always: everything but the two below
-//   movies     "kmrp-movies": the movie aspect fit's entry and the four movie
-//              display-mode operands. The movie window's black fill is Movies'
-//              too: KMRP Movies carries its two window hooks itself, and every
-//              copy of this module asks KpmMoviesOffK1 before painting the bars.
-//   map notes  "kmrp-map-notes": the .kmn enable flag (its table and lookup are
-//              core, since the map wrapper always calls the lookup)
-//
-// Everything this writes comes from kmrp-kpm.dat beside the game, which the KPM
-// edition's installer (src/patcher/KpmEdition.cs) builds from the same gold delta
-// and resolution code the standalone installer uses, so the two editions cannot
-// drift apart. Format, all little-endian:
+// K1RuntimeEngine.cpp includes this file, and its data is built into the module: the bytes
+// in kNativeEngine, with the size fields for the screen filled in, and the features from the
+// patch's options. Until 2026-10-04 this was a module of its own in a four-patch edition, which
+// read a kmrp-kpm.dat beside the game and the ticked patches from patch_config.toml; the parts
+// only that needed went on 2026-11-01 (audit E-3). Format, all little-endian:
 //
 //   "KMRPKPM2"  u32 version (2)  u32 block VA  u32 block size
 //   u32 page count, then one u32 page protection per page
@@ -313,71 +296,6 @@ private:
     bool busy_ = false;
 };
 
-bool ReadFileBytes(const wchar_t* name, std::vector<std::uint8_t>& out)
-{
-    wchar_t path[MAX_PATH];
-    if (swprintf_s(path, L"%s\\%s", g_folder, name) < 0) {
-        return false;
-    }
-    HANDLE h = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
-                           FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (h == INVALID_HANDLE_VALUE) {
-        return false;
-    }
-    LARGE_INTEGER size{};
-    bool ok = GetFileSizeEx(h, &size) && size.QuadPart > 0 && size.QuadPart < (16 << 20);
-    if (ok) {
-        out.resize(static_cast<std::size_t>(size.QuadPart));
-        DWORD got = 0;
-        ok = ReadFile(h, out.data(), static_cast<DWORD>(out.size()), &got, nullptr) &&
-             got == out.size();
-    }
-    CloseHandle(h);
-    return ok;
-}
-
-// Which of KMRP's patches KPM installed: every `id = "..."` in patch_config.toml,
-// the file KPM's runtime itself reads, beside the game.
-std::uint32_t InstalledFeatures()
-{
-    std::vector<std::uint8_t> config;
-    std::uint32_t features = kCore;
-    if (!ReadFileBytes(L"patch_config.toml", config)) {
-        return features;
-    }
-    std::string text(config.begin(), config.end());
-    std::size_t at = 0;
-    while ((at = text.find("id", at)) != std::string::npos) {
-        const std::size_t lineStart = text.rfind('\n', at);
-        const std::size_t begin = lineStart == std::string::npos ? 0 : lineStart + 1;
-        std::size_t k = begin;
-        while (k < at && (text[k] == ' ' || text[k] == '\t')) {
-            ++k;
-        }
-        std::size_t e = at + 2;
-        while (e < text.size() && (text[e] == ' ' || text[e] == '\t')) {
-            ++e;
-        }
-        at += 2;
-        if (k != at - 2 || e >= text.size() || text[e] != '=') {
-            continue;   // "id" not at the start of a key = value line
-        }
-        const std::size_t open = text.find('"', e);
-        const std::size_t close = open == std::string::npos ? open : text.find('"', open + 1);
-        const std::size_t eol = text.find('\n', e);
-        if (open == std::string::npos || close == std::string::npos || (eol != std::string::npos && open > eol)) {
-            continue;
-        }
-        const std::string id = text.substr(open + 1, close - open - 1);
-        if (id == "kmrp-movies") {
-            features |= kMovies | kMovieMode;
-        } else if (id == "kmrp-map-notes") {
-            features |= kMapNotes;
-        }
-    }
-    return features;
-}
-
 bool WriteMemory(std::uint32_t va, const void* data, std::uint32_t n)
 {
     void* at = reinterpret_cast<void*>(static_cast<std::uintptr_t>(va));
@@ -392,19 +310,12 @@ bool WriteMemory(std::uint32_t va, const void* data, std::uint32_t n)
     return true;
 }
 
-#ifdef KMRP_NATIVE_RUNTIME
 std::uint8_t* g_nativeBlock = nullptr;
-#endif
 
 void Apply(std::uint32_t features, const std::vector<std::uint8_t>* embedded = nullptr)
 {
     std::vector<std::uint8_t> file;
     if (embedded) file = *embedded;
-    else if (!ReadFileBytes(L"kmrp-kpm.dat", file)) {
-        Log("kmrp-kpm.dat not found: run KMRP's installer to choose a "
-            "resolution. Nothing applied.");
-        return;
-    }
     if (file.size() < 12 || std::memcmp(file.data(), "KMRPKPM2", 8) != 0) {
         Log("kmrp-kpm.dat is not this version's data file: run KMRP's "
             "installer again. Nothing applied.");
@@ -609,9 +520,7 @@ void Apply(std::uint32_t features, const std::vector<std::uint8_t>* embedded = n
             "put back. Nothing applied.", failed->va, error, written.size());
         return;
     }
-#ifdef KMRP_NATIVE_RUNTIME
     g_nativeBlock = block;
-#endif
     Info("applied: KMRP%s%s -- %zu of %zu runs (%u bytes) and KMRP's code at %p "
         "(moved by %+ld), %u relocations.",
         (features & kMovies) ? ((features & kMovieMode) ? " + Movies" : " + Movies at 640x480") : "",
@@ -621,19 +530,6 @@ void Apply(std::uint32_t features, const std::vector<std::uint8_t>* embedded = n
     Info("  %s executable; %.0f ms after the game started, %s its window; %zu other "
         "thread(s) paused while writing.", g_steam ? "Steam" : "CD 1.03", startedMs,
         hadWindow ? "after" : "before", paused);
-}
-
-// Only the core patch's copy applies: KPM installs each patch's DLL as
-// patches\<id>.dll, and KMRP's core is "kmrp".
-bool IsCoreCopy(HINSTANCE module)
-{
-    wchar_t path[MAX_PATH];
-    const DWORD n = GetModuleFileNameW(module, path, MAX_PATH);
-    if (!n || n >= MAX_PATH) {
-        return false;
-    }
-    const wchar_t* name = wcsrchr(path, L'\\');
-    return _wcsicmp(name ? name + 1 : path, L"kmrp.dll") == 0;
 }
 
 bool g_moviesOff = false;
@@ -647,30 +543,3 @@ bool KpmMoviesOffK1()
 {
     return g_moviesOff;
 }
-
-#ifndef KMRP_NATIVE_RUNTIME
-BOOL WINAPI DllMain(HINSTANCE module, DWORD reason, LPVOID)
-{
-    if (reason == DLL_PROCESS_ATTACH) {
-        DisableThreadLibraryCalls(module);
-        // The standalone edition: its executable carries all of this.
-        if (!VanillaImage()) {
-            return TRUE;
-        }
-        // The game's own folder: where kmrp-kpm.dat and patch_config.toml are, and
-        // the log goes.
-        DWORD n = GetModuleFileNameW(nullptr, g_folder, MAX_PATH);
-        wchar_t* slash = (n && n < MAX_PATH) ? wcsrchr(g_folder, L'\\') : nullptr;
-        if (!slash) {
-            return TRUE;
-        }
-        *slash = L'\0';
-        const std::uint32_t features = InstalledFeatures();
-        g_moviesOff = (features & kMovies) == 0;
-        if (IsCoreCopy(module)) {
-            Apply(features);
-        }
-    }
-    return TRUE;
-}
-#endif

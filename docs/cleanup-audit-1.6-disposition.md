@@ -114,7 +114,7 @@ tests from before this cycle were not all re-proved.
 | MAC-1, MAC-7 | Submodule pin, truncated address | Deferred | | With the port |
 | E-1 | Font metrics multiplied by 1.0 | Open | | |
 | E-2 | A float nobody reads | Open | | |
-| E-3 | Dead installer format in the applier | Open | | |
+| E-3 | Dead installer format in the applier | Tested | this cycle | 136 lines gone, with the old edition's `DllMain`. Not byte-identical: the file-reading branch was compiled in, though its only caller always passed the built-in data, so that was the proof. The disassembly differs in the removed functions, `Apply`, and moved code and tables. Quick group passes; every game start runs this code |
 | R-1 | Rumble table never read | In-game | this cycle | Scan of the game: the fields' only readers are the hooked gate, the code behind it, `UpdateRumble` for each queued instance, and the destructor, and the hook is unconditional and always declines. Test-RumbleMixer passes. One rumble in a game on the checklist |
 | DOC | Stale statements | Open | | |
 
