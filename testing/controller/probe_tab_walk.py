@@ -24,9 +24,10 @@ import struct
 import subprocess
 import time
 from ctypes import wintypes
+import live_game
 
-GAME_DIR = r"C:\Star Wars - KotOR"
-LOG = GAME_DIR + r"\kmrp-native-joystick.log"
+GAME_DIR = live_game.GAME_DIR
+LOG = live_game.JOYSTICK_LOG
 GUI_MANAGER_PTR = 0x007A39F4
 APP_MANAGER_PTR = 0x007A39FC
 INGAME_MENU_DISPATCHER = 0x00624970

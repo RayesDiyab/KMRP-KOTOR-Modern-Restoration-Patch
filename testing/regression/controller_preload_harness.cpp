@@ -71,6 +71,7 @@ static bool K1WriteTextureFiles(const char*, const std::vector<std::uint8_t>&, i
 #define GetModuleHandleW PreloadGetModuleHandleW
 #define GetModuleFileNameW PreloadGetModuleFileNameW
 #define GetProcAddress PreloadGetProcAddress
+#include "KmrpOptions.h"   // Sizes (K1XboxHud.cpp) names the ini through it
 // PRODUCTION_PRELOAD
 
 using KmrpHudOptions::ElementCount;

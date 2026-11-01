@@ -30,9 +30,10 @@ import struct
 import subprocess
 import time
 from ctypes import wintypes
+import live_game
 
-GAME_DIR = r"C:\Star Wars - KotOR"
-LOG = os.path.join(GAME_DIR, "kmrp-native-joystick.log")
+GAME_DIR = live_game.GAME_DIR
+LOG = live_game.JOYSTICK_LOG
 HOST, PORT = "127.0.0.1", 8787
 PC_UPDOWN, PC_LEFTRIGHT, PC_VELX, PC_VELY = 0x10, 0x14, 0x5C, 0x60
 SC_W, SC_D = 0x11, 0x20

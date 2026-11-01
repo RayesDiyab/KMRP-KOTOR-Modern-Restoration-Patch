@@ -28,9 +28,10 @@ import struct
 import subprocess
 import time
 from ctypes import wintypes
+import live_game
 
-GAME_DIR = r"C:\Star Wars - KotOR"
-LOG = os.path.join(GAME_DIR, "kmrp-native-joystick.log")
+GAME_DIR = live_game.GAME_DIR
+LOG = live_game.JOYSTICK_LOG
 PC_UPDOWN, PC_LEFTRIGHT, PC_VELX, PC_VELY = 0x10, 0x14, 0x5C, 0x60
 
 # swkotor.ini binds movement to the arrow keys / WASD; these are the scancodes

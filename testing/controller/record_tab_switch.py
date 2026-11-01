@@ -27,8 +27,9 @@ import time
 from pathlib import Path
 
 from PIL import Image, ImageGrab
+import live_game
 
-GAME_DIR = Path(r"C:\Star Wars - KotOR")
+GAME_DIR = Path(live_game.GAME_DIR)
 EQUIPMENT = (2880, 32)
 INVENTORY = (2954, 32)
 

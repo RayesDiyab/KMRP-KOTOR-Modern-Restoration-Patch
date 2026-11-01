@@ -41,10 +41,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
 import kmrp_controller                                    # noqa: E402
+import live_game
 
-GAME_DIR = r"C:\Star Wars - KotOR"
+GAME_DIR = live_game.GAME_DIR
 GAME_EXE = os.path.join(GAME_DIR, "swkotor.exe")
-LOG = os.path.join(GAME_DIR, "kmrp-native-joystick.log")
+LOG = live_game.JOYSTICK_LOG
 HOST, PORT = "127.0.0.1", 8787
 
 EXOINPUT_GLOBAL = 0x007A39E4
@@ -1351,7 +1352,7 @@ def test_menu(game, pad, report):
 
 # ------------------------------------------------------- L3 and R3 stick clicks
 
-NATIVE_LOG = r"C:\Star Wars - KotOR\kmrp-native-joystick.log"
+NATIVE_LOG = live_game.JOYSTICK_LOG
 
 
 def _module_counters():

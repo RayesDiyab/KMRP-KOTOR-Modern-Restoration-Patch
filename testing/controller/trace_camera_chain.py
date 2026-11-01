@@ -36,9 +36,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
 import kmrp_controller                                    # noqa: E402
+import live_game
 
-GAME_DIR = r"C:\Star Wars - KotOR"
-LOG = os.path.join(GAME_DIR, "kmrp-native-joystick.log")
+GAME_DIR = live_game.GAME_DIR
+LOG = live_game.JOYSTICK_LOG
 EXOINPUT_GLOBAL = 0x007A39E4
 APP_MANAGER_PTR = 0x007A39FC
 MOUSE_DELTA_X = 0x3A0           # written by the engine, discarded by UpdateCamera

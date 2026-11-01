@@ -117,6 +117,18 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Testing: the rumble mixer, the live controller suite and two baseline failures (audit
+  TST-07, coverage list)** (2026-11-01). Test-RumbleMixer runs the shipped mixer: the evaluator,
+  the maximum per motor, modes, merging, keys, held loops, a full table and the saber hum's
+  pulse, 32 checks. Which events start which pattern comes from engine hooks and stays untested.
+  Every live script in `testing/controller` named a folder gone since 2026-10-20 and looked for
+  logs in the game's root: they now use `live_game.py`, with `KMRP_TEST_GAME` to choose the game,
+  and Test-LiveSuitePaths holds that. The scripts themselves have not been run again: they
+  need a game and a pad. Test-GuiAudit's `--game` stopped on two creature templates pykotor cannot
+  read, `b2test.utc` and `bst21.utc` in the Sleheyron mod's `sle_m30aa.mod`, not the base game: they
+  are now listed and cost the name corpus two entries. Test-ControllerPreload failed to compile
+  after the path helpers changed, and has its include.
+
 - **The offscreen frame says when a driver refuses it, and can be turned off (audit GFX-04,
   GFX-05)** (2026-11-01). Nothing checked the copy to the window, and a multisampled copy has
   run only on NVIDIA, so a driver refusing it would have left a black screen with no way out. The

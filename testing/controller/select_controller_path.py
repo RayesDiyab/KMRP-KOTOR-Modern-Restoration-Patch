@@ -38,8 +38,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
 import kmrp_controller                                    # noqa: E402
+import live_game
 
-GAME = Path(r"C:\Star Wars - KotOR")
+GAME = Path(live_game.GAME_DIR)
 CONFIG = GAME / "patch_config.toml"
 MODULE = GAME / "kmrp-controller.module"
 

@@ -34,8 +34,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import e2e_native_controller as E                      # noqa: E402
 
 from PIL import ImageGrab                              # noqa: E402
+import live_game
 
-GAME_DIR = Path(r"C:\Star Wars - KotOR")
+GAME_DIR = Path(live_game.GAME_DIR)
 GAME_EXE = GAME_DIR / "swkotor.exe"
 OVERRIDE = GAME_DIR / "override"
 CANDIDATE = Path(r"C:\Users\diyab\Desktop\KMRP-tpc-test\lbl_invent_4096x2048_dxt5.tpc")

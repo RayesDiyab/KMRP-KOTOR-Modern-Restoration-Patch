@@ -35,8 +35,9 @@ import time
 import probe_default_buttons as P
 import probe_strip_buttons as S
 import probe_button_effects as E
+import live_game
 
-LOG = os.path.join(r"C:\Star Wars - KotOR", "kmrp-native-joystick.log")
+LOG = live_game.JOYSTICK_LOG
 
 
 def flourish_counters():

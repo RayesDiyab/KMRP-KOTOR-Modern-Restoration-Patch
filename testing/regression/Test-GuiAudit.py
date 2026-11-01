@@ -99,6 +99,7 @@ def load_game(path):
         entry=tlk.get(loc.stringref)
         if entry is not None: return entry.text
         return str(loc) if loc.stringref<0 and len(loc)>0 else ''
+    unreadable=[]
     for resource in resources:
         typ = resource.restype()
         if typ in (ResourceType.GUI,ResourceType.UTI,ResourceType.UTC,ResourceType.TwoDA):
@@ -109,7 +110,12 @@ def load_game(path):
         if typ == ResourceType.GUI:
             stock[resource.resname().lower()+'.gui'] = nodes(resource.data())
         elif typ in (ResourceType.UTI, ResourceType.UTC):
-            g = read_gff(resource.data()).root
+            # A template pykotor cannot read costs this corpus one name, and is listed. It
+            # ended the whole audit with --game on the Steam game until 2026-11-01.
+            try: g = read_gff(resource.data()).root
+            except ValueError:
+                unreadable.append(f'{Path(resource.filepath()).name}/{resource.resname()}.{typ.extension}')
+                continue
             if typ==ResourceType.UTI:
                 text=localized(g.acquire('LocalizedName',None))
             else:
@@ -130,7 +136,7 @@ def load_game(path):
     if targets: candidates['target'] = sorted(targets)
     candidates['actiondesc'] += [name+'\n(SELF)' for name in candidates['action']
                                  if '\n' not in name and '\r' not in name]
-    return stock, tlk, candidates, inputs, (len(items),len(actions),len(targets),len(module_names)), stock_fonts
+    return stock, tlk, candidates, inputs, (len(items),len(actions),len(targets),len(module_names)), stock_fonts, unreadable
 
 
 def runtime_slot(gui,n):
@@ -166,7 +172,10 @@ class Audit:
         self.probes = []
         self.captions = {}
         if args.game:
-            self.stock,self.tlk,self.candidates,self.game_inputs, counts,self.stock_fonts = load_game(args.game)
+            self.stock,self.tlk,self.candidates,self.game_inputs, counts,self.stock_fonts,unreadable = load_game(args.game)
+            if unreadable:
+                self.notes.append(f'{len(unreadable)} templates pykotor could not read, their names not in the '
+                                  'corpus: '+', '.join(sorted(unreadable)))
             self.notes.append(f'Game read: {len(self.stock)} stock GUIs; {counts[0]} distinct item names, '
                               f'{counts[1]} action names, {counts[2]} creature names; {counts[3]} module capsules scanned. '
                               'Core KEY/BIF, Patch.erf and module UTI/UTC templates read. User-created names, '

@@ -30,10 +30,11 @@ import re
 import socket
 import subprocess
 import time
+import live_game
 
-GAME_DIR = r"C:\Star Wars - KotOR"
+GAME_DIR = live_game.GAME_DIR
 GAME_EXE = os.path.join(GAME_DIR, "swkotor.exe")
-LOG = os.path.join(GAME_DIR, "kmrp-native-joystick.log")
+LOG = live_game.JOYSTICK_LOG
 HOST, PORT = "127.0.0.1", 8787
 
 

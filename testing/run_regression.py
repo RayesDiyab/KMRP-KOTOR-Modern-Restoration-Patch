@@ -63,6 +63,9 @@ TESTS = {
     "Test-BadgeShape": ("quick", py("Test-BadgeShape"), [], ""),
     # Rebuilds KMRP about a dozen times, so only when asked for by name or group.
     "Test-BuildCache": ("build", ps("Test-BuildCache"), [], ""),
+    "Test-LiveSuitePaths": ("quick", py("Test-LiveSuitePaths"), [], ""),
+    "Test-OffscreenFrame": ("quick", py("Test-OffscreenFrame"), [], ""),
+    "Test-RumbleMixer": ("quick", py("Test-RumbleMixer"), [], ""),
     "Test-ButtonRemap": ("quick", py("Test-ButtonRemap"), [], ""),
     "Test-ClassModelTrace": ("quick", py("Test-ClassModelTrace"), [], ""),
     "Test-ControllerGlyphs": ("full", py("Test-ControllerGlyphs"), [], ""),
