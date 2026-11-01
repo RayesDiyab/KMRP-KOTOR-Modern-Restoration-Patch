@@ -41,8 +41,9 @@ constexpr std::size_t K1_MOVIE_BUFFER          = 0x4C;   // the BINKBUFFER
 // With debug logs on, a line for each movie in KMRP\logs\kmrp-movie.log: what the engine asked
 // for and what Bink's own buffer record took. BinkBufferSetScale (binkw32 0x300115C0) stores a
 // width or height only if the buffer's scale flags (+0x38) allow that kind of ratio, and the
-// engine and the .kmv stub both ignore its answer. Added for a mod's 1280x720 legal.bik, drawn
-// small and at the top left at 3440x1440, where the game's 640 wide movies are not.
+// engine and the .kmv stub both ignore its answer. Added for the Sleheyron mod's 1280x720
+// legal.bik, which showed Bink and this file blameless: the small picture at the top left is in
+// the movie (reverse-engineering/movies.md).
 void LogMovieGeometry(void* player, std::int32_t movieW, std::int32_t movieH, std::int32_t offX, std::int32_t offY)
 {
     if (!KmrpDebugLogs()) return;

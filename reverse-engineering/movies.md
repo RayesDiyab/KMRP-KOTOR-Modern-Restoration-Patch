@@ -430,6 +430,13 @@ headers that day:
 - `02`, `09`, `31a`, `50` and `56b` are 640x360;
 - every other story movie is 640x272 (2.35:1).
 
+A mod's movie larger than these takes the same path. The Sleheyron mod replaces `legal.bik`
+with a 1280x720 one, drawn 2560x1440 at 3440x1440, as `KMRP\logs\kmrp-movie.log` showed on
+2026-11-01. Its first five seconds hold the game's 640x480 legal card in the top left corner of
+the frame, with black beside and under it, so that is how they show. That is in the file, not a
+fault of the fit: played alone through the game's Bink, and in the start-up sequence, the movie
+lands exactly where the fit puts it.
+
 On a 3440x1440 screen (2.39:1) a 640x272 movie fills the height with 26-pixel bars at
 the sides, so it looks full screen without being cropped. Retail drew it 3440x1462 and
 lost 11 rows top and bottom.
