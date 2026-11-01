@@ -759,6 +759,19 @@ finally {
     elseif (Test-Path -LiteralPath $kmrpSettings) { [IO.File]::Delete($kmrpSettings) }
     if ($hadKpm) { Copy-Item -LiteralPath $kpmCopy -Destination $kpmSettings -Force }
     elseif (Test-Path -LiteralPath $kpmSettings) { [IO.File]::Delete($kpmSettings) }
+    # The folder, and the DPI value each fixture's install left, keyed by its path. Each run
+    # stranded both until 2026-11-01: 165 MB a run, 20 folders by then. Kept on a failure, to look at.
+    if ($script:failures -eq 0) {
+        $layers = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey(
+            'Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers', $true)
+        if ($layers) {
+            foreach ($name in $layers.GetValueNames()) {
+                if ($name.StartsWith($WorkRoot.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)) { $layers.DeleteValue($name, $false) }
+            }
+            $layers.Dispose()
+        }
+        Remove-Item -LiteralPath $WorkRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
 }
 
 if ($script:failures -gt 0) {

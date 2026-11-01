@@ -16,8 +16,22 @@ SUITE = ROOT / "testing/controller"
 OPTIONS = ROOT / "src/controller-native/KmrpOptions.h"
 
 
+def stale_sources():
+    """Every source file a test names, by its path from the repository's root, is there.
+    Three PowerShell tests went on naming src/patcher/WindowsEnginePatch.cs after it moved, and
+    the first sign was a whole run later: one of them is a fixture's cleanup, which then left
+    the fixture behind (2026-11-01). The quick group now finds a move at once."""
+    found = []
+    named = re.compile(r"""['"](src[\\/][\w\-./\\ ]+?\.(?:cs|cpp|c|h|py|toml|cmd))['"]""")
+    for path in sorted((ROOT / "testing/regression").glob("*.ps1")):
+        for name in named.findall(path.read_text(encoding="utf-8", errors="replace")):
+            if not (ROOT / name.replace("\\", "/")).exists():
+                found.append(f"{path.name} names {name}, which is not there")
+    return found
+
+
 def main():
-    failures = []
+    failures = stale_sources()
     scripts = sorted(SUITE.glob("*.py"))
     for path in scripts:
         text = path.read_text(encoding="utf-8")
