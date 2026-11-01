@@ -993,6 +993,7 @@ namespace Kmrp
         internal string Path;
         internal byte[] OriginalBytes;
         internal bool Changed;
+        internal List<string[]> Rows;   // the manifest's "ini" rows: each key as the install set it
     }
 
     internal static class IniOperations
@@ -1057,7 +1058,29 @@ namespace Kmrp
             }
         }
 
-        internal static IniEditState Configure(string executablePath, int width, int height, Action<string> report)
+        /// <summary>An upgrade keeps the size the player chose in the game, where KMRP can
+        /// run at it. `width` and `height` are otherwise the size the install starts at.</summary>
+        internal static void KeepChosenSize(string executablePath, ref int width, ref int height, Action<string> report)
+        {
+            int chosenWidth, chosenHeight;
+            string iniPath = PathForExecutable(executablePath);
+            if (!File.Exists(iniPath) || !TryReadResolution(iniPath, out chosenWidth, out chosenHeight) ||
+                (chosenWidth == width && chosenHeight == height) || !ResolutionCatalog.Covers(chosenWidth, chosenHeight))
+                return;
+            width = chosenWidth;
+            height = chosenHeight;
+            SafeReport(report, "Keeping the resolution in swkotor.ini, " +
+                width.ToString(CultureInfo.InvariantCulture) + " × " +
+                height.ToString(CultureInfo.InvariantCulture) + ".");
+        }
+
+        /// <summary>`upgrade`: KMRP is being installed over itself, so swkotor.ini is the
+        /// player's as it stands (2026-11-01). The backup stays the one from before KMRP,
+        /// and the frame-rate keys are left alone unless High FPS Fix was switched.
+        /// Otherwise the backup is taken from the file as it is now: one left by an earlier
+        /// install holds settings the player has since changed.</summary>
+        internal static IniEditState Configure(string executablePath, int width, int height, bool upgrade,
+            Action<string> report)
         {
             string iniPath = PathForExecutable(executablePath);
             if (!File.Exists(iniPath))
@@ -1066,21 +1089,32 @@ namespace Kmrp
                     iniPath);
 
             byte[] original = File.ReadAllBytes(iniPath);
-            EnsureVerifiedBackup(executablePath, original, report);
+            EnsureVerifiedBackup(executablePath, original, !upgrade, report);
 
             Encoding encoding;
             int preambleLength;
             DetectEncoding(original, out encoding, out preambleLength);
             string text = encoding.GetString(original, preambleLength, original.Length - preambleLength);
-            string updated = UpdateResolution(text, width, height);
+            string[] current = SplitLines(text);
+            bool keepFrameRate = upgrade && KeyValue(current, "AllowHighMonitorFrequency") ==
+                (KmrpSettings.HighFpsFix ? "1" : "0");
+            string updated = UpdateResolution(text, width, height, keepFrameRate);
             byte[] updatedBytes = Encode(updated, encoding, preambleLength > 0);
 
             IniEditState state = new IniEditState
             {
                 Path = iniPath,
                 OriginalBytes = original,
-                Changed = !BytesEqual(original, updatedBytes)
+                Changed = !BytesEqual(original, updatedBytes),
+                Rows = new List<string[]>()
             };
+            string[] written = SplitLines(updated);
+            foreach (string key in OwnedKeys)
+            {
+                string value = KeyValue(written, key);
+                if (value != null)
+                    state.Rows.Add(new[] { "ini", key, value });
+            }
 
             if (state.Changed)
                 WriteBytesAtomically(iniPath, updatedBytes);
@@ -1110,6 +1144,17 @@ namespace Kmrp
 
         internal static void Restore(string executablePath, Action<string> report)
         {
+            Restore(executablePath, null, report);
+        }
+
+        /// <summary>Restore Original, key by key (2026-11-01; until then the whole backup
+        /// went back, and everything the player had changed since the first install went
+        /// with it). `rows` are the keys the install set and their values, the manifest's
+        /// "ini" rows: a key that no longer holds that value is the player's and stays. An
+        /// install from before these rows has none, so all its keys go back. KMRP's own
+        /// sections go. If nothing else changed the backup's own bytes are written.</summary>
+        internal static void Restore(string executablePath, List<string[]> rows, Action<string> report)
+        {
             string backupPath = BackupPath(executablePath);
             string hashPath = BackupHashPath(executablePath);
             if (!File.Exists(backupPath))
@@ -1126,13 +1171,109 @@ namespace Kmrp
                 throw new InvalidDataException("The swkotor.ini backup failed its integrity check. Restore was blocked.");
 
             string iniPath = PathForExecutable(executablePath);
-            WriteBytesAtomically(iniPath, File.ReadAllBytes(backupPath));
-            if (GoldPatch.HashFile(iniPath) != expectedHash)
+            byte[] backup = File.ReadAllBytes(backupPath);
+            byte[] restored = File.Exists(iniPath) ? MergeOriginalKeys(File.ReadAllBytes(iniPath), backup, rows) : backup;
+            WriteBytesAtomically(iniPath, restored);
+            if (!BytesEqual(File.ReadAllBytes(iniPath), restored))
                 throw new IOException("Post-restore swkotor.ini verification failed.");
-            SafeReport(report, "Restored the previous swkotor.ini settings.");
+            SafeReport(report, BytesEqual(restored, backup)
+                ? "Restored the previous swkotor.ini settings."
+                : "Put back the swkotor.ini settings KMRP changed; the rest of the file is as you left it.");
         }
 
-        private static void EnsureVerifiedBackup(string executablePath, byte[] original, Action<string> report)
+        // The keys of [Graphics Options] an install sets (UpdateResolution).
+        private static readonly string[] OwnedKeys =
+            { "Height", "Width", "AllowHighMonitorFrequency", "RefreshRate", "V-Sync" };
+
+        private static string[] SplitLines(string text)
+        {
+            return Regex.Split(text, "\\r\\n|\\n|\\r");
+        }
+
+        // A key's line in [Graphics Options], or -1.
+        private static int KeyLine(IList<string> lines, string key)
+        {
+            bool inGraphics = false;
+            for (int index = 0; index < lines.Count; index++)
+            {
+                string sectionName;
+                if (TryGetSectionName(lines[index], out sectionName))
+                {
+                    inGraphics = String.Equals(sectionName, GraphicsSection, StringComparison.OrdinalIgnoreCase);
+                    continue;
+                }
+                int equals = lines[index].IndexOf('=');
+                if (inGraphics && equals >= 0 &&
+                    String.Equals(lines[index].Substring(0, equals).Trim(), key, StringComparison.OrdinalIgnoreCase))
+                    return index;
+            }
+            return -1;
+        }
+
+        private static string KeyValue(IList<string> lines, string key)
+        {
+            int index = KeyLine(lines, key);
+            return index < 0 ? null : lines[index].Substring(lines[index].IndexOf('=') + 1).Trim();
+        }
+
+        private static bool IsKmrpSection(string name)
+        {
+            return name.StartsWith("KMRP", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static byte[] MergeOriginalKeys(byte[] current, byte[] backup, List<string[]> rows)
+        {
+            Encoding encoding;
+            int preambleLength;
+            DetectEncoding(current, out encoding, out preambleLength);
+            string text = encoding.GetString(current, preambleLength, current.Length - preambleLength);
+            string newline = text.IndexOf("\r\n", StringComparison.Ordinal) >= 0 ? "\r\n" : "\n";
+            Encoding backupEncoding;
+            int backupPreamble;
+            DetectEncoding(backup, out backupEncoding, out backupPreamble);
+            string[] before = SplitLines(backupEncoding.GetString(backup, backupPreamble, backup.Length - backupPreamble));
+
+            List<string> lines = new List<string>();
+            bool inKmrp = false;
+            foreach (string line in SplitLines(text))
+            {
+                string sectionName;
+                if (TryGetSectionName(line, out sectionName))
+                    inKmrp = IsKmrpSection(sectionName);
+                if (!inKmrp)
+                    lines.Add(line);
+            }
+            foreach (string key in OwnedKeys)
+            {
+                int index = KeyLine(lines, key);
+                string[] row = rows == null ? null : rows.Find(r => r[1] == key);
+                if (index >= 0 && rows != null && (row == null ||
+                    !String.Equals(KeyValue(lines, key), row[2], StringComparison.Ordinal)))
+                    continue;   // the player's since the install
+                int original = KeyLine(before, key);
+                if (index >= 0 && original >= 0)
+                    lines[index] = before[original];
+                else if (index >= 0)
+                    lines.RemoveAt(index);
+            }
+            // Nothing but KMRP's keys differed: the file exactly as it was, whatever order
+            // the install left the lines in.
+            List<string> sortedNow = lines.FindAll(l => l.Trim().Length > 0);
+            List<string> sortedBefore = new List<string>(before).FindAll(l => l.Trim().Length > 0);
+            sortedNow.Sort(StringComparer.Ordinal);
+            sortedBefore.Sort(StringComparer.Ordinal);
+            if (sortedNow.Count == sortedBefore.Count)
+            {
+                bool same = true;
+                for (int index = 0; same && index < sortedNow.Count; index++)
+                    same = sortedNow[index] == sortedBefore[index];
+                if (same)
+                    return backup;
+            }
+            return Encode(String.Join(newline, lines.ToArray()), encoding, preambleLength > 0);
+        }
+
+        private static void EnsureVerifiedBackup(string executablePath, byte[] original, bool refresh, Action<string> report)
         {
             string backupPath = BackupPath(executablePath);
             string hashPath = BackupHashPath(executablePath);
@@ -1145,7 +1286,10 @@ namespace Kmrp
                 string expected = File.ReadAllText(hashPath, Encoding.ASCII).Trim().ToUpperInvariant();
                 if (expected.Length != 64 || GoldPatch.HashFile(backupPath) != expected)
                     throw new InvalidDataException("The existing swkotor.ini backup failed its integrity check. Move it aside before patching:\r\n" + backupPath);
-                return;
+                if (!refresh || expected == originalHash)
+                    return;
+                File.Delete(hashPath);
+                File.Delete(backupPath);
             }
 
             WriteBytesNew(backupPath, original);
@@ -1166,8 +1310,9 @@ namespace Kmrp
             SafeReport(report, "INI backup created: " + backupPath);
         }
 
-        private static string UpdateResolution(string text, int width, int height)
+        private static string UpdateResolution(string text, int width, int height, bool keepFrameRate)
         {
+            List<string> frameRate = keepFrameRate ? new List<string>() : FrameRateLines(width, height);
             string newline = text.IndexOf("\r\n", StringComparison.Ordinal) >= 0 ? "\r\n" :
                 (text.IndexOf("\n", StringComparison.Ordinal) >= 0 ? "\n" : Environment.NewLine);
             string[] lines = Regex.Split(text, "\\r\\n|\\n|\\r");
@@ -1201,7 +1346,7 @@ namespace Kmrp
                 output.Add("[Graphics Options]");
                 output.Add("Height=" + height.ToString(CultureInfo.InvariantCulture));
                 output.Add("Width=" + width.ToString(CultureInfo.InvariantCulture));
-                output.AddRange(FrameRateLines(width, height));
+                output.AddRange(frameRate);
             }
             else
             {
@@ -1209,10 +1354,10 @@ namespace Kmrp
                     output.Add(lines[index]);
                 output.Add("Height=" + height.ToString(CultureInfo.InvariantCulture));
                 output.Add("Width=" + width.ToString(CultureInfo.InvariantCulture));
-                output.AddRange(FrameRateLines(width, height));
+                output.AddRange(frameRate);
                 for (int index = sectionStart + 1; index < sectionEnd; index++)
                 {
-                    if (!IsResolutionKey(lines[index]))
+                    if (!IsResolutionKey(lines[index], keepFrameRate))
                         output.Add(lines[index]);
                 }
                 for (int index = sectionEnd; index < lines.Length; index++)
@@ -1264,7 +1409,7 @@ namespace Kmrp
             return false;
         }
 
-        private static bool IsResolutionKey(string line)
+        private static bool IsResolutionKey(string line, bool keepFrameRate)
         {
             int equals = line.IndexOf('=');
             if (equals < 0)
@@ -1273,6 +1418,8 @@ namespace Kmrp
             if (String.Equals(key, "Width", StringComparison.OrdinalIgnoreCase) ||
                 String.Equals(key, "Height", StringComparison.OrdinalIgnoreCase))
                 return true;
+            if (keepFrameRate)
+                return false;
             // The frame-rate lines, written again with the two above (FrameRateLines).
             foreach (string written in FrameRateLines(0, 0))
                 if (String.Equals(key, written.Substring(0, written.IndexOf('=')), StringComparison.OrdinalIgnoreCase))
@@ -2291,6 +2438,14 @@ namespace Kmrp
 
         internal static void RestoreStandalone(string targetPath, Action<string> report, Action<int, string> progress)
         {
+            RestoreStandalone(targetPath, report, progress, false);
+        }
+
+        /// <summary>`keepIni`: an install over this one, which leaves swkotor.ini the
+        /// player's (IniOperations.Configure).</summary>
+        internal static void RestoreStandalone(string targetPath, Action<string> report, Action<int, string> progress,
+            bool keepIni)
+        {
             SafeProgress(progress, 0, "Preparing to restore…");
             targetPath = Path.GetFullPath(targetPath);
             RequireExistingFile(targetPath);
@@ -2303,7 +2458,8 @@ namespace Kmrp
                 InstallPlatform.RestoreDpi(targetPath, report);
                 InstallPlatform.RemoveOldNvidiaSetting(targetPath, report);
                 SafeProgress(progress, 92, "Restoring display settings…");
-                IniOperations.Restore(targetPath, report);
+                if (!keepIni)
+                    IniOperations.Restore(targetPath, report);
                 SafeProgress(progress, 98, "Saving restore information…");
                 WriteManifest(targetPath, BackupPath(targetPath), true, 0, 0, currentHash);
                 SafeProgress(progress, 100, "Restore complete");
@@ -2337,7 +2493,8 @@ namespace Kmrp
                 if (GoldPatch.HashFile(targetPath) != backupHash)
                     throw new IOException("Post-restore verification failed.");
                 SafeProgress(progress, 94, "Restoring display settings…");
-                IniOperations.Restore(targetPath, report);
+                if (!keepIni)
+                    IniOperations.Restore(targetPath, report);
                 SafeProgress(progress, 98, "Saving restore information…");
                 WriteManifest(targetPath, backupPath, true, 0, 0, backupHash);
                 SafeProgress(progress, 100, "Restore complete");

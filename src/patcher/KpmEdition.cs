@@ -430,10 +430,7 @@ namespace Kmrp
                 SafeReport(report, foreign + " is in the game folder: KOTOR Patch Manager manages this " +
                     "game, so KMRP adds its patch there and leaves the game's files to it.");
 
-            // The checks are done: KMRP's own files go into its folder from here on, an
-            // earlier install's with them (KmrpFolder, since 2026-10-20).
-            KmrpFolder.Migrate(targetPath, report);
-
+            bool upgrading = standalone;
             if (standalone)
             {
                 // The standalone installer's own restore puts back the executable it
@@ -442,12 +439,18 @@ namespace Kmrp
                 SafeProgress(progress, 4, "Removing the earlier KMRP…");
                 SafeReport(report, "An earlier KMRP, which patched swkotor.exe, is installed. " +
                     "Restoring the original game files before installing this one.");
-                PatchOperations.RestoreStandalone(targetPath, report, null);
+                PatchOperations.RestoreStandalone(targetPath, report, null, true);
                 if (IsStandaloneInstall(targetPath) || !GoldPatch.IsSupportedSourceFile(targetPath))
                     throw new InvalidDataException("The earlier KMRP could not be removed, so nothing of this one was installed.");
             }
+            // KMRP's own files go into its folder from here on, an earlier install's with
+            // them (KmrpFolder, since 2026-10-20). After the standalone restore, which removes
+            // its files where it wrote them: moved first, its licence stayed in KMRP's folder
+            // and this install then refused it (2026-11-01, Test-ReinstallOverOlderBuild).
+            KmrpFolder.Migrate(targetPath, report);
             if (IsInstalled(targetPath))
             {
+                upgrading = true;
                 // Everything the earlier install put here goes, and only what the
                 // settings choose now is installed: a patch turned off since is removed,
                 // one turned on is added (the maintainer, 2026-10-19; Test-InstallerPatch
@@ -489,7 +492,10 @@ namespace Kmrp
                 // (issue 73). Until then KMRP set Prefer native wherever the game would
                 // inherit layered; a value it set that way, with its record, is removed here.
                 InstallPlatform.RemoveOldNvidiaSetting(targetPath, report);
-                iniState = IniOperations.Configure(targetPath, width, height, report);
+                if (upgrading)
+                    IniOperations.KeepChosenSize(targetPath, ref width, ref height, report);
+                iniState = IniOperations.Configure(targetPath, width, height, upgrading, report);
+                records.AddRange(iniState.Rows);
 
                 SafeProgress(progress, 10, engine ? "Installing KMRP's patch…" : "Preparing the patch for KPM…");
                 // The controller's settings are the player's to edit: written only when
@@ -641,7 +647,11 @@ namespace Kmrp
             InstallPlatform.RestoreDpi(targetPath, report);
             InstallPlatform.RemoveOldNvidiaSetting(targetPath, report);
             SafeProgress(progress, 92, "Restoring display settings…");
-            IniOperations.Restore(targetPath, report);
+            // An install over this one leaves swkotor.ini as the player has it: the whole
+            // backup going back here lost every setting changed since the first install,
+            // KMRP's own Text, Icon and HUD sizes with them (2026-11-01, audit INS-01).
+            if (!keepCache)
+                IniOperations.Restore(targetPath, records.FindAll(r => r[0] == "ini"), report);
             try { File.Delete(ManifestPath(targetPath)); }
             catch { }
             // An install over this one (keepCache) writes into KMRP's folders next.
@@ -1792,6 +1802,7 @@ namespace Kmrp
                     if ((parts.Length == 3 && parts[0] == "file" && IsOwnedName(parts[1])) ||
                         (parts.Length == 4 && parts[0] == "moved" && parts[1] == BinkName && parts[2] == BinkMovedName) ||
                         (parts.Length == 2 && parts[0] == "laa") ||
+                        (parts.Length == 3 && parts[0] == "ini") ||
                         (parts.Length == 2 && parts[0] == "options" &&
                          (parts[1] == OptionsName || parts[1] == ControllerOptionsName)) ||
                         (parts.Length == 4 && parts[0] == "kpatch" && IsKpatchPath(parts[1]) &&

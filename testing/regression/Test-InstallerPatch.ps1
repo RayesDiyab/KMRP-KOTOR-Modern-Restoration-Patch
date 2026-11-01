@@ -476,6 +476,34 @@ try {
     Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the restore succeeds"
     $after = Get-Listing $folder | Where-Object { $_ -notmatch $kept }
     Assert (($after -join "`n") -eq ($before -join "`n")) "the folder is as it was, file for file"
+
+    Write-Host ""
+    Write-Host "Case 12 swkotor.ini is the player's through an upgrade and a restore (audit INS-01)"
+    Set-KmrpSettings $true $true
+    $game = New-Fixture "player-settings"
+    $folder = Split-Path -Parent $game
+    $iniPath = Join-Path $folder "swkotor.ini"
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the first install succeeds"
+    $ini = [IO.File]::ReadAllText($iniPath)
+    # What playing changes: the game's own options, KMRP's sliders, the size chosen in Options.
+    $ini = $ini.Replace("Width=1920", "Width=2560").Replace("Height=1080", "Height=1440").Replace("V-Sync=1", "V-Sync=0")
+    $ini += "`r`n[Sound Options]`r`nMusic Volume=33`r`n[KMRP Text]`r`nIconSize=75`r`n[KMRP HUD Size]`r`nAll=60`r`n"
+    [IO.File]::WriteAllText($iniPath, $ini, [Text.UTF8Encoding]::new($false))
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the install over it succeeds"
+    $ini = [IO.File]::ReadAllText($iniPath)
+    Assert ($ini -match '(?m)^Music Volume=33') "the game's own option survives the upgrade"
+    Assert ($ini -match '(?m)^IconSize=75' -and $ini -match '(?m)^All=60') "KMRP's sliders survive the upgrade"
+    Assert ($ini -match '(?m)^Width=2560' -and $ini -match '(?m)^Height=1440') "the size chosen in the game survives the upgrade"
+    Assert ($ini -match '(?m)^V-Sync=0') "V-Sync as the player set it survives the upgrade"
+    Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the restore succeeds"
+    $ini = [IO.File]::ReadAllText($iniPath)
+    Assert ($ini -match '(?m)^Music Volume=33') "the game's own option survives Restore Original"
+    Assert ($ini -notmatch 'KMRP') "KMRP's sections go with it"
+    Assert ($ini -match '(?m)^Width=800' -and $ini -match '(?m)^Height=600' -or $ini -match '(?m)^Width=2560') "the size is the original, or the one the player chose"
+    # A later install takes its backup from the file as it is then.
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "a new install succeeds"
+    Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "and its restore"
+    Assert ([IO.File]::ReadAllText($iniPath) -match '(?m)^Music Volume=33') "the backup was not the first install's"
 }
 finally {
     $env:LOCALAPPDATA = $playerLocalAppData

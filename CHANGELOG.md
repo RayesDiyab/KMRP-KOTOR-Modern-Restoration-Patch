@@ -117,6 +117,22 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: an upgrade keeps your settings (audit INS-01), and installing over KMRP 1.0
+  works again (INS-11)** (2026-11-01). An install over KMRP restored its first backup of
+  `swkotor.ini` whole, so every upgrade lost the game's sound, gameplay and graphics
+  options, KMRP's Text, Icon and HUD sizes, and a resolution chosen in the game. An upgrade
+  now leaves the file as it is, keeps a size KMRP can run at, and changes the frame-rate
+  keys only when High FPS Fix was switched. Restore Original goes key by key: the manifest's
+  `ini` rows record what the install set, a key that no longer holds that value stays,
+  `[KMRP ...]` sections go, and if nothing else changed the backup's own bytes are written
+  (Test-InstallerPatch case 4 still asserts file for file; case 12 is new). A new install's
+  backup comes from the file as it is then, so a restore can no longer bring back settings
+  from an older install. Separately, since 2026-10-20 installing over a 1.0 install was
+  refused: the folder move took its licence into `KMRP\` before the old restore could remove
+  it, and the install then refused the file as not its own. The stale manifest path in
+  Test-ReinstallOverOlderBuild hid this until the audit's first full run. Tested on throwaway
+  game folders; not yet seen on a real upgrade.
+
 - **The native sources' repeated helpers are one copy each (issue 82, F2, F4, F6)**
   (2026-11-01, [`docs/cleanup-audit-1.6-findings.md`](docs/cleanup-audit-1.6-findings.md)).
   One readable-memory check where there were four, one field helper where there were 13

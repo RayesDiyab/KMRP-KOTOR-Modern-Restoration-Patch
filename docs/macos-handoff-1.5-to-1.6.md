@@ -1665,6 +1665,7 @@ throttled re-check there if so. Not built or run on a Mac.
 | XInput loaded at run time, not linked | 9fee5e4 | Windows 7 |
 | A Linux pad's own key (`KEY_BACK`) not keyboard use; the Gamepad layout notice | 8f60e46 | Linux's kernel driver and Wine |
 | K1 Modern Driver Compatibility 2.0.0; left out on Windows 7 | b5cbd6a, f0ca54c | the Mac ships no K1DC or `dinput8.dll` |
+| An upgrade keeps `swkotor.ini`; Restore Original goes key by key; installing over 1.0 works (audit INS-01, INS-11) | 2026-11-01 | `kmrp-mac.sh` already restores key by key and refuses an install over an install |
 | The frame drawn offscreen and shown when finished, always (`K1OffscreenFrame.cpp`); NVIDIA's present method no longer set by the installer or the module (`K1RuntimeNvidia.cpp` deleted), and an older install's value removed | 81dac75 | NVIDIA's layered present path and opengl32's hot-patch form are Windows; the Mac has neither |
 | Hardware mipmaps where only K1DC's emulated ATI extension turned them off (`CorrectHardwareMipmapsK1`); level-2 frame timing and sampler (`kmrp-frame-timing.log`) | 0e4274b | the Mac ships no K1DC; the sampler uses Windows thread APIs |
 | Bink drawn with GDI (`0x00405734`), the `[Movies]` 640x480 mode, feature bit 8 | 4a1cd73, 3ab7a87 | Windows' Bink and DirectDraw (item 78 says what applies) |
