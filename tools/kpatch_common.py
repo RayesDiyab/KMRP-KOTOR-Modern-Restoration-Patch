@@ -2,8 +2,7 @@
 """What KMRP's .kpatch builders share: the executables KMRP supports, and KOTOR
 Patch Manager's manifest and hooks syntax.
 
-Used by tools/build_native_kpatch.py (KMRP's one patch), tools/build_runtime_kpatch.py
-(the preview of 2026-10-03) and tools/check_kpm_overlaps.py. Until 2026-10-04 these
+Used by tools/build_native_kpatch.py (KMRP's one patch) and tools/check_kpm_overlaps.py. Until 2026-10-04 these
 functions lived in tools/build_kpatch.py, the builder of the four-patch edition, which
 was removed with that edition's last files.
 

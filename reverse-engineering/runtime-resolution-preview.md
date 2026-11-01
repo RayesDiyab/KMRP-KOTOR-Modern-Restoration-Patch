@@ -7,7 +7,8 @@ design and unfinished migration are in
 
 ## What the module does now (read from the source, 2026-10-08)
 
-Everything below this section is a dated record: the preview of 2026-10-03, the
+Everything below this section is a dated record, whose build files were removed on
+2026-11-01 with the preview: the preview of 2026-10-03, the
 standalone package of 2026-10-04 and the bank of 2026-10-05. This section is the
 present state, read from `tools/build_native_kpatch.py`,
 `src/controller-native/kotor1-native-runtime.hooks.toml`, `K1RuntimeResolution.cpp`
@@ -114,7 +115,7 @@ in this experiment. The game's disk executable was unchanged in the fixture.
 The exact reused replacement stubs remain authoritative in
 [the core hook table](../src/controller-native/kotor1.hooks.toml), as selected by
 [the controller tooling](../tools/kmrp_controller.py). The new sites and parameter
-contracts are in [the preview hook table](../src/controller-native/kotor1-runtime-preview.hooks.toml).
+contracts were in the preview's hook table, `kotor1-runtime-preview.hooks.toml` (removed 2026-11-01, in git history).
 Keyboard behavior is covered by [its separate reference](windows-keyboard-navigation.md).
 
 ## Resolution selection and limits

@@ -10,11 +10,9 @@
 #include <utility>
 #include <vector>
 #include <intrin.h>
-#ifdef KMRP_NATIVE_RUNTIME
 #include "K1RuntimeEngine.h"
 #include "K1RuntimeAssets.h"
 #include "K1RuntimeLayout.h"
-#endif
 
 namespace {
 // Written only at GUI size-change/frame hooks, on the game's GUI thread.
@@ -48,16 +46,11 @@ bool ReadViewport(void* manager, Dimensions& result)
 // they last committed, so a repeated request costs two comparisons.
 void Prepare(int width, int height)
 {
-#ifdef KMRP_NATIVE_RUNTIME
     if (KmrpRuntimeAssetsDimensions(width, height)) {
         if (!KmrpRuntimeEngineDimensions(width, height)) Log("engine-failed", width, height);
     } else Log("assets-failed", width, height);
-#else
-    (void)width; (void)height;
-#endif
 }
 
-#ifdef KMRP_NATIVE_RUNTIME
 // Re-read every font's TXI after a size change.
 //
 // The window re-creation reloads each texture's image from the current files,
@@ -95,10 +88,8 @@ void ReloadFontMetrics()
     Log("font-metrics", reloaded, count);
     // LoadTXI's common-return hook finalizes each Override font before returning.
 }
-#endif
 }
 
-#ifdef KMRP_NATIVE_RUNTIME
 // One row per resolution and refresh rate in Graphics -> Screen Resolution.
 //
 // The dialog's constructor (0x006E0710) adds a row for every mode
@@ -197,9 +188,7 @@ void KmrpInstallModeListFilter()
     *slot = &EnumModesOnce;
     VirtualProtect(slot, sizeof *slot, old, &old);
 }
-#endif
 
-#ifdef KMRP_NATIVE_RUNTIME
 // The size the game starts at on a display that does not have swkotor.ini's size.
 //
 // swkotor.ini holds the size of the display the installer was run on. The game reads
@@ -279,7 +268,6 @@ void KmrpStartAtDisplaySize()
     const bool second = WriteSize(0x005F5B84, nearest, sizeof nearest, 6, 1, width, height);
     if (first || second) Log("start fallback", width, height);
 }
-#endif
 
 // The native mode switch (0x005F1830) has stored the new mode's size at
 // 0x0078D1D4/0x0078D1D8 and is about to re-create the window (0x00403800), which
@@ -294,20 +282,16 @@ extern "C" void __cdecl KmrpModeSwitchK1()
     if (!KmrpRuntimeDimensions(width, height)) return;
     Prepare(width, height);
     Log("switching", width, height);
-#ifdef KMRP_NATIVE_RUNTIME
     ReloadFontMetrics();
-#endif
 }
 
 extern "C" int __cdecl KmrpAllowRuntimeResolutionK1(const int* width, const int* height)
 {
     if (!width || !height || !KmrpRuntimeDimensions(*width, *height)) return 0;
-#ifdef KMRP_NATIVE_RUNTIME
     // And one KMRP has a layout for: the installer refuses the others.
     if (!KmrpRuntimeAssetsCovers(*width, *height)) return 0;
     // And one the display has a mode of: see KmrpStartAtDisplaySize.
     if (!DisplayReports(*width, *height)) return 0;
-#endif
     return 1;
 }
 extern "C" void __cdecl KmrpResolutionRequestedK1(void*, const int* widthSlot, const int* heightSlot)
@@ -325,23 +309,11 @@ extern "C" void __cdecl KmrpResolutionObservedK1(void* manager)
     Dimensions actual;
     if (!ReadViewport(manager, actual)) return;
     if (actual.width == g_observed.width && actual.height == g_observed.height) return;
-#ifdef KMRP_NATIVE_RUNTIME
     if (!KmrpRuntimeLayoutDimensions(manager, actual.width, actual.height)) {
         Log("layout-failed", actual.width, actual.height);
         return;
     }
-#endif
     g_observed = actual;
     Log("observed", actual.width, actual.height);
 }
 
-#ifndef KMRP_NATIVE_RUNTIME
-// The preview module only: the standalone module compiles K1NativeJoystick.cpp,
-// which has the hook itself.
-// Same native allocator and ownership contract as the existing core hook.
-// This independent module carries no controller state or controller backend.
-extern "C" void __cdecl NativeFreeSaveBufferK1(void* buffer)
-{
-    if (buffer) reinterpret_cast<void(__cdecl*)(void*)>(0x006FA390)(buffer);
-}
-#endif

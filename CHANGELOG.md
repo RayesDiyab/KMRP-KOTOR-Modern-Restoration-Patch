@@ -117,6 +117,23 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Testing: the size rules run from today's code (audit TST-05, TST-06, F11)** (2026-11-01).
+  `FieldValue` had no test: the values checked were its C# twin's, and only `--apply` reaches
+  those. It moved unchanged to `K1EngineFields.h`, and Test-EngineFields compiles that with the
+  module's flags and compares all 59 fields at 69 sizes with the executable `--apply` writes,
+  4,071 values. Ten differ by one, at five sizes, each an exact tie in base × height ÷ 720:
+  the module takes the even number as its rule says and the C# twin falls low, so the game is
+  right and nothing changes. The values are held in `engine-fields-baseline.json` for when
+  `--apply` goes (approved decision 3). Test-ResolutionGate loads today's `kmrp-native.dll`
+  and asks the hook the game's validator calls about 85 sizes. It replaces
+  Test-RuntimeResolution, which read a DLL from 2026-10-04 and expected 32767x32767 to pass.
+  With it the first preview module is gone: `build_runtime_preview.cmd`, its hooks table,
+  `tools/build_runtime_kpatch.py`, Test-RuntimeKpatch, the preview's branches in
+  `K1RuntimeResolution.cpp` and its second `NativeFreeSaveBufferK1`. The trace keeps its name,
+  `kmrp-native-preview.log`, as older installs have one to move. `kmrp-native-preview` stays in
+  the two lists of retired KPM patch ids. A display reporting a size KMRP has no layout for
+  cannot be set up on a PC, so that half of the gate is checked in the source.
+
 - **Fixed: the installer checks before it starts and says what it could not do (audit
   INS-05 to INS-10)** (2026-11-01). Install and Restore Original now refuse, with a plain
   message and nothing changed, while KOTOR runs from the folder (Windows: `swkotor.exe`

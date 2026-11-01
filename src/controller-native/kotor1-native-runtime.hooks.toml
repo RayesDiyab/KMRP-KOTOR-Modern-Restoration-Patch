@@ -52,9 +52,9 @@ type = "detour"
 function = "KmrpModeSwitchK1"
 original_bytes = [0x83, 0x3D, 0x2C, 0x3A, 0x7A, 0x00, 0x01]
 
-# The GUI frame (0x0040CE70) is the core table's CoreGuiFrameK1 site, defined for
-# this module in K1RuntimeCore.cpp: it samples the actual viewport first, so a
-# rejected request is never mistaken for a switch.
+# The GUI frame (0x0040CE70) is this module's own frame hook: KmrpCoreGuiWorkK1
+# (K1CoreFrames.cpp) samples the actual viewport first, so a rejected request is
+# never mistaken for a switch.
 
 # ToolTipPanel constructor: width 1280 with height other than 960/1024
 # skipped StartLoadFromLayout entirely. Route its existing JNE to the same
