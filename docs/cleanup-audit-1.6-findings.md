@@ -198,23 +198,28 @@ this did not happen on this PC, not that it cannot happen.
 hook's row was also missing from the table of what KMRP does on a change, in
 [`resolution-switch.md`](../reverse-engineering/resolution-switch.md) section 5; added.
 
-## F11. The first preview module is still in the build's files (open, proposed removal)
+## F11. The first preview module is still in the build's files (open, no decision yet)
 
-`build_runtime_preview.cmd`, `tools/build_runtime_kpatch.py` and `Test-RuntimeKpatch.py` make
-and check `kmrp-native-preview.dll`, the first standalone module (`8da2821`). Nothing ships
-it. Its test passes against a module last built long ago in `build/native-preview`, so it
-proves nothing about today's code. It keeps three things alive in the sources: the
-`#ifndef KMRP_NATIVE_RUNTIME` branches of `K1RuntimeResolution.cpp`, a second
-`NativeFreeSaveBufferK1` calling a different address (`0x006FA390`, not the module's
-`0x006FB7B2`), and a comment naming `K1RuntimeCore.cpp`, which does not exist. The resolution
-trace is still called `kmrp-native-preview.log`.
+**Corrected 2026-11-01.** This first proposed removing the module's files. Read properly, more
+hangs on it, and two tests depend on it.
 
-**Proposed:** remove the three files and the branches, and rename the log to
-`kmrp-resolution.log`, with `InstallCore.cs`, `KmrpOptions.h` and `docs/kpm-edition.md`. The
-patch IDs `kmrp-native-preview` in the kpatch tools' conflict lists stay, since an old install
-may hold one. Also from this pass: `K1TextLayout.cpp` still says `CorrectHardwareMipmapsK1`
-is in `K1NativeJoystick.cpp` (F1 moved it), and 11 `.obj`, `.exp` and `.lib` files of 2026-10-04
-lie ignored in `src/controller-native`.
+| File | What it is |
+| --- | --- |
+| `build_runtime_preview.cmd`, `kotor1-runtime-preview.hooks.toml`, `tools/build_runtime_kpatch.py` | build `kmrp-native-preview.dll` and its package, which ship nowhere; `build_kmrp.ps1` does not run them |
+| `testing/regression/Test-RuntimeKpatch.py` | the package's bytes and guards |
+| `testing/regression/Test-RuntimeResolution.cmd`, `.cpp` | loads that DLL and tests the resolution exports |
+
+The only copy of the DLL in the build folder is from 2026-10-04, so both tests read code four
+weeks old and say nothing about today's `K1RuntimeResolution.cpp`. The second is the only one
+of the two that tests behaviour, so removing the preview without replacing it loses that. The
+preview also keeps `#ifndef KMRP_NATIVE_RUNTIME` branches and a second `NativeFreeSaveBufferK1`,
+calling `0x006FA390` where the module calls `0x006FB7B2`, in the sources; a comment naming
+`K1RuntimeCore.cpp`, which does not exist; and the name of the resolution trace,
+`kmrp-native-preview.log`, which `InstallCore.cs`, `KmrpOptions.h` and `docs/kpm-edition.md` use.
+`reverse-engineering/runtime-resolution-preview.md` is the dated record of the experiment and stays.
+
+**To decide:** run the resolution test against today's code, so the preview's files can go, or
+keep them and build them. Nothing is proposed until the test's cases have been read.
 
 ## F12. Where the sources are too big or say a thing twice (open, measured, section 4 decides)
 
@@ -238,3 +243,30 @@ repeats of 50 tokens or more and 154 of the same shape at 90 or more in the nati
 
 Each is read when section 4 reaches its file. The scan counts text, not meaning, so a repeat
 is a place to look, not yet a finding.
+
+**Not checked against the documents yet:** each row above. `K1XboxHud.cpp` and `K1HudOptions.cpp`
+are in different modules, and the comment at `K1HudOptions.cpp:83` says the copy of the table
+and arithmetic is deliberate, so a shared header may or may not be right there.
+
+## F13. What the documents leave open on KMRP's hooks (open)
+
+Found rechecking section 1.1 against the documents, 2026-11-01. The hooks stay; the records do
+not yet say enough.
+
+| Hook | What is missing |
+| --- | --- |
+| `0x0040C24E`, `0x0041A9D0`, `0x0041CE20` | `windows-keyboard-navigation.md` and CHANGELOG record the Windows keyboard repair as not verified on a physical keyboard, and nothing later says otherwise. To be tried in a game. |
+| `0x00419A20` | No document mentions it, and no reconstruction marker names the function. The handler forgets a control, so it is read as the control's destructor; that is not established. |
+| `0x0045BAC0`, `0x0045BC70`, `0x0041A3E0` | One table row each in a progress record. |
+| `0x004A8380`, `0x004A847C` | A guard against a double free that no one has reproduced in play. |
+| `0x005DDE32` | The ownership analysis is KPM's and was not re-derived here. |
+
+## Section 1.1 redone
+
+Every verdict was checked on 2026-11-01 against the documents, by searching `docs/`,
+`reverse-engineering/` and CHANGELOG for each address and function and reading what they say,
+and against the handler. Corrected from the first pass: `0x0040BE70` (F10);
+`0x0040C24E`, "the only site" was not established; `0x004216F1`, "each run once per upload"
+was wrong, as the mipmap correction runs once a session; `0x0041A9D0`, a "12-line prefix" is 5;
+`0x0040CF70`, five forget calls, not four; `0x0062785F`, not a game bug on its own sizes but
+needed for KMRP's. The grass and save entries no longer say "game bug fix" without qualification.
