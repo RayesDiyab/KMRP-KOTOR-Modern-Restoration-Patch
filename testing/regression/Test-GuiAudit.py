@@ -51,6 +51,7 @@ FALLBACK = {
  'row': ['Experience Points (XP) Received: 9999', 'Advanced Stabilizer Gloves']}
 
 
+BASELINE=Path(__file__).with_name('gui-audit-baseline.json')
 def digest(data): return hashlib.sha256(data).hexdigest()
 def size(path): return tuple(map(int, path.stem[4:].split('x')))
 def size_name(wh): return f'{wh[0]}x{wh[1]}'
@@ -709,6 +710,33 @@ class Audit:
         return counts
 
 
+def compare_baseline(audit,args):
+    """The audit fails on what is new. Every run ended in exit 1 from 2026-10-02, so it could not
+    fail at all: 1,269 groups await review, and most of a sample of 30 were false positives
+    (docs/cleanup-1.6/reviews/tst.md). Each is held here with what is known of it, its worst amount
+    at its worst size. A group that is new, or more than a pixel worse, fails the run; a group gone
+    is printed, and the baseline is written again on purpose. A finding never goes by itself."""
+    groups={'|'.join(key):{'worst':round(row['worst'][0],3),'at':row['worst'][1],'sizes':len(row['sizes'])}
+            for key,row in audit.findings.items() if key[-1]=='KMRP'}
+    if args.listed_only:
+        print('ok   baseline: not compared, --listed-only leaves the blend sweep out')
+        return 0
+    known=json.loads(BASELINE.read_text(encoding='utf-8')) if BASELINE.exists() else {}
+    if args.write_baseline:
+        for key,row in groups.items():
+            row['review']=known.get(key,{}).get('review','unreviewed')
+        BASELINE.write_text(json.dumps(groups,indent=0,sort_keys=True)+'\n',encoding='utf-8')
+        print(f'ok   baseline: wrote {len(groups)} groups')
+        return 0
+    new=[key for key in groups if key not in known]
+    worse=[key for key in groups if key in known and groups[key]['worst']>known[key]['worst']+1]
+    gone=[key for key in known if key not in groups]
+    for key in sorted(new)[:40]: print(f'FAIL new finding: {key}: {groups[key]}')
+    for key in sorted(worse)[:40]: print(f'FAIL worse: {key}: {known[key]["worst"]} to {groups[key]["worst"]}')
+    for key in sorted(gone)[:40]: print(f'note gone since the baseline: {key}')
+    print(f'{"FAIL" if new or worse else "ok  "} baseline: {len(groups)} groups, {len(new)} new, {len(worse)} worse, {len(gone)} gone')
+    return int(bool(new or worse))
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('resources',type=Path,nargs='?',default=ROOT/'build/kmrp/resources')
@@ -717,6 +745,7 @@ def main():
     parser.add_argument('--date',default=date.today().isoformat())
     parser.add_argument('--listed-only',action='store_true',help='quick run; blend sweep explicitly untested')
     parser.add_argument('--skip-build',action='store_true',help='quick run; Mac artifacts explicitly untested')
+    parser.add_argument('--write-baseline',action='store_true',help='record this run as the reviewed baseline')
     args=parser.parse_args(); args.resources=args.resources.resolve()
     args.report=(args.report or ROOT/'testing'/f'GuiAudit-{args.date}.md').resolve()
     audit=Audit(args)
@@ -736,6 +765,26 @@ def main():
         if blend.native_helpers.WINDOWS:
             helper=blend.native_helpers.build(ROOT/'macos/tools/kmrp-guiblend.c',tmp,'kmrp-guiblend')['x64']
         else:run(['clang','-O2','-o',helper,ROOT/'macos/tools/kmrp-guiblend.c'])
+        # The 73 screens Live Adaptive Layout makes at run time (AdaptLiveLayoutK1): what the
+        # game loads for those is the helper's output for the game's own file, not the set's
+        # copy, which only the Mac still reads (audit TST-02). Until 2026-11-01 this measured
+        # the copies.
+        sys.path.insert(0,str(ROOT/'tools'))
+        import build_live_layout as live_layout
+        live_names=set(live_layout.FILES)
+        if blend.native_helpers.WINDOWS:
+            adapt=blend.native_helpers.build(ROOT/'macos/tools/kmrp-guiadapt.c',tmp,'kmrp-guiadapt')['x64']
+        else:
+            adapt=tmp/'kmrp-guiadapt';run(['clang','-O2','-o',adapt,ROOT/'macos/tools/kmrp-guiadapt.c','-lm'])
+        def live(name,wh):
+            out=tmp/'live-output.gui'
+            result=subprocess.run([str(adapt),'live',blend.native_helpers.arg(live_layout.VANILLA/name),name,
+                                   str(wh[0]),str(wh[1]),blend.native_helpers.arg(out)],capture_output=True)
+            if result.returncode:
+                audit.emit('[live layout]',name,'generation',wh,1,f'exit={result.returncode}',scope='build')
+                return None
+            audit.stats['live files']+=1
+            return out.read_bytes()
         table=blend.read_table(tablepath)
         locations={name:field_locations(template) for name,template,offsets,values in table[4]}
         for archive in archives:
@@ -765,7 +814,8 @@ def main():
                     if p:
                         audit.comparisons[name,res]=(str(p.relative_to(ROOT)) if p.is_relative_to(ROOT)
                                                     else 'derived upstream via derive_resolution_gui_set.py for '+res)
-                    guis[name]=audit.process(name,z.read(name),wh,fonts,ref,True)
+                    data=(live(name,wh) if name in live_names else None) or z.read(name)
+                    guis[name]=audit.process(name,data,wh,fonts,ref,True)
                 audit.badges(wh,table,z.read,'listed badge',guis)
                 audit.runtime(wh,fonts,guis)
             audit.stats['listed sizes']+=1
@@ -816,7 +866,8 @@ def main():
                     audit.comparisons[p.name,size_name(wh)]=', '.join(
                         str(audit.references[size_name(a),p.name].relative_to(ROOT)) for a in contributors
                         if (size_name(a),p.name) in audit.references)
-                    root=nodes(p.read_bytes());guis[p.name]=root
+                    shipped=(live(p.name,wh) if p.name in live_names else None) or p.read_bytes()
+                    root=nodes(shipped);guis[p.name]=root
                     audit.probe(p.name,root,wh,fonts)
                     audit.stats['files']+=1;audit.stats['controls']+=sum(1 for _ in flatten(root))
                     scope='active HUD' if p.name=='mipc28x6.gui' else 'unused HUD' if p.name.startswith('mipc') or p.name in ('mi8x6.gui','maininterface.gui') else 'panel'
@@ -839,6 +890,6 @@ def main():
         print(f'{"FAIL" if cls=="KMRP" and counts[cls] else "ok  "} {cls}: {counts[cls]} finding groups')
     print(f'ok   coverage: {audit.stats["listed sizes"]+audit.stats["blend sizes"]} sizes, {audit.stats["files"]} files, {audit.stats["controls"]} controls')
     print(f'ok   report: {args.report}')
-    return int(bool(counts['KMRP']))
+    return compare_baseline(audit,args)
 
 if __name__=='__main__':sys.exit(main())

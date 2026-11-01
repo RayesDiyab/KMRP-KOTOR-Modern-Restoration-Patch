@@ -10,14 +10,16 @@
     turn, a build is run, and the step's own line says whether it was skipped. Native
     compilation is judged by the build's log, and by whether the modules' file times moved.
 
-      Skipped:  nothing changed; a C# file of the installer changed.
+      Skipped:  nothing changed; a C# file of the installer changed; a tool the step does
+                not reach changed.
       Runs:     a header both modules share; a header in macos\tools; a build script (the
                 compiler flags are there); the engine recipe's sites, which generate
                 NativeEngine.generated.h; the hook table the .def is generated from; the CL
                 variable; a module deleted; a module damaged at the same size and time.
 
-    A Python tool is not changed here, though the fingerprint counts them: tools\ is also
-    an input of the interface resources, so one line would mean half an hour of rebuilding.
+    The tools a step reaches are not changed here: 63 of the 128 are reached by the interface
+    resources too, the build tools among them, so one line would mean half an hour of
+    rebuilding. tools\source_fingerprint.py --reach says what each step counts.
 
     Then the comparison: the step's folders moved aside and every output made from nothing,
     compared by SHA-256 with what the cached build had, then a cached build compared with
@@ -107,6 +109,7 @@ try {
 
     Write-Host "B a C#-only change skips native compilation"
     Test-Change "a C# file of the installer" "src\patcher\InstallPlatform.cs" "// build cache test" $true
+    Test-Change "a tool no step reaches" "tools\build_release_shots.py" "BUILD_CACHE_TEST = 1" $true
     Assert ((Get-Item -LiteralPath $nativeModule).LastWriteTimeUtc -eq $nativeTime) "the module was not written"
 
     Write-Host "C what the binaries depend on runs it"

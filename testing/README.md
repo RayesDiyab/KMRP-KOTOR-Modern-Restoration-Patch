@@ -13,6 +13,43 @@ Layout verification combines the static GUI audit below with play-tests: patch
 at a resolution and compare the rendered result against the computed layout.
 Installer behaviour is scripted.
 
+## Running the tests
+
+Every test in `regression/` has a row in [`run_regression.py`](run_regression.py), and a new test
+without one stops the run. Logs and a `summary.json` go to `build/test-results/<name>`.
+
+| Group | What | How long here |
+| --- | --- | --- |
+| `quick` | tests of the sources and the built patches | about 3 minutes |
+| `full` | also the art, the GUI audit, Live Layout, mods | about 25 minutes |
+| `settings` | the installer tests, which replace the KMRP and KPM settings files for the run and put them back, so warn the maintainer first | about 8 minutes |
+| `build` | Test-BuildCache, which rebuilds KMRP about a dozen times, by name or group only | about 28 minutes |
+| `mac` | skipped here, each with its reason | |
+
+```sh
+python testing/run_regression.py --group quick
+python testing/run_regression.py --only Test-TextRows Test-HudOptions
+python testing/run_regression.py --compare build/test-results/<earlier>/summary.json
+```
+
+`.\build_kmrp.ps1 -Test` builds, then runs the `quick` group. Never start a build while a test
+reads `build/`: a change in `tools/` empties `build/kmrp/resources` under it.
+
+**Proof a test can fail.** A test added since 2026-11-01 is run once with the rule it checks
+broken on purpose, as Test-BadgeShape's first version passed the very bug it was written for.
+
+**Harnesses that include a shipped file.** `rumble_mixer_harness.cpp` and
+`offscreen_frame_harness.cpp` include the `.cpp` whole, to reach its anonymous namespace, and
+supply what it calls: `K1OffscreenFrame.cpp`'s OpenGL functions are fakes, so the test says what
+the module asks of a driver, not what a real driver does. A harness that loads a module goes under
+`build/`: from the system's temp folder Windows refused to start one (2026-11-01, holder not found).
+
+**Live scripts.** `testing/controller` drives a running game with a pad. Those scripts take
+the game from `KMRP_TEST_GAME` (`live_game.py`), and Test-LiveSuitePaths holds that they can find
+it. They are for a game nobody is playing, with the maintainer's say-so at the PC.
+
+**What only a game can show** is in [`../docs/gameplay-checklist-1.6.md`](../docs/gameplay-checklist-1.6.md).
+
 ## Exhaustive static GUI traversal
 
 Reference. [Test-GuiAudit.py](regression/Test-GuiAudit.py) reads every `.gui` in
@@ -21,6 +58,19 @@ and `SCROLLBAR`. The [2026-10-02 lab record](GuiAudit-2026-10-02.md) contains
 the current measurements, input hashes, findings and explicit assumptions;
 its [console output](GuiAudit-2026-10-02.console.txt) is retained verbatim.
 No game execution is implied by these numeric checks.
+
+**What it measures since 2026-11-01.** The 73 screens Live Adaptive Layout makes at run time are
+measured from the layout helper's output for the game's own file, which is what Windows loads, and
+not from the set's copy. The 10 files still in a set are measured as they are. **It passes or fails
+against [`gui-audit-baseline.json`](regression/gui-audit-baseline.json):** a group that is new, or
+more than a pixel worse, fails. Until then it exited 1 on every run from 2026-10-02 and could
+not fail at all. Of the 1,317 KMRP groups in the baseline each has a `review`: 574 are HUD files not
+loaded at that size, 436 the scaling model's own heuristic, 33 blend output Windows does not load,
+16 upper bounds, 4 acceptable, 11 real but cosmetic, and 243 are still unreviewed. A group leaves
+only when the layout changes, and `--write-baseline` records that on purpose. The count rose from
+1,269 because it measures different files, not because anything got worse. `run_regression.py` runs
+it without `--game`, so the result does not depend on what is installed: with `--game` it reads the
+installed modules too, and lists any template it cannot read, as two of the Sleheyron mod's.
 
 ```sh
 # Use the project Python environment containing pykotor, as for the other GUI tests.

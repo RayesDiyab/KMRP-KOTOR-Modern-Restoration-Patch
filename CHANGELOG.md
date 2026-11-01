@@ -117,6 +117,17 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Testing: the GUI audit measures what Windows loads and can fail (audit TST-02); the build cache
+  counts what a step reaches (S-10)** (2026-11-01). Test-GuiAudit exited 1 on every run from
+  2026-10-02, so it could not fail, and it measured set copies of 73 screens Windows now lays out at
+  run time. It now measures the layout helper's output for those, at all 672 sizes, and holds its
+  1,317 groups in `gui-audit-baseline.json`: a new group, or one more than a pixel worse, fails it.
+  The count rose from 1,269 because the files are different, not because anything got worse. Each
+  group carries what is known of it: 574 HUD files not loaded at that size, 436 the scaling model's
+  heuristic, 33 blend output Windows does not load, 16 upper bounds, 4 acceptable, 11 real but
+  cosmetic, and 243 still unreviewed. Any change in `tools/` made the 15 minute resource step run
+  again: each cached step now counts only the tools it reaches, 63 or 64 of the 128.
+
 - **Fixed: the art cache and two installs, a stall in the size check, a stale saber (audit THR-4,
   THR-8, GUI-10, PAD-8)** (2026-11-01). The game's validator asks about every display mode on its
   own thread, and waited on the build lock while a size was being made, 7 to 9.5 s each, even for an

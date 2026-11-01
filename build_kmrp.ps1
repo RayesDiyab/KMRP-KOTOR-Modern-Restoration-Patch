@@ -157,7 +157,8 @@ function Invoke-Tool {
 # (tools\source_fingerprint.py, 2026-10-27), so rewording a comment in tools\ makes nothing
 # again. Kept beside the step's output; written only after the step succeeds, so a failed
 # or stopped run is never taken as done.
-function Get-InputFingerprint([string[]]$Paths, [string[]]$Extra = @()) {
+# -Reach names the step's entry tools: of tools\, only what those reach counts (audit S-10).
+function Get-InputFingerprint([string[]]$Paths, [string[]]$Extra = @(), [string]$Reach = "") {
     $lines = New-Object System.Collections.Generic.List[string]
     $codeFolders = New-Object System.Collections.Generic.List[string]
     foreach ($path in $Paths) {
@@ -179,7 +180,8 @@ function Get-InputFingerprint([string[]]$Paths, [string[]]$Extra = @()) {
         }
     }
     if ($codeFolders.Count -gt 0) {
-        $code = & $Python (Join-Path $projectRoot "tools\source_fingerprint.py") @codeFolders
+        $reachArguments = if ($Reach) { @("--reach", $Reach) } else { @() }
+        $code = & $Python (Join-Path $projectRoot "tools\source_fingerprint.py") @reachArguments @codeFolders
         if ($LASTEXITCODE -ne 0) { throw "tools\source_fingerprint.py failed" }
         foreach ($line in $code) { $lines.Add($line) }
     }
@@ -278,7 +280,7 @@ $resourceInputs = @(
     (Join-Path $projectRoot "tools"), (Join-Path $projectRoot "assets"),
     (Join-Path $projectRoot "third_party\Included"), $resolvedUpstream, $resolvedGoldOverride,
     $resolvedTexturePack, $resolvedHdFonts, $geometry, $fontScaleSets) + $resolvedBundled
-$resourceFingerprint = Get-InputFingerprint -Paths $resourceInputs `
+$resourceFingerprint = Get-InputFingerprint -Paths $resourceInputs -Reach "prepare_universal_resources" `
     -Extra @("python $pythonVersion", "bundled $($resolvedBundled -join ';')")
 $resourcesCurrent = (-not $FreshResources) -and (Test-StepCurrent $resourceStamp $resourceFingerprint) -and
     (Test-Path -LiteralPath (Join-Path $resourceDir "override-common.zip"))
@@ -335,7 +337,8 @@ if (-not $ReuseResources -and -not $resourcesCurrent) {
 # Cached like step 3: the pool is remade only when the archives or the tools change.
 $layoutPool = Join-Path $buildDir "resolution-layouts.zip"
 $poolStamp = $layoutPool + ".inputs.sha256"
-$poolFingerprint = Get-InputFingerprint -Paths @($resourceDir, (Join-Path $projectRoot "tools")) -Extra @("python $pythonVersion")
+$poolFingerprint = Get-InputFingerprint -Paths @($resourceDir, (Join-Path $projectRoot "tools")) `
+    -Reach "pack_resolution_layouts" -Extra @("python $pythonVersion")
 if ((Test-Path -LiteralPath $layoutPool) -and (Test-StepCurrent $poolStamp $poolFingerprint)) {
     Write-Host ""
     Write-Host "  [cached] Resolution layout pool: archives unchanged since it was made" -ForegroundColor DarkGreen
@@ -526,7 +529,8 @@ $moduleFingerprint = Get-InputFingerprint -Paths (@($moduleSources) + @($compile
     $resourceDir, $blendTable, $engineSource, $resolvedTexturePack,
     (Join-Path $projectRoot "LICENSE"), (Join-Path $projectRoot "THIRD_PARTY_NOTICES.md"),
     (Join-Path $projectRoot "build_kmrp.ps1"))) -Extra (@("python $pythonVersion", "packages $pythonPackages",
-    "version $patchVersion") + $toolchain)
+    "version $patchVersion") + $toolchain) `
+    -Reach "build_windows_engine,build_native_engine,build_native_kpatch,build_native_assets,kmrp_pack,build_controller_assets,build_controller_kpatch,build_bundled_kpatch_config"
 $modulesCurrent = (-not $FreshModules) -and (Test-Path -LiteralPath $moduleStamp -PathType Leaf)
 foreach ($output in $moduleOutputs) {
     if (-not (Test-Path -LiteralPath $output -PathType Leaf)) { $modulesCurrent = $false }
@@ -561,7 +565,7 @@ $nativePackStamp = $nativePack + ".inputs.sha256"
 $nativePackFingerprint = Get-InputFingerprint -Paths @(
     $resourceDir, $blendTable, (Join-Path $projectRoot "tools"), (Join-Path $projectRoot "assets"),
     (Join-Path $projectRoot "macos\tools"), $resolvedTexturePack, (Join-Path $projectRoot "build\deps")) `
-    -Extra @("python $pythonVersion")
+    -Reach "build_native_assets,kmrp_pack" -Extra @("python $pythonVersion")
 $nativePackCurrent = (Test-Path -LiteralPath $nativePack) -and (Test-StepCurrent $nativePackStamp $nativePackFingerprint)
 if ($nativePackCurrent) {
     Write-Detail "the module's art pack: inputs unchanged, kept"

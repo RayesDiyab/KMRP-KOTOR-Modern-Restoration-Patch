@@ -3,8 +3,7 @@
 
 Every test in testing/regression has a row below, so a new test with no row fails the run.
 A run leaves testing's logs and summary.json in build/test-results/<name>, and --compare
-names what changed against an earlier summary. Nothing here weakens a test: "findings"
-is a test that reports what a person must review and exits 1 by design, and "skipped"
+names what changed against an earlier summary. Nothing here weakens a test: "skipped"
 says why it could not run.
 
     python testing/run_regression.py                      everything this PC can run
@@ -78,8 +77,7 @@ TESTS = {
     "Test-FontAtlasScale": ("full", py("Test-FontAtlasScale"), [], ""),
     "Test-GameArt": ("full", py("Test-GameArt", STEAM_GAME), [STEAM_GAME], ""),
     "Test-GeneratedGuiGeometry": ("full", py("Test-GeneratedGuiGeometry"), [], ""),
-    "Test-GuiAudit": ("full", py("Test-GuiAudit", "--skip-build", "--report", AUDIT_REPORT), [],
-                      "findings"),
+    "Test-GuiAudit": ("full", py("Test-GuiAudit", "--skip-build", "--report", AUDIT_REPORT), [], ""),
     "Test-GuiBlendHelper": ("full", py("Test-GuiBlendHelper"), [], ""),
     "Test-GuiModelPreload": ("quick", py("Test-GuiModelPreload"), [], ""),
     "Test-HudOptions": ("quick", py("Test-HudOptions"), [], ""),
@@ -147,8 +145,6 @@ def run(name, folder, timeout):
     env = dict(os.environ)
     env["PATH"] = r"C:\Program Files\dotnet;" + env["PATH"]
     env.setdefault("PYTHONIOENCODING", "utf-8")
-    if note == "findings":
-        AUDIT_REPORT.unlink(missing_ok=True)
     start = time.time()
     log = folder / f"{name}.log"
     with log.open("w", encoding="utf-8", errors="replace") as out:
@@ -160,9 +156,6 @@ def run(name, folder, timeout):
     seconds = round(time.time() - start, 1)
     if code == 0:
         return name, "passed", seconds, ""
-    # A crash exits 1 too, and writes no report.
-    if note == "findings" and code == 1 and AUDIT_REPORT.exists():
-        return name, "findings", seconds, "exits 1 while findings await review, by design"
     tail = log.read_text(encoding="utf-8", errors="replace").strip().splitlines()[-1:] or [""]
     return name, "failed", seconds, f"exit {code}: {tail[0][:150]}"
 
