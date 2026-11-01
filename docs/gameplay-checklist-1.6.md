@@ -9,11 +9,12 @@ The findings' full record is [`cleanup-audit-1.6-disposition.md`](cleanup-audit-
 
 ## Before you start
 
-**Installed in the Steam folder on 2026-11-01:** installer `B721AB61...`, from commit `4029b23`, `kmrp.dll`
-`16325299...`, `kmrp-controller.dll` `3394B7BF...`, debug logs on. A later build needs its own install.
-What it replaced is in `KMRP\backups\before-audit-build-2026-11-01`, with `hashes.txt`.
+**Installed in the Steam folder on 2026-11-01:** installer `99373C8B...`, from commit `e7643d9`, `kmrp.dll`
+`7D1844B3...`, `kmrp-controller.dll` `3394B7BF...`, debug logs on. A later build needs its own install.
+What it replaced is in `KMRP\backups\before-font-refit-2026-11-01`, and what the audit build replaced
+in `KMRP\backups\before-audit-build-2026-11-01`, each with `hashes.txt`.
 
-**Check first:** that install also moved K1 Modern Driver Compatibility from the standalone 2.0.0
+**Check first:** the audit build's install also moved K1 Modern Driver Compatibility from the standalone 2.0.0
 (`dinput8.dll` and an `.asi`) to the bundled 2.0.1 patch, as this build is meant to. That route has
 never been seen beside the offscreen frame. So start by launching the game and opening a save, with
 the `Bundled K1DC` row and GFX-03 in section 10. If it does not start, stop there and tell me.
