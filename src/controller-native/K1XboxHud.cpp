@@ -43,6 +43,7 @@
 //
 // Documentation standard: see `docs/documentation-standard.md`.
 #include <windows.h>
+#include "K1Rect.h"
 #include "K1EngineMemory.h"
 #include <algorithm>
 #include <climits>
@@ -81,7 +82,7 @@ void KmrpStampPictureK1(void* control, std::ptrdiff_t paramsOffset, const char* 
 
 namespace {
 
-struct Extent { int left, top, width, height; };
+using Extent = KmrpRect;
 
 // CSWGuiTargetActionMenu (size 0x1AF0), inside CSWGuiMainInterface at +0xBC.
 constexpr std::ptrdiff_t kMenuActionLists = 0x00;      // CExoArrayList[3]: pointer, count, capacity

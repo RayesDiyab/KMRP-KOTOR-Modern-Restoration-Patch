@@ -1,4 +1,5 @@
 // KOTOR 1.03 GUI ABI. See reverse-engineering/custom-gui-controls.md.
+#include "K1Rect.h"
 #include "K1ControllerLayout.h"
 #include "K1GuiControls.h"
 #include "K1StatusSummary.h"
@@ -1601,7 +1602,7 @@ void ControllerLayoutReleaseGffK1(void* panel) {
         // maintainer saw it, 2026-10-05). optgameplay.gui: BTN_KEYMAP is ID 12,
         // BTN_MOUSE ID 13, in the game's file and in ours.
         {
-            struct Rect { int left, top, width, height; };
+            using Rect = KmrpRect;
             auto array=At<void**>(panel,0x20);
             const int count=At<int>(panel,0x24);
             void* keymap=array && count>13 ? array[12] : nullptr;
@@ -1613,8 +1614,7 @@ void ControllerLayoutReleaseGffK1(void* panel) {
                 const int step=k.top-m.top;
                 if (step>0 && k.width>0 && k.height>0 && k.left==m.left) {
                     const Rect wanted{k.left,k.top+step,k.width,k.height};
-                    using SetExtent=void(__thiscall*)(void*,const Rect*);
-                    reinterpret_cast<SetExtent>(At<void**>(c,0)[1])(c,&wanted);
+                    KmrpSetExtent(c,wanted);
                 }
             }
         }

@@ -1,6 +1,7 @@
 // Font-aware native list content. Address evidence and dirty-layout side effects:
 // build/text-layout-inventory/row-adapter-contract/contract.json;
 // reverse-engineering/listbox-geometry.md and docs/native-text-coverage.md.
+#include "K1Rect.h"
 #include "K1TextRows.h"
 #include "K1EngineMemory.h"
 #include "K1TextLayout.h"
@@ -23,7 +24,7 @@ template<class T> T Fn(std::uintptr_t address) {
     return reinterpret_cast<T>(address);
 #endif
 }
-struct Rect { int left, top, width, height; };
+using Rect = KmrpRect;
 bool Same(const Rect& a, const Rect& b) { return a.left == b.left && a.top == b.top && a.width == b.width && a.height == b.height; }
 bool Valid(const Rect& r) { return r.width > 0 && r.width <= 32767 && r.height > 0 && r.height <= 32767; }
 // frame/hilight: the two borders a class's SetExtent pins to its icon's height

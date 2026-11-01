@@ -1,5 +1,6 @@
 // Reapply authored geometry to existing native controls after a mode change.
 // Text, event bindings, focus, list selection and control ownership remain native.
+#include "K1Rect.h"
 #include "K1RuntimeLayout.h"
 #include "K1RuntimeAssets.h"
 #include "K1PartyRosterState.h"
@@ -22,7 +23,7 @@
 void KmrpRuntimeLog(const char* line);
 
 namespace {
-struct Extent { int left, top, width, height; };
+using Extent = KmrpRect;
 bool operator==(const Extent& a, const Extent& b)
 {
     return a.left == b.left && a.top == b.top && a.width == b.width && a.height == b.height;
@@ -387,8 +388,7 @@ int ListWider(int measured, void* list, int width, int height)
 
 void SetExtent(void* object, const Extent& extent)
 {
-    auto table = At<std::uintptr_t*>(object, 0);
-    reinterpret_cast<void(__thiscall*)(void*, const Extent*)>(table[1])(object, &extent);
+    KmrpSetExtent(object, extent);
 }
 
 // The named lists' scrollbars back where their file puts them (FileBars), relative to

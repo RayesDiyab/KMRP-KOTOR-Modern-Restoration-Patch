@@ -1,4 +1,5 @@
 #pragma once
+#include "K1Rect.h"
 #include <algorithm>
 #include <array>
 #include <cstring>
@@ -59,7 +60,7 @@ inline bool SameSettings(const Settings& a, const Settings& b) {
     return a.sizing.values == b.sizing.values && a.sizing.linked == b.sizing.linked &&
            a.style == b.style && a.icon == b.icon;
 }
-struct Rect { int left, top, width, height; };
+using Rect = KmrpRect;
 // Inherit the native button's dimensions and column. Leave a third of one
 // button's height between the two, independent of screen resolution or skin.
 inline Rect Entry(const Rect& advanced) {

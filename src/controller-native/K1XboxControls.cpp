@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <windows.h>
+#include "K1Rect.h"
 #include "K1EngineMemory.h"
 
 #include "K1InputDevice.h"
@@ -1554,7 +1555,7 @@ struct BadgeShape {
 };
 #include "K1ControllerBadgeShapes.inc"
 
-struct K1BadgeRect { int left, top, width, height; };
+using K1BadgeRect = KmrpRect;
 
 // Each badge drawn at the size it is shown (issue 68). The textures the patch carries are
 // made for the game's own 640x480 buttons at 512x64 texels and stretched over the label

@@ -1,4 +1,5 @@
 #pragma once
+#include "K1Rect.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -6,7 +7,7 @@
 #include <cstring>
 #include <utility>
 #include <vector>
-struct ClassBoxK1 { int left, top, width, height; };
+using ClassBoxK1 = KmrpRect;
 struct ClassArtResultK1 {
     char drawn[17] = {};
     ClassBoxK1 selectAt{}, cancelAt{};

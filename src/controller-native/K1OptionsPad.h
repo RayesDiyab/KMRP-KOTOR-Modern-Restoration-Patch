@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <cstring>
 
+#include "K1Rect.h"
 #include "K1CaptionInk.h"
 
 namespace KmrpOptionsPad {
@@ -103,7 +104,7 @@ constexpr unsigned kButtonBorder = 0x80, kBorderCorner = 0x54;
 // glyph label's picture fills (SQUARE_GLYPH_FILL, build_controller_prompt_textures.py).
 constexpr double kBadgeGlyphShare = 0.9375, kSquareGlyphFill = 0.86;
 
-struct Box { int left, top, width, height; };
+using Box = KmrpRect;
 
 // The settings screens' badges as the build placed them (K1ControllerBadgeShapes.inc, the
 // controller patch's own table, the same row type): a page button that is a copy of one of

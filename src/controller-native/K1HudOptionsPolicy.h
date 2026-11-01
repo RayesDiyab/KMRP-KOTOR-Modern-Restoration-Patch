@@ -1,6 +1,7 @@
 #pragma once
 // The HUD Size page's rules, kept apart from the engine so they can be tested
 // (testing/regression/Test-HudOptions.py). The page is K1HudOptions.cpp.
+#include "K1Rect.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -102,7 +103,7 @@ struct Sizes {
     }
 };
 
-struct Rect { int left, top, width, height; };
+using Rect = KmrpRect;
 inline int Round(double value) { return static_cast<int>(std::lround(value)); }
 
 // How much larger than today a size draws: half at 25%, today's at 50%, twice at 100%,

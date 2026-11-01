@@ -24,6 +24,7 @@
 #include "K1ControllerBackend.h"
 #include "K1ButtonRemap.h"
 #include "K1ControllerLayout.h"
+#include "K1Rect.h"
 #include "K1Rumble.h"
 #include "KmrpOptions.h"
 #include "K1PartyRosterState.h"
@@ -3958,7 +3959,7 @@ bool GuiCueStillLiveK1(const GuiCueK1& cue)
 // Returns the live control, or null.
 void* PlaceCueByReferenceK1(void* panel, void* cue, const char* referenceTag)
 {
-    struct Rect { int left, top, width, height; };
+    using Rect = KmrpRect;
     void** const before = *FieldAt<void**>(panel, K1_PANEL_CONTROL_ARRAY);
     const int count = *FieldAt<int>(panel, K1_PANEL_CONTROL_COUNT);
     if (!LooksLikePointerK1(before) || count <= 0 || count > 512) {
@@ -4008,8 +4009,7 @@ void* PlaceCueByReferenceK1(void* panel, void* cue, const char* referenceTag)
             wanted.left = static_cast<int>(cx - wanted.width / 2.0 + 0.5);
             wanted.top = static_cast<int>(cy - wanted.height / 2.0 + 0.5);
             if (wanted.width > 0 && wanted.height > 0) {
-                using SetExtentFn = void(__thiscall*)(void*, const Rect*);
-                reinterpret_cast<SetExtentFn>((*FieldAt<void**>(cue, 0))[1])(cue, &wanted);
+                KmrpSetExtent(cue, wanted);
             }
         }
     }
@@ -4059,7 +4059,7 @@ void BindOneCueK1(void* panel, const char* tag, std::size_t follow, const char* 
     // scaled up, left it 2 px high at 3440x1440; its picture is centred in its box,
     // measured in the four families' textures.)
     {
-        struct Rect { int left, top, width, height; };
+        using Rect = KmrpRect;
         Rect at = *FieldAt<Rect>(control, 4);
         bool changed = false;
         if (std::strcmp(tag, "LBL_KMRPSWAP") == 0) {
@@ -4144,8 +4144,7 @@ void BindOneCueK1(void* panel, const char* tag, std::size_t follow, const char* 
             changed = true;
         }
         if (changed) {
-            using SetExtentFn = void(__thiscall*)(void*, const Rect*);
-            reinterpret_cast<SetExtentFn>((*FieldAt<void**>(control, 0))[1])(control, &at);
+            KmrpSetExtent(control, at);
         }
     }
 
@@ -5065,7 +5064,7 @@ void UpdatePazaakActionStripK1()
     shown = shown && drawn[0];
     const auto place = [](void* control, const ClassBoxK1& rect) {
         if (!SameBoxK1(*FieldAt<ClassBoxK1>(control, 4), rect))
-            reinterpret_cast<void(__thiscall*)(void*, const ClassBoxK1*)>((*FieldAt<void**>(control, 0))[1])(control, &rect);
+            KmrpSetExtent(control, rect);
     };
     void* const buttons[] = {g.playButton, g.flipButton};
     const ClassBoxK1 sources[] = {stand, end};
@@ -5162,10 +5161,9 @@ void UpdateClassSelectPadK1()
     if (!params) {
         return;
     }
-    using SetExtentFn = void(__thiscall*)(void*, const ClassBoxK1*);
     const auto place = [](void* control, const ClassBoxK1& box) {
         if (!SameBoxK1(*FieldAt<ClassBoxK1>(control, 4), box))
-            reinterpret_cast<SetExtentFn>((*FieldAt<void**>(control, 0))[1])(control, &box);
+            KmrpSetExtent(control, box);
     };
     char* const fill = params + K1_BORDER_PARAMS_FILL;
     const ClassBoxK1 panelBox = *FieldAt<ClassBoxK1>(panel, 4);
@@ -5460,9 +5458,8 @@ struct SetupLayoutK1 {
 
 void SetupSetBoxK1(void* control, const ClassBoxK1& box)
 {
-    using SetExtentFn = void(__thiscall*)(void*, const ClassBoxK1*);
     if (!SameBoxK1(*FieldAt<ClassBoxK1>(control, 4), box))
-        reinterpret_cast<SetExtentFn>((*FieldAt<void**>(control, 0))[1])(control, &box);
+        KmrpSetExtent(control, box);
 }
 
 // This screen's entry for a control, its layout place taken again whenever something other
@@ -5807,8 +5804,7 @@ void SetupTriggerGlyphK1(void* label, const char* glyph, float edge, bool rightE
         // Its far edge at `edge`: the picture is as wide as the glyph's proportions make it.
         rect[0] = rightEdge ? static_cast<int>(std::lround(edge)) - rect[2] : static_cast<int>(std::lround(edge));
         const ClassBoxK1 box{rect[0], rect[1], rect[2], rect[3]};
-        using SetExtentFn = void(__thiscall*)(void*, const ClassBoxK1*);
-        reinterpret_cast<SetExtentFn>((*FieldAt<void**>(label, 0))[1])(label, &box);
+        KmrpSetExtent(label, box);
         EngineFn<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(FieldAt<std::uint8_t>(label, K1_LABEL_BORDER_PARAMS), out, 1);
         at = asked;
         drawnFor = family;

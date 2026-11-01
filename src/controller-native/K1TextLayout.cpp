@@ -1,5 +1,6 @@
 // Draw-compatible per-instance fitting for native K1 GUI strings.
 // See docs/native-text-coverage.md and docs/text-layout-inventory.md.
+#include "K1Rect.h"
 #include "K1TextLayout.h"
 #include "K1EngineMemory.h"
 #include "K1TextFitPolicy.h"
@@ -40,7 +41,7 @@ template<class T> T Fn(std::uintptr_t address) {
 std::uintptr_t* Table(void* object) {
     return static_cast<std::uintptr_t*>(Native(At<std::uintptr_t>(object, 0)));
 }
-struct Rect { int left, top, width, height; };
+using Rect = KmrpRect;
 bool Same(const Rect& a, const Rect& b) {
     return a.left == b.left && a.top == b.top && a.width == b.width && a.height == b.height;
 }
