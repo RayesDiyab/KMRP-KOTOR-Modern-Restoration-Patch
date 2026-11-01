@@ -28,6 +28,7 @@ tests from before this cycle were not all re-proved.
 | INS-01 | An upgrade reset `swkotor.ini` | Tested | `96bf347`, `b0feedc` | Test-InstallerPatch cases 4, 12, 14. Real folder on the checklist |
 | INS-02 | KPM takeover refused by the art pack | Tested | `b0feedc` | Case 13, fails on the old installer |
 | INS-03 | No record during an install | Tested | `b0feedc`, `df3360e` | Case 17, kills at fifteen moments. The first fix had a gap the test then found: File.Replace |
+| INS-11 | An install over KMRP 1.0 failed | Tested | `b0feedc` | Case 14. Found during the fix of INS-01, so it is not in the report's table |
 | INS-04 | Rollback not real | Tested | `b0feedc` | Cases 15, 16. Not tried on a really full disk |
 | PAD-1 | Y and B refused the press | In-game | `2a83b64` | Test-HudPress holds the source and the handlers' test of `+0x4C`. The live value was never measured |
 | PAD-2 | D-pad and X dead after A | In-game | `2a83b64` | Test-HudPress. Needs a pad in combat |
@@ -37,7 +38,7 @@ tests from before this cycle were not all re-proved.
 | THR-2 | A failed preparation repeats forever | In-game | `4ef6081` | Test-ResourceFolder. Read-only cache and a non-code-page path not run in a game |
 | GFX-01 | The game's 1600x1200 black fill | Open | | Code path confirmed, link to issues 39 and 91 not. Needs issue 39's screenshot or an affected player. No change made without that |
 | TST-01 | Nothing runs the tests | Tested | `5007618`, this cycle | `run_regression.py`, every test listed; `build_kmrp.ps1 -Test`. CI still runs links and byte-compile only: it has no game files |
-| TST-02 | GUI audit cannot fail, measures unused files | Tested | `a88ab3a` | Measures Live Layout output; baseline of 1,317 groups; a faked new or worse group fails it. 243 groups still unreviewed |
+| TST-02 | GUI audit cannot fail, measures unused files | Tested | `a88ab3a` | Measures Live Layout output; baseline of 1,317 groups; a faked new or worse group fails it. 243 unreviewed groups went to 55 on 2026-11-01, each by evidence written in its row: 71 one pixel of rounding, 65 not applicable (art holding no text, and scrollbar positions the engine ignores), 30 a button no player can reach, 16 overlapping in the game's own file, 6 alternates. None was a bug. The 55 are unreviewed and counted |
 | GFX-04 | No check of the copy, no off switch | In-game | `397129c` | Test-OffscreenFrame against a stand-in driver. AMD, Intel and Proton unknown |
 
 ## Medium

@@ -1,157 +1,157 @@
 {
 "active HUD|mipc210x7.gui|root/BTN_ACTIONDOWN0|overlap:root/LBL_ACTION0|KMRP": {
 "at": "3440x1440",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 1,
 "worst": 1.0
 },
 "active HUD|mipc210x7.gui|root/BTN_ACTIONDOWN0|text one line|KMRP": {
 "at": "3440x1440",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 1,
 "worst": 8.0
 },
 "active HUD|mipc210x7.gui|root/BTN_ACTIONDOWN1|overlap:root/LBL_ACTION1|KMRP": {
 "at": "3440x1440",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 1,
 "worst": 1.0
 },
 "active HUD|mipc210x7.gui|root/BTN_ACTIONDOWN1|text one line|KMRP": {
 "at": "3440x1440",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 1,
 "worst": 8.0
 },
 "active HUD|mipc210x7.gui|root/BTN_ACTIONDOWN2|overlap:root/LBL_ACTION2|KMRP": {
 "at": "3440x1440",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 1,
 "worst": 1.0
 },
 "active HUD|mipc210x7.gui|root/BTN_ACTIONDOWN2|text one line|KMRP": {
 "at": "3440x1440",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 1,
 "worst": 8.0
 },
 "active HUD|mipc210x7.gui|root/BTN_ACTIONDOWN3|overlap:root/LBL_ACTION3|KMRP": {
 "at": "3440x1440",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 1,
 "worst": 1.0
 },
 "active HUD|mipc210x7.gui|root/BTN_ACTIONDOWN3|text one line|KMRP": {
 "at": "3440x1440",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 1,
 "worst": 8.0
 },
 "active HUD|mipc210x7.gui|root/BTN_ACTIONUP0|text one line|KMRP": {
 "at": "3440x1440",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 1,
 "worst": 8.0
 },
 "active HUD|mipc210x7.gui|root/BTN_ACTIONUP1|text one line|KMRP": {
 "at": "3440x1440",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 1,
 "worst": 8.0
 },
 "active HUD|mipc210x7.gui|root/BTN_ACTIONUP2|text one line|KMRP": {
 "at": "3440x1440",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 1,
 "worst": 8.0
 },
 "active HUD|mipc210x7.gui|root/BTN_ACTIONUP3|text one line|KMRP": {
 "at": "3440x1440",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 1,
 "worst": 8.0
 },
 "active HUD|mipc210x7.gui|root/BTN_TARGETDOWN0|text one line|KMRP": {
 "at": "3440x1440",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 1,
 "worst": 5.0
 },
 "active HUD|mipc210x7.gui|root/BTN_TARGETDOWN1|text one line|KMRP": {
 "at": "3440x1440",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 1,
 "worst": 5.0
 },
 "active HUD|mipc210x7.gui|root/BTN_TARGETDOWN2|text one line|KMRP": {
 "at": "3440x1440",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 1,
 "worst": 5.0
 },
 "active HUD|mipc210x7.gui|root/BTN_TARGETUP0|text one line|KMRP": {
 "at": "3440x1440",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 1,
 "worst": 5.0
 },
 "active HUD|mipc210x7.gui|root/BTN_TARGETUP1|text one line|KMRP": {
 "at": "3440x1440",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 1,
 "worst": 5.0
 },
 "active HUD|mipc210x7.gui|root/BTN_TARGETUP2|text one line|KMRP": {
 "at": "3440x1440",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 1,
 "worst": 5.0
 },
 "active HUD|mipc210x7.gui|root/LBL_ACTIONDESC|drawn containment|KMRP": {
 "at": "3440x1440",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 1,
 "worst": 1.0
 },
 "active HUD|mipc210x7.gui|root/LBL_CMBTEFCTINC2|text one line|KMRP": {
 "at": "3440x1440",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 1,
 "worst": 16.0
 },
 "active HUD|mipc210x7.gui|root/LBL_CMBTEFCTINC3|text one line|KMRP": {
 "at": "3440x1440",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 1,
 "worst": 16.0
 },
 "active HUD|mipc210x7.gui|root/LBL_CMBTEFCTRED2|text one line|KMRP": {
 "at": "3440x1440",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 1,
 "worst": 16.0
 },
 "active HUD|mipc210x7.gui|root/LBL_CMBTEFCTRED3|text one line|KMRP": {
 "at": "3440x1440",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 1,
 "worst": 16.0
 },
 "active HUD|mipc210x7.gui|root/LBL_HEALTHBG|text one line|KMRP": {
 "at": "3440x1440",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 1,
 "worst": 26.0
 },
 "active HUD|mipc210x7.gui|root/LBL_MENUBG|containment|KMRP": {
 "at": "3440x1440",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 1,
 "worst": 1.0
 },
 "active HUD|mipc210x7.gui|root/LBL_MENUBG|screen edge|KMRP": {
 "at": "3440x1440",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 1,
 "worst": 1.0
 },
@@ -169,7 +169,7 @@
 },
 "active HUD|mipc210x7.gui|root/TB_STEALTH|overlap:root/TB_SOLO|KMRP": {
 "at": "3440x1440",
-"review": "unreviewed",
+"review": "inherited: the same two controls overlap in the game's own file",
 "sizes": 1,
 "worst": 15.0
 },
@@ -181,7 +181,7 @@
 },
 "active HUD|mipc28x6.gui|root/BTN_ACTIONDOWN0|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 671,
 "worst": 48.0
 },
@@ -193,7 +193,7 @@
 },
 "active HUD|mipc28x6.gui|root/BTN_ACTIONDOWN1|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 671,
 "worst": 48.0
 },
@@ -205,7 +205,7 @@
 },
 "active HUD|mipc28x6.gui|root/BTN_ACTIONDOWN2|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 671,
 "worst": 48.0
 },
@@ -217,7 +217,7 @@
 },
 "active HUD|mipc28x6.gui|root/BTN_ACTIONDOWN3|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 671,
 "worst": 48.0
 },
@@ -229,7 +229,7 @@
 },
 "active HUD|mipc28x6.gui|root/BTN_ACTIONUP0|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 671,
 "worst": 48.0
 },
@@ -241,7 +241,7 @@
 },
 "active HUD|mipc28x6.gui|root/BTN_ACTIONUP1|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 671,
 "worst": 48.0
 },
@@ -253,7 +253,7 @@
 },
 "active HUD|mipc28x6.gui|root/BTN_ACTIONUP2|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 671,
 "worst": 48.0
 },
@@ -265,61 +265,61 @@
 },
 "active HUD|mipc28x6.gui|root/BTN_ACTIONUP3|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 671,
 "worst": 48.0
 },
 "active HUD|mipc28x6.gui|root/BTN_CLEARALL|overlap:root/BTN_CLEARONE2|KMRP": {
 "at": "1116x744",
-"review": "unreviewed",
+"review": "inherited: the same two controls overlap in the game's own file",
 "sizes": 1,
 "worst": 1.0
 },
 "active HUD|mipc28x6.gui|root/BTN_CLEARALL|overlap:root/BTN_CLEARONE|KMRP": {
 "at": "1116x744",
-"review": "unreviewed",
+"review": "inherited: the same two controls overlap in the game's own file",
 "sizes": 1,
 "worst": 1.0
 },
 "active HUD|mipc28x6.gui|root/BTN_MINIMAP|overlap:root/LBL_TARGET1|KMRP": {
 "at": "7680x2160",
-"review": "unreviewed",
+"review": "inherited: the same two controls overlap in the game's own file",
 "sizes": 74,
 "worst": 108.0
 },
 "active HUD|mipc28x6.gui|root/BTN_TARGETDOWN0|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 667,
 "worst": 30.0
 },
 "active HUD|mipc28x6.gui|root/BTN_TARGETDOWN1|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 667,
 "worst": 30.0
 },
 "active HUD|mipc28x6.gui|root/BTN_TARGETDOWN2|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 667,
 "worst": 30.0
 },
 "active HUD|mipc28x6.gui|root/BTN_TARGETUP0|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 667,
 "worst": 30.0
 },
 "active HUD|mipc28x6.gui|root/BTN_TARGETUP1|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 667,
 "worst": 30.0
 },
 "active HUD|mipc28x6.gui|root/BTN_TARGETUP2|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 667,
 "worst": 30.0
 },
@@ -331,49 +331,49 @@
 },
 "active HUD|mipc28x6.gui|root/LBL_ARROW|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 420,
 "worst": 160.0
 },
 "active HUD|mipc28x6.gui|root/LBL_CMBTEFCTINC1|text one line|KMRP": {
 "at": "6884x3872",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 195,
 "worst": 10.0
 },
 "active HUD|mipc28x6.gui|root/LBL_CMBTEFCTINC2|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 671,
 "worst": 96.0
 },
 "active HUD|mipc28x6.gui|root/LBL_CMBTEFCTINC3|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 671,
 "worst": 96.0
 },
 "active HUD|mipc28x6.gui|root/LBL_CMBTEFCTRED1|text one line|KMRP": {
 "at": "6884x3872",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 195,
 "worst": 10.0
 },
 "active HUD|mipc28x6.gui|root/LBL_CMBTEFCTRED2|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 671,
 "worst": 96.0
 },
 "active HUD|mipc28x6.gui|root/LBL_CMBTEFCTRED3|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 671,
 "worst": 96.0
 },
 "active HUD|mipc28x6.gui|root/LBL_HEALTHBG|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 671,
 "worst": 156.0
 },
@@ -385,19 +385,19 @@
 },
 "active HUD|mipc28x6.gui|root/LBL_QUEUE1|text one line|KMRP": {
 "at": "1920x540",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 5,
 "worst": 2.0
 },
 "active HUD|mipc28x6.gui|root/LBL_QUEUE2|text one line|KMRP": {
 "at": "1920x540",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 5,
 "worst": 2.0
 },
 "active HUD|mipc28x6.gui|root/LBL_QUEUE3|text one line|KMRP": {
 "at": "1920x540",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 5,
 "worst": 2.0
 },
@@ -415,7 +415,7 @@
 },
 "active HUD|mipc28x6.gui|root/TB_STEALTH|overlap:root/TB_SOLO|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "inherited: the same two controls overlap in the game's own file",
 "sizes": 500,
 "worst": 90.0
 },
@@ -721,13 +721,13 @@
 },
 "panel|abchrgen.gui|root/LB_DESC/SCROLLBAR|scrollbar inside|KMRP": {
 "at": "1154x721",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 4,
 "worst": 1.0
 },
 "panel|abchrgen.gui|root/LB_DESC/SCROLLBAR|scrollbar side|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the engine reads only a bar's width from the file and places it at the list's edge (SetScrollBarExtent 0x004181F0); K1RuntimeLayout.cpp, kFileBars",
 "sizes": 15,
 "worst": 2.0
 },
@@ -745,133 +745,133 @@
 },
 "panel|character.gui|root/BTN_EXIT|overlap:root/BTN_SCRIPTS|KMRP": {
 "at": "1512x982",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 7,
 "worst": 1.0
 },
 "panel|character.gui|root/LBL_CHA|overlap:root/LBL_WIS_MOD|KMRP": {
 "at": "1391x1043",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 84,
 "worst": 1.0
 },
 "panel|character.gui|root/LBL_CHA|overlap:root/LBL_WIS|KMRP": {
 "at": "1391x1043",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 84,
 "worst": 1.0
 },
 "panel|character.gui|root/LBL_CLASS2|overlap:root/LBL_LEVEL1|KMRP": {
 "at": "1012x675",
-"review": "unreviewed",
+"review": "inherited: the same two controls overlap in the game's own file",
 "sizes": 7,
 "worst": 2.0
 },
 "panel|character.gui|root/LBL_CON_MOD|overlap:root/LBL_INT_MOD|KMRP": {
 "at": "1358x905",
-"review": "unreviewed",
+"review": "inherited: the same two controls overlap in the game's own file",
 "sizes": 8,
 "worst": 3.0
 },
 "panel|character.gui|root/LBL_CON|overlap:root/LBL_DEX_MOD|KMRP": {
 "at": "808x606",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 85,
 "worst": 1.0
 },
 "panel|character.gui|root/LBL_CON|overlap:root/LBL_INT_MOD|KMRP": {
 "at": "1358x905",
-"review": "unreviewed",
+"review": "inherited: the same two controls overlap in the game's own file",
 "sizes": 8,
 "worst": 3.0
 },
 "panel|character.gui|root/LBL_CON|overlap:root/LBL_INT|KMRP": {
 "at": "1358x905",
-"review": "unreviewed",
+"review": "inherited: the same two controls overlap in the game's own file",
 "sizes": 8,
 "worst": 3.0
 },
 "panel|character.gui|root/LBL_DEX_MOD|overlap:root/LBL_CON_MOD|KMRP": {
 "at": "808x606",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 85,
 "worst": 1.0
 },
 "panel|character.gui|root/LBL_DEX|overlap:root/LBL_CON_MOD|KMRP": {
 "at": "808x606",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 85,
 "worst": 1.0
 },
 "panel|character.gui|root/LBL_DEX|overlap:root/LBL_CON|KMRP": {
 "at": "808x606",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 85,
 "worst": 1.0
 },
 "panel|character.gui|root/LBL_DEX|overlap:root/LBL_STR_MOD|KMRP": {
 "at": "992x744",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 48,
 "worst": 1.0
 },
 "panel|character.gui|root/LBL_FORTITUDE_STAT|overlap:root/LBL_CHA_MOD|KMRP": {
 "at": "1470x956",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 58,
 "worst": 1.0
 },
 "panel|character.gui|root/LBL_FORTITUDE_STAT|overlap:root/LBL_CHA|KMRP": {
 "at": "1470x956",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 58,
 "worst": 1.0
 },
 "panel|character.gui|root/LBL_INT|overlap:root/LBL_CON_MOD|KMRP": {
 "at": "1358x905",
-"review": "unreviewed",
+"review": "inherited: the same two controls overlap in the game's own file",
 "sizes": 8,
 "worst": 3.0
 },
 "panel|character.gui|root/LBL_LEVEL1|overlap:root/LBL_LEVEL2|KMRP": {
 "at": "1012x675",
-"review": "unreviewed",
+"review": "inherited: the same two controls overlap in the game's own file",
 "sizes": 7,
 "worst": 2.0
 },
 "panel|character.gui|root/LBL_STR_MOD|overlap:root/LBL_DEX_MOD|KMRP": {
 "at": "992x744",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 48,
 "worst": 1.0
 },
 "panel|character.gui|root/LBL_STR|overlap:root/LBL_DEX_MOD|KMRP": {
 "at": "992x744",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 48,
 "worst": 1.0
 },
 "panel|character.gui|root/LBL_STR|overlap:root/LBL_DEX|KMRP": {
 "at": "992x744",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 48,
 "worst": 1.0
 },
 "panel|character.gui|root/LBL_WIS_MOD|overlap:root/LBL_CHA_MOD|KMRP": {
 "at": "1391x1043",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 84,
 "worst": 1.0
 },
 "panel|character.gui|root/LBL_WIS|overlap:root/LBL_CHA_MOD|KMRP": {
 "at": "1391x1043",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 84,
 "worst": 1.0
 },
 "panel|computer.gui|root/LB_REPLIES/SCROLLBAR|scrollbar side|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the engine reads only a bar's width from the file and places it at the list's edge (SetScrollBarExtent 0x004181F0); K1RuntimeLayout.cpp, kFileBars",
 "sizes": 672,
 "worst": 52.0
 },
@@ -883,7 +883,7 @@
 },
 "panel|confirm.gui|root/LB_MESSAGE/SCROLLBAR|scrollbar inside|KMRP": {
 "at": "7680x2160",
-"review": "unreviewed",
+"review": "not applicable: the engine reads only a bar's width from the file and places it at the list's edge (SetScrollBarExtent 0x004181F0); K1RuntimeLayout.cpp, kFileBars",
 "sizes": 475,
 "worst": 1956.0
 },
@@ -919,7 +919,7 @@
 },
 "panel|dialog.gui|root/LBL_MESSAGE|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 2,
 "worst": 92.0
 },
@@ -937,19 +937,19 @@
 },
 "panel|equip.gui|root/BTN_BACK|overlap:root/BTN_EQUIP|KMRP": {
 "at": "1512x982",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 7,
 "worst": 1.0
 },
 "panel|equip.gui|root/LBL_ATKL|overlap:root/LB_DESC|KMRP": {
 "at": "1012x675",
-"review": "unreviewed",
+"review": "inherited: the same two controls overlap in the game's own file",
 "sizes": 7,
 "worst": 2.0
 },
 "panel|equip.gui|root/LBL_ATKR|overlap:root/LB_DESC|KMRP": {
 "at": "1012x675",
-"review": "unreviewed",
+"review": "inherited: the same two controls overlap in the game's own file",
 "sizes": 7,
 "worst": 2.0
 },
@@ -967,19 +967,19 @@
 },
 "panel|fade.gui|root/LBL_MSG|text one line|KMRP": {
 "at": "1920x540",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 1,
 "worst": 1.0
 },
 "panel|ftchrgen.gui|root/LB_DESC/SCROLLBAR|scrollbar inside|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the engine reads only a bar's width from the file and places it at the list's edge (SetScrollBarExtent 0x004181F0); K1RuntimeLayout.cpp, kFileBars",
 "sizes": 572,
 "worst": 60.0
 },
 "panel|ftchrgen.gui|root/LB_DESC/SCROLLBAR|scrollbar side|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the engine reads only a bar's width from the file and places it at the list's edge (SetScrollBarExtent 0x004181F0); K1RuntimeLayout.cpp, kFileBars",
 "sizes": 11,
 "worst": 2.0
 },
@@ -1015,13 +1015,13 @@
 },
 "panel|inventory.gui|root/BTN_USEITEM|overlap:root/BTN_EXIT|KMRP": {
 "at": "1512x982",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 7,
 "worst": 1.0
 },
 "panel|inventory.gui|root/LB_DESCRIPTION/SCROLLBAR|scrollbar inside|KMRP": {
 "at": "1600x900",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 107,
 "worst": 1.0
 },
@@ -1039,7 +1039,7 @@
 },
 "panel|journal.gui|root/LBL_ITEM_DESCRIPTION/SCROLLBAR|scrollbar inside|KMRP": {
 "at": "1600x900",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 82,
 "worst": 1.0
 },
@@ -1063,7 +1063,7 @@
 },
 "panel|kmrplayout.gui|root/DECO_04|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text, or is sized 0 and kept for its ID (build_controller_layout.py)",
 "sizes": 672,
 "worst": 120.0
 },
@@ -1081,67 +1081,67 @@
 },
 "panel|kmrplayout.gui|root/DECO_05|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text, or is sized 0 and kept for its ID (build_controller_layout.py)",
 "sizes": 672,
 "worst": 120.0
 },
 "panel|kmrplayout.gui|root/DECO_08|text one line|KMRP": {
 "at": "6884x3872",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text, or is sized 0 and kept for its ID (build_controller_layout.py)",
 "sizes": 406,
 "worst": 96.0
 },
 "panel|kmrplayout.gui|root/DECO_09|text one line|KMRP": {
 "at": "6884x3872",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text, or is sized 0 and kept for its ID (build_controller_layout.py)",
 "sizes": 406,
 "worst": 96.0
 },
 "panel|kmrplayout.gui|root/LBL_KBM|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text, or is sized 0 and kept for its ID (build_controller_layout.py)",
 "sizes": 672,
 "worst": 192.0
 },
 "panel|kmrplayout.gui|root/LBL_PAD|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text, or is sized 0 and kept for its ID (build_controller_layout.py)",
 "sizes": 672,
 "worst": 192.0
 },
 "panel|kmrplayout.gui|root/LBL_PS|overlap:root/LBL_DECK|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "by design: the four family headings share a place; one is shown, for the pad in use",
 "sizes": 672,
 "worst": 264.0
 },
 "panel|kmrplayout.gui|root/LBL_PS|overlap:root/LBL_SWITCH|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "by design: the four family headings share a place; one is shown, for the pad in use",
 "sizes": 672,
 "worst": 264.0
 },
 "panel|kmrplayout.gui|root/LBL_SWITCH|overlap:root/LBL_DECK|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "by design: the four family headings share a place; one is shown, for the pad in use",
 "sizes": 672,
 "worst": 264.0
 },
 "panel|kmrplayout.gui|root/LBL_XBOX|overlap:root/LBL_DECK|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "by design: the four family headings share a place; one is shown, for the pad in use",
 "sizes": 672,
 "worst": 264.0
 },
 "panel|kmrplayout.gui|root/LBL_XBOX|overlap:root/LBL_PS|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "by design: the four family headings share a place; one is shown, for the pad in use",
 "sizes": 672,
 "worst": 264.0
 },
 "panel|kmrplayout.gui|root/LBL_XBOX|overlap:root/LBL_SWITCH|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "by design: the four family headings share a place; one is shown, for the pad in use",
 "sizes": 672,
 "worst": 264.0
 },
@@ -1153,223 +1153,223 @@
 },
 "panel|leveluppnl.gui|root/BTN_STEPNAME1|overlap:root/BTN_STEPNAME2|KMRP": {
 "at": "1036x583",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 27,
 "worst": 1.0
 },
 "panel|leveluppnl.gui|root/BTN_STEPNAME4|overlap:root/BTN_STEPNAME3|KMRP": {
 "at": "2880x1620",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 47,
 "worst": 1.0
 },
 "panel|leveluppnl.gui|root/BTN_STEPNAME4|overlap:root/BTN_STEPNAME5|KMRP": {
 "at": "839x629",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 30,
 "worst": 1.0
 },
 "panel|leveluppnl.gui|root/LBL_NUM3|overlap:root/LBL_NUM4|KMRP": {
 "at": "2880x1620",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 47,
 "worst": 1.0
 },
 "panel|leveluppnl.gui|root/LBL_NUM4|overlap:root/LBL_NUM5|KMRP": {
 "at": "839x629",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 30,
 "worst": 1.0
 },
 "panel|maincg.gui|root/LBL_BEVEL_M|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the control holds no text; it is art",
 "sizes": 672,
 "worst": 48.0
 },
 "panel|mainmenu.gui|root/BTN_EXIT|overlap:root/BTN_WARP|KMRP": {
 "at": "1036x583",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 1,
 "worst": 1.0
 },
 "panel|mainmenu.gui|root/BTN_WARP|single line width|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 443,
 "worst": 433.498
 },
 "panel|mainmenu.gui|root/BTN_WARP|text height|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 521,
 "worst": 167.0
 },
 "panel|mainmenu.gui|root/BTN_WARP|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 521,
 "worst": 167.0
 },
 "panel|mainmenu.gui|root/BTN_WARP|unbreakable word|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 443,
 "worst": 433.498
 },
 "panel|mainmenu.gui|root/LB_MODULES/PROTOITEM|single line width|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 311,
 "worst": 881.008
 },
 "panel|mainmenu.gui|root/LB_MODULES/PROTOITEM|unbreakable word|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 311,
 "worst": 881.008
 },
 "panel|mainmenu10x7.gui|root/BTN_WARP|single line width|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 26,
 "worst": 282.498
 },
 "panel|mainmenu10x7.gui|root/BTN_WARP|text height|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 535,
 "worst": 168.0
 },
 "panel|mainmenu10x7.gui|root/BTN_WARP|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 535,
 "worst": 168.0
 },
 "panel|mainmenu10x7.gui|root/BTN_WARP|unbreakable word|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 26,
 "worst": 282.498
 },
 "panel|mainmenu10x7.gui|root/LB_MODULES/PROTOITEM|single line width|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 311,
 "worst": 881.008
 },
 "panel|mainmenu10x7.gui|root/LB_MODULES/PROTOITEM|unbreakable word|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 311,
 "worst": 881.008
 },
 "panel|mainmenu12x9.gui|root/BTN_WARP|single line width|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 26,
 "worst": 282.498
 },
 "panel|mainmenu12x9.gui|root/BTN_WARP|text height|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 468,
 "worst": 163.0
 },
 "panel|mainmenu12x9.gui|root/BTN_WARP|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 468,
 "worst": 163.0
 },
 "panel|mainmenu12x9.gui|root/BTN_WARP|unbreakable word|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 26,
 "worst": 282.498
 },
 "panel|mainmenu12x9.gui|root/LB_MODULES/PROTOITEM|single line width|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 311,
 "worst": 881.008
 },
 "panel|mainmenu12x9.gui|root/LB_MODULES/PROTOITEM|unbreakable word|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 311,
 "worst": 881.008
 },
 "panel|mainmenu16x12.gui|root/BTN_WARP|single line width|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 26,
 "worst": 282.498
 },
 "panel|mainmenu16x12.gui|root/BTN_WARP|text height|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 535,
 "worst": 168.0
 },
 "panel|mainmenu16x12.gui|root/BTN_WARP|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 535,
 "worst": 168.0
 },
 "panel|mainmenu16x12.gui|root/BTN_WARP|unbreakable word|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 26,
 "worst": 282.498
 },
 "panel|mainmenu16x12.gui|root/LB_MODULES/PROTOITEM|single line width|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 311,
 "worst": 881.008
 },
 "panel|mainmenu16x12.gui|root/LB_MODULES/PROTOITEM|unbreakable word|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 311,
 "worst": 881.008
 },
 "panel|mainmenu8x6.gui|root/BTN_WARP|single line width|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 26,
 "worst": 282.498
 },
 "panel|mainmenu8x6.gui|root/BTN_WARP|text height|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 468,
 "worst": 163.0
 },
 "panel|mainmenu8x6.gui|root/BTN_WARP|text one line|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 468,
 "worst": 163.0
 },
 "panel|mainmenu8x6.gui|root/BTN_WARP|unbreakable word|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 26,
 "worst": 282.498
 },
 "panel|mainmenu8x6.gui|root/LB_MODULES/PROTOITEM|single line width|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 311,
 "worst": 881.008
 },
 "panel|mainmenu8x6.gui|root/LB_MODULES/PROTOITEM|unbreakable word|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not shown: hidden as the menu is built, and shown only on the way back from the list it opens itself (CSWGuiMainMenu)",
 "sizes": 311,
 "worst": 881.008
 },
@@ -1387,19 +1387,19 @@
 },
 "panel|map.gui|root/LBL_MapNote|overlap:root/BTN_UP|KMRP": {
 "at": "1943x1457",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 4,
 "worst": 1.0
 },
 "panel|optautopause.gui|root/LB_DETAILS/SCROLLBAR|scrollbar inside|KMRP": {
 "at": "1344x840",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 6,
 "worst": 1.0
 },
 "panel|optautopause.gui|root/LB_DETAILS/SCROLLBAR|scrollbar side|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the engine reads only a bar's width from the file and places it at the list's edge (SetScrollBarExtent 0x004181F0); K1RuntimeLayout.cpp, kFileBars",
 "sizes": 14,
 "worst": 2.0
 },
@@ -1435,103 +1435,103 @@
 },
 "panel|optgameplay.gui|root/LB_DESC/SCROLLBAR|scrollbar inside|KMRP": {
 "at": "1152x648",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 89,
 "worst": 1.0
 },
 "panel|optgraphics.gui|root/CB_SHADOWS|overlap:root/CB_GRASS|KMRP": {
 "at": "808x606",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 23,
 "worst": 1.0
 },
 "panel|optgraphics.gui|root/LB_DESC/SCROLLBAR|scrollbar inside|KMRP": {
 "at": "1152x648",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 89,
 "worst": 1.0
 },
 "panel|optgraphicsadv.gui|root/BTN_ANISOTROPY|overlap:root/CB_FRAMEBUFF|KMRP": {
 "at": "3024x1964",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 29,
 "worst": 1.0
 },
 "panel|optgraphicsadv.gui|root/BTN_ANTIALIAS|overlap:root/BTN_ANISOTROPY|KMRP": {
 "at": "1036x583",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 26,
 "worst": 1.0
 },
 "panel|optgraphicsadv.gui|root/BTN_ANTIALIAS|overlap:root/BTN_TEXQUAL|KMRP": {
 "at": "1440x932",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 45,
 "worst": 1.0
 },
 "panel|optgraphicsadv.gui|root/CB_FRAMEBUFF|overlap:root/CB_SOFTSHADOWS|KMRP": {
 "at": "1440x932",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 72,
 "worst": 1.0
 },
 "panel|optgraphicsadv.gui|root/CB_VSYNC|overlap:root/CB_SOFTSHADOWS|KMRP": {
 "at": "808x606",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 23,
 "worst": 1.0
 },
 "panel|optgraphicsadv.gui|root/LB_DESC/SCROLLBAR|scrollbar inside|KMRP": {
 "at": "1152x648",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 89,
 "worst": 1.0
 },
 "panel|optionsingame.gui|root/BTN_AUTOPAUSE|overlap:root/BTN_GRAPHICS|KMRP": {
 "at": "4480x2520",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 41,
 "worst": 1.0
 },
 "panel|optionsingame.gui|root/BTN_FEEDBACK|overlap:root/BTN_AUTOPAUSE|KMRP": {
 "at": "1512x982",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 42,
 "worst": 1.0
 },
 "panel|optionsingame.gui|root/BTN_GAMEPLAY|overlap:root/BTN_FEEDBACK|KMRP": {
 "at": "978x652",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 40,
 "worst": 1.0
 },
 "panel|optionsingame.gui|root/BTN_GRAPHICS|overlap:root/BTN_SOUND|KMRP": {
 "at": "1470x956",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 10,
 "worst": 1.0
 },
 "panel|optionsingame.gui|root/BTN_LOADGAME|overlap:root/BTN_SAVEGAME|KMRP": {
 "at": "4480x2520",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 33,
 "worst": 1.0
 },
 "panel|optionsingame.gui|root/BTN_SAVEGAME|overlap:root/BTN_GAMEPLAY|KMRP": {
 "at": "1512x982",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 23,
 "worst": 1.0
 },
 "panel|optionsingame.gui|root/LB_DESC/SCROLLBAR|scrollbar inside|KMRP": {
 "at": "1440x900",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 92,
 "worst": 1.0
 },
 "panel|optionsmain.gui|root/LB_DESC/SCROLLBAR|scrollbar inside|KMRP": {
 "at": "1512x982",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 89,
 "worst": 1.0
 },
@@ -1549,85 +1549,85 @@
 },
 "panel|optkeymapping.gui|root/LST_EventList/SCROLLBAR|scrollbar inside|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the engine reads only a bar's width from the file and places it at the list's edge (SetScrollBarExtent 0x004181F0); K1RuntimeLayout.cpp, kFileBars",
 "sizes": 672,
 "worst": 1358.0
 },
 "panel|optkeymapping.gui|root/LST_EventList/SCROLLBAR|scrollbar side|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the engine reads only a bar's width from the file and places it at the list's edge (SetScrollBarExtent 0x004181F0); K1RuntimeLayout.cpp, kFileBars",
 "sizes": 672,
 "worst": 1356.0
 },
 "panel|optmouse.gui|root/LB_DESC/SCROLLBAR|scrollbar inside|KMRP": {
 "at": "1024x576",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 98,
 "worst": 1.0
 },
 "panel|optsound.gui|root/LB_DESC/SCROLLBAR|scrollbar inside|KMRP": {
 "at": "1024x576",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 98,
 "worst": 1.0
 },
 "panel|optsoundadv.gui|root/CB_FORCESOFTWARE|overlap:root/BTN_EAX|KMRP": {
 "at": "1084x813",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 38,
 "worst": 1.0
 },
 "panel|optsoundadv.gui|root/LB_DESC/SCROLLBAR|scrollbar inside|KMRP": {
 "at": "1024x576",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 98,
 "worst": 1.0
 },
 "panel|partyselection.gui|root/BTN_DONE|overlap:root/BTN_BACK|KMRP": {
 "at": "960x720",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 18,
 "worst": 1.0
 },
 "panel|pause.gui|root/BTN_UNPAUSE|containment|KMRP": {
 "at": "1792x1120",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 37,
 "worst": 1.0
 },
 "panel|pazaakgame.gui|root/BTN_NPCSIDE2|overlap:root/BTN_NPCSIDE3|KMRP": {
 "at": "1512x982",
-"review": "unreviewed",
+"review": "inherited: the same two controls overlap in the game's own file",
 "sizes": 1,
 "worst": 1.0
 },
 "panel|pazaakgame.gui|root/BTN_PLRSIDE0|overlap:root/BTN_FLIP0|KMRP": {
 "at": "1176x882",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 34,
 "worst": 1.0
 },
 "panel|pazaakgame.gui|root/BTN_PLRSIDE1|overlap:root/BTN_FLIP1|KMRP": {
 "at": "1176x882",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 34,
 "worst": 1.0
 },
 "panel|pazaakgame.gui|root/BTN_PLRSIDE2|overlap:root/BTN_FLIP2|KMRP": {
 "at": "1176x882",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 34,
 "worst": 1.0
 },
 "panel|pazaakgame.gui|root/BTN_PLRSIDE3|overlap:root/BTN_FLIP3|KMRP": {
 "at": "1176x882",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 34,
 "worst": 1.0
 },
 "panel|pwrlvlup.gui|root/LB_DESC/SCROLLBAR|scrollbar inside|KMRP": {
 "at": "960x720",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 98,
 "worst": 1.0
 },
@@ -1657,7 +1657,7 @@
 },
 "panel|qorcpnl.gui|root/LB_DESC/SCROLLBAR|scrollbar inside|KMRP": {
 "at": "900x675",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 43,
 "worst": 1.0
 },
@@ -1675,13 +1675,13 @@
 },
 "panel|questitem.gui|root/LB_ITEMS/SCROLLBAR|scrollbar inside|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the engine reads only a bar's width from the file and places it at the list's edge (SetScrollBarExtent 0x004181F0); K1RuntimeLayout.cpp, kFileBars",
 "sizes": 672,
 "worst": 4970.0
 },
 "panel|questitem.gui|root/LB_ITEMS/SCROLLBAR|scrollbar side|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the engine reads only a bar's width from the file and places it at the list's edge (SetScrollBarExtent 0x004181F0); K1RuntimeLayout.cpp, kFileBars",
 "sizes": 672,
 "worst": 4968.0
 },
@@ -1699,43 +1699,43 @@
 },
 "panel|quickpnl.gui|root/BTN_STEPNAME1|overlap:root/BTN_STEPNAME2|KMRP": {
 "at": "1991x560",
-"review": "unreviewed",
+"review": "inherited: the same two controls overlap in the game's own file",
 "sizes": 1,
 "worst": 1.0
 },
 "panel|quickpnl.gui|root/BTN_STEPNAME2|overlap:root/BTN_STEPNAME3|KMRP": {
 "at": "1084x813",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 8,
 "worst": 1.0
 },
 "panel|quickpnl.gui|root/LBL_NUM1|overlap:root/LBL_NUM2|KMRP": {
 "at": "1991x560",
-"review": "unreviewed",
+"review": "inherited: the same two controls overlap in the game's own file",
 "sizes": 1,
 "worst": 1.0
 },
 "panel|quickpnl.gui|root/LBL_NUM2|overlap:root/LBL_NUM3|KMRP": {
 "at": "1084x813",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 8,
 "worst": 1.0
 },
 "panel|scriptselect.gui|root/BTN_Back|overlap:root/BTN_Accept|KMRP": {
 "at": "960x720",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 18,
 "worst": 1.0
 },
 "panel|scriptselect.gui|root/LB_DESC/SCROLLBAR|scrollbar inside|KMRP": {
 "at": "800x600",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 95,
 "worst": 1.0
 },
 "panel|skchrgen.gui|root/LB_DESC/SCROLLBAR|scrollbar inside|KMRP": {
 "at": "1024x576",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 82,
 "worst": 1.0
 },
@@ -1795,19 +1795,19 @@
 },
 "panel|upgrade.gui|root/LB_DESC/SCROLLBAR|scrollbar inside|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the engine reads only a bar's width from the file and places it at the list's edge (SetScrollBarExtent 0x004181F0); K1RuntimeLayout.cpp, kFileBars",
 "sizes": 573,
 "worst": 60.0
 },
 "panel|upgrade.gui|root/LB_DESC/SCROLLBAR|scrollbar side|KMRP": {
 "at": "15360x8640",
-"review": "unreviewed",
+"review": "not applicable: the engine reads only a bar's width from the file and places it at the list's edge (SetScrollBarExtent 0x004181F0); K1RuntimeLayout.cpp, kFileBars",
 "sizes": 612,
 "worst": 27.0
 },
 "panel|upgrade.gui|root/LB_DESC_LS/SCROLLBAR|scrollbar side|KMRP": {
 "at": "1023x767",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 1,
 "worst": 1.0
 },
@@ -1825,7 +1825,7 @@
 },
 "panel|upgradeitems.gui|root/LB_DESCRIPTION/SCROLLBAR|scrollbar inside|KMRP": {
 "at": "960x720",
-"review": "unreviewed",
+"review": "rounding: at most one pixel, between neighbours at these sizes",
 "sizes": 87,
 "worst": 1.0
 },
