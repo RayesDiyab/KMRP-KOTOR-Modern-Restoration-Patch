@@ -32,7 +32,6 @@
     <Compile Include="..\patcher\GuiBlend.cs" />
     <Compile Include="..\patcher\GameArtGenerator.cs" />
     <Compile Include="..\patcher\AbilityIconGenerator.cs" />
-    <Compile Include="..\patcher\WindowsEnginePatch.cs" />
     <Compile Include="..\patcher\AssemblyInfo.cs" />
     <Compile Include="..\patcher\LightField.cs" />
     <Compile Include="Program.cs" />

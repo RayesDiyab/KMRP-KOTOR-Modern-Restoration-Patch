@@ -386,8 +386,9 @@ described as inert in menus because `Q` and `E` are target-cycling keys, when in
 fact they move between menu screens. A binding table says which key is sent, not
 what the game does with it.
 
-The mouse remains available by default; F9 toggles parking and hiding it for a
-controller-only session.
+The mouse stays available alongside the pad. F9 toggling it off for a controller-only
+session was part of the keystroke path, which the linker had already left out, and it is not
+restored (approved decision 2, 2026-11-01): the native path needs no new input hook for it.
 
 Planned additions -- the Guide button and tab cycling on the bumpers -- are
 specified in [`controller-planned-work.md`](controller-planned-work.md). Party

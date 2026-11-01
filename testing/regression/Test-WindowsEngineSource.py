@@ -92,6 +92,7 @@ def main():
         resource.write_bytes(template)
         exe = work / 'WindowsEngineSelfTest.exe'
         sources = sorted((ROOT / 'src/patcher').glob('*.cs'))
+        sources += sorted((ROOT / 'testing/reference').glob('*.cs'))
         sources.append(ROOT / 'testing/regression/WindowsEngineSelfTest.cs')
         subprocess.run(command + ['/nologo','/target:exe','/main:Kmrp.WindowsEngineSelfTest',
                        '/out:' + str(exe), '/resource:' + str(resource) + ',Kmrp.engine.source',

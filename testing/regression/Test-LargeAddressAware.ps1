@@ -8,8 +8,8 @@
 
     Since 2026-09-29 KMRP's installer writes nothing else into swkotor.exe: the
     rest of KMRP is applied in memory (src/patcher/KpmEdition.cs), so an install
-    over the canonical input leaves exactly the LAA input's bytes. `--apply`
-    still writes the whole executable the standalone installer wrote, which is
+    over the canonical input leaves exactly the LAA input's bytes. The reference
+    tool (testing\reference) writes the whole executable the standalone installer wrote, which is
     what Cases 1 and 2 test. Where it sets the flag it first leaves KOTOR Patch
     Manager a backup of the unmodified file (Case 3), and none where the flag was
     already set (Case 4).
@@ -59,6 +59,12 @@ function Set-Characteristics([string]$source, [string]$destination, [uint16]$val
     $bytes[$characteristicsOffset] = $replacement[0]
     $bytes[$characteristicsOffset + 1] = $replacement[1]
     [System.IO.File]::WriteAllBytes($destination, $bytes)
+}
+
+# The reference tool: the whole patched executable, which the installer no longer writes.
+function Invoke-Reference([string[]]$referenceArgs) {
+    $Patcher = ".\build\kmrp\kmrp-reference.exe"
+    Invoke-Patcher $referenceArgs
 }
 
 function Invoke-Patcher([string[]]$patcherArgs) {
@@ -131,15 +137,15 @@ try {
     Write-Host "Case 1  clean and pre-LAA inputs converge on one output"
     $fromClean = Join-Path $WorkRoot "from-clean.exe"
     $fromLaa = Join-Path $WorkRoot "from-laa.exe"
-    Assert ((Invoke-Patcher @("--apply", $CleanExe, $fromClean, $Resolution)) -eq 0) "canonical input patches successfully"
-    Assert ((Invoke-Patcher @("--apply", $laaInput, $fromLaa, $Resolution)) -eq 0) "pre-LAA input patches successfully"
+    Assert ((Invoke-Reference @($CleanExe, $fromClean, $Resolution)) -eq 0) "canonical input patches successfully"
+    Assert ((Invoke-Reference @($laaInput, $fromLaa, $Resolution)) -eq 0) "pre-LAA input patches successfully"
     Assert ((Get-Characteristics $fromClean) -eq $laaCharacteristics) "KMRP output enables IMAGE_FILE_LARGE_ADDRESS_AWARE"
     Assert ((Get-Sha256 $fromClean) -eq (Get-Sha256 $fromLaa)) "both supported inputs produce identical output"
 
     Write-Host ""
     Write-Host "Case 2  another PE-header modification remains unsupported"
     $unsupportedOutput = Join-Path $WorkRoot "unsupported-output.exe"
-    Assert ((Invoke-Patcher @("--apply", $unsupportedInput, $unsupportedOutput, $Resolution)) -eq 1) "unrecognized header change is refused"
+    Assert ((Invoke-Reference @($unsupportedInput, $unsupportedOutput, $Resolution)) -eq 1) "unrecognized header change is refused"
     Assert (-not (Test-Path -LiteralPath $unsupportedOutput)) "refused input produces no output file"
 
     Write-Host ""
@@ -195,7 +201,7 @@ try {
     [System.IO.File]::WriteAllBytes($gogLaaInput, $bytes)
     Assert ((Get-Sha256 $gogLaaInput) -eq $gogLaaHash) "and with the flag, the hash the installer knows it by"
     $fromGog = Join-Path $WorkRoot "from-gog.exe"
-    Assert ((Invoke-Patcher @("--apply", $gogInput, $fromGog, $Resolution)) -eq 0) "GOG's input patches successfully"
+    Assert ((Invoke-Reference @($gogInput, $fromGog, $Resolution)) -eq 0) "GOG's input patches successfully"
     Assert ((Get-Sha256 $fromGog) -eq (Get-Sha256 $fromClean)) "into the canonical input's output, byte for byte"
     $gogInstall = New-Install "gog" $gogInput
     Assert ((Invoke-Patcher @("--in-place", $gogInstall, $Resolution)) -eq 0) "GOG in-place install succeeds"

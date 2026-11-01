@@ -386,7 +386,6 @@ $compilerArgs = @(
     "/reference:System.IO.Compression.dll",
     "/reference:System.IO.Compression.FileSystem.dll",
     "/reference:System.Windows.Forms.dll",
-    "/resource:$engineSource,Kmrp.engine.source",
     "/resource:$(Join-Path $resourceDir 'resolutions.tsv'),Kmrp.resolutions",
     "/resource:$(Join-Path $projectRoot 'src\patcher\brand.png'),Kmrp.brand",
     "/resource:$(Join-Path $resourceDir 'GPL-3.0-KOTOR-High-Resolution-Menus.txt'),Kmrp.license.highresolutionmenus"
@@ -423,7 +422,6 @@ $compilerArgs += (Join-Path $projectRoot "src\patcher\GameArtGenerator.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\ControllerPromptGenerator.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\AssemblyInfo.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\KpmEdition.cs")
-$compilerArgs += (Join-Path $projectRoot "src\patcher\WindowsEnginePatch.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\GuiBlend.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\InstallCore.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\InstallPlatform.cs")
@@ -700,6 +698,14 @@ Write-Detail ("{0} installer resources listed in {1}" -f @($resourceLines).Count
 Write-Bar -Percent 100 -Label "running the C# compiler"
 Invoke-Tool -Exe $compiler -Arguments ($compilerArgs + $engineArgs) -Label "compile" `
     -FailureMessage "KMRP compilation failed"
+# The reference tool for tests and the binary inventory (testing\reference): the installer's own
+# code and the standalone installer's size rules, which nothing installs any more (decision 3).
+$referenceExe = Join-Path $buildDir "kmrp-reference.exe"
+$referenceArgs = @("/target:exe", "/main:Kmrp.ReferenceApply", "/out:$referenceExe",
+    "/resource:$engineSource,Kmrp.engine.source") +
+    @($compilerArgs | Where-Object { $_ -notmatch '^/(target|out|win32icon):' }) +
+    @(Get-ChildItem -LiteralPath (Join-Path $projectRoot "testing\reference") -Filter "*.cs" | ForEach-Object { $_.FullName })
+Invoke-Tool -Exe $compiler -Arguments $referenceArgs -Label "reference" -FailureMessage "Compiling the reference tool failed"
 Complete-Step ("{0:n1} MB" -f ((Get-Item $outputExe).Length / 1MB))
 
 # ---------------------------------------------------------------- 8. finalise

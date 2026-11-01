@@ -17,7 +17,7 @@ in neither. The output is pasted into
 gold and the coverage line must still read zero.
 
 **Gold is not what ships.** With `--installed` and the installer's own outputs
-(`--apply` at every resolution), it also inventories the bytes they change that
+(`build/kmrp/kmrp-reference.exe` at every resolution), it also inventories the bytes they change that
 gold leaves as clean -- the sites the patcher fills in per resolution over a
 vanilla value -- and requires a document for those runs too.
 
@@ -139,7 +139,7 @@ def main() -> int:
     parser.add_argument("gold", type=Path)
     parser.add_argument("--root", type=Path, default=Path("."))
     parser.add_argument("--installed", type=Path, nargs="*", default=[],
-                        help="executables the installer produced (e.g. `--apply` at "
+                        help="executables the reference tool produced (kmrp-reference.exe at "
                              "every resolution); bytes they change that gold leaves "
                              "as clean are inventoried too")
     args = parser.parse_args()

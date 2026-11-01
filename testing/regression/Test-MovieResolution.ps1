@@ -20,6 +20,12 @@ function Resolve-Input([string]$path) {
     return (Resolve-Path -LiteralPath $path).Path
 }
 
+# The reference tool: the whole patched executable, which the installer no longer writes.
+function Invoke-Reference([string[]]$referenceArgs) {
+    $Patcher = ".\build\kmrp\kmrp-reference.exe"
+    Invoke-Patcher $referenceArgs
+}
+
 function Invoke-Patcher([string[]]$patcherArgs) {
     $start = [System.Diagnostics.ProcessStartInfo]::new()
     $start.FileName = $Patcher
@@ -75,7 +81,7 @@ try {
     Write-Host ("Movie display-mode regression  ->  " + $WorkRoot)
     foreach ($case in $cases) {
         $output = Join-Path $WorkRoot ("swkotor-" + $case.Key + ".exe")
-        Assert ((Invoke-Patcher @("--apply", $CleanExe, $output, $case.Key)) -eq 0) ("{0} patches successfully" -f $case.Key)
+        Assert ((Invoke-Reference @($CleanExe, $output, $case.Key)) -eq 0) ("{0} patches successfully" -f $case.Key)
         foreach ($offset in $widthOffsets) {
             Assert ((Read-Int32 $output $offset) -eq $case.Width) ("{0} movie width at FILE 0x{1:X}" -f $case.Key, $offset)
         }

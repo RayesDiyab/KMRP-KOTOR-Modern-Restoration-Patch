@@ -5163,19 +5163,6 @@ namespace Kmrp
         {
             try
             {
-                if (args.Length == 3 && args[0] == "--apply")
-                {
-                    PatchOperations.ApplyToNewFile(args[1], args[2], 3440, 1440);
-                    return 0;
-                }
-                if (args.Length == 4 && args[0] == "--apply")
-                {
-                    int width;
-                    int height;
-                    ParseResolution(args[3], out width, out height);
-                    PatchOperations.ApplyToNewFile(args[1], args[2], width, height);
-                    return 0;
-                }
                 if (args.Length == 2 && args[0] == "--in-place")
                 {
                     PatchOperations.ApplyInPlace(args[1], delegate { });

@@ -271,7 +271,7 @@ Two kinds of file under `virtual-display/` are ignored rather than stored:
 
 ```powershell
 # Patch a throwaway copy at the resolution under test, then read the values back.
-& '.\dist\KMRP - KOTOR Modern Restoration Patch.exe' --apply .\clean\swkotor.exe .\out\swkotor-7680.exe 7680x2160
+& '.\build\kmrp\kmrp-reference.exe' .\clean\swkotor.exe .\out\swkotor-7680.exe 7680x2160
 ```
 
 Then compare the generated `gui-<resolution>.zip` and the patched executable's

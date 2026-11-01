@@ -117,6 +117,16 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Removed: `--apply` from the installer (approved decisions 2 and 3)** (2026-11-01). No install
+  has written a whole patched executable since 2026-09-29, and 778 lines of the installer existed
+  only for this switch. Deleting them outright would have lost what checks the module's size values,
+  the 4 GB flag's inputs and the binary inventory, so `ResolutionPatch` and `WindowsEnginePatch` move
+  to `testing/reference` and build as `build/kmrp/kmrp-reference.exe`, which takes the same
+  arguments and ships nowhere. Test-EngineFields, Test-LargeAddressAware, Test-MovieResolution and
+  Test-WindowsEngineSource pass against it, with Test-EngineFields' baseline unchanged. The
+  installer is 53 KB smaller. The F9 toggle went with the keystroke path, so the document that
+  still offered it is corrected, and nothing replaces it.
+
 - **Testing: 12 tests side by side, what touches the player's settings alone, a status for every
   finding** (2026-11-01). `run_regression.py` runs 12 at a time, the quick group in 58 s against 71.
   Going wider did harm at first: two tests that move the player's real KPM settings aside took the

@@ -123,7 +123,7 @@ breaking them:
 
   It diffs the clean executable against gold, groups the differences into runs,
   and exits non-zero if any run is not named by a Markdown document. Add
-  `--installed` with the installer's `--apply` output at every resolution to
+  `--installed` with `build/kmrp/kmrp-reference.exe`'s output at every resolution to
   cover the bytes the patcher writes where gold keeps vanilla (the
   inventory's §2). This is the
   only check organised by *bytes* rather than by subject, so it is the only one
@@ -157,7 +157,7 @@ interact with it must be generated from the same scale or they drift apart at
 every resolution except the one you tested.
 
 Verify across the range, not just your own monitor. The practical check is to
-build, run `--apply` at several resolutions, and read the values back out of the
+build, run `build/kmrp/kmrp-reference.exe` at several resolutions, and read the values back out of the
 resulting executables and archives.
 
 ## Pull requests

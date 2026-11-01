@@ -3,11 +3,10 @@
 
 KmrpEngineFieldValue (K1EngineFields.h) is what the game runs on: it fills the recipe's 59
 fields at each size. Nothing checked it until this test (audit TST-06): the values that were
-checked were its C# twin's, ResolutionPatch, which only `--apply` reaches. Here the header
-is compiled with the module's own compiler flags and asked for every field, and the installer's
-`--apply` writes the reference executable for the same size, read back byte for byte. This is
-also what stands in for `--apply` once it goes (approved decision 3): its values are then
-held in this test's baseline instead.
+checked were its C# twin's, ResolutionPatch. Here the header is compiled with the module's own
+compiler flags and asked for every field, and the reference tool (testing/reference, the
+installer's `--apply` until 2026-11-01) writes the executable for the same size, read back byte
+for byte. The values are held in a baseline too, so a change in both at once still shows.
 
 Then the rest of the rule, which the reference does not have: the Icon Size slider's rows at
 every percent, and the marker clamp where the height passes 5,715 lines.
@@ -26,7 +25,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "src/controller-native"
 GENERATED = ROOT / "build/native-runtime/NativeEngine.generated.h"
-INSTALLER = ROOT / "dist/KMRP - KOTOR Modern Restoration Patch.exe"
+INSTALLER = ROOT / "build/kmrp/kmrp-reference.exe"
 SOURCE_EXE = ROOT / "build-inputs/swkotornopatch.exe"
 BASELINE = Path(__file__).with_name("engine-fields-baseline.json")
 CATALOG = ROOT / "build/kmrp/resources/resolutions.tsv"
@@ -116,9 +115,9 @@ def reference(sizes, out):
     fields = {}
     for width, height in sizes:
         target = out / f"{width}x{height}.exe"
-        result = subprocess.run([str(INSTALLER), "--apply", str(SOURCE_EXE), str(target), f"{width}x{height}"])
+        result = subprocess.run([str(INSTALLER), str(SOURCE_EXE), str(target), f"{width}x{height}"])
         if result.returncode:
-            raise SystemExit(f"--apply failed at {width}x{height}")
+            raise SystemExit(f"the reference tool failed at {width}x{height}")
         fields[(width, height)] = target.read_bytes()
         target.unlink()
     return fields
@@ -170,7 +169,7 @@ def main():
                 elif expected != value:
                     differing.setdefault(va, []).append(
                         f"{width}x{height} kind {kind}: module {value.hex()} reference {expected.hex()}")
-        print(f"{compared} fields compared with --apply, {ties} exact ties")
+        print(f"{compared} fields compared with the reference, {ties} exact ties")
         for va, rows in sorted(differing.items()):
             check(False, f"{va:08X} differs at {len(rows)} sizes, first {rows[0]}")
 
