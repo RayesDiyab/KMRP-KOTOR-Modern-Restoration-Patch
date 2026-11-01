@@ -184,7 +184,7 @@ try {
         foreach ($name in @("kmrp-controller-runtime.asi", "kmrp-controller.module", "KMRP_Controller.manifest")) {
             Assert (-not (Test-Path -LiteralPath (Join-Path $folder $name))) ("the earlier runtime's " + $name + " is gone")
         }
-        foreach ($name in @("KMRP_KPM.manifest", "KotorPatcher.dll", "patch_config.toml", "binkw32Hooked.dll")) {
+        foreach ($name in @("KMRP\kpm.manifest", "KotorPatcher.dll", "patch_config.toml", "binkw32Hooked.dll")) {
             Assert (Test-Path -LiteralPath (Join-Path $folder $name)) ("this build installed " + $name)
         }
         $sidecar = [System.IO.File]::ReadAllText($exe + ".kotor-ui-patch.json")
@@ -255,7 +255,7 @@ try {
         Assert ($exitCode -ne 0) "installing was refused (exit $exitCode)"
         Assert ((Get-Sha256 $exe) -eq $before) "the executable is untouched"
         Assert (Test-Path -LiteralPath (Join-Path $folder "KMRP_Controller.manifest")) "the earlier install is left as it was"
-        Assert (-not (Test-Path -LiteralPath (Join-Path $folder "KMRP_KPM.manifest"))) "nothing of this build was installed"
+        Assert (-not (Test-Path -LiteralPath (Join-Path $folder "KMRP\kpm.manifest"))) "nothing of this build was installed"
     }
 
     # ---------------------------------------------------------------- case 5
@@ -286,7 +286,7 @@ try {
     Write-Host "Case 6  a newer build installed is not replaced by this one"
     $exe = New-Install "case6"
     $folder = Split-Path -Parent $exe
-    $manifest = Join-Path $folder "KMRP_KPM.manifest"
+    $manifest = Join-Path $folder "KMRP\kpm.manifest"
     Assert ((Invoke-Patcher @("--in-place", $exe, $Resolution)) -eq 0) "the install succeeds"
     $text = [System.IO.File]::ReadAllText($manifest)
     Assert ($stamp -ne "" -and $text -match ('(?m)^built\t' + [regex]::Escape($stamp) + '\r?$')) "the manifest records this build's date ($stamp)"
@@ -302,7 +302,7 @@ try {
     Write-Host "Case 7  an install from before builds were dated is upgraded"
     $exe = New-Install "case7"
     $folder = Split-Path -Parent $exe
-    $manifest = Join-Path $folder "KMRP_KPM.manifest"
+    $manifest = Join-Path $folder "KMRP\kpm.manifest"
     Assert ((Invoke-Patcher @("--in-place", $exe, $Resolution)) -eq 0) "the install succeeds"
     [System.IO.File]::WriteAllText($manifest, ([System.IO.File]::ReadAllText($manifest) -replace '(?m)^built\t[^\r\n]*\r?\n', ""))
     Assert (-not ([System.IO.File]::ReadAllText($manifest) -match '(?m)^built\t')) "its manifest has no date, as before 2026-10-19"
