@@ -78,26 +78,11 @@ static const float PARKED = -1.55f, BROUGHT_IN = 2.4f, NEAR_ENOUGH = 0.02f;
 /* The gauge and the view, in the model's units at the gauge's depth (see above). */
 static const float GAUGE_LEFT_OF_MIDDLE = 0.476f, HALF_HEIGHT = 1.0314f, OUTSIDE = 0.65f;   /* 0.57, and the chevron's own 0.08 */
 
-typedef struct { uint8_t *data; size_t size; } Buffer;
+#include "kmrp-file.h"
 
-static uint32_t u32(const uint8_t *p) { return p[0] | p[1] << 8 | p[2] << 16 | (uint32_t)p[3] << 24; }
-static uint16_t u16(const uint8_t *p) { return (uint16_t)(p[0] | p[1] << 8); }
 static float f32(const uint8_t *p) { float f; memcpy(&f, p, 4); return f; }
 static void put_f32(uint8_t *p, float f) { memcpy(p, &f, 4); }
 
-static Buffer read_file(const char *path) {
-    Buffer b = { NULL, 0 };
-    FILE *f = kmrp_fopen(path, "rb");
-    if (!f) return b;
-    fseek(f, 0, SEEK_END);
-    long size = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    if (size > 0 && (b.data = malloc((size_t)size)) && fread(b.data, 1, (size_t)size, f) == (size_t)size)
-        b.size = (size_t)size;
-    else { free(b.data); b.data = NULL; }
-    fclose(f);
-    return b;
-}
 
 #define KMRP_KEYED_LIMIT (64u << 20)
 #include "kmrp-keyed.h"

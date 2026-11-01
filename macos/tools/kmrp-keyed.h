@@ -2,9 +2,9 @@
  * its own bytes are read from the BIF: models.bif is 950 MB. The three tools had a copy each
  * until 2026-11-01, one with fewer checks (audit S-8, GUI-7).
  *
- * Each includes this after its own Buffer, u16 and u32, with KMRP_KEYED_LIMIT defined as the
- * largest resource it will take; it also uses kmrp_fopen and strcasecmp, and fseeko, which
- * MSVC calls _fseeki64. The sums of file values are 64-bit: the module is 32-bit. */
+ * Each includes this after kmrp-file.h, with KMRP_KEYED_LIMIT defined as the largest resource
+ * it will take; it also uses strcasecmp, and fseeko, which MSVC calls _fseeki64. The sums of
+ * file values are 64-bit: the module is 32-bit. */
 static Buffer keyed_resource(const Buffer *key, const char *key_path, const char *resref, int type) {
     Buffer none = { NULL, 0 };
     if (!key->data || key->size < 24 || memcmp(key->data, "KEY V1  ", 8) != 0) return none;

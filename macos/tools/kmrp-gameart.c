@@ -59,7 +59,8 @@ static const char *TUTORIAL_ICONS[][2] = {
 };
 #define COUNT(a) (sizeof(a) / sizeof((a)[0]))
 
-typedef struct { uint8_t *data; size_t size; } Buffer;
+#include "kmrp-file.h"
+#include "kmrp-image.h"
 typedef struct { char name[32]; Buffer file; } Output;
 
 static Output outputs[COUNT(FRAMES) + COUNT(TUTORIAL_ICONS) + 1];
@@ -89,22 +90,7 @@ static void derived(const char *output, const char *source, int canvas, int pict
     if (n > 0 && (size_t)n < sizeof derivations - derivations_length) derivations_length += (size_t)n;
 }
 
-static Buffer read_file(const char *path) {
-    Buffer b = { NULL, 0 };
-    FILE *f = kmrp_fopen(path, "rb");
-    if (!f) return b;
-    fseek(f, 0, SEEK_END);
-    long size = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    if (size > 0 && (b.data = malloc((size_t)size)) && fread(b.data, 1, (size_t)size, f) == (size_t)size)
-        b.size = (size_t)size;
-    else { free(b.data); b.data = NULL; }
-    fclose(f);
-    return b;
-}
 
-static uint32_t u32(const uint8_t *p) { return p[0] | p[1] << 8 | p[2] << 16 | (uint32_t)p[3] << 24; }
-static uint16_t u16(const uint8_t *p) { return (uint16_t)(p[0] | p[1] << 8); }
 
 /* GameArtGenerator.ScaledSize: the build's rule. */
 static int scaled_size(int native, int height) {
@@ -299,41 +285,6 @@ static uint8_t *nearest(const uint8_t *pixels, int width, int height, int factor
         for (int x = 0; x < nw; x++)
             memcpy(out + ((size_t)y * nw + x) * 4, pixels + ((size_t)(y / factor) * width + x / factor) * 4, 4);
     return out;
-}
-
-/* AbilityIconGenerator.Resize (and kmrp-abilityicons.c, resize_rgba in the build). */
-static uint8_t *resize(const uint8_t *pixels, int width, int height, int new_width, int new_height) {
-    uint8_t *result = pixels ? malloc((size_t)new_width * new_height * 4) : NULL;
-    if (!result) return NULL;
-    double x_ratio = (double)width / new_width;
-    double y_ratio = (double)height / new_height;
-    for (int y = 0; y < new_height; y++) {
-        double sy = (y + 0.5) * y_ratio - 0.5;
-        int y0 = (int)sy;
-        if (y0 > height - 1) y0 = height - 1;
-        if (y0 < 0) y0 = 0;
-        int y1 = y0 + 1 < height - 1 ? y0 + 1 : height - 1;
-        double wy = sy - y0;
-        if (wy < 0) wy = 0;
-        for (int x = 0; x < new_width; x++) {
-            double sx = (x + 0.5) * x_ratio - 0.5;
-            int x0 = (int)sx;
-            if (x0 > width - 1) x0 = width - 1;
-            if (x0 < 0) x0 = 0;
-            int x1 = x0 + 1 < width - 1 ? x0 + 1 : width - 1;
-            double wx = sx - x0;
-            if (wx < 0) wx = 0;
-            int i00 = (y0 * width + x0) * 4, i01 = (y0 * width + x1) * 4;
-            int i10 = (y1 * width + x0) * 4, i11 = (y1 * width + x1) * 4;
-            int o = (y * new_width + x) * 4;
-            for (int c = 0; c < 4; c++) {
-                double top = pixels[i00 + c] * (1 - wx) + pixels[i01 + c] * wx;
-                double bottom = pixels[i10 + c] * (1 - wx) + pixels[i11 + c] * wx;
-                result[o + c] = (uint8_t)(top * (1 - wy) + bottom * wy + 0.5);
-            }
-        }
-    }
-    return result;
 }
 
 /* Uncompressed 32-bit BGRA TGA, bottom-up rows given, as the game's own. */

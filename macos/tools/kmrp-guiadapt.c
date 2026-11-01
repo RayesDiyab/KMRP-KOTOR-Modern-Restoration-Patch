@@ -63,25 +63,11 @@
 
 #define TYPE_GUI 2047
 
-typedef struct { uint8_t *data; size_t size; } Buffer;
+#define KMRP_FILE_LIMIT (4L << 20)
+#include "kmrp-file.h"
 
-static uint32_t u32(const uint8_t *p) { return p[0] | p[1] << 8 | p[2] << 16 | (uint32_t)p[3] << 24; }
-static uint16_t u16(const uint8_t *p) { return (uint16_t)(p[0] | p[1] << 8); }
 static void put_u32(uint8_t *p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); p[2] = (uint8_t)(v >> 16); p[3] = (uint8_t)(v >> 24); }
 
-static Buffer read_file(const char *path) {
-    Buffer b = { NULL, 0 };
-    FILE *f = kmrp_fopen(path, "rb");
-    if (!f) return b;
-    fseek(f, 0, SEEK_END);
-    long size = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    if (size > 0 && size < (4L << 20) && (b.data = malloc((size_t)size)) && fread(b.data, 1, (size_t)size, f) == (size_t)size)
-        b.size = (size_t)size;
-    else { free(b.data); b.data = NULL; }
-    fclose(f);
-    return b;
-}
 
 #define KMRP_KEYED_LIMIT (4u << 20)
 #include "kmrp-keyed.h"
