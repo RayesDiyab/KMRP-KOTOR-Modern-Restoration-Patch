@@ -2060,14 +2060,26 @@ bool K1WriteTextureFiles(const char* name, const std::vector<std::uint8_t>& shee
 }
 
 // The same, once per session, and the folder listed anew so the engine finds it.
+// Pictures that could not be written or listed, for the session: each was drawn again at full
+// cost every frame it was wanted, on a full disk or with the folder not given to the game
+// (audit THR-2). The game thread's alone, as g_k1DrawnBadges is.
+std::vector<std::string> g_k1FailedPictures;
+
+bool K1PictureFailed(const char* name)
+{
+    return std::find(g_k1FailedPictures.begin(), g_k1FailedPictures.end(), name) != g_k1FailedPictures.end();
+}
+
 bool K1WriteDrawnTexture(const char* name, const std::vector<std::uint8_t>& sheet, int dw, int dh)
 {
     if (!K1WriteTextureFiles(name, sheet, dw, dh)) {
+        g_k1FailedPictures.push_back(name);
         return false;
     }
     if (g_k1DeferListing) {
         g_k1ListingDue = true;            // listed once, at the end of the sweep
     } else if (!KmrpControllerRelistK1()) {
+        g_k1FailedPictures.push_back(name);
         return false;
     }
     g_k1DrawnBadges.push_back(name);
@@ -2080,6 +2092,9 @@ bool K1BadgeTexture(const std::string& name, const KmrpGlyph& glyph, int dw, int
     K1DrawnName('g', name, dw, dh, out);
     if (K1AlreadyDrawn(out)) {
         return true;
+    }
+    if (K1PictureFailed(out)) {
+        return false;
     }
     const DWORD started = GetTickCount();
     ++g_k1DrawsThisFrame;
@@ -2297,6 +2312,9 @@ bool K1SceneTexture(const K1Scene& scene, int dw, int dh, char out[17])
     }
     if (K1AlreadyDrawn(out)) {
         return true;
+    }
+    if (K1PictureFailed(out)) {
+        return false;
     }
     const DWORD started = GetTickCount();
     ++g_k1DrawsThisFrame;
@@ -2680,10 +2698,11 @@ void K1FinishSweep()
     if (g_k1ListingDue) {
         g_k1ListingDue = false;
         if (!KmrpControllerRelistK1()) {
-            // The engine would find none of them: drawn again when next asked for.
+            // The engine would find none of them, and listing failed, so not drawn again.
             for (const K1WaitingFill& waiting : g_k1WaitingFills) {
                 g_k1DrawnBadges.erase(std::remove(g_k1DrawnBadges.begin(), g_k1DrawnBadges.end(),
                                                   std::string(waiting.drawn)), g_k1DrawnBadges.end());
+                g_k1FailedPictures.push_back(waiting.drawn);
             }
             g_k1WaitingFills.clear();
             return;

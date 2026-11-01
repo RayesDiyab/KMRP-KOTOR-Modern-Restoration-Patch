@@ -109,6 +109,7 @@ TESTS = {
                                                     ROOT / "build/legacy/KMRP-standalone.exe"),
                                      [ROOT / "build/legacy/KMRP-standalone.exe"], ""),
     "Test-ResolutionDerivation": ("full", py("Test-ResolutionDerivation"), [], ""),
+    "Test-ResourceFolder": ("quick", py("Test-ResourceFolder"), [], ""),
     "Test-RuntimeKpatch": ("quick", py("Test-RuntimeKpatch"), [], ""),
     "Test-RuntimeResolution": ("quick", cmd("Test-RuntimeResolution"), [], ""),
     "Test-SwoopPrompt": ("quick", py("Test-SwoopPrompt"), [], ""),

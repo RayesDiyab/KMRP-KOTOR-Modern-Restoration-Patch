@@ -20,6 +20,7 @@
 #include "ControllerAssets.generated.h"
 #include "K1ControllerBackend.h"
 #include "K1Xpress.h"
+#include "K1ResourceFolder.h"
 #include <windows.h>
 #include <bcrypt.h>
 #include <array>
@@ -175,7 +176,11 @@ bool MakeCache()
 bool Unpack()
 {
     if (unpacked) return true;
-    if (!ReadBank() || !MakeCache()) return false;
+    // Asked every frame (KmrpRuntimeAssetDirectory): a failure is remembered, as trying again
+    // decoded and hashed a file each frame on a full disk (audit THR-2).
+    static bool failed = false;
+    if (failed) return false;
+    if (!ReadBank() || !MakeCache()) { failed = true; return false; }
     std::vector<unsigned char> output;
     bool ok = true;
     for (const File& file : files) {
@@ -192,36 +197,19 @@ bool Unpack()
         if (!ok) break;
     }
     unpacked = ok;
+    failed = !ok;
     return ok;
 }
 
-// As K1RuntimeAssets.cpp: CExoAliasList::ResolveFileName treats the text before ':'
-// as an alias, drive letters included, so the folder is given a private alias and
-// registered through it.
+// Given to the game as K1RuntimeAssets.cpp gives its own (K1ResourceFolder.h).
 bool RegisterDirectory()
 {
-    void* manager = *reinterpret_cast<void**>(0x7A39E8);
-    void* base = *reinterpret_cast<void**>(0x7A39E0);
-    if (!manager || !base) return false;
-    void* aliases = *reinterpret_cast<void**>(static_cast<unsigned char*>(base) + 0x0C);
-    if (!aliases) return false;
-    char path[MAX_PATH]; BOOL substituted = FALSE;
-    if (!WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, cache.c_str(), -1, path, MAX_PATH, nullptr, &substituted) || substituted) return false;
-    if (directoryAlias.empty()) {
-        const std::string alias = "kmrc_" + std::string(path + cache.find_last_of(L"\\") + 1);
-        void* aliasName[2]{}; void* aliasPath[2]{};
-        reinterpret_cast<void(__thiscall*)(void*, const char*)>(0x5E5A90)(aliasName, alias.c_str());
-        reinterpret_cast<void(__thiscall*)(void*, const char*)>(0x5E5A90)(aliasPath, path);
-        reinterpret_cast<void(__thiscall*)(void*, void*, void*)>(0x5E6880)(aliases, aliasName, aliasPath);
-        reinterpret_cast<void(__thiscall*)(void*)>(0x5E5C20)(aliasPath);
-        reinterpret_cast<void(__thiscall*)(void*)>(0x5E5C20)(aliasName);
-        directoryAlias = alias + ":";
-    }
-    void* name[2]{};
-    reinterpret_cast<void(__thiscall*)(void*, const char*)>(0x5E5A90)(name, directoryAlias.c_str());
-    const int result = reinterpret_cast<int(__thiscall*)(void*, void*)>(0x408800)(manager, name);
-    reinterpret_cast<void(__thiscall*)(void*)>(0x5E5C20)(name);
-    return result != 0;
+    const std::string path = KmrpNarrowPathK1(cache);
+    if (path.empty()) return false;
+    const std::string alias = "kmrc_" + path.substr(path.find_last_of('\\') + 1);
+    if (!KmrpGiveFolderK1(path, alias)) return false;
+    directoryAlias = alias + ":";
+    return true;
 }
 }
 
@@ -230,13 +218,7 @@ bool RegisterDirectory()
 // 0x4088E0, as K1RuntimeAssets.cpp's RegisterFolder does for a set whose files changed.
 bool KmrpControllerRelistK1()
 {
-    void* manager = *reinterpret_cast<void**>(0x7A39E8);
-    if (!registered || !manager || directoryAlias.empty()) return false;
-    void* name[2]{};
-    reinterpret_cast<void(__thiscall*)(void*, const char*)>(0x5E5A90)(name, directoryAlias.c_str());
-    const int result = reinterpret_cast<int(__thiscall*)(void*, void*)>(0x4088E0)(manager, name);
-    reinterpret_cast<void(__thiscall*)(void*)>(0x5E5C20)(name);
-    return result != 0;
+    return registered && KmrpRelistFolderK1(directoryAlias);
 }
 
 // SDL is loaded from here (K1ControllerBackend.cpp), so the folder exists by the
@@ -388,7 +370,13 @@ extern "C" void __cdecl ControllerPrepareResourcesK1(void* manager)
     } else {
         LeaveLayoutsToKmrp();
         CueScreens();
-        if (RegisterDirectory()) registered = true;
+        // Once, whichever way: this hook runs on every resource lookup.
+        registered = RegisterDirectory();
+        if (!registered) {
+            failed = true;
+            Report("The controller's folder could not be given to the game. The pad still works; "
+                   "its button prompts and the Controller Layout screen are missing.");
+        }
     }
     busy = false;
 }

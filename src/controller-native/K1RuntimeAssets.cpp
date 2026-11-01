@@ -47,6 +47,7 @@
 #include "K1AssetPack.h"
 #include "K1PartyRosterGui.h"
 #include "K1PartyRosterState.h"
+#include "K1ResourceFolder.h"
 #include "K1TextOptions.h"
 #include "K1TextOptionsPolicy.h"
 #include <windows.h>
@@ -549,44 +550,14 @@ bool Build(const std::wstring& directory, const std::string& stamp, Fill fill)
     return WriteNew(directory + L".complete", std::vector<unsigned char>(stamp.begin(), stamp.end()));
 }
 
-// A path in the system's code page as it is, or "" when it has a character the page lacks.
-static std::string CodePage(const std::wstring& path)
-{
-    char text[MAX_PATH]; BOOL substituted = FALSE;
-    if (!WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, path.c_str(), -1, text, MAX_PATH, nullptr, &substituted) ||
-        substituted) return std::string();
-    return text;
-}
-
-// A folder's path for the game's resource manager (RegisterFolder), which takes the system's
-// code page; "" when even the short form cannot be written. The helpers take UTF-8
-// (Utf8Path) and need none of this. KMRP's cache is under %LOCALAPPDATA%, so its path holds
-// the Windows user name: one with a character the code page lacks (a Cyrillic or Chinese
-// name on a Windows set to a Western language) made this "" until 2026-10-30, and then no
-// folder of KMRP's was given to the game, silently. Such a path is now written with the 8.3
-// short name Windows keeps for folders on the system drive (C:\Users\5D6F~1\...), of its
-// longest part that exists, the rest as it is. Other drives often keep no short names
-// (checked on the test PC 2026-10-30: C: has them, E: does not); then this is logged once.
+// A folder's path for the game's resource manager; the helpers take UTF-8 (Utf8Path) and need
+// none of this. KMRP's cache is under %LOCALAPPDATA%, so its path holds the Windows user name
+// (KmrpNarrowPathK1, K1ResourceFolder.h, says what is done with one the code page lacks).
 std::string Narrow(const std::wstring& path)
 {
-    std::string text = CodePage(path);
-    if (!text.empty() || path.empty()) return text;
-    std::wstring head = path, tail;
-    for (;;) {
-        const DWORD attributes = GetFileAttributesW(head.c_str());
-        if (attributes != INVALID_FILE_ATTRIBUTES) break;
-        const size_t slash = head.find_last_of(L"\\/");
-        if (slash == std::wstring::npos || slash == 0) return std::string();
-        tail = head.substr(slash) + tail;
-        head.resize(slash);
-    }
-    const DWORD length = GetShortPathNameW(head.c_str(), nullptr, 0);
-    std::wstring shortened(length ? length : 1, L'\0');
-    if (!length || !GetShortPathNameW(head.c_str(), &shortened[0], length)) return std::string();
-    shortened.resize(wcslen(shortened.c_str()));
-    text = CodePage(shortened + tail);
+    const std::string text = KmrpNarrowPathK1(path);
     static bool told = false;
-    if (text.empty() && !told) {
+    if (text.empty() && !path.empty() && !told) {
         told = true;
         KmrpRuntimeLog("[KMRP] a folder's name has a character this system's code page lacks and its drive keeps no "
                        "short names: KMRP cannot give it to the game");
@@ -623,34 +594,10 @@ bool TablePath(std::string& path)
     return GetFileAttributesW(wide.c_str()) != INVALID_FILE_ATTRIBUTES;
 }
 
-// A folder given to the game under an alias of its own: the resource manager takes
-// "ALIAS:", and CExoAliasList::ResolveFileName reads the text before ':' as an alias,
-// drive letters included, so an absolute Windows path is never passed. `again`: a
-// folder given before whose files changed is listed anew (0x4088E0) instead of added.
-// The game searches the folder given last first (CExoResMan::AddKeyTable, 0x00406E20).
-bool RegisterFolder(const std::wstring& folder, const std::string& alias, bool again)
+// A folder given to the game under an alias of its own (K1ResourceFolder.h).
+bool RegisterFolder(const std::wstring& folder, const std::string& alias)
 {
-    void* manager = *reinterpret_cast<void**>(0x7A39E8);
-    if (!manager) return false;
-    const std::string path = Narrow(folder);
-    if (path.empty()) return false;
-    if (!again) {
-        void* base = *reinterpret_cast<void**>(0x7A39E0);
-        if (!base) return false;
-        void* aliases = *reinterpret_cast<void**>(static_cast<unsigned char*>(base) + 0x0C);
-        if (!aliases) return false;
-        void* aliasName[2]{}; void* aliasPath[2]{};
-        reinterpret_cast<void(__thiscall*)(void*, const char*)>(0x5E5A90)(aliasName, alias.c_str());
-        reinterpret_cast<void(__thiscall*)(void*, const char*)>(0x5E5A90)(aliasPath, path.c_str());
-        reinterpret_cast<void(__thiscall*)(void*, void*, void*)>(0x5E6880)(aliases, aliasName, aliasPath);
-        reinterpret_cast<void(__thiscall*)(void*)>(0x5E5C20)(aliasPath);
-        reinterpret_cast<void(__thiscall*)(void*)>(0x5E5C20)(aliasName);
-    }
-    void* name[2]{};
-    reinterpret_cast<void(__thiscall*)(void*, const char*)>(0x5E5A90)(name, (alias + ":").c_str());
-    const int result = reinterpret_cast<int(__thiscall*)(void*, void*)>(again ? 0x4088E0 : 0x408800)(manager, name);
-    reinterpret_cast<void(__thiscall*)(void*)>(0x5E5C20)(name);
-    return result != 0;
+    return KmrpGiveFolderK1(Narrow(folder), alias);
 }
 
 std::wstring Lower(std::wstring text)
@@ -1723,8 +1670,11 @@ extern "C" void __cdecl KmrpFontMetricsLoadedK1(void* object)
 
 extern "C" void __cdecl KmrpPrepareResourcesK1(void* manager)
 {
-    static bool busy = false;
-    if (busy || registered || !manager || manager != *reinterpret_cast<void**>(0x7A39E8)) return;
+    // Once: this runs on every resource lookup, and a failure (a full disk, a folder that
+    // cannot be named to the game, no pack) repeated all the work each time (audit THR-2).
+    // A change of size tries again, from KmrpResolutionRequestedK1 and KmrpModeSwitchK1.
+    static bool busy = false, tried = false;
+    if (busy || tried || registered || !manager || manager != *reinterpret_cast<void**>(0x7A39E8)) return;
     busy = true;
     wchar_t ini[MAX_PATH];
     DWORD size = GetModuleFileNameW(nullptr, ini, MAX_PATH);
@@ -1734,6 +1684,8 @@ extern "C" void __cdecl KmrpPrepareResourcesK1(void* manager)
         int height = GetPrivateProfileIntW(L"Graphics Options", L"Height", 600, ini);
         KmrpRuntimeAssetsDimensions(width, height);
     }
+    tried = true;
+    if (!registered) KmrpRuntimeLog("[KMRP] the interface files could not be prepared; the game runs without them");
     busy = false;
 }
 
@@ -1948,11 +1900,11 @@ bool KmrpRuntimeAssetsDimensions(int width, int height)
     // the common files. A set returned to is given again under a new name: a folder
     // already given keeps its place in the game's search.
     if (!registered) {
-        if (!RegisterFolder(cache, "kmrpart", false) || !RegisterFolder(fontsView, "kmrpfont", false)) return false;
+        if (!RegisterFolder(cache, "kmrpart") || !RegisterFolder(fontsView, "kmrpfont")) return false;
         registered = true;
     }
-    if (!RegisterFolder(view, "kmrpset" + std::to_string(generation), false)) return false;
-    if (!roster.empty() && !RegisterFolder(roster, "kmrproster" + std::to_string(generation), false)) return false;
+    if (!RegisterFolder(view, "kmrpset" + std::to_string(generation))) return false;
+    if (!roster.empty() && !RegisterFolder(roster, "kmrproster" + std::to_string(generation))) return false;
     lap(4);
     ForgetUnpacked();
     setView = view;

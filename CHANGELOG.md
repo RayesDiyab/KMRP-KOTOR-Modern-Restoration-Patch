@@ -117,6 +117,16 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: a failed preparation stops instead of repeating (audit THR-2), and the controller's
+  folder works for any user name** (2026-11-01). KMRP's and the controller's resource hooks run
+  on every resource lookup and only stopped on success, so a full disk, a folder that could
+  not be named to the game, or a missing pack repeated the whole preparation each time, which
+  could hang the start. Each now tries once per size and logs the failure once, the unpack
+  and each picture remember theirs, and `K1ResourceFolder.h` is the one way both modules give a
+  folder to the game, which brings KMRP's fix of 2026-10-30 for a user name outside the code
+  page to the controller. Test-ResourceFolder asks the real Windows calls about a real folder.
+  Not reproduced on a machine with such a user name.
+
 - **Fixed in code, awaiting a pad in a fight: Y, B, action cycling and X (issues 88, 90; audit
   PAD-1, PAD-2), the action bar under a bark bubble (issue 87, PAD-4), and a D-pad press in a
   menu moving the action bar later (PAD-5)** (2026-11-01). KMRP called the HUD's click
