@@ -9,8 +9,17 @@ The findings' full record is [`cleanup-audit-1.6-disposition.md`](cleanup-audit-
 
 ## Before you start
 
-Install the latest `dist` build with Upgrade, so your settings stay. Turn debug logs on in Advanced
-Settings: several steps read `KMRP\logs`. The five setups the checks refer to:
+**Installed in the Steam folder on 2026-11-01:** installer `B721AB61...`, from commit `4029b23`, `kmrp.dll`
+`16325299...`, `kmrp-controller.dll` `3394B7BF...`, debug logs on. A later build needs its own install.
+What it replaced is in `KMRP\backups\before-audit-build-2026-11-01`, with `hashes.txt`.
+
+**Check first:** that install also moved K1 Modern Driver Compatibility from the standalone 2.0.0
+(`dinput8.dll` and an `.asi`) to the bundled 2.0.1 patch, as this build is meant to. That route has
+never been seen beside the offscreen frame. So start by launching the game and opening a save, with
+the `Bundled K1DC` row and GFX-03 in section 10. If it does not start, stop there and tell me.
+
+Otherwise install the latest `dist` build with Upgrade, so your settings stay. Turn debug logs on in
+Advanced Settings: several steps read `KMRP\logs`. The five setups the checks refer to:
 
 | Setup | What it is |
 | --- | --- |
@@ -36,7 +45,6 @@ hides the bug these fixed.
 | [ ] | PAD-4 | Stand where a character barks during a fight: a BOS:SR fight, or any script bark. While the bubble shows, press D-pad, A and B. | The action bar keeps working. A does not fall back to a plain attack, and B does not disengage. | Vanilla for comparison |
 | [ ] | PAD-5 | In a menu press D-pad a few times, close it, look at the action bar. | The bar has not moved. | |
 | [ ] | PAD-6 | Open Options, change a control setting while holding a button, close, release the button. | No second press from the held button. The next press of it works. | |
-| [ ] | PAD-7 | Start a movie while the motors run, for example a cutscene right after being hit. | The motors stop. Not fixed, only suspected: if they hold through it, tell me. | |
 | [ ] | PAD-8 | With a lightsaber lit, load another save, then a save with no saber lit. | No hum after the load. | |
 
 ## 2. Abilities and icon sizes (GUI-2, decision 4)
@@ -54,7 +62,6 @@ hides the bug these fixed.
 | Done | Finding | Steps | Expected |
 | --- | --- | --- | --- |
 | [ ] | GUI-3 | Options, Graphics: change resolution and back, with a mod's `.gui` in Override (**K1CP**, **Sleheyron**). | No freeze, no half-laid-out screen. `kmrp-kpm.log` may name a skipped control. |
-| [ ] | GUI-4 | Open a container so its list widens. Change resolution with the screen in use, then open it again. | Buttons stay inside the panel. Not fixed yet if it fails: tell me. |
 | [ ] | THR-1 | Fresh launch, KMRP's patch alone. From the main menu open Options, HUD Size. | The page opens without the 0.4 s stall of the first opening. |
 | [ ] | GUI-5 | Nothing to do unless a set's icons were ever missing. | If `kmrp-kpm.log` warns about icons, the next start tries again. |
 
@@ -111,7 +118,7 @@ the left. With **KMRP + controller** they should look as they did before.
 | [ ] | GFX-03 | K1DC on, AA 8: change brightness in Options. | Brightness applies as with AA 0. |
 | [ ] | GFX-04 | On an AMD or Intel PC, if you have one: AA 0, 4, 8. | Picture shows. If a driver refuses, the log says so and the game draws normally. |
 | [ ] | GFX-01 | Issues 39 and 91 need an affected player. Send me issue 39's screenshot or the block's size. | Decides whether the game's own 1600x1200 black fill is the cause. Not fixed. |
-| [ ] | Bundled K1DC | Install from this build with Modern Driver Compatibility on, on a folder that has never had the standalone route. | Game starts. Brightness works. |
+| [ ] | Bundled K1DC | The Steam folder, as installed (see the top). Launch, load a save, change brightness. | Game starts. Brightness works. `KMRP\logs` has no K1DC errors. |
 
 ## 11. Installer on your real game
 
@@ -119,7 +126,7 @@ The automated tests cover these on throwaway folders. These rows are the real St
 
 | Done | Finding | Steps | Expected |
 | --- | --- | --- | --- |
-| [ ] | INS-01 | Change volume, Text Size, HUD Size and resolution in the game. Run Upgrade. | All of them survive. |
+| [ ] | INS-01 | Change volume, Text Size, HUD Size and resolution in the game. Run Upgrade. | All of them survive. The install of 2026-11-01 left `swkotor.ini` byte-identical, but its options had not been changed first. |
 | [ ] | INS-01 | Restore Original, then look at `swkotor.ini`. | The game's own options stay. `[KMRP ...]` sections gone. |
 | [ ] | INS-06 | With KOTOR running, press Upgrade. | About two seconds, then "KOTOR is running from this folder". |
 | [ ] | INS-07 | Run Steam's Verify integrity. Open the installer. | "Repair needed", and the button says Repair. It repairs. |

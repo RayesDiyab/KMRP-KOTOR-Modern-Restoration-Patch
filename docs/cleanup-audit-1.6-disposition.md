@@ -3,6 +3,11 @@
 > **Documentation standard.** This document follows
 > [`documentation-standard.md`](documentation-standard.md).
 
+**Last full run, on `65a5651` with the three stale paths then fixed in `830c7b1`:** 54 passed, 12 skipped
+for the Mac, and 3 failed on a moved source of this cycle; those 3 and Test-InstallerPatch pass on rerun.
+On `4029b23`, the last commit before this line, the quick group passes 33 of 33 and Test-BuildCache passes.
+The Steam folder has that build, by the real installer: nothing in this document has been seen in play.
+
 **Kind: working record, reconciled against the code, 2026-11-01.** It gives each finding of the
 [audit report](cleanup-audit-1.6-report.md) one status. A status was given by reading the code as it
 stands and the test named, not from a commit's message. The report keeps the findings' detail;
