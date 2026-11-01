@@ -25,6 +25,7 @@ std::vector<void*> keptTextures;
 struct ClassCache { std::string fill; ClassBoxK1 panel{}, cancel{}; ClassArtResultK1 art; bool ready = false; };
 ClassCache classCache;
 int queuedWidth = 0, queuedHeight = 0;
+unsigned framesSinceLook = 0;
 std::wstring queuedClassPath;
 std::atomic<unsigned> generation{0};
 
@@ -77,10 +78,19 @@ extern "C" void __cdecl KmrpQueueTexturePreloadK1(const char* name) {
 void KmrpControllerGuiMovieK1() {
     const int width = *reinterpret_cast<const int*>(0x0078D1D4), height = *reinterpret_cast<const int*>(0x0078D1D8);
     if (width <= 0 || height <= 0 || KmrpRuntimeAssetDirectory().empty()) return;
+    // At a size already seen, a look at KMRP's path each half second or so, not each frame: it
+    // can still change at this size, but it is a file query, and this runs every frame (audit
+    // THR-7). Nothing here is cleared, 64 KB of it.
+    {
+        std::lock_guard<std::mutex> lock(stateLock);
+        if (width == queuedWidth && height == queuedHeight && ++framesSinceLook < 30) return;
+        framesSinceLook = 0;
+    }
     using PathFn = int(__cdecl*)(const char*, wchar_t*, unsigned);
     HMODULE core = GetModuleHandleW(L"kmrp.dll");
     auto corePath = core ? reinterpret_cast<PathFn>(GetProcAddress(core, "KmrpPreloadGuiPathK1")) : nullptr;
-    wchar_t classPath[32768] = {};
+    wchar_t classPath[32768];
+    classPath[0] = L'\0';
     if (corePath) corePath("classsel", classPath, 32768);
     unsigned requested;
     {

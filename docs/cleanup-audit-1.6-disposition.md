@@ -99,7 +99,7 @@ tests from before this cycle were not all re-proved.
 | GUI-12 | `size_t` wrap on 32-bit | In-game | this cycle | Every sum of file values in `kmrp-swoophud.c` is 64-bit. By reading: the wrapped read lands in harmless memory, so no test can tell |
 | INS-09 | Override restore cannot resume | Tested | `cf60ec7` | Case 19 |
 | INS-10 | Linux restore does less | In-game | `cf60ec7` | Art cache removal compiled, not run on Linux. Kept: Linux sets no DPI value, and a `C:\` row is skipped on purpose |
-| THR-7 | 64 KB cleared per frame | Open | | |
+| THR-7 | 64 KB cleared per frame | In-game | this cycle | Not cleared, and the file query is once in 30 frames at a size already seen. The audit's "return if unchanged" is not done: KMRP's path can change at one size, so it would miss that. A new size still looks at once. Test-ControllerPreload passes |
 | THR-9 | `SHIFT` outside the lock | In-game | this cycle | The file-wide value is gone: each run's shift is in its own `Model`. By reading; Test-LiveLayout's and the build's swoop checks pass |
 | THR-10 | Sampler and applier suspend each other | Open | | Debug only |
 | GFX-05 | `drawnOffscreen` ignored the binding | Tested | `397129c` | Test-OffscreenFrame, fails without it |
