@@ -13,17 +13,11 @@
 #include "K1InputDevice.h"
 #include "K1PartyRosterState.h"
 #include "K1CaptionInk.h"
-
-bool ControllerTypesByItselfK1();   // K1ControllerBackend.cpp
-void ControllerLogK1(const char* text);     // K1NativeJoystick.cpp, the debug log
-const char* KmrpDrawnFillK1(const void* params, const char* fill);   // below
-extern "C" void __cdecl KmrpLogPanelsK1(const char* what);
-
-// K1NativeJoystick.cpp: the fourth letter of the detected controller family's
-// texture resrefs ('p' Xbox, 's' PlayStation, 'n' Switch, 'd' Steam Deck).
-extern "C" char __cdecl KmrpGlyphLetterK1();
-
-bool KmrpXboxHudEnabledK1();   // K1XboxHud.cpp
+#include "K1ControllerBackend.h"
+#include "K1NativeJoystick.h"
+#include "K1RuntimeAssets.h"
+#include "K1XboxControls.h"
+#include "K1XboxHud.h"
 
 namespace {
 
@@ -1554,9 +1548,6 @@ using K1BadgeRect = KmrpRect;
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-const std::wstring& KmrpRuntimeAssetDirectory();   // K1ControllerStandalone.cpp
-const char* KmrpLogicalFillK1(const char* fill);   // below, for K1NativeJoystick.cpp too
-bool KmrpControllerRelistK1();                      // K1ControllerStandalone.cpp
 namespace {
 
 struct K1GlyphEntry { std::string name; KmrpGlyph glyph; };

@@ -36,6 +36,7 @@
 #include "K1EngineAddresses.h"
 #include "K1EngineMemory.h"
 #include <cstring>
+#include "K1GrantedPopup.h"
 
 namespace {
 

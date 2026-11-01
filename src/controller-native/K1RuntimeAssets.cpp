@@ -70,54 +70,7 @@
 #include <sstream>
 #include <iomanip>
 
-extern "C" int KmrpGuiBlend(const char*, unsigned, unsigned, const char*, const char*);
-extern "C" int KmrpGuiBlendCovers(const char*, unsigned, unsigned);
-// macos/tools/kmrp-abilityicons.c and kmrp-gameart.c, compiled with KMRP_EMBEDDED.
-extern "C" int KmrpAbilityIcons(const char* erf, unsigned height, const char* outdir, const char* reserved);
-extern "C" int KmrpGameArt(const char* erf, const char* key, unsigned height, const char* outdir);
-// macos/tools/kmrp-swoophud.c: the swoop race's HUD model, its parked speed segment moved
-// out of a wide screen's view (issue #47). 0 written, 1 not the game's model (left alone),
-// 3 the screen is not wide enough to need it.
-extern "C" int KmrpSwoopHud(const char* key, const char* outdir, unsigned width, unsigned height);
-// macos/tools/kmrp-guiadapt.c: the galaxy map's planets and Live slots where the game's
-// 640x480 layout (or a mod's, in Override) has them, on this size's map (issue 67). 0
-// written, 1 a layout could not be read, 2 could not write, 3 the mod's file is not
-// 640x480 (left to the game).
-extern "C" int KmrpGalaxyMap(const char* key, const char* setGui, const char* outGui, const char* sourceGui);
-// The same file: the main menu's buttons on the bars of their art. 0 written.
-extern "C" int KmrpMainMenuBars(const char* setGui, const char* outGui);
-// The same file: Live Adaptive Layout, a screen the game's own file or a mod's (in Override)
-// lays out, laid out for the size (tools/build_live_layout.py). 0 written, 1 a layout could
-// not be read, 2 could not write, 3 the mod's file is not laid out for the game's size (left
-// to the game), 4 not a screen it lays out. `set`: the size's set folder, whose
-// kmrp_prompts.txt gives the Container's caption width and whose kmrplayout.gui is the donor
-// of the controller badge labels (confirm.gui's LBL_KMRPA).
-extern "C" int KmrpLiveLayoutSet(const char* key, const char* name, const char* sourceGui, int width, int height,
-                                 const char* outGui, const char* set);
-// The same file: a mod's mouse and keyboard HUD file with KMRP's combat cues added. 0
-// written, 3 nothing to add, else not written; and the HUD files' names.
-extern "C" int KmrpHudCues(const char* sourceGui, const char* outGui);
-extern "C" const char* KmrpHudFileName(int i);
-extern "C" int KmrpLiveLayoutCount(void);
-extern "C" const char* KmrpLiveLayoutName(int i);
-// The same file: what Live Adaptive Layout noted about the last file it laid out, and the
-// game's chitin.key resource of a name and type (the vanilla side of a three-way merge).
-extern "C" const char* KmrpLiveLayoutNotes(void);
-extern "C" int KmrpReadKeyedResource(const char* key, const char* resref, int type, unsigned char** data, std::size_t* size);
-// macos/tools/kmrp-merge.c: any 2DA the player's Override has merged with KMRP's change of it,
-// three ways against vanilla (kmrp-2da.h). 0 merged; 3 not merged safely (the mod's is used).
-extern "C" int KmrpMerge2da(const char* name, const unsigned char* base, std::size_t baseSize, const unsigned char* ours,
-                            std::size_t oursSize, const unsigned char* theirs, std::size_t theirsSize, unsigned char** out,
-                            std::size_t* outSize, char** notes, int counts[4]);
-extern "C" void KmrpMergeFree(void* p);
-// kmrp-gameart.c: a generated picture made again from a mod's copy of its source, as its
-// kmrp_derive.txt line says. 0 written; 1 the mod's picture cannot be read.
-extern "C" int KmrpDeriveImage(const char* source, int canvas, int picture, int left, int bottom, const char* filter,
-                               const char* out);
-// kmrp-swoophud.c: the swoop HUD's change made on a mod's copy of the model. 0 written; 1 not
-// the game's model where it changes it (the fix is off); 3 not needed at this size.
-extern "C" int KmrpSwoopHudModel(const char* mdl, const char* mdx, const char* outdir, unsigned width, unsigned height);
-void KmrpRuntimeLog(const char* line);       // K1RuntimeEngine.cpp: one line into kmrp-kpm.log
+#include "../../macos/tools/kmrp-embedded.h"
 
 namespace {
 using Key = KmrpPack::Key;

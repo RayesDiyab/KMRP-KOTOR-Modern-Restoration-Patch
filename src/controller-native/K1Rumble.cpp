@@ -35,11 +35,7 @@
 #include "KmrpOptions.h"
 
 #include "K1EngineMemory.h"   // LooksLikePointerK1, IsReadableK1
-
-// Shared with K1NativeJoystick.cpp.
-void* ClientExoAppK1();
-int InputClassK1();
-std::uint32_t CurrentTargetK1();
+#include "K1NativeJoystick.h"
 
 namespace {
 

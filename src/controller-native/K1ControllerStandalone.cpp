@@ -29,6 +29,7 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include "K1MovieWindow.h"
 
 namespace {
 using Key = std::array<unsigned char, 32>;
@@ -241,9 +242,7 @@ void LeaveLayoutsToKmrp()
     FindClose(find);
 }
 
-extern "C" int KmrpControllerCues(const char* key, const char* name, const char* sourceGui, const char* outGui,
-                                  const char* donorGui);
-extern "C" const char* KmrpControllerCueScreen(int i);
+#include "../../macos/tools/kmrp-embedded.h"
 
 // Controller Live Adaptive Layout's screens (2026-10-30): the file the game would load, a
 // mod's in Override or else the game's own (through chitin.key), with the controller's cues

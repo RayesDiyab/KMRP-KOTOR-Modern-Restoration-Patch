@@ -1,4 +1,6 @@
 #pragma once
+#include <cstddef>
+#include <cstdint>
 
 // KOTOR's own joystick pipeline, fed from XInput.
 //
@@ -33,3 +35,19 @@ bool ReadNativeStickK1(float& x, float& y);
 // synthesis down in gameplay without disturbing it in menus, where Control does
 // not run and those keystrokes still drive list navigation.
 bool NativeMovementOwnsLeftStickK1();
+
+// What the rest of the controller module asks of this file.
+void* ClientExoAppK1();
+int InputClassK1();
+std::uint32_t CurrentTargetK1();
+bool KmrpPadPresentK1();              // a pad answered the last read
+std::uint16_t KmrpPadButtonsK1();     // the pad's buttons as pressed
+bool ControllerConfirmHeldK1();
+// The fourth letter of the detected controller family's texture resrefs ('p' Xbox,
+// 's' PlayStation, 'n' Switch, 'd' Steam Deck).
+extern "C" char __cdecl KmrpGlyphLetterK1();
+// The cue label on a panel that follows the control at an offset.
+void* KmrpGuiCueK1(void* panel, std::size_t follow);
+bool KmrpGuiModelsPendingK1();
+void KmrpPadFocusExcludeK1(void* control, bool excluded);   // off the pad's focus
+extern "C" void __cdecl KmrpLogPanelsK1(const char* what);

@@ -44,16 +44,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <vector>
-
-// Defined in K1InputDevice.cpp, at global scope. Declared here
-// rather than by including that header, and ABOVE the anonymous namespace
-// below -- inside it the declaration would take internal linkage and fail
-// to resolve, which is exactly what it did.
-bool IsControllerInputActiveK1();
-
-// Defined in K1XboxControls.cpp beside the panel vtables and control
-// offsets it reads. Declared here for the same linkage reason as above.
-bool MessageBoxCancelHasFocusK1(void* panel);
+#include "K1InputDevice.h"
+#include "K1XboxControls.h"
+#include "K1XboxHud.h"
 
 void CapturePartyRosterBindingsK1(void* panel);
 
@@ -124,31 +117,13 @@ constexpr int         K1_PAD_STATE_SLOTS      = 4;
 //
 // None of that is reimplemented here. His path feeds those calls from buffered
 // KEYBOARD records and therefore needs synthesised arrow keys; KMRP feeds them
-// from the D-pad it already has, so nothing is synthesised.
-extern "C" void __cdecl KmrpActionBarApplyK1(void* mainInterface, int dx, int dy,
-                                             int activate);
-extern "C" int  __cdecl KmrpActionBarFocusedK1(void* mainInterface);
-extern "C" int  __cdecl KmrpActionBarHeldK1(void* mainInterface);
-extern "C" int  __cdecl KmrpActionBarStateK1(void* mainInterface);
-extern "C" void __cdecl KmrpActionBarReleaseK1(void* mainInterface);
+// from the D-pad it already has, so nothing is synthesised (K1XboxControls.h).
 
 // The on-screen prompt layer, also Saul0097's and also unreachable in native
 // mode until now: UpdateK1ControllerPrompts was called from DispatchMenuInputK1
 // alone, and the device-activity flag it consults was raised from PollXInputK1
 // alone. Both are legacy hooks that native mode drops, so every badge table and
 // every badge texture in the patch sat there unused.
-extern "C" void __cdecl KmrpUpdatePromptsK1();
-extern "C" void* __cdecl KmrpDescriptionPaneK1(void* panel);
-// K1XboxControls.cpp: a button whose glyph is always shown on its panel, a hint
-// the pad presses by its own button and never lands on.
-extern "C" int __cdecl KmrpPadHintControlK1(void* panel, void* control);
-extern "C" void __cdecl KmrpUpdateCursorK1();
-extern "C" void __cdecl KmrpNoteMouseK1(int mouseX, int mouseY);
-extern "C" void __cdecl KmrpMarkControllerActiveK1();
-extern "C" void __cdecl KmrpNotePadPresentK1(int present);
-extern "C" unsigned long __cdecl KmrpDeviceStateK1();
-extern "C" void __cdecl KmrpMarkKeyboardMouseK1();
-extern "C" void __cdecl KmrpNoteKeyboardK1(void* record, int inputDevice);
 
 constexpr int K1_CLASS_PC       = 0;   // gameplay
 constexpr int K1_CLASS_MINIGAME = 1;   // Pazaak, swoop, the turret
@@ -1269,14 +1244,12 @@ void EnsureNativeJoystickK1(void* exoInputInternal)
 // the record emitter feeds them.
 bool KmrpOwnsDirectionsK1(bool vertical);
 void* ClientInternalK1();
-int InputClassK1();
 void EnsureDeviceCountK1();
 void EnsurePadStateK1();
 int RemappedButtonEventK1(int slot);
 void PerformPendingFreeLookExitK1();
 void PerformPendingPartySwitchK1();
 void PerformPendingMenuOpenK1();
-extern "C" void __cdecl KmrpLogPanelsK1(const char* what);
 void* PanelAtK1(int index);
 int PanelCountK1();
 void* TabBarPanelK1();
@@ -1286,9 +1259,6 @@ bool PressHudButtonK1(void* mainInterface, std::size_t member);
 constexpr std::size_t    K1_HUD_CLEAR_ONE         = 0x6CD0;      // BTN_CLEARONE
 constexpr std::size_t    K1_HUD_CLEAR_ALL         = 0x7058;      // BTN_CLEARALL, "Disengage"
 constexpr std::size_t    K1_HUD_COMBAT_MESSAGE    = 0x735C;      // LBL_CMBTMODEMSG
-bool KmrpXboxHudEnabledK1();                                     // K1XboxHud.cpp
-void KmrpXboxHudForgetK1(void* panel);
-void KmrpForgetBadgeOverlaysK1(void* panel);                     // K1XboxControls.cpp
 void ForgetGuiCuesK1(void* panel);
 void UpdateGuiCuesK1();
 void InstallPazaakTableK1(void* panel);
@@ -1301,7 +1271,6 @@ void QueueGuiModelPreloadK1(void* panel);
 void InstallPazaakSetupPadK1(void* panel);   // Pazaak's side deck screen, with the pad in use
 void UpdatePazaakSetupPadK1();
 void ForgetPazaakSetupPadK1(void* panel);
-void* ClientExoAppK1();
 void UpdateStickNavigationK1(float x, float y);
 namespace {
 void UpdateSwoopPromptK1();
@@ -4485,13 +4454,6 @@ extern "C" void __cdecl KmrpPadFocusSkipK1(void* control, int skipped)
     KmrpPadFocusExcludeK1(control, skipped != 0);
 }
 
-// The picture a fill stands for (K1XboxControls.cpp), and the drawing made of a
-// picture for one border.
-const char* KmrpLogicalFillK1(const char* fill);
-const char* KmrpDrawnFillK1(const void* params, const char* fill);
-// The swoop prompt drawn for this screen's size, its name in `out` (the same file).
-bool KmrpDrawnPictureK1(const char* name, char out[17]);
-
 // For the prompt layer in K1XboxControls.cpp, which names the Xbox art.
 extern "C" char __cdecl KmrpGlyphLetterK1()
 {
@@ -4623,10 +4585,6 @@ constexpr int            K1_PAZAAK_PLAY_STRING     = 32330;         // "Play Han
 // +0xE8) and CClientExoApp::GetGUIString (the string, then the reference; `ret 8`).
 constexpr std::uintptr_t K1_GUI_PANEL_ADD_CONTROL  = 0x0040B9A0;
 constexpr std::size_t    K1_LABEL_TEXT             = 0xE8;
-
-void KmrpPromptFillK1(void* control, const char* value);
-void KmrpBadgeCentreK1(void* button, bool on);
-void KmrpPromptDimK1(void* button, bool dim);
 
 struct PazaakTableK1 {
     void* panel = nullptr;
@@ -4933,9 +4891,6 @@ void ForgetPazaakTableK1(void* panel)
 // Select is a button made like Cancel (AppendControlLikeK1), the game's own "Select"
 // (string 236, as Script Selection's), wearing an A badge (kmrpa_clssel) and kept off the
 // pad's focus; A already picks the focused class.
-bool KmrpWriteDrawnPictureK1(const char* name, const std::vector<std::uint8_t>& sheet, int width, int height);
-void KmrpPromptFillK1(void* control, const char* value);
-void KmrpBadgeCentreK1(void* button, bool on);     // glyph and caption centred together
 
 #include "K1ClassModelTrace.h"
 
@@ -5252,9 +5207,6 @@ constexpr std::size_t    K1_PAZAAK_SETUP_RTEXT  = 0x741C;
 constexpr std::size_t    K1_PAZAAK_CARD_STRIDE  = 0x31C;
 constexpr std::size_t    K1_PAZAAK_CARD_FACE    = 0x1C4;      // the card's face label
 constexpr std::size_t    K1_LABEL_STRING        = 0xE4;       // a label's CSWGuiString (its text box, +0xD0, +0x14)
-
-extern "C" int __cdecl KmrpGlyphPictureK1(const char* glyph, int* rect, char* out);
-void KmrpBadgeCentreK1(void* button, bool on);
 
 // A control this screen moves, where the layout put it and where it is put here.
 struct SetupPlaceK1 { void* control; ClassBoxK1 was, at; };
@@ -7121,7 +7073,6 @@ bool KmrpIsBesideK1()
 // Options screen's pad focus stuck after a change of resolution): each panel, its type,
 // extent and active control, and every control of the panel the pad navigates, with its
 // type, extent and flags (+0x44; bit 2 drawn).
-void ControllerLogK1(const char* text);
 void LogMenuSnapshotK1(void* manager)
 {
     if (KmrpDebugLevel() < 2 || !IsReadableK1(manager, 0x90)) return;

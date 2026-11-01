@@ -15,3 +15,5 @@ bool SetControllerRumbleK1(WORD low, WORD high);
 // One line into kmrp-controller-events.log, with the tick, when debug-logs is on
 // (K1NativeJoystick.cpp).
 void ControllerLogK1(const char* text);
+// The pad list read again (K1ControllerStandalone.cpp).
+bool KmrpControllerRelistK1();

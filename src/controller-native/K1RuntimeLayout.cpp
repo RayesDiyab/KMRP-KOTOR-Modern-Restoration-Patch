@@ -20,8 +20,8 @@
 #include <cstring>
 #include <cstdint>
 #include <cmath>
+#include "K1RuntimeEngine.h"
 
-void KmrpRuntimeLog(const char* line);
 
 namespace {
 using Extent = KmrpRect;

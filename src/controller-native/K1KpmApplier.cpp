@@ -60,6 +60,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include "K1MovieWindow.h"
 
 namespace {
 

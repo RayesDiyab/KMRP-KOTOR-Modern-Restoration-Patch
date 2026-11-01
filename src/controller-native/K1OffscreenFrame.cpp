@@ -55,8 +55,8 @@
 #include <windows.h>
 #include <cstdio>
 #include <cstring>
+#include "K1RuntimeEngine.h"
 
-void KmrpRuntimeLog(const char* line);
 
 namespace {
 using GLenum = unsigned;

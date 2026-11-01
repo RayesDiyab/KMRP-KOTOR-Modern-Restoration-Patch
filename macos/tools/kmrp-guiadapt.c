@@ -43,6 +43,7 @@
  * the data, 10 a CExoString (a length and its characters in the field data), 14 a
  * structure, 15 a list (a count and the structures' indices in the list indices).
  */
+#include "kmrp-embedded.h"
 #include <errno.h>
 #include <stdarg.h>
 #include <math.h>

@@ -18,6 +18,8 @@
 #include <string>
 #include <tuple>
 #include <vector>
+#include "K1CoreFrames.h"
+#include "K1GrantedPopup.h"
 
 #ifdef KMRP_TEXT_LAYOUT_TEST
 void* KmrpTextLayoutTestFunction(std::uintptr_t address);
@@ -504,7 +506,6 @@ void Dialogue(void* panel,int screenHeight) {
 }
 } // namespace
 
-void KmrpGrantedPopupFrameK1();  // K1GrantedPopup.cpp
 
 extern "C" void __cdecl KmrpTextStringCreatedK1(void* object) {
     if(!object || At<std::uintptr_t>(object,0)!=0x741878)return;
@@ -794,7 +795,6 @@ static void ForgetArtPlace(void*) {}
 // again a quarter second after it failed: "Instead of retry shouldn't hook the correct
 // spot in the chain once?"
 #if !defined(KMRP_TEXT_LAYOUT_TEST) && defined(KMRP_NATIVE_RUNTIME)
-void CorrectHardwareMipmapsK1();   // K1CoreFrames.cpp: once, after the first upload
 #endif
 extern "C" void __cdecl KmrpTextureUploadedK1(void* texture) {
 #ifndef KMRP_TEXT_LAYOUT_TEST

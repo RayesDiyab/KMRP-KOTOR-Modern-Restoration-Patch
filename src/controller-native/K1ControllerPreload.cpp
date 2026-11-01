@@ -12,12 +12,10 @@
 #include <memory>
 #include <atomic>
 #include <cstdlib>
+#include "K1ControllerBackend.h"
+#include "K1NativeJoystick.h"
+#include "K1RuntimeAssets.h"
 
-extern const std::wstring& KmrpRuntimeAssetDirectory();
-extern bool KmrpControllerRelistK1();
-extern "C" char __cdecl KmrpGlyphLetterK1();
-extern bool KmrpGuiModelsPendingK1();
-extern void ControllerLogK1(const char*);
 
 namespace {
 std::mutex stateLock;

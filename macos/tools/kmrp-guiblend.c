@@ -46,6 +46,7 @@
  *
  * Exit status: 0 written, 1 usage or I/O error, 2 resolution outside the anchors' range.
  */
+#include "kmrp-embedded.h"
 #include <errno.h>
 #include <math.h>
 #include <stdint.h>

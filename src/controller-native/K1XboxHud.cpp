@@ -63,23 +63,11 @@
 #include <string>
 #include <string_view>
 #include <vector>
-
-// K1XboxControls.cpp: which of the seven slots has the focus (0-2 the target's,
-// 3-6 personal), or -1.
-int KmrpFocusedActionSlotK1(void* mainInterface);
-// The same, whether or not another screen is in front of the HUD.
-int KmrpHeldActionSlotK1(void* mainInterface);
-// K1InputDevice.cpp: the pad is the device in use. K1NativeJoystick.cpp: the
-// cue label on a panel that follows the control at an offset.
-bool IsControllerInputActiveK1();
-void* KmrpGuiCueK1(void* panel, std::size_t follow);
-void ControllerLogK1(const char* text);     // K1NativeJoystick.cpp, the debug log
-
-extern "C" char __cdecl KmrpGlyphLetterK1();   // the pad family's letter in a texture's name (K1NativeJoystick.cpp)
-
-const char* KmrpLogicalFillK1(const char* fill);     // K1XboxControls.cpp
-const char* KmrpDrawnFillK1(const void* params, const char* fill);   // the same
-void KmrpStampPictureK1(void* control, std::ptrdiff_t paramsOffset, const char* name);   // the same
+#include "K1ControllerBackend.h"
+#include "K1InputDevice.h"
+#include "K1NativeJoystick.h"
+#include "K1XboxControls.h"
+#include "K1XboxHud.h"
 
 namespace {
 

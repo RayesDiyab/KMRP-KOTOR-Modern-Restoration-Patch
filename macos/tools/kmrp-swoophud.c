@@ -51,6 +51,7 @@
  *         index into the controller data (u16); a row is three floats
  *   animation: +0x28 its root node
  */
+#include "kmrp-embedded.h"
 #include <errno.h>
 #include <math.h>
 #include <stdint.h>

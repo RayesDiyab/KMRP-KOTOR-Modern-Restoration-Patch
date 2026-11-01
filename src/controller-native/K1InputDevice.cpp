@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <windows.h>
+#include "K1ControllerBackend.h"
 
 namespace {
 
@@ -43,8 +44,6 @@ void MarkKeyboardMouseInputK1()
 }
 
 // The native path reads the pad, so it reports device activity.
-void ControllerLogK1(const char* text);     // K1NativeJoystick.cpp, the debug log
-
 extern "C" void __cdecl KmrpMarkControllerActiveK1()
 {
     if (InterlockedExchange(&g_controllerInputActive, 1) == 0) {

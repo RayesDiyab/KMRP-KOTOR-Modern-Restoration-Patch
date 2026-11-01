@@ -24,6 +24,7 @@
  *
  * Exit status: 0 done (possibly writing nothing), 1 usage or I/O error.
  */
+#include "kmrp-embedded.h"
 #include <ctype.h>
 #include <errno.h>
 #include <math.h>

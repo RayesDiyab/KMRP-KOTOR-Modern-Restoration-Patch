@@ -11,19 +11,9 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-
-extern "C" char __cdecl KmrpGlyphLetterK1();
-extern "C" void __cdecl KmrpPaintLayoutEntryPromptK1(void* button, int shown);
-bool IsControllerInputActiveK1();
-bool ControllerConfirmHeldK1();
-std::uint16_t KmrpPadButtonsK1();     // the pad's buttons as pressed (K1NativeJoystick.cpp)
-bool KmrpPadPresentK1();              // a pad answered the last read (K1NativeJoystick.cpp)
-void KmrpPadFocusExcludeK1(void* control, bool excluded);   // off the pad's focus (K1NativeJoystick.cpp)
-bool KmrpQueueLayoutPanelK1(void* panel);   // the screen's pictures for the background (K1XboxControls.cpp)
-bool KmrpPicturesSettledK1();               // a frame went by with nothing left to draw (the same)
-const char* KmrpLogicalFillK1(const char* fill);                     // the picture a fill stands for (the same)
-const char* KmrpDrawnFillK1(const void* params, const char* fill);   // the drawing made of it for a border
-void KmrpQueueLayoutControlK1(void* control);
+#include "K1InputDevice.h"
+#include "K1NativeJoystick.h"
+#include "K1XboxControls.h"
 
 namespace {
 // Rows on the Controller Layout screen: GLYPH_nn and TEXT_nn each. Must equal

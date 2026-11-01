@@ -14,6 +14,7 @@
  * resource is used as it is, and the notes say what of KMRP's that loses; also when the
  * mod's file is not a 2DA KMRP can read); 1 a file could not be read or written, or
  * vanilla's or KMRP's copy is not a 2DA; 2 usage. */
+#include "kmrp-embedded.h"
 #include <errno.h>
 #include <stdint.h>
 #include <stdio.h>

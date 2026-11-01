@@ -185,9 +185,6 @@ void PaintMovieWindowK1(void* player)
     BlackenMovieWindowK1(player);
 }
 
-// True in the KPM edition when KMRP Movies is not installed (K1KpmApplier.cpp).
-bool KpmMoviesOffK1();
-
 // The half of a movie frame that has nothing to do with the pad: follow the
 // player, and black the window's bars. False when there is no movie.
 bool TrackMovieFrameK1(void* moviePlayer)

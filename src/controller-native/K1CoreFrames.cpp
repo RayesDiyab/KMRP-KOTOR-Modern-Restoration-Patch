@@ -21,6 +21,8 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include "K1CoreFrames.h"
+#include "K1RuntimeEngine.h"
 
 namespace {
 constexpr std::uintptr_t K1_FREE = 0x006FB7B2;   // the game's free()
@@ -40,8 +42,6 @@ extern "C" void __cdecl NativeFreeSaveBufferK1(void* buffer)
     }
     EngineFn<FreeFn>(K1_FREE)(buffer);
 }
-
-void KmrpRuntimeLog(const char* line);   // K1RuntimeEngine.cpp: one line into kmrp-kpm.log
 
 // Hardware mipmaps where only K1 Modern Driver Compatibility's ATI emulation turned them
 // off (2026-10-30). The game builds a texture's mipmaps on the graphics card only when

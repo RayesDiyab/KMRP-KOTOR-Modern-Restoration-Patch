@@ -23,6 +23,7 @@
  * All or nothing: OUTDIR is written only when every file was made.
  * Exit status: 0 done, 1 a file could not be read or written, 2 usage.
  */
+#include "kmrp-embedded.h"
 #include <ctype.h>
 #include <errno.h>
 #include <math.h>
