@@ -63,6 +63,7 @@ hides the bug these fixed.
 | Done | Steps | Expected |
 | --- | --- | --- |
 | [ ] | With a pad, Enhanced haptics on, then Original: ignite a saber, throw a grenade near an enemy, take a hit. | Rumble as before. KMRP no longer gives the engine a pattern table, which nothing read. |
+| [ ] | PAD-7. With a held rumble going (a saber lit with Saber Hum on, or an explosion), let a cutscene movie start, for example by leaving a planet in the Ebon Hawk. | The motors stop as the movie starts, and rumble works after it. |
 
 ## 3aa. The Container after a change of size (audit GUI-4)
 

@@ -89,7 +89,7 @@ tests from before this cycle were not all re-proved.
 
 | ID | What | Status | Commit | Evidence, and what remains |
 | --- | --- | --- | --- | --- |
-| PAD-7 | Motors may hold through a movie | Open | | Suspected; on the checklist to measure |
+| PAD-7 | Motors may hold through a movie | In-game | this cycle | Zero sent once when a movie frame finds the last value not zero, which is harmless if the suspicion was wrong. Not provoked. Checklist |
 | PAD-8 | Stale saber hum after a load | Tested | `5576e8b` | Test-RumbleMixer |
 | GUI-6 | Picture references never released | Open | | |
 | GUI-7 | Weakest key reader | Tested | this cycle | Test-GameArtFailure: bad keys refused, a good one read; the old file ends in an access violation |

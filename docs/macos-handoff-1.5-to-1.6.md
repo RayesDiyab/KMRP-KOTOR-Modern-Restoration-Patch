@@ -1675,6 +1675,7 @@ what Windows changed to for PAD-1 and PAD-2, so those two need nothing. Not buil
 | XInput loaded at run time, not linked | 9fee5e4 | Windows 7 |
 | A Linux pad's own key (`KEY_BACK`) not keyboard use; the Gamepad layout notice | 8f60e46 | Linux's kernel driver and Wine |
 | K1 Modern Driver Compatibility 2.0.0; left out on Windows 7 | b5cbd6a, f0ca54c | the Mac ships no K1DC or `dinput8.dll` |
+| Motors told to stop as a movie starts (PAD-7): `NativeMovieFrameK1` | 2026-11-01 | check whether the Mac's rumble holds through a movie; if it does, the same one line |
 | The controller patch's picture lookups are hash tables, and the list by border is one map from drawn name to picture (THR-5, GFX-07); `K1PictureKey.h` | 2026-11-01 | if the Mac walks the same lists, do the same: `K1PictureKey.h` is portable, but use `strncasecmp`'s rule only in tests |
 | The Container's widening is not taken for the engine's at a change of size (GUI-4): `KmrpTextLayoutWidenedK1`, `KmrpTextLayoutForgetWidenedK1` | 2026-11-01 | port both, if the Mac's Container fit and re-layout came from these files; Test-RuntimeRelayout's harness shows the case |
 | Live Layout leaves a file already scaled alone at its own size (GUI-8, decision 5) | 2026-11-01 | none needed: shared C, `kmrp-guiadapt.c`, comes with the next rebuild |

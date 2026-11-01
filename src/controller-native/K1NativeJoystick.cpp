@@ -2320,6 +2320,10 @@ extern "C" void __cdecl NativeRumbleK1(int envelopeBBits, int envelopeABits,
 extern "C" void __cdecl NativeMovieFrameK1(void* moviePlayer)
 {
     KmrpControllerGuiMovieK1();
+    // UpdateRumble does not run during a movie, and XInput holds what it was last told, so a
+    // movie begun in the middle of a rumble would run with the motors on (audit PAD-7). Once;
+    // the mixer sends its own value on the first frame after the movie.
+    if (g_stick.rumbleLast && SetControllerRumbleK1(0, 0)) g_stick.rumbleLast = 0;
     if (!TrackMovieFrameK1(moviePlayer)) {
         return;
     }
@@ -8284,7 +8288,7 @@ void UpdateSwoopPromptK1()
                 char glyphName[16] = "kmrpp_swoop";
                 glyphName[3] = letters[family];
                 // The controller patch draws it at a size for this screen (2026-10-27) and
-                // carries no texture of it; KMRP's own module loads the one it carries.
+                // carries no texture of it. Loaded by its own name only if that cannot be done.
                 char drawn[17] = {};
                 const char* const load = KmrpDrawnPictureK1(glyphName, drawn) ? drawn : glyphName;
                 void* const loaded = EngineFn<LoadTextureRefFn>(K1_LOAD_TEXTURE_REF)(load, nullptr);

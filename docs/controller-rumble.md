@@ -176,6 +176,11 @@ that is already playing is not started again (`0x005FB4BB` tests the row's
 loop flag, `0x005FB4D0` searches the queue), while a one-shot row overlaps its
 running copy freely.
 
+During a movie the engine does not run `UpdateRumble`, so nothing would tell the motors to stop:
+XInput holds what it was last told. `NativeMovieFrameK1` sends zero once, if the last value sent
+was not zero (since 2026-11-01, audit PAD-7, not yet seen on a pad). SDL's pads stop by
+themselves, as their rumble is a 1.5 second lease.
+
 KMRP gives the engine no pattern table. Until 2026-11-01 the module still made
 one (`EnsureRumbleTableK1`) for the case of this hook being absent, but the hook
 is in every build, always, and always declines the original, so nothing read it

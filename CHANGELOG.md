@@ -117,6 +117,10 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: the motors stop as a movie starts (audit PAD-7)** (2026-11-01). The game stops updating
+  rumble during a movie and XInput holds what it was last told, so a movie begun during a rumble
+  could run with the pad shaking. Not yet seen on a pad.
+
 - **Faster: the controller patch's picture lookups (audit THR-5, GFX-07)** (2026-11-01). Each picture
   border, each frame, walked three lists that only grew, one of them only to trigger a load. They
   are hash tables now, and the list by border is one map with a row per picture drawn. One border
