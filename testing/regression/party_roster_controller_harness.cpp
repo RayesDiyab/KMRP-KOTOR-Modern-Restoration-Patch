@@ -12,9 +12,8 @@ static FARPROC FakeSymbol(HMODULE,LPCSTR) {return reinterpret_cast<FARPROC>(1);}
 #include "../../src/controller-native/K1XboxControls.cpp"
 #undef GetModuleHandleW
 #undef GetProcAddress
-// Built as it ships, with KMRP_CONTROLLER_STANDALONE: no other configuration of that file is
-// built by anything (audit TST-08). What the module's other files and its drawing give it,
-// which the party screen does not reach:
+// What the module's other files and its drawing give that file, which the party screen does
+// not reach:
 bool KmrpXboxHudEnabledK1() { return false; }
 bool KmrpControllerRelistK1() { return true; }
 const std::wstring& KmrpRuntimeAssetDirectory() { static const std::wstring none; return none; }

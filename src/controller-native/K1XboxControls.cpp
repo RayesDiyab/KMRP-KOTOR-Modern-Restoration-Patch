@@ -21,9 +21,7 @@ extern "C" void __cdecl KmrpLogPanelsK1(const char* what);
 // texture resrefs ('p' Xbox, 's' PlayStation, 'n' Switch, 'd' Steam Deck).
 extern "C" char __cdecl KmrpGlyphLetterK1();
 
-#ifdef KMRP_CONTROLLER_STANDALONE
 bool KmrpXboxHudEnabledK1();   // K1XboxHud.cpp
-#endif
 
 namespace {
 
@@ -1520,7 +1518,6 @@ int K1ButtonFillInset(void* control, std::ptrdiff_t paramsOffset)
     return corner ? *reinterpret_cast<const int*>(params) : 0;
 }
 
-#ifdef KMRP_CONTROLLER_STANDALONE
 // A badge keeps its shape. It is a texture stretched over the area its button's
 // border fills, so it is round only on a button of the shape it was made for, and
 // another patch may have reshaped the button (Scaled Kotor lays the menus out anew:
@@ -1559,7 +1556,6 @@ struct BadgeShape {
 
 struct K1BadgeRect { int left, top, width, height; };
 
-#ifdef KMRP_CONTROLLER_STANDALONE
 // Each badge drawn at the size it is shown (issue 68). The textures the patch carries are
 // made for the game's own 640x480 buttons at 512x64 texels and stretched over the label
 // below, which the engine shrinks with mipmaps wherever the label is smaller than that: on
@@ -2574,7 +2570,6 @@ extern "C" int __cdecl KmrpGlyphPictureK1(const char* glyphName, int* rect, char
     std::memcpy(out, drawn, 17);
     return 1;
 }
-#endif
 // `textWas` is the caption's rectangle as it was before this file moved the caption
 // to the button's middle line (ShowK1BadgeOverlay); `textMoved` says that it has.
 // `resref` and `shown` are what the label draws while the pad is in use, and
@@ -3365,13 +3360,11 @@ bool ShowK1BadgeOverlay(void* control, const char resref[16], int tall = 0, bool
     }
     void* const label = entry->label;
     const char* fill = resref;
-#ifdef KMRP_CONTROLLER_STANDALONE
     // The glyph drawn at the size it is shown, on a label of its own box (above).
     char drawnFill[17];
     if (K1DrawnBadge(*shape, resref[3], &wanted, drawnFill)) {
         fill = drawnFill;
     }
-#endif
     using SetExtentFn = void(__thiscall*)(void*, const K1BadgeRect*);
     reinterpret_cast<SetExtentFn>((*reinterpret_cast<void***>(label))[1])(label, &wanted);
     // Stretched over the label, as a layout's FILLSTYLE 2 has a button's fill: the low
@@ -3619,7 +3612,6 @@ bool ReplaceK1BackedBadge(void* control, const char plain[16])
     }
     return false;
 }
-#endif
 
 void SetK1ControllerPromptFill(void* control, const char* value, const char* box = nullptr,
                                const char* boxFocused = nullptr)
@@ -3645,7 +3637,6 @@ void SetK1ControllerPromptFill(void* control, const char* value, const char* box
     auto setFill = [](void* params, const char* name, int flag) {
         reinterpret_cast<SetFillImageFn>(K1_GUI_BORDER_SET_FILL_IMAGE)(params, KmrpDrawnFillK1(params, name), flag);
     };
-#ifdef KMRP_CONTROLLER_STANDALONE
     if (resref[0] == '\0') {
         HideK1BadgeOverlay(control);
     } else if (box && IsK1BackedBadge(resref)) {
@@ -3669,7 +3660,6 @@ void SetK1ControllerPromptFill(void* control, const char* value, const char* box
         setFill(OffsetPointer(control, K1_BUTTON_HILIGHT_PARAMS_OFFSET), none, 1);
         return;
     }
-#endif
     // BOTH borders, and the pair is not optional.
     //
     // The engine draws the highlight border INSTEAD OF the normal one while a
@@ -3712,9 +3702,7 @@ void SetK1ControllerPromptArt(void* control, const char* border, const char* hil
     if (!control || !border) {
         return;
     }
-#ifdef KMRP_CONTROLLER_STANDALONE
     HideK1BadgeOverlay(control);
-#endif
     char normal[16] = {};
     char focused[16] = {};
     const char* second = hilight ? hilight : border;
@@ -3730,7 +3718,6 @@ void SetK1ControllerPromptArt(void* control, const char* border, const char* hil
     setFill(OffsetPointer(control, K1_BUTTON_HILIGHT_PARAMS_OFFSET), focused, 1);
 }
 
-#ifdef KMRP_CONTROLLER_STANDALONE
 // A badge on a label of its own is not part of its button, so what the game does to
 // the button has to be done to it: every frame, for the panel in front.
 //
@@ -3792,7 +3779,6 @@ void ForgetK1BadgeOverlays(void* panel)
         entry = K1BadgeOverlay{};
     }
 }
-#endif
 
 void UpdateK1ControllerPrompts()
 {
@@ -3833,7 +3819,6 @@ void UpdateK1ControllerPrompts()
     const std::uintptr_t vtable = panel
         ? *reinterpret_cast<std::uintptr_t*>(panel)
         : 0;
-#ifdef KMRP_CONTROLLER_STANDALONE
     // The frame's pictures: what the background finished, then every screen of the GUI
     // manager and, if it is another, the in-game interface's (the HUD's frames, phase 4).
     // The manager the menu lookup found is none in play with no menu up, so the HUD was
@@ -3857,7 +3842,6 @@ void UpdateK1ControllerPrompts()
     if (controllerMode) {
         SyncK1BadgeOverlays(panel);
     }
-#endif
 
     // The caption can change without the panel or the mode changing, so it is
     // part of what "nothing has changed" means. So is the focus, now that a
@@ -3882,9 +3866,7 @@ void UpdateK1ControllerPrompts()
     if (g_k1PromptStateKnown && panel == g_k1PromptPanel &&
         (panelWidth != g_k1PromptExtentWidth || panelHeight != g_k1PromptExtentHeight)) {
         g_k1PromptStateKnown = false;
-#ifdef KMRP_CONTROLLER_STANDALONE
         K1BadgesLaidOutAgain(panelWidth, panelHeight);
-#endif
     }
 
     if (g_k1PromptStateKnown && panel == g_k1PromptPanel &&
@@ -3921,7 +3903,6 @@ void UpdateK1ControllerPrompts()
             } else {
                 SetK1ControllerPromptFill(control, shown, prompts[i].restore, prompts[i].restoreHilight);
             }
-#ifdef KMRP_CONTROLLER_STANDALONE
             if (KmrpDebugLevel() >= 2) {
                 // Level 2: each badge as painted, its button and where its label now is
                 // (2026-10-28, the badges left at the old size's places after a change of
@@ -3938,7 +3919,6 @@ void UpdateK1ControllerPrompts()
                               entry ? entry->textMoved : 0);
                 ControllerLogK1(line);
             }
-#endif
         }
         if (controllerMode && count > 0) {
             RememberK1PaintedPanel(panel, vtable);
@@ -4420,7 +4400,6 @@ void MoveFocus(
     int direction)
 {
     const int buttonCount = ActionButtonCount(config);
-#ifdef KMRP_CONTROLLER_STANDALONE
     // The Xbox-style HUD shows the seven slots in six places and in another order
     // (K1XboxHud.cpp, kPlace): left and right follow what is on screen. The grenade
     // and mine slots share a place, and the one not shown is not selectable.
@@ -4450,7 +4429,6 @@ void MoveFocus(
         }
         return;
     }
-#endif
     int start = activeIndex;
     if (start < 0) {
         start = direction > 0 ? buttonCount - 1 : 0;
@@ -4552,9 +4530,7 @@ extern "C" int __cdecl KmrpPadHintControlK1(void* panel, void* control)
     return 0;
 }
 
-#ifdef KMRP_CONTROLLER_STANDALONE
 void KmrpForgetBadgeOverlaysK1(void* panel) { ForgetK1BadgeOverlays(panel); }
-#endif
 
 // ---------------------------------------------------------------------------
 // KMRP native path entry points.
@@ -4714,23 +4690,18 @@ void KmrpPromptFillK1(void* control, const char* value)
 // caption; changing the button's text colour alone cannot change its badge.
 void KmrpPromptDimK1(void* button, bool dim)
 {
-#ifdef KMRP_CONTROLLER_STANDALONE
     K1BadgeOverlay* const entry = FindK1BadgeOverlay(button);
     if (entry && entry->label) {
         const float shade = dim ? 0.4f : 1.0f;
         const float color[3] = {shade, shade, shade};
         std::memcpy(static_cast<char*>(entry->label) + K1_BADGE_LABEL_PARAMS + 0x10, color, sizeof color);
     }
-#else
-    (void)button; (void)dim;
-#endif
 }
 
 // Marks (or, with false, unmarks) a button whose badge and caption are centred together
 // on it (ShowK1BadgeOverlay): class selection's Select and Cancel.
 void KmrpBadgeCentreK1(void* button, bool on)
 {
-#ifdef KMRP_CONTROLLER_STANDALONE
     for (void*& b : g_k1CentredBadges) {
         if (b == button) b = nullptr;
     }
@@ -4738,9 +4709,6 @@ void KmrpBadgeCentreK1(void* button, bool on)
     for (void*& b : g_k1CentredBadges) {
         if (!b) { b = button; return; }
     }
-#else
-    (void)button; (void)on;
-#endif
 }
 
 // The cursor's half of the same question. Never reachable in native mode until
@@ -5121,21 +5089,3 @@ bool MouseIsBeingUsedK1(int mouseX, int mouseY)
 }
 }  // namespace
 
-#ifndef KMRP_CONTROLLER_STANDALONE
-// KMRP's own module draws no pictures at run time: a fill is what it says.
-const char* KmrpLogicalFillK1(const char* fill) { return fill; }
-const char* KmrpDrawnFillK1(const void*, const char* fill) { return fill; }
-void KmrpStampPictureK1(void* control, std::ptrdiff_t paramsOffset, const char* name)
-{
-    using SetFillImageFn = void(__thiscall*)(void*, const void*, int);
-    char want[17] = {};
-    std::strncpy(want, name, 16);
-    char* const params = static_cast<char*>(control) + paramsOffset;
-    if (_strnicmp(params + 0x40, want, 16) == 0) return;
-    reinterpret_cast<SetFillImageFn>(0x00414C00)(params, want, 1);
-}
-bool KmrpDrawnPictureK1(const char*, char[17]) { return false; }
-bool KmrpQueueLayoutPanelK1(void*) { return false; }
-bool KmrpPicturesSettledK1() { return false; }
-void KmrpQueueLayoutControlK1(void*) {}
-#endif
