@@ -604,7 +604,7 @@ Rect PreviewArea(void* owner, int* slot) {
 // hidden) and with that style shown (at the sizes asked for). Its first opening drew the
 // Xbox-style HUD's 16 pieces then, about 170 ms (the maintainer, 2026-10-28: "a small wait
 // time on first launch compared to opening after that"). The game textures of the mouse
-// and keyboard HUD are loaded while the intro movies play (KmrpPreloadHudPagesK1); these
+// and keyboard HUD are loaded two a GUI frame from the first menu (KmrpPreloadHudPagesK1); these
 // cannot be, as their sizes come from Graphics Options' layout. Once per layout and sizes.
 void QueuePreviewPictures(void* manager, void* owner) {
     if (current || !owner || !KmrpRuntimeControlByTagK1(owner, "LB_DESC") || !KmrpRuntimeControlByTagK1(owner, "LBL_GAMMA")) return;
@@ -870,14 +870,12 @@ void EntryBadge(void* owner, Entry& e, bool pad, char family) {
 
 bool KmrpHudOptionsOpenK1() { return current != nullptr; }
 
-// For the controller patch's movie frame, which holds the movie site beside KMRP
-// (NativeMovieFrameK1, K1NativeJoystick.cpp); KMRP's own frame calls the preload itself.
-extern "C" void __cdecl KmrpMovieFrameK1() { KmrpPreloadHudPagesK1(); }
-
-// Two textures a movie frame, so a movie does not stall: every texture the preview's mouse
-// and keyboard HUD shows (the pieces MakePreview draws), and the preview's screen. The
-// Xbox-style HUD's pictures are the controller patch's, drawn for the preview's sizes when
-// the page is laid out, and are not among them.
+// Two textures a GUI frame, so no frame stalls: every texture the preview's mouse and
+// keyboard HUD shows (the pieces MakePreview draws), and the preview's screen. The Xbox-style
+// HUD's pictures are the controller patch's, drawn for the preview's sizes when the page is
+// laid out, and are not among them. From KmrpCoreGuiWorkK1 since 2026-11-01: the movie site it
+// was called from has no GL context, so with KMRP alone no picture was ever loaded, and beside
+// the controller patch it could reach the engine's Bind on the movie thread (audit THR-1).
 void KmrpPreloadHudPagesK1()
 {
     using namespace KmrpPcHud;
@@ -886,6 +884,10 @@ void KmrpPreloadHudPagesK1()
     using Queue = void(__cdecl*)(const char*);
     HMODULE controller = GetModuleHandleW(L"kmrp-controller.dll");
     Queue queue = controller ? reinterpret_cast<Queue>(GetProcAddress(controller, "KmrpQueueTexturePreloadK1")) : nullptr;
+    using ContextFn = void*(WINAPI*)();
+    HMODULE gl = GetModuleHandleW(L"opengl32.dll");
+    const auto context = gl ? reinterpret_cast<ContextFn>(GetProcAddress(gl, "wglGetCurrentContext")) : nullptr;
+    if (!queue && !(context && context())) return;
     for (std::size_t done = 0; done < kPerFrame && preloadNext <= count; ++preloadNext) {
         const char* name = preloadNext == count ? "whitefill" : kPcPieces[preloadNext].fill;
         if (preloadNext < count) {

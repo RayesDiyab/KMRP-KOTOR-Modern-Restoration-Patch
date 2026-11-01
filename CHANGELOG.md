@@ -117,6 +117,16 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: the HUD Size page's pictures are preloaded with KMRP alone, and a held button survives
+  an input rebuild (audit THR-1, PAD-6)** (2026-11-01). The preload ran from the movie site, which
+  has no GL context, so with KMRP alone nothing was ever loaded and the page's first opening took
+  about 400 ms, and beside the controller patch it could reach the engine's Bind on the movie
+  thread. It now runs from KMRP's own GUI frame, two pictures a frame, and needs a context. The
+  export `KmrpMovieFrameK1` and the controller's call to it are gone. Separately, an input rebuild
+  cleared the record of held buttons: a held button read as a new press, and its release was
+  never seen, which could swallow the next one. Neither has a test, as both need the game: both
+  are on the gameplay checklist.
+
 - **Fixed: Icon Size owns the skill icon, and one odd layout no longer stops a size change (audit
   GUI-2, GUI-3)** (2026-11-01). Two rules sized a skill row's icon, Text Size and the Icon Size
   slider, and each undid the other, so with the slider moved in a session or Text Size above 50%

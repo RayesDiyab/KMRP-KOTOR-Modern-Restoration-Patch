@@ -111,6 +111,7 @@ extern "C" void __cdecl KmrpCoreGuiWorkK1(void* guiManager)
     UpdateCursorConfinementK1();
     StatusSummaryFrameK1(guiManager);
     KmrpTextLayoutFrameK1(guiManager);
+    KmrpPreloadHudPagesK1();            // the HUD Size page's pictures, two a frame (K1HudOptions.cpp)
 }
 
 extern "C" void __cdecl KmrpCoreMovieWorkK1(void* moviePlayer)

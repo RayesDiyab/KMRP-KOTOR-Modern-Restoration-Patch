@@ -1015,7 +1015,9 @@ void EnsureNativeJoystickK1(void* exoInputInternal)
         for (int cls = 0; cls < 6; ++cls) {
             g_stick.addResult[cls] = 0;
         }
-        g_stick.lastButtons = 0;
+        // lastButtons stays: it is the pad, not the object. Cleared, a held button read as a new
+        // press on the rebuilt input, and its release was never seen, which left remapSuppressed
+        // set to swallow the next one (audit PAD-6).
         g_stick.lastTriggers = 0;
         g_stick.dpadEmitted = 0;
         ++g_stick.inputRebuilds;
@@ -2467,16 +2469,6 @@ extern "C" void __cdecl NativeRumbleK1(int envelopeBBits, int envelopeABits,
 extern "C" void __cdecl NativeMovieFrameK1(void* moviePlayer)
 {
     KmrpControllerGuiMovieK1();
-    // Beside KMRP this patch holds the movie site, so KMRP's preload of its heavy pages'
-    // textures is asked for here (KmrpMovieFrameK1, K1HudOptions.cpp); without KMRP, nothing.
-    static bool asked = false;
-    static void (__cdecl* kmrpMovieFrame)() = nullptr;
-    if (!asked) {
-        asked = true;
-        if (HMODULE kmrp = GetModuleHandleW(L"kmrp.dll"))
-            kmrpMovieFrame = reinterpret_cast<void(__cdecl*)()>(GetProcAddress(kmrp, "KmrpMovieFrameK1"));
-    }
-    if (kmrpMovieFrame) kmrpMovieFrame();
     if (!TrackMovieFrameK1(moviePlayer)) {
         return;
     }

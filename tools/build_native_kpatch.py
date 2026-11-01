@@ -229,11 +229,9 @@ def functions():
     names: the size the mouse and keyboard HUD's parts are shown at (K1PcHud.cpp), which
     the controller patch's module asks for so its Xbox-style HUD keeps its own minimap's
     size; and KmrpPrepareAssets (K1RuntimeEngine.cpp), which KMRP's installer calls to
-    make the art of every size before the game first starts. And KmrpMovieFrameK1
-    (K1HudOptions.cpp), which the controller patch's movie frame calls, as it holds the movie
-    site beside KMRP: the heavy pages' textures preloaded while the intro movies play."""
+    make the art of every size before the game first starts."""
     return {h['function'] for h in all_hooks() if h.get('function')} | {'KmrpHudAppliedSizeK1', 'KmrpPrepareAssets',
-                                                                        'KmrpMovieFrameK1', 'KmrpPreloadGuiPathK1'}
+                                                                        'KmrpPreloadGuiPathK1'}
 
 
 def render_hooks():
