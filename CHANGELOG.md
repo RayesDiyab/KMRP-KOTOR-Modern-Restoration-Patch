@@ -117,6 +117,17 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: the art cache and two installs, a stall in the size check, a stale saber (audit THR-4,
+  THR-8, GUI-10, PAD-8)** (2026-11-01). The game's validator asks about every display mode on its
+  own thread, and waited on the build lock while a size was being made, 7 to 9.5 s each, even for an
+  answer it already had: the answers have a lock of their own now. Every game on a PC shares one art
+  cache, with one folder a size, so two installs rebuilt it at each other's every start, and could
+  delete a set a running game was reading: a set's folder is named for what it was made from too.
+  Existing caches are made once again. A saber left marked on is forgotten at a load, as an item's
+  id means another item after one. The log's "Override's font" also named KMRP's own fonts.
+  Test-AssetPrepare case 11 and Test-RumbleMixer cover the last two's mechanics. THR-4 has no test
+  of its own: it needs two threads and a game's timing.
+
 - **Fixed: the HUD Size page's pictures are preloaded with KMRP alone, and a held button survives
   an input rebuild (audit THR-1, PAD-6)** (2026-11-01). The preload ran from the movie site, which
   has no GL context, so with KMRP alone nothing was ever loaded and the page's first opening took
