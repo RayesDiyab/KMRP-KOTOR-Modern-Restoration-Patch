@@ -123,13 +123,13 @@ tests from before this cycle were not all re-proved.
 | # | Decision | Status | Evidence |
 | --- | --- | --- | --- |
 | 1 | Remove the keystroke path | Tested | 72 functions and 167 names. `kmrp-controller.dll` unchanged by the second step and differing from the first only by inlining: the four functions that left the map still exist, with one caller each. Nothing else depended on it: drift check, quick group |
-| 2 | Correct F9's documents | Open | |
-| 3 | Remove `--apply` | Open | Its replacement, Test-EngineFields, is in |
+| 2 | Correct F9's documents | Tested | `dd1a626`. `controller-support.md` no longer offers it; check_links passes. No toggle, no new hook |
+| 3 | Remove `--apply` | Tested | `dd1a626`. From the installer, not from the project: deleting the code would have lost what checks the size values, the 4 GB flag's inputs and the inventory, so it is `build/kmrp/kmrp-reference.exe`, which ships nowhere. Four tests pass against it; Test-EngineFields' baseline unchanged; 778 lines and 53 KB left the installer |
 | 4 | Icon Size owns the skill icon | In-game | GUI-2 |
 | 5 | Preserve mod-authored layouts | Open | GUI-8 |
 | 6 | Add the six captions | Open | TST-04 |
-| 7 | Retire `vendor/` | Open | |
-| 8 | Keep the 3440 compare | Open | Files not yet compared |
+| 7 | Retire `vendor/` | Tested | `4db596f`. Credit in both files' first lines and `THIRD_PARTY_NOTICES.md`, with licence, permissions and table. The move changed 174 bytes of the module: its build hash and a 12 byte shift of globals |
+| 8 | Keep the 3440 compare | Kept | Compared at 3440x1440: `mipc210x7.gui` and `mipc28x6.gui` hold the same 111 controls, of which 110 differ. They are two layouts, the first hand-made for this size (a 400 wide name bar against 860, a 270 map against 120), so the compare at `0x0068C4E3` chooses a real thing. Removing it would change every 3440-wide HUD for no gain |
 
 ## F1 to F13
 

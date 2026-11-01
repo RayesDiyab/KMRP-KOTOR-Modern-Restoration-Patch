@@ -58,6 +58,23 @@ hides the bug these fixed.
 | [ ] | THR-1 | Fresh launch, KMRP's patch alone. From the main menu open Options, HUD Size. | The page opens without the 0.4 s stall of the first opening. |
 | [ ] | GUI-5 | Nothing to do unless a set's icons were ever missing. | If `kmrp-kpm.log` warns about icons, the next start tries again. |
 
+## 3b. Badges beside their captions (decision 6)
+
+**Controller only** at 1920x1080 and 3440x1440: each badge sits beside its caption, not far off to
+the left. With **KMRP + controller** they should look as they did before.
+
+| Done | Screen | Buttons |
+| --- | --- | --- |
+| [ ] | Galaxy map | Travel, Cancel |
+| [ ] | Name a save | OK, Cancel |
+| [ ] | Pazaak card selection | Add card, Play |
+
+## 3c. A mod's already-scaled screen (decision 5)
+
+| Done | Steps | Expected |
+| --- | --- | --- |
+| [ ] | Any mod whose `.gui` is already made for your size, for example a Scaled KOTOR screen, at that size. | Exactly as its author made it, gutters and list heights included. At another size it is converted, and the log says so. |
+
 ## 4. Display and drivers
 
 | Done | Finding | Steps | Expected |

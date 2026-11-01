@@ -117,6 +117,13 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: six hints have their wording (approved decision 6, audit TST-04)** (2026-11-01). Travel
+  and Cancel on the galaxy map, OK and Cancel naming a save, and Add card and Play setting up
+  Pazaak had no wording in the prompt table, so they baked a width of 0. Beside KMRP this changes
+  nothing, as the badge is placed from the caption the game shows. With the controller patch alone
+  three badges move: Cancel on the galaxy map and OK and Cancel naming a save. Each STRREF was read
+  from the button's own file and from `dialog.tlk`. The test's exception list for the six is gone.
+
 - **Fixed: a mod's already-scaled screen stays as its author made it (approved decision 5, audit
   GUI-8)** (2026-11-01). The rule said such a file, at its own size, was left exactly as its author
   left it, and it was not: KMRP's gutters, centred rows, Journal fit, row heights, popup and map box

@@ -253,7 +253,7 @@ installs.** KMRP's patch module embeds the same template
 it with the applier below, and commits the size-dependent fields again when the
 game changes resolution ([runtime experiment](../reverse-engineering/runtime-resolution-preview.md)).
 No `kmrp-kpm.dat` is written. The installer still embeds the template and
-`WindowsEnginePatch.cs` still specializes it, for `--apply`, the reference
+`WindowsEnginePatch.cs` still specializes it, for the reference tool `kmrp-reference.exe` (`--apply` until 2026-11-01), the reference
 executable the checks below compare.
 
 The installer embeds the template as `Kmrp.engine.source`.

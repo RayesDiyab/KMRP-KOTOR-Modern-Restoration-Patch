@@ -1007,6 +1007,15 @@ PROMPT_STRREFS = {
     ("saveload.gui", "BTN_SAVELOAD"): ((1587,), (1589,)),
     ("upgradesel.gui", "BTN_UPGRADEITEMS"): ((42295,),),
     ("upgradesel.gui", "BTN_BACK"): ((1582,),),
+    # The hints of 2026-10-28, each from the button's own TEXT.STRREF. Without a wording they
+    # baked a width of 0, and the badge stood up to 28 px from its caption with the controller
+    # patch alone (audit TST-04, approved decision 6).
+    ("galaxymap.gui", "BTN_ACCEPT"): ((48582,),),
+    ("galaxymap.gui", "BTN_BACK"): ((1581,),),
+    ("savename.gui", "BTN_OK"): ((1580,),),
+    ("savename.gui", "BTN_CANCEL"): ((1581,),),
+    ("pazaaksetup.gui", "BTN_YTEXT"): ((38601,),),
+    ("pazaaksetup.gui", "BTN_ATEXT"): ((32325,),),
 
     # The in-game tab screens. Every STRREF read from the button's own
     # TEXT.STRREF in the .gui, not guessed: the badge is placed against the
