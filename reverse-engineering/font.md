@@ -68,6 +68,9 @@ resolution-dependent levers — do not repurpose them as a scaling hook.
 
 ## Key functions
 
+(Both stubs below were removed on 2026-11-01, audit E-1: their constant had been 1.0 since font
+sizing moved to the TXI metrics. The addresses stay as the engine's.)
+
 - `0x004A1770`: `CAurFont::TextOutA`. `ecx` = `CAurFont*`. Reads
   `CAurFontInfo*` directly from `[ecx+0x18]`. 13-byte SEH prologue:
   `6A FF 68 5C 7E 71 00 64 A1 00 00 00 00`.

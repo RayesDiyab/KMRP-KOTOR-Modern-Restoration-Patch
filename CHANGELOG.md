@@ -117,6 +117,11 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Removed: engine patches that did nothing (audit E-1, E-2)** (2026-11-01). Two stubs at the entry
+  of the game's text drawing multiplied each font's metrics by 1.0, on every text draw path, and one
+  patched float had no reader left. KMRP now changes three fewer places in the game, and no page of
+  its engine code is writable any more. Nothing shown changes.
+
 - **New: a Save button on the Text Size and Font page, and HD Font sharp at a new size**
   (2026-11-01). Moving a Text Size slider stretched the atlas fitted to the size before, and the
   text stayed a little soft until the game restarted or the font was changed. Sliders still show a

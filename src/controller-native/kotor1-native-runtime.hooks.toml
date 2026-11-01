@@ -264,8 +264,8 @@ original_bytes = [0x6A, 0xFF, 0x64, 0xA1, 0x00, 0x00, 0x00, 0x00]
 source = "ecx"
 type = "pointer"
 
-# The old font recipe owns Draw's entry (0x45A850..0x45A856), then
-# restores ECX and returns here. Hook its original body, never that trampoline.
+# CAurGUIStringInternal::Draw, past its entry. Until 2026-11-01 the old font recipe's stub
+# held the entry, 0x45A850..0x45A856 (audit E-1), which is why this is not there.
 [[hooks]]
 address = 0x0045A857
 type = "detour"

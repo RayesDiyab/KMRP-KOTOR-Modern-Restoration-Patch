@@ -76,7 +76,7 @@ def build():
             if va < hook['address'] + len(hook['original_bytes']) and hook['address'] < va + len(old):
                 raise ValueError(f'Engine overlaps native hook at {va:08X}')
     data = bytearray(b'KMRPKPM2' + struct.pack('<IIII', 2, engine.BLOCK_VA, engine.BLOCK_SIZE, 11))
-    data += b''.join(struct.pack('<I', 0x40 if p == 2 else 0x20) for p in range(11))
+    data += b''.join(struct.pack('<I', 0x20) for p in range(11))
     block_at = len(data)
     block = bytearray(recipe.block)
     # The .kmn page's first word (VA 0x876000) enables Derslok's map-note table. It is

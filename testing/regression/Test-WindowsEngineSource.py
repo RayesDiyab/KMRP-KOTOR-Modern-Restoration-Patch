@@ -32,12 +32,12 @@ def main():
     args = parser.parse_args()
     template, recipe, fields, checked = engine.build()
     assert template == engine.build()[0], 'engine build is not deterministic'
-    assert recipe.lengths == {'.kmn':4094,'.kui':445,'.klb':110,'.kfs':482,'.kwl':17,
+    assert recipe.lengths == {'.kmn':4094,'.kui':445,'.klb':110,'.kfs':37,'.kwl':17,
                              '.ksc':45,'.kgs':74,'.ktn':42,'.kmz':181,'.kfg':155,'.kmv':116}
     # 457 since 2026-10-20: the movie fit's 16:9 area adds nine instructions to .kmv
     # and its exception for a movie as large as the screen five more (443 until then;
     # 452 in 4a1cd73, without the exception).
-    assert len(fields) == 46 and checked == 457
+    assert len(fields) == 33 and checked == 393
 
     # The movie display mode's operands, a second copy: the module leaves these size
     # fields alone when the feature is out (K1RuntimeEngine.cpp, FieldInForce). They must
@@ -57,10 +57,26 @@ def main():
     section = document.split('## 4. The 68 code and data runs')[1].split('Which document covers')[0]
     inventory = re.findall(r'\| `0x([0-9A-F]+)` \| `0x[0-9A-F]+` \| \d+ \| `([0-9a-f]+)` \| `([0-9a-f]+)`', section)
     assert len(inventory) == 68
+    # The three taken out on 2026-11-01 (audit E-1, E-2), which must now be the game's own:
+    # the stubs that multiplied font metrics by 1.0, and a float nothing reads.
+    removed = {0x45A850, 0x4A1770, 0x755788}
+    runs_at = {va for _, va, _, _ in recipe.runs()}
+    assert not removed & runs_at
     for va, old, new in inventory:
         at = int(va,16)
+        if at in removed:       # nothing of the recipe's on any of its bytes
+            assert not any(run < at + len(bytes.fromhex(old)) and at < run + len(was) for _, run, was, _ in recipe.runs()), hex(at)
+            continue
         assert bytes(recipe.original[at+i] for i in range(len(bytes.fromhex(old)))) == bytes.fromhex(old)
-        assert recipe.read(at,len(bytes.fromhex(new))) == bytes.fromhex(new)
+        wanted = new
+        # The list row's stub moved to the head of .kfs when the two before it went.
+        if at == 0x417992:
+            wanted = (b'\xe9' + struct.pack('<i', 0x86F008 - (at + 5)) + b'\x90' * 5).hex()
+        assert recipe.read(at,len(bytes.fromhex(wanted))) == bytes.fromhex(wanted), hex(at)
+    assert {int(va,16) for va, _, _ in inventory} & removed == removed
+    # No page both written and run: all eleven are read and execute.
+    words = struct.unpack_from('<11I', template, 24)
+    assert set(words) == {0x20}, words
 
     # The relocation proof must detect an omitted field, not only accept a full
     # table. Includes inbound jumps, outbound calls and internal absolute operands.
@@ -142,7 +158,7 @@ def main():
             applied_core, left, _ = kpm_data.moved(dat,0,1)
             assert all(f in (2, 8) for f,va,_,_ in dat['runs'] if any(va == v for v,_ in left))
             assert len(applied_core) < len(applied)
-    print(f'PASS: 68 historical runs, 11 pages, 46 relocations (including omissions), {len(sizes)} resolutions')
+    print(f'PASS: 68 historical runs, 11 pages, 33 relocations (including omissions), {len(sizes)} resolutions')
 
 
 if __name__ == '__main__':

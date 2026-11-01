@@ -1687,7 +1687,7 @@ memory and a bad key; the swoop tool's shift and 64-bit sums. `K1PictureKey.h` i
 | A Save button on the Text Size page, with a warning on closing unsaved (`K1TextOptions.cpp`, `docs/ingame-text-options.md`) | The Mac's text page should do the same. Check first whether it reloads the fitted atlases on a size change; the symptom is soft text until a restart or a change of font |
 | The six hints' wording (decision 6, TST-04) | The Mac's prompt table: Travel and Cancel on the galaxy map, OK and Cancel naming a save, Add card and Play setting up Pazaak |
 
-**Not for the Mac:** the rumble table's removal (R-1; the Mac never had one), the applier's old
+**Not for the Mac:** the font stubs and the unread float taken out of the engine recipe (E-1, E-2; `WINDOWS-PARITY.md` has the Mac's own), the rumble table's removal (R-1; the Mac never had one), the applier's old
 edition (E-3), the offscreen frame, and all of the installer's changes, which are in the table below.
 
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)

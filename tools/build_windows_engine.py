@@ -195,15 +195,14 @@ def assemble():
             recipe.hook(va, old, target)
     recipe.page(1, '.klb', lb)
 
-    font_page = bytearray(struct.pack('<ffI',1.0,1.75,0) + bytes(fonts.MAX_TRACKED_FONTS * 4))
-    scale_va = 0x86F000 + len(font_page)
-    font_page += fonts.build_scale_fontinfo(scale_va, 0x86F000)
-    for va, old, emit in [(fonts.TEXTOUTA_VA, fonts.TEXTOUTA_ORIGINAL, fonts.build_textout_stub),
-                          (fonts.DRAW_VA, fonts.DRAW_ORIGINAL, fonts.build_draw_stub),
-                          (fonts.LIST_ROW_VA, fonts.LIST_ROW_ORIGINAL, fonts.build_list_row_stub)]:
-        target = 0x86F000 + len(font_page)
-        font_page += emit(target, 0x86F004 if va == fonts.LIST_ROW_VA else scale_va)
-        recipe.hook(va, old, target)
+    # The row scale at 0x86F004, a size field, and the stub that reads it. Until 2026-11-01
+    # the page also held stubs at the entries of CAurFont::TextOutA and CAurGUIStringInternal::
+    # Draw that multiplied each font's metrics by a constant 1.0 (audit E-1), with a list of
+    # the fonts done, which alone made this the one writable page.
+    font_page = bytearray(struct.pack('<ff', 0.0, 1.75))
+    target = 0x86F000 + len(font_page)
+    font_page += fonts.build_list_row_stub(target, 0x86F004)
+    recipe.hook(fonts.LIST_ROW_VA, fonts.LIST_ROW_ORIGINAL, target)
     recipe.page(2, '.kfs', font_page)
     recipe.page(3, '.kwl', wrap.build_stub(0x870000))
     recipe.site(wrap.HOOK_VA, wrap.ORIGINAL, wrap.build_patch(0x870000))
@@ -248,7 +247,7 @@ def build():
     fields, checked = relocations(recipe)
     data = bytearray(b'KMRPSRC1' + u32(1) + u32(BLOCK_VA) + u32(BLOCK_SIZE) + u32(11))
     for index in range(11):
-        data += u32(0x40 if index == 2 else 0x20)
+        data += u32(0x20)
     data += recipe.block
     runs = recipe.runs()
     data += u32(len(runs))

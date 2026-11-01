@@ -148,7 +148,7 @@ States: **done** (behaves as on Windows, checked as stated), **to port**, **n/a*
 
 | Windows | What | Mac |
 | --- | --- | --- |
-| `.kfs` font floats, `0x0045A850`, `0x004A1770` | runtime font scaling (inert since the atlases carry the size) | **done** as "off": with `UseGuiFileLayouts=1` the widescreen patch scales no font; KMRP's atlases carry the size |
+| `.kfs` font floats, `0x0045A850`, `0x004A1770` | removed on Windows too, 2026-11-01. Runtime font scaling (inert since the atlases carry the size) | **done** as "off": with `UseGuiFileLayouts=1` the widescreen patch scales no font; KMRP's atlases carry the size |
 | `0x006A74D4` … `0x006A8E1D` (8 runs, `font.md`) | dialogue letterbox bars `H/6` and the reply box (`.klb` trampolines) | **done**: K7, the same `H/6` bar through the `2H/3` aspect float in the widescreen patch, and `LB_REPLIES` stretched to the reply panel (by KMRP's layout patch since 2026-09-30, `dialogue_replies.cpp`, when the widescreen patch dropped its hook). *Corrected 2026-09-29:* listed here as "text placement inside controls" and marked **check**; `font.md` places these runs under the letterbox, not text placement |
 | `0x00415E0D`, `.ktn` | leading newline | **done**: K3 |
 | `0x0045A5E0`, `.kwl`, `0x0045A3B7`, `0x0045A3DC` | word-wrap progress, short-string guards | **done**: K1 |

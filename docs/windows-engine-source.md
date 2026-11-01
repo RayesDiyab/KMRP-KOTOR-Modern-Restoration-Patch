@@ -51,6 +51,8 @@ section*). The 81 above was not updated when two guards were added on 2026-10-09
 (commit `da12c81`: the message popup's widening step at `0x006256FC` and the store
 row's stack-count label at `0x006C2704`), which made 83.
 
+*Since 2026-11-01 (audit E-1, E-2):* **84 runs, 33 relocations and 393 instructions**, every page read and execute. Three runs left the recipe: the stubs at `0x0045A850` and `0x004A1770`, which multiplied each font's metrics by a constant 1.0 with a list of fonts done, and the float at `0x00755788`, whose five readers (`0x006A74E0`, `0x006A7572`, `0x006A7951`, `0x006A7B6A`, `0x006A7F4F`) are all inside bytes other runs replace (scanned on the clean executable). The list of fonts was the only reason `.kfs` was writable. The list-row stub moved to the head of the page, so the run at `0x00417992` jumps to `0x0086F008`. The numbers below are as they stood before.
+
 *Later on 2026-10-20 (after `4a1cd73`; counted from `build()` in memory):* **87 runs**
 covering **855** guarded bytes, and `windows-sites.json` has 70 records. The three new
 runs are feature 8: the third pair of movie display-mode operands, `0x00403EAD` and
@@ -68,7 +70,7 @@ module allocates them elsewhere and relocates references at runtime.
 | --- | --- | --- | --- |
 | `.kui` | `0x0086D000` | 445 | `build_map_icon_draw_wrapper`, `build_hit_test_center_fix`, `build_minimap_split_candidate`, `build_map_note_table` |
 | `.klb` | `0x0086E000` | 110 | `build_letterbox_scale_wrapper` |
-| `.kfs` | `0x0086F000` | 482 | `build_font_scale_wrapper` |
+| `.kfs` | `0x0086F000` | 37 | `build_font_scale_wrapper` |
 | `.kwl` | `0x00870000` | 17 | `build_wrap_progress_fix` |
 | `.ksc` | `0x00871000` | 45 | `build_stack_count_fix` |
 | `.kgs` | `0x00872000` | 74 | `build_gutter_side_fix` |
@@ -165,7 +167,7 @@ edit to the disk executable.
 | `0x0040BA6C` | `0x00BA6C` | 4 | `80fdffff` | `90f2ffff` | Core |
 | `0x0040BA83` | `0x00BA83` | 4 | `20feffff` | `60faffff` | Core |
 | `0x00415E0D` | `0x015E0D` | 5 | `8b465085c0` | `e9eed14500` | Core |
-| `0x00417992` | `0x017992` | 10 | `8b400c89410c8b4c246c` | `e92e7845009090909090` | Core |
+| `0x00417992` | `0x017992` | 10 | `8b400c89410c8b4c246c` | `e9717645009090909090` | Core |
 | `0x0041A2F2` | `0x01A2F2` | 15 | `8d043f2bc885db897c241c894c2424` | `e92d7d450090909090909090909090` | Core |
 | `0x0041B1C4` | `0x01B1C4` | 1 | `03` | `8b` | Core |
 | `0x0041B26B` | `0x01B26B` | 1 | `03` | `8b` | Core |
@@ -180,8 +182,6 @@ edit to the disk executable.
 | `0x0045A3B7` | `0x05A3B7` | 6 | `0f8c7f040000` | `909090909090` | Core |
 | `0x0045A3DC` | `0x05A3DC` | 6 | `0f8c5a040000` | `909090909090` | Core |
 | `0x0045A5E0` | `0x05A5E0` | 16 | `8b46144b3bd8894c24100f8444020000` | `4b3b5c2418894c24107705e9105a4100` | Core |
-| `0x0045A850` | `0x05A850` | 7 | `83ec4c894c2404` | `e9454941009090` | Core |
-| `0x004A1770` | `0x0A1770` | 13 | `6aff685c7e710064a100000000` | `e903da3c009090909090909090` | Core |
 | `0x005F0C65` | `0x1F0C65` | 4 | `20030000` | `700d0000` | Core |
 | `0x005F0C6F` | `0x1F0C6F` | 4 | `58020000` | `a0050000` | Core |
 | `0x005F5B3B` | `0x1F5B3B` | 12 | `80020000c7442410e0010000` | `700d0000c7442410a0050000` | Movie mode (8; Movies until 2026-10-20) |
@@ -238,7 +238,6 @@ edit to the disk executable.
 | `0x006DE08E` | `0x2DE08E` | 6 | `83e91e83c01e` | `83e91e83c01e` | Core |
 | `0x006DE0D1` | `0x2DE0D1` | 13 | `90909090909090909090909090` | `90909090909090909090909090` | Core |
 | `0x0075477C` | `0x35477C` | 4 | `00336900` | `00d18600` | Core |
-| `0x00755788` | `0x355788` | 3 | `b96ddb` | `254992` | Core |
 
 To regenerate these rows, import `tools/build_windows_engine.py` and print
 `assemble().runs()`; the regression compares the original and replacement

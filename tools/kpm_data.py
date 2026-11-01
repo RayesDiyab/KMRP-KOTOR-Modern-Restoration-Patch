@@ -239,17 +239,10 @@ def memory(dat, features: int) -> int:
         if read(va, len(orig)) != orig:
             print(f"  run {va:#010x} was left out but is not the unmodified game's")
             bad += 1
-    # .kfs is the one writable section because its code keeps state in its own page:
-    # a count and a 64-slot table of fonts already scaled, which the game fills as it
-    # runs (tools/build_font_scale_wrapper.py). Those bytes are the game's, not the
-    # data file's; every other block byte must be exactly as applied.
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
-    import build_font_scale_wrapper as kfs                    # noqa: E402
-    kfs_va = 0x0086F000
-    live = range(kfs_va + kfs.OFF_DEDUP_COUNT - dat["block_va"],
-                 kfs_va + kfs.OFF_SCALE_FN - dat["block_va"])
+    # Every block byte must be exactly as applied: no page has been writable since
+    # 2026-11-01 (audit E-1), when .kfs lost its table of fonts already scaled.
     memory_block = read(base, len(block))
-    wrong = [i for i in range(len(block)) if memory_block[i] != block[i] and i not in live]
+    wrong = [i for i in range(len(block)) if memory_block[i] != block[i]]
     if wrong:
         print(f"  the block at {base:#010x} is not as applied at "
               f"{len(wrong)} bytes, first gold VA {dat['block_va'] + wrong[0]:#010x}")

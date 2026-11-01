@@ -50,7 +50,7 @@ namespace Kmrp
                 for (int i = 0; i < protections.Length; i++)
                 {
                     protections[i] = reader.ReadUInt32();
-                    if (protections[i] != (i == 2 ? 0x40u : 0x20u))
+                    if (protections[i] != 0x20u)
                         throw new InvalidDataException("The Windows engine patch protections are damaged.");
                 }
                 Buffer.BlockCopy(Read(reader, BlockSize), 0, workspace, BlockOffset, BlockSize);
@@ -196,7 +196,7 @@ namespace Kmrp
             string[] names = { ".kui", ".klb", ".kfs", ".kwl", ".ksc", ".kgs", ".ktn", ".kmz", ".kfg", ".kmn", ".kmv" };
             // .kmv: 116 since 2026-10-20, the movie fit's 16:9 area and its exception for a
             // movie as large as the screen (81 until then; 104 in 4a1cd73, without the exception).
-            int[] used = { 445, 110, 482, 17, 45, 74, 42, 181, 155, 4094, 116 };
+            int[] used = { 445, 110, 37, 17, 45, 74, 42, 181, 155, 4094, 116 };
             for (int i = 0; i < names.Length; i++)
             {
                 int at = table + (sections + i) * 40;
@@ -207,7 +207,7 @@ namespace Kmrp
                 ResolutionPatch.WriteInt32(image, at + 12, checked((int)(BlockVa - 0x400000)) + i * 0x1000);
                 ResolutionPatch.WriteInt32(image, at + 16, 0x1000);
                 ResolutionPatch.WriteInt32(image, at + 20, BlockOffset + i * 0x1000);
-                ResolutionPatch.WriteInt32(image, at + 36, unchecked((int)(i == 2 ? 0xE0000020u : 0x60000020u)));
+                ResolutionPatch.WriteInt32(image, at + 36, unchecked((int)(0x60000020u)));
             }
             return image;
         }

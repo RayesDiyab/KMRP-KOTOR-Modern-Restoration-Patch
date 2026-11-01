@@ -65,7 +65,7 @@
     {
       "va": "00417992",
       "original": "8b400c89410c8b4c246c",
-      "replacement": "e92e7845009090909090"
+      "replacement": "e9717645009090909090"
     },
     {
       "va": "0041A2F2",
@@ -136,16 +136,6 @@
       "va": "0045A5E0",
       "original": "8b46144b3bd8894c24100f84440200",
       "replacement": "4b3b5c2418894c24107705e9105a41"
-    },
-    {
-      "va": "0045A850",
-      "original": "83ec4c894c2404",
-      "replacement": "e9454941009090"
-    },
-    {
-      "va": "004A1770",
-      "original": "6aff685c7e710064a100000000",
-      "replacement": "e903da3c009090909090909090"
     },
     {
       "va": "005F0C65",
@@ -351,11 +341,6 @@
       "va": "0075477D",
       "original": "3369",
       "replacement": "d186"
-    },
-    {
-      "va": "00755788",
-      "original": "b96ddb",
-      "replacement": "254992"
     }
   ]
 }

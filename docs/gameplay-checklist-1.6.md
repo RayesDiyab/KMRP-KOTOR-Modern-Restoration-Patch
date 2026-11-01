@@ -117,6 +117,13 @@ the left. With **KMRP + controller** they should look as they did before.
 | [ ] | GUI-9. Controller on, on a screen with badges: change Text Size up and down, go back to the screen. | If a badge stands too far from or over its caption, the finding is real and gets its fix. |
 | [ ] | GFX-06. Only if convenient: Anti-aliasing 8, `Debug` level 2, two minutes of play, then look for the line counting reads against swaps in `KMRP\logs\kmrp-kpm.log`. | Many reads a swap would make it worth resolving only the part read. |
 
+## 9a. Text after the engine clean-up (audit E-1, E-2)
+
+| Done | Steps | Expected |
+| --- | --- | --- |
+| [ ] | Main menu, a dialogue with subtitles, a store, the journal, the map, a save list. | All text as before, in both fonts, with no crash on any of it. |
+| [ ] | A dialogue from its first line to its end, with bars at the top and bottom. | The bars and the replies stand where they did. |
+
 ## 10. Display and drivers
 
 | Done | Finding | Steps | Expected |
