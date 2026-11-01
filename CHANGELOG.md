@@ -117,6 +117,26 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Build: the native modules are cached too** (2026-11-01). The step that builds KPM's runtime,
+  both modules and their patches took 80 to 140 s of every build, even when only the installer's
+  C# had changed. It is now skipped when nothing it depends on has changed, and an unchanged or
+  C#-only build takes 17 s instead of about 90 s. Its fingerprint holds the contents of every
+  native source, header, build script and hook table, so every compiler and linker flag; the
+  tools that generate source and step 2's engine output; SDL3, `third_party`, the art, fonts and
+  texture pack; the toolchain (`tools/toolchain_identity.cmd`: MSVC and SDK versions, include
+  and library paths, `CL`, `_CL_`, `LINK`, `_LINK_`, and the hashes of `cl`, `link` and the
+  compiler's DLLs); and the Python version and every package. The stamp also holds a hash of
+  the step's outputs, so a module deleted, swapped or damaged at the same size and time is
+  rebuilt, and it is removed before the work starts, so a failed run leaves none. `-FreshModules`
+  forces the step. Test-BuildCache (`--group build`, 28 minutes) changes each of these and runs
+  a build: a C# change skips native compilation and leaves the module unwritten, and a shared
+  header, a build script, the sites that generate `NativeEngine.generated.h`, the hook table,
+  the `CL` variable, a deleted module and a damaged one each run it. With the step's folders
+  moved aside, a clean build makes all 12 outputs byte for byte as the cached build had them,
+  and the cached installer carries the clean patches. The clean build is of this step only:
+  the interface resources and fonts came from their own cache. A Python tool is counted but
+  not changed by the test, as `tools\` also invalidates the resources, half an hour of work.
+
 - **Testing: a pad badge keeps its shape, checked again (audit TST-03)** (2026-11-01). The GUI
   audit stopped looking at badges when the run-time rule replaced fixed art, which is what took
   its count from 1,651 to 1,269: a lost check, no fix. Test-BadgeShape compiles `K1UniformBadge`

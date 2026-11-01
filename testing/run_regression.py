@@ -61,6 +61,8 @@ TESTS = {
     "Test-AssetPack": ("quick", cmd("Test-AssetPack"), [], ""),
     "Test-AssetPrepare": ("full", py("Test-AssetPrepare"), [], ""),
     "Test-BadgeShape": ("quick", py("Test-BadgeShape"), [], ""),
+    # Rebuilds KMRP about a dozen times, so only when asked for by name or group.
+    "Test-BuildCache": ("build", ps("Test-BuildCache"), [], ""),
     "Test-ButtonRemap": ("quick", py("Test-ButtonRemap"), [], ""),
     "Test-ClassModelTrace": ("quick", py("Test-ClassModelTrace"), [], ""),
     "Test-ControllerGlyphs": ("full", py("Test-ControllerGlyphs"), [], ""),
@@ -164,7 +166,7 @@ def run(name, folder, timeout):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument("--group", action="append", choices=("quick", "full", "settings", "mac"))
+    parser.add_argument("--group", action="append", choices=("quick", "full", "settings", "mac", "build"))
     parser.add_argument("--only", nargs="+", metavar="TEST")
     parser.add_argument("--name", default=time.strftime("%Y%m%d-%H%M%S"))
     parser.add_argument("--jobs", type=int, default=4)
@@ -186,8 +188,8 @@ def main():
         names = [n for n, row in TESTS.items() if row[0] in groups]
     folder = ROOT / "build" / "test-results" / args.name
     folder.mkdir(parents=True, exist_ok=True)
-    together = [n for n in names if TESTS[n][0] != "settings" and n not in ONE_AT_A_TIME]
-    alone = [n for n in names if TESTS[n][0] == "settings" or n in ONE_AT_A_TIME]
+    together = [n for n in names if TESTS[n][0] not in ("settings", "build") and n not in ONE_AT_A_TIME]
+    alone = [n for n in names if TESTS[n][0] in ("settings", "build") or n in ONE_AT_A_TIME]
     results = []
     with concurrent.futures.ThreadPoolExecutor(args.jobs) as pool:
         for result in pool.map(lambda n: run(n, folder, args.timeout), together):

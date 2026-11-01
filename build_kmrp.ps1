@@ -23,6 +23,8 @@ param(
     # Regenerates step 3 even when its inputs are unchanged (the fingerprint below
     # normally decides; this is for a doubt, not for everyday builds).
     [switch]$FreshResources,
+    # The same for step 6, the runtime, both modules and their patches.
+    [switch]$FreshModules,
 
     # Progress is drawn with a redrawing bar. Pass -Plain for one line per event
     # instead, which is what you want when piping the build to a file or a log.
@@ -451,12 +453,97 @@ Write-Host ("    version {0}, matching Properties -> Details" -f $patchVersion) 
 # ---------------------------------------------------------------- 6. KPM runtime and patches
 # Build the runtime and KMRP's module from their tracked sources, then package the
 # patch. No game executable or prebuilt module is an input.
-Start-Step "Building KOTOR Patch Manager's runtime and KMRP's patch"
 $kpmRuntimeDir = Join-Path $projectRoot "build\kpm-runtime"
 $kpmSubmodule = Join-Path $projectRoot "third_party\Kotor-Patch-Manager"
 if (-not (Test-Path -LiteralPath (Join-Path $kpmSubmodule "src\KotorPatcher\src\core\patcher.cpp"))) {
     throw "KOTOR Patch Manager is missing at $kpmSubmodule. Run: git submodule update --init"
 }
+$nativeDir = Join-Path $projectRoot "build\native-runtime"
+$nativePack = Join-Path $nativeDir "kmrp-assets.pack"
+$kpmDir = Join-Path $buildDir "kpm-patches"
+$kpmConfigDir = Join-Path $buildDir "kpm-config"
+$controllerName = "KOTOR 1 Native Controller Mod + Xbox HUD.kpatch"
+$controllerDist = Join-Path $distDir "controller"
+$highFpsKpatch = Join-Path $projectRoot "third_party\Included\HighFpsFixes-1.0.1 by D3M0\HighFpsFixes.kpatch"
+$emptyContainersKpatch = Join-Path $projectRoot "third_party\Included\K1MarkedEmptyContainers-1.0.0 by ShaeMyName\K1MarkedEmptyContainers.kpatch"
+$driverCompatKpatch = Join-Path $projectRoot "third_party\Included\k1-modern-driver-compatibility-2.0.1 by Synchro\k1-modern-driver-compatibility.kpatch"
+
+# Cached like the resources (2026-11-01, the maintainer asked): this step took 80 to 140
+# seconds of a two-minute build, and it ran when only the installer's C# had changed. It
+# reads what is listed here and not src\patcher, whose source is compiled in step 7; the
+# folders were traced from the imports of the tools it runs and the scripts it calls,
+# and neither those tools nor the module's source read the clock or, bar KMRP_TEXTURE_PACK,
+# the environment. What the compiled files depend on, and where each is counted:
+#   sources, headers, the build scripts and so every compiler and linker flag, the .def
+#   and hook tables   their files' contents ($moduleSources)
+#   what is generated from those   the tools that do it (tools\, by code) and step 2's output
+#   dependencies   SDL3 (build\deps), third_party, the art, the fonts, the texture pack
+#   the compiler   the versions, paths and option variables tools\toolchain_identity.cmd
+#                  prints, and the hashes of cl, link and the compiler's own DLLs
+#   Python         its version and every installed package's
+# Its output counts too: the stamp holds a hash of everything the step makes, so a module
+# built by hand or swapped in for a test (build_native_runtime.cmd alone), or one a disk
+# damaged, is never taken for this step's own. The stamp goes before the work starts, so a
+# run that fails leaves none, even for inputs that are then put back.
+# Test-BuildCache.ps1 changes each of these and compares a cached build with a clean one.
+$moduleStamp = Join-Path $buildDir "modules.inputs.sha256"
+$moduleOutputs = @(
+    (Join-Path $kpmRuntimeDir "KotorPatcher.dll"), (Join-Path $kpmRuntimeDir "binkw32.dll"),
+    (Join-Path $nativeDir "kmrp-native.dll"), $nativePack,
+    (Join-Path $projectRoot "build\controller-standalone\kmrp-controller.dll"),
+    (Join-Path $kpmDir "KMRP.kpatch"), (Join-Path $kpmDir $controllerName),
+    (Join-Path $kpmDir "kmrp-controller.verification.json"),
+    (Join-Path $kpmConfigDir "kmrp.hooks.toml"), (Join-Path $kpmConfigDir "kmrp-controller.hooks.toml"),
+    (Join-Path $kpmConfigDir "high-fps-fixes.hooks.toml"), (Join-Path $kpmConfigDir "k1-marked-empty-containers.hooks.toml"),
+    (Join-Path $kpmConfigDir "k1-modern-driver-compatibility.hooks.toml"),
+    (Join-Path $controllerDist $controllerName), (Join-Path $controllerDist "verification.json"))
+$toolchain = @(& cmd.exe /d /c (Join-Path $projectRoot "tools\toolchain_identity.cmd") 2>$null)
+if ($LASTEXITCODE -ne 0) { throw "tools\toolchain_identity.cmd failed" }
+$compilerFiles = New-Object System.Collections.Generic.List[string]
+foreach ($line in $toolchain) {
+    if ($line -notmatch '\\(cl|link)\.exe$') { continue }
+    $compilerFiles.Add($line)
+    foreach ($part in @("c1.dll", "c1xx.dll", "c2.dll")) {
+        $compilerFile = Join-Path (Split-Path -Parent $line) $part
+        if (Test-Path -LiteralPath $compilerFile) { $compilerFiles.Add($compilerFile) }
+    }
+}
+if ($compilerFiles.Count -lt 2) { throw "tools\toolchain_identity.cmd named no compiler" }
+$pythonPackages = (& $Python -c "import importlib.metadata as m; print(sorted(d.name + '==' + d.version for d in m.distributions()))" 2>$null) -join " "
+# By content, not by size and time: a file put back with its old time still counts.
+$moduleSources = New-Object System.Collections.Generic.List[string]
+foreach ($folder in @("src\controller-native", "src\engine", "src\kpm-runtime", "macos\tools",
+                      "third_party\Kotor-Patch-Manager\src\KotorPatcher", "third_party\Kotor-Patch-Manager\src\KProxy",
+                      "third_party\lzma-sdk")) {
+    foreach ($item in Get-ChildItem -LiteralPath (Join-Path $projectRoot $folder) -Recurse -File -Force) {
+        $moduleSources.Add($item.FullName)
+    }
+}
+$moduleFingerprint = Get-InputFingerprint -Paths (@($moduleSources) + @($compilerFiles) + @(
+    (Join-Path $projectRoot "tools"), (Join-Path $projectRoot "assets"), (Join-Path $projectRoot "fonts"),
+    (Join-Path $projectRoot "third_party"), (Join-Path $projectRoot "build-inputs"),
+    (Join-Path $projectRoot "build\deps"), (Join-Path $projectRoot "build\fonts"),
+    $resourceDir, $blendTable, $engineSource, $resolvedTexturePack,
+    (Join-Path $projectRoot "LICENSE"), (Join-Path $projectRoot "THIRD_PARTY_NOTICES.md"),
+    (Join-Path $projectRoot "build_kmrp.ps1"))) -Extra (@("python $pythonVersion", "packages $pythonPackages",
+    "version $patchVersion") + $toolchain)
+$modulesCurrent = (-not $FreshModules) -and (Test-Path -LiteralPath $moduleStamp -PathType Leaf)
+foreach ($output in $moduleOutputs) {
+    if (-not (Test-Path -LiteralPath $output -PathType Leaf)) { $modulesCurrent = $false }
+}
+$moduleState = ""
+if ($modulesCurrent) {
+    $moduleState = $moduleFingerprint + " " + (Get-InputFingerprint -Paths $moduleOutputs)
+    $modulesCurrent = Test-StepCurrent $moduleStamp $moduleState
+}
+foreach ($retiredKpmDir in @((Join-Path $distDir "KMRP for KPM"), (Join-Path $distDir "KPM patches"))) {
+    if (Test-Path -LiteralPath $retiredKpmDir) { Remove-Item -LiteralPath $retiredKpmDir -Recurse -Force }
+}
+if ($modulesCurrent) {
+    Write-Host "  [cached] Runtime, modules and patches: inputs and outputs unchanged" -ForegroundColor DarkGreen
+} else {
+Remove-Item -LiteralPath $moduleStamp -Force -ErrorAction SilentlyContinue
+Start-Step "Building KOTOR Patch Manager's runtime and KMRP's patch"
 Invoke-Tool -Exe "cmd.exe" -Label "runtime" -FailureMessage "Building KOTOR Patch Manager's runtime failed (src\kpm-runtime\build.cmd)" `
     -Arguments @("/c", (Join-Path $projectRoot "src\kpm-runtime\build.cmd"))
 
@@ -465,8 +552,6 @@ Invoke-Tool -Exe "cmd.exe" -Label "runtime" -FailureMessage "Building KOTOR Patc
 # rebuilt whenever the resources were (it is skipped only with -ReuseResources and a
 # pack already there), since build_native_runtime.cmd itself builds one only when none
 # exists. Until 2026-10-19 the art was a bank inside the module (native-assets.bin).
-$nativeDir = Join-Path $projectRoot "build\native-runtime"
-$nativePack = Join-Path $nativeDir "kmrp-assets.pack"
 # The module's art pack (tools\build_native_assets.py, about three minutes) was deleted
 # here on every build so the module script made it again. Now it is kept while
 # everything it is made from is unchanged: the resolution archives and the blend table,
@@ -501,14 +586,9 @@ try {
 # where KPM finds it (KpmEditionOperations.DeliverKpatches); its --export-kpm-patches
 # writes it out for sharing. One patch since 2026-10-04; until then four, built by
 # tools\build_kpatch.py (removed), with a data file and the Override files beside them.
-$kpmDir = Join-Path $buildDir "kpm-patches"
 New-Item -ItemType Directory -Force -Path $kpmDir | Out-Null
-foreach ($retiredKpmDir in @((Join-Path $distDir "KMRP for KPM"), (Join-Path $distDir "KPM patches"))) {
-    if (Test-Path -LiteralPath $retiredKpmDir) { Remove-Item -LiteralPath $retiredKpmDir -Recurse -Force }
-}
 # The patch is this build's alone: an earlier build's files would sit beside it.
 Get-ChildItem -LiteralPath $kpmDir -Filter "*.kpatch" -File | Remove-Item -Force
-$kpmConfigDir = Join-Path $buildDir "kpm-config"
 Get-ChildItem -LiteralPath $kpmConfigDir -Filter "*.toml" -File -ErrorAction SilentlyContinue | Remove-Item -Force
 Invoke-Tool -Exe $Python -Label "kpatch" -FailureMessage "Building KMRP's patch failed" -Arguments @(
     (Join-Path $projectRoot "tools\build_native_kpatch.py"), "--module",
@@ -527,15 +607,12 @@ Invoke-Tool -Exe $Python -Label "controller kpatch" -FailureMessage "Building th
 # Test-ControllerKpatch.py reads. Copied here so the two cannot differ: until
 # 2026-10-08 dist\controller was written only by running the tool by hand, and a
 # build left it holding an older patch than the installer carried.
-$controllerName = "KOTOR 1 Native Controller Mod + Xbox HUD.kpatch"
-$controllerDist = Join-Path $distDir "controller"
 New-Item -ItemType Directory -Force -Path $controllerDist | Out-Null
 Copy-Item -LiteralPath (Join-Path $kpmDir $controllerName) -Destination (Join-Path $controllerDist $controllerName) -Force
 Copy-Item -LiteralPath (Join-Path $kpmDir "kmrp-controller.verification.json") -Destination (Join-Path $controllerDist "verification.json") -Force
 # D3M0's High FPS Fixes (MIT), carried as its author released it and installed only
 # while High FPS Fix is on in Advanced Settings: its hooks as patch_config.toml blocks,
 # after it has been held against both of KMRP's patches and the engine recipe.
-$highFpsKpatch = Join-Path $projectRoot "third_party\Included\HighFpsFixes-1.0.1 by D3M0\HighFpsFixes.kpatch"
 Invoke-Tool -Exe $Python -Label "High FPS Fixes" -FailureMessage "The bundled High FPS Fixes patch cannot be installed beside KMRP" -Arguments @(
     (Join-Path $projectRoot "tools\build_bundled_kpatch_config.py"), $highFpsKpatch,
     "--config-dir", $kpmConfigDir, "--id", "high-fps-fixes")
@@ -543,7 +620,6 @@ Invoke-Tool -Exe $Python -Label "High FPS Fixes" -FailureMessage "The bundled Hi
 # release ships it (KPM's repository, MIT), installed while Marked Empty Containers is
 # on in Advanced Settings, the default (issue 43): one replace hook and no module, held
 # against both of KMRP's patches and the engine recipe like the patch above.
-$emptyContainersKpatch = Join-Path $projectRoot "third_party\Included\K1MarkedEmptyContainers-1.0.0 by ShaeMyName\K1MarkedEmptyContainers.kpatch"
 Invoke-Tool -Exe $Python -Label "Marked Empty Containers" -FailureMessage "The bundled Marked Empty Containers patch cannot be installed beside KMRP" -Arguments @(
     (Join-Path $projectRoot "tools\build_bundled_kpatch_config.py"), $emptyContainersKpatch,
     "--config-dir", $kpmConfigDir, "--id", "k1-marked-empty-containers")
@@ -552,11 +628,13 @@ Invoke-Tool -Exe $Python -Label "Marked Empty Containers" -FailureMessage "The b
 # KOTOR Patch Manager's proxy loads it, so it needs no Wine override under Proton (issue
 # 44). Until 2026-10-31 the installer wrote its standalone dinput8.dll and .asi instead,
 # which it still does on Windows 7 and 8, with its author's build for them (step 7).
-$driverCompatKpatch = Join-Path $projectRoot "third_party\Included\k1-modern-driver-compatibility-2.0.1 by Synchro\k1-modern-driver-compatibility.kpatch"
 Invoke-Tool -Exe $Python -Label "Modern Driver Compatibility" -FailureMessage "The bundled K1 Modern Driver Compatibility patch cannot be installed beside KMRP" -Arguments @(
     (Join-Path $projectRoot "tools\build_bundled_kpatch_config.py"), $driverCompatKpatch,
     "--config-dir", $kpmConfigDir, "--id", "k1-modern-driver-compatibility")
+$moduleState = $moduleFingerprint + " " + (Get-InputFingerprint -Paths $moduleOutputs)
+Set-Content -LiteralPath $moduleStamp -Value $moduleState -Encoding ascii
 Complete-Step
+}
 
 # ---------------------------------------------------------------- 7. the installer
 Start-Step "Compiling the installer"
