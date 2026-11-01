@@ -117,6 +117,17 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Safety fixes from the audit** (2026-11-01). A mod's `.gui` holding a structure that reaches
+  itself overflowed the stack (GUI-1): the clone now stops at KMRP's GFF editor's limits of
+  depth 12 and 4,096 structures, and Test-ModCompatibility's fixture crashes the old code with
+  `0xC00000FD`. An allocation failing on a background thread no longer ends the game (THR-3).
+  The pointer check reaches the top of a large-address game's space, as objects can live above
+  2 GB on CD and GOG (MEM-01). A dead HUD's pointer no longer stays for the next interaction
+  (MEM-02). A very long game folder fails a path politely instead of ending the process
+  (MEM-03): `KmrpAppendPath` replaces `wcscat_s`, whose overflow calls the C runtime's handler.
+  The applier puts back a run whose read-back differed (MEM-05), and a hot patch's real pointer
+  is set before its jump goes live (GFX-02). Not seen in a game.
+
 - **Fixed: a failed preparation stops instead of repeating (audit THR-2), and the controller's
   folder works for any user name** (2026-11-01). KMRP's and the controller's resource hooks run
   on every resource lookup and only stopped on success, so a full disk, a folder that could

@@ -791,7 +791,7 @@ const HudSizes& Sizes()
     wchar_t path[MAX_PATH];
     const DWORD n = GetModuleFileNameW(nullptr, path, MAX_PATH);
     wchar_t* slash = n && n < MAX_PATH ? wcsrchr(path, L'\\') : nullptr;
-    if (!slash || wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), L"swkotor.ini")) return sizes;
+    if (!slash || !KmrpSetFileName(path, slash, L"swkotor.ini")) return sizes;
     WIN32_FILE_ATTRIBUTE_DATA data{};
     if (!GetFileAttributesExW(path, GetFileExInfoStandard, &data) || !CompareFileTime(&data.ftLastWriteTime, &written))
         return sizes;

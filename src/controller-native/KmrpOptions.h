@@ -27,9 +27,28 @@ inline wchar_t* KmrpGameFolderNamed()
     return folder;
 }
 
+// `text` added to `path`, or false when it does not fit. wcscat_s cannot say so: too long, it
+// calls the C runtime's invalid-parameter handler, which ends the process, so a game folder of
+// some 220 characters ended the game at the first log line (audit MEM-03).
+inline bool KmrpAppendPath(wchar_t (&path)[MAX_PATH], const wchar_t* text)
+{
+    const std::size_t have = std::wcslen(path), add = std::wcslen(text);
+    if (have + add >= MAX_PATH) return false;
+    std::wmemcpy(path + have, text, add + 1);
+    return true;
+}
+
+// `name` put after `slash`, a separator inside `path`.
+inline bool KmrpSetFileName(wchar_t (&path)[MAX_PATH], wchar_t* slash, const wchar_t* name)
+{
+    slash[1] = 0;
+    return KmrpAppendPath(path, name);
+}
+
 inline bool KmrpGameFolder(wchar_t (&path)[MAX_PATH])
 {
-    if (*KmrpGameFolderNamed()) return !wcscpy_s(path, KmrpGameFolderNamed());
+    path[0] = 0;
+    if (*KmrpGameFolderNamed()) return KmrpAppendPath(path, KmrpGameFolderNamed());
     const DWORD n = GetModuleFileNameW(nullptr, path, MAX_PATH);
     wchar_t* slash = n && n < MAX_PATH ? std::wcsrchr(path, L'\\') : nullptr;
     if (!slash) return false;
@@ -40,7 +59,7 @@ inline bool KmrpGameFolder(wchar_t (&path)[MAX_PATH])
 // `path` set to the file `name` in the game's folder.
 inline bool KmrpGamePath(wchar_t (&path)[MAX_PATH], const wchar_t* name)
 {
-    return KmrpGameFolder(path) && !wcscat_s(path, L"\\") && !wcscat_s(path, name);
+    return KmrpGameFolder(path) && KmrpAppendPath(path, L"\\") && KmrpAppendPath(path, name);
 }
 
 // KMRP's own files are in one folder in the game's, KMRP, since 2026-10-20 (the
@@ -55,9 +74,9 @@ inline bool KmrpLogPath(wchar_t (&path)[MAX_PATH], const wchar_t* name)
 {
     if (!KmrpGamePath(path, L"KMRP")) return false;
     CreateDirectoryW(path, nullptr);
-    if (wcscat_s(path, L"\\logs")) return false;
+    if (!KmrpAppendPath(path, L"\\logs")) return false;
     CreateDirectoryW(path, nullptr);
-    return !wcscat_s(path, L"\\") && !wcscat_s(path, name);
+    return KmrpAppendPath(path, L"\\") && KmrpAppendPath(path, name);
 }
 
 // The log `name` in KMRP\logs opened to append to, or null.
@@ -84,7 +103,7 @@ inline bool KmrpControllerSettingsPath(wchar_t (&path)[MAX_PATH])
     wchar_t old[MAX_PATH];
     if (!KmrpGamePath(path, L"KMRP")) return false;
     CreateDirectoryW(path, nullptr);
-    if (wcscat_s(path, L"\\controller.ini")) return false;
+    if (!KmrpAppendPath(path, L"\\controller.ini")) return false;
     if (GetFileAttributesW(path) == INVALID_FILE_ATTRIBUTES && KmrpGamePath(old, L"kmrp-controller.ini") &&
             GetFileAttributesW(old) != INVALID_FILE_ATTRIBUTES) {
         MoveFileExW(old, path, MOVEFILE_COPY_ALLOWED);

@@ -38,6 +38,7 @@
 #include "K1SliderGrip.h"
 #include <windows.h>
 #include "K1EngineMemory.h"
+#include "KmrpOptions.h"
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -177,7 +178,7 @@ bool Armed() { return releasedFrames >= 2; }
 bool ConfigPath(wchar_t (&path)[MAX_PATH]) {
     const DWORD n = GetModuleFileNameW(nullptr, path, MAX_PATH);
     wchar_t* slash = n && n < MAX_PATH ? std::wcsrchr(path, L'\\') : nullptr;
-    return slash && !wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), L"swkotor.ini");
+    return slash && KmrpSetFileName(path, slash, L"swkotor.ini");
 }
 void Initialize() {
     if (initialized) return;

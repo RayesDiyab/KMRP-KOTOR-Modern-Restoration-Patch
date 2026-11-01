@@ -967,7 +967,7 @@ void* LiveStickInputK1()
         return nullptr;
     }
     const std::uintptr_t exo = *reinterpret_cast<const std::uintptr_t*>(K1_EXO_INPUT);
-    if (exo < 0x00010000u || exo >= 0x7FFF0000u) {
+    if (!LooksLikePointerK1(reinterpret_cast<const void*>(exo))) {
         return nullptr;
     }
     void* const live = *reinterpret_cast<void**>(exo + K1_EXO_INPUT_INTERNAL);
@@ -2841,6 +2841,10 @@ extern "C" void __cdecl NativePanelLoadedK1(void* resource, void* panel, void** 
 extern "C" void __cdecl NativePanelDestroyedK1(void* panel)
 {
     NativePanelReleaseGffK1(panel);
+    // The pointer the interaction consumer asks with, kept between frames (audit MEM-02).
+    if (g_stick.hudInterface == reinterpret_cast<unsigned long>(panel)) {
+        g_stick.hudInterface = 0;
+    }
 }
 
 // CSWGuiMainInterface's per-frame update, with ecx holding the interface. The
@@ -7726,7 +7730,7 @@ void PerformPendingInteractionK1()
     // A belongs to the HUD action bar while one of its slots has focus. Both
     // consumers ask the same question, so exactly one acts however the two
     // per-frame hooks happen to be ordered.
-    // Ask with the pointer this frame's HUD hook was handed, never with the
+    // Ask with the pointer the last gameplay frame's HUD hook was handed, never with the
     // vendor's cached one: that global outlives the object it points at across a
     // screen change, and a null argument used to fall back to it.
     void* const hudInterface = reinterpret_cast<void*>(g_stick.hudInterface);

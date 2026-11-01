@@ -47,7 +47,9 @@ inline void SendControlEventK1(void* control, int event, int value = 1)
 inline bool LooksLikePointerK1(const void* p)
 {
     const std::uintptr_t v = reinterpret_cast<std::uintptr_t>(p);
-    return v >= 0x00010000u && v < 0x7FFF0000u;
+    // Up to the top of a large-address game's space: KPM sets the flag on CD and GOG, and
+    // 0x7FFF0000 here refused real objects above 2 GB (audit MEM-01).
+    return v >= 0x00010000u && v < 0xFFFF0000u;
 }
 
 // Is [p, p + size) committed, readable memory right now? LooksLikePointerK1 only

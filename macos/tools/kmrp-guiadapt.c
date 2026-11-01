@@ -1044,7 +1044,7 @@ static int grow(Grow *b, const void *p, size_t n) {
 static int grow_u32(Grow *b, uint32_t v) { uint8_t p[4]; put_u32(p, v); return grow(b, p, 4); }
 /* foreign: the structures cloned come from another file (a donor), so their field labels are
  * found or added in this file's labels and their field data is copied, not shared. */
-typedef struct { Grow s, f, l, d, i, li; int ok; int foreign; } Sections;
+typedef struct { Grow s, f, l, d, i, li; int ok; int foreign; int depth, clones; } Sections;
 
 /* A donor's 16-byte label in `out`'s labels, added at the end when it is not there. */
 static uint32_t ll_label_in(Sections *out, const uint8_t *name) {
@@ -1161,6 +1161,10 @@ static uint32_t ll_clone_field(const Gff *g, long f, Sections *out, int role, co
 }
 
 static uint32_t ll_clone_struct(const Gff *g, uint32_t s, Sections *out, int role, const CueValues *cue) {
+    /* A mod's file can hold a structure that reaches itself, which recursed until the stack
+     * ran out, in the game, at start (audit GUI-1). K1PartyRosterGui.cpp's limits. */
+    if (out->depth >= 12 || ++out->clones > 4096) { out->ok = 0; return 0; }
+    out->depth++;
     const uint8_t *st = g->d + g->structs + (size_t)s * 12;
     uint32_t type = u32(st), count = u32(st + 8);
     if (count > 4096) { out->ok = 0; count = 0; }
@@ -1195,6 +1199,7 @@ static uint32_t ll_clone_struct(const Gff *g, uint32_t s, Sections *out, int rol
     }
     if (out->ok) put_u32(out->s.d + (size_t)index * 12 + 4, data);
     free(fields);
+    out->depth--;
     return index;
 }
 
@@ -1218,7 +1223,7 @@ static int ll_append_from(const Gff *g, const Gff *donor, long template, const C
     if (template < 0 || !int_field(donor, (uint32_t)template, "ID") || gff_field(donor, (uint32_t)template, "TAG") < 0 ||
         !extent_of(donor, (uint32_t)template, &te) || (border = gff_child(donor, (uint32_t)template, "BORDER")) < 0 ||
         gff_field(donor, (uint32_t)border, "FILL") < 0) return 0;
-    Sections s = { { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, 1, donor != g };
+    Sections s = { { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, 1, donor != g, 0, 0 };
     s.ok &= grow(&s.s, g->d + g->structs, (size_t)g->nstructs * 12) && grow(&s.f, g->d + g->fields, (size_t)g->nfields * 12) &&
             grow(&s.l, g->d + g->labels, (size_t)g->nlabels * 16) && grow(&s.d, g->d + g->values, g->nvalues) &&
             grow(&s.i, g->d + g->indices, g->nindices) && grow(&s.li, g->d + g->lists, g->nlists);

@@ -512,9 +512,63 @@ def live(helper: Path, name: str, source: Path | None, w: int, h: int, out: Path
     return r.returncode, r.stdout
 
 
+def cyclic(data: bytes, keep: frozenset | set = frozenset({b"EXTENT"})) -> bytes:
+    """A GFF whose structure fields each point back at the structure holding them."""
+    d = bytearray(data)
+    head = struct.unpack_from("<12I", d, 8)
+    structs, nstructs, fields, nfields, labels, _, _, _, indices = head[:9]
+    for s in range(nstructs):
+        _, where, count = struct.unpack_from("<3I", d, structs + s * 12)
+        members = [where] if count == 1 else [struct.unpack_from("<I", d, indices + where + k * 4)[0]
+                                              for k in range(count)]
+        for f in members:
+            if f >= nfields or struct.unpack_from("<I", d, fields + f * 12)[0] != 14:
+                continue
+            # `keep`: what must stay sound for the file to get past the checks before a clone.
+            label = struct.unpack_from("<I", d, fields + f * 12 + 4)[0]
+            if bytes(d[labels + label * 16:labels + label * 16 + 16]).rstrip(b"\0") not in keep:
+                struct.pack_into("<I", d, fields + f * 12 + 8, s)
+    return bytes(d)
+
+
 def test_layouts(helper: Path, tmp: Path) -> None:
     rows = ll.table_by_file()
     out = tmp / "out.gui"
+
+    # A mod's file with a structure that reaches itself: refused or laid out, never a crash
+    # (audit GUI-1). Windows gives a crash as an exit code above 255.
+    for name in ll.FILES:
+        looped = tmp / f"cyclic-{name}"
+        looped.write_bytes(cyclic((ll.VANILLA / name).read_bytes()))
+        code, _ = live(helper, name, looped, 1920, 1080, out)
+        check(0 <= code < 256, f"{name}: a cyclic file ended the helper with {code:#x}")
+    # The clone itself, which the tool's modes reach only past checks a cyclic file can fail:
+    # a control of a real screen whose TEXT holds the control, cloned directly. An unbounded
+    # clone runs out of stack here.
+    source = tmp / "clone-harness.c"
+    source.write_text(
+        '#define main kmrp_tool_main\n'
+        f'#include "{(TOOLS / "kmrp-guiadapt.c").as_posix()}"\n'
+        '#undef main\n'
+        'int main(int argc, char **argv) {\n'
+        '    FILE *f = fopen(argv[1], "rb"); if (!f) return 3;\n'
+        '    static uint8_t data[1 << 22]; size_t size = fread(data, 1, sizeof data, f); fclose(f);\n'
+        '    Gff g; if (!gff_open(&g, data, size)) return 3;\n'
+        '    long template = ll_control(&g, argv[2], 0); if (template < 0) return 3;\n'
+        '    CueValues values = { 1000, { 0, 0, 10, 10 }, "KMRPTEST", "kmrp", NULL };\n'
+        '    Buffer output = { 0 };\n'
+        '    printf("%d\\n", ll_append_cue(&g, template, &values, &output));\n'
+        '    return 0;\n'
+        '}\n', encoding="utf-8")
+    harness = next(iter(native_helpers.build(source, tmp, "clone-harness").values()))
+    name = "optkeymapping.gui"
+    tag = next(c.get_string("TAG") for c in read_gff((ll.VANILLA / name).read_bytes()).root.acquire("CONTROLS", None, GFFList)
+               if c.exists("TEXT") and c.exists("BORDER") and c.exists("ID"))
+    looped = tmp / "cyclic-control.gui"
+    looped.write_bytes(cyclic((ll.VANILLA / name).read_bytes(), {b"EXTENT", b"BORDER"}))
+    run = subprocess.run([str(harness), native_helpers.arg(looped), tag], capture_output=True, text=True)
+    check(run.returncode == 0 and run.stdout.strip() == "0",
+          f"{name} {tag}: a control that holds itself gave {run.returncode:#x}, {run.stdout.strip()!r}")
 
     # The moved key list: 740 at 3440x1440 (docs/mod-file-inventory.md).
     name = "optkeymapping.gui"

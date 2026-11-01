@@ -169,7 +169,7 @@ void InitSdl()
     if (!length || length >= MAX_PATH) return;
     wchar_t* slash = wcsrchr(path, L'\\');
     if (!slash || slash - path + 16 >= MAX_PATH) return;
-    wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), L"kmrp-sdl3.dll");
+    if (!KmrpSetFileName(path, slash, L"kmrp-sdl3.dll")) return;
     HMODULE lib = LoadLibraryExW(path, nullptr,
         LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
     // Under KOTOR Patch Manager's runtime -- KPM's own or the one KMRP's installer
@@ -179,7 +179,7 @@ void InitSdl()
         length = GetModuleFileNameW(nullptr, path, MAX_PATH);
         slash = (length && length < MAX_PATH) ? wcsrchr(path, L'\\') : nullptr;
         if (slash && slash - path + 16 < MAX_PATH) {
-            wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), L"kmrp-sdl3.dll");
+            if (!KmrpSetFileName(path, slash, L"kmrp-sdl3.dll")) return;
             lib = LoadLibraryExW(path, nullptr,
                 LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
         }

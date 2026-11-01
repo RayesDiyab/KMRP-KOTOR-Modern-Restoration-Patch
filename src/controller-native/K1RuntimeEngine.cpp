@@ -139,7 +139,8 @@ void InitializeEngine()
     if (!slash) return;
     *slash = 0;
     wchar_t ini[MAX_PATH];
-    if (swprintf_s(ini, L"%s\\swkotor.ini", g_folder) < 0) return;
+    ini[0] = 0;
+    if (!KmrpAppendPath(ini, g_folder) || !KmrpAppendPath(ini, L"\\swkotor.ini")) return;
     int width = GetPrivateProfileIntW(L"Graphics Options", L"Width", 800, ini);
     int height = GetPrivateProfileIntW(L"Graphics Options", L"Height", 600, ini);
     if (!KmrpRuntimeAssetsCovers(width, height)) {

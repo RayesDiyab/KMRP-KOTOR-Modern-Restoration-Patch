@@ -94,15 +94,16 @@ void LogLine(const char* format, va_list args)
     // KMRP\logs\kmrp-kpm.log in the game folder since 2026-10-20 (KmrpLogPath,
     // KmrpOptions.h); the game folder itself until then.
     wchar_t path[MAX_PATH];
-    if (swprintf_s(path, L"%s\\KMRP", g_folder) < 0) {
+    path[0] = 0;
+    if (!KmrpAppendPath(path, g_folder) || !KmrpAppendPath(path, L"\\KMRP")) {
         return;
     }
     CreateDirectoryW(path, nullptr);
-    if (wcscat_s(path, L"\\logs")) {
+    if (!KmrpAppendPath(path, L"\\logs")) {
         return;
     }
     CreateDirectoryW(path, nullptr);
-    if (wcscat_s(path, L"\\kmrp-kpm.log")) {
+    if (!KmrpAppendPath(path, L"\\kmrp-kpm.log")) {
         return;
     }
     FILE* f = nullptr;
@@ -592,6 +593,7 @@ void Apply(std::uint32_t features, const std::vector<std::uint8_t>* embedded = n
             // Put back what was written; the block stays allocated, unreferenced.
             failed = &run;
             error = GetLastError();
+            WriteMemory(run.va, run.original, run.length);   // a read-back that differed wrote it
             for (const Run* done : written) {
                 WriteMemory(done->va, done->original, done->length);
             }

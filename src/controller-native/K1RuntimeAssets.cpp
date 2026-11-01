@@ -331,7 +331,7 @@ bool Initialize()
             reinterpret_cast<LPCWSTR>(&Initialize), &module)) return false;
     const DWORD named = GetModuleFileNameW(module, path, MAX_PATH);
     wchar_t* slash = named && named < MAX_PATH ? wcsrchr(path, L'\\') : nullptr;
-    if (!slash || wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), L"kmrp-assets.pack")) return false;
+    if (!slash || !KmrpSetFileName(path, slash, L"kmrp-assets.pack")) return false;
     HANDLE file = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
                               FILE_FLAG_RANDOM_ACCESS, nullptr);
     if (file == INVALID_HANDLE_VALUE && KmrpGamePath(path, L"patches\\kmrp-assets.pack"))
@@ -1679,7 +1679,7 @@ extern "C" void __cdecl KmrpPrepareResourcesK1(void* manager)
     wchar_t ini[MAX_PATH];
     DWORD size = GetModuleFileNameW(nullptr, ini, MAX_PATH);
     wchar_t* slash = size && size < MAX_PATH ? wcsrchr(ini, L'\\') : nullptr;
-    if (slash && !wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - ini), L"swkotor.ini")) {
+    if (slash && KmrpSetFileName(ini, slash, L"swkotor.ini")) {
         int width = GetPrivateProfileIntW(L"Graphics Options", L"Width", 800, ini);
         int height = GetPrivateProfileIntW(L"Graphics Options", L"Height", 600, ini);
         KmrpRuntimeAssetsDimensions(width, height);
@@ -1785,20 +1785,27 @@ int KmrpRuntimeAssetsPrepare(int share, int shares, KmrpPrepareStep step, void* 
     for (const auto& size : sizes) {
         if (step && step(done, total, size.first, size.second, context)) break;
         std::wstring set;
-        bool built;
-        {
-            Locked lock;
-            built = BuildSet(size.first, size.second, set);
-        }
-        if (built) {
-            const ULONGLONG fonts = GetTickCount64();
-            PrefitFonts(size.second);
-            if (KmrpDebugLogs()) {
-                char line[120];
-                sprintf_s(line, "[KMRP] fonts for %d lines ready in %llu ms", size.second, GetTickCount64() - fonts);
-                KmrpRuntimeLog(line);
+        bool built = false;
+        // An exception leaving this thread would end the game, and a size can fail to
+        // allocate in a 32-bit process; the size is then made when first needed (audit THR-3).
+        try {
+            {
+                Locked lock;
+                built = BuildSet(size.first, size.second, set);
             }
-            ++made;
+            if (built) {
+                const ULONGLONG fonts = GetTickCount64();
+                PrefitFonts(size.second);
+                if (KmrpDebugLogs()) {
+                    char line[120];
+                    sprintf_s(line, "[KMRP] fonts for %d lines ready in %llu ms", size.second, GetTickCount64() - fonts);
+                    KmrpRuntimeLog(line);
+                }
+                ++made;
+            }
+        }
+        catch (const std::exception&) {
+            KmrpRuntimeLog("[KMRP] preparing a size failed; it is made when first needed");
         }
         ++done;
     }

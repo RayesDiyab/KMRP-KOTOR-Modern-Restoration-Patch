@@ -2221,9 +2221,17 @@ void K1BackgroundWorker()
             continue;
         }
         const DWORD started = GetTickCount();
-        std::vector<std::uint8_t> sheet;
-        const bool ok = K1ComposeScene(*job.scene, job.width, job.height, sheet, true) &&
-                        K1WriteTextureFiles(job.name, sheet, job.width, job.height);
+        // An exception leaving this thread would end the game; in a 32-bit process a large
+        // picture can fail to allocate (audit THR-3).
+        bool ok = false;
+        try {
+            std::vector<std::uint8_t> sheet;
+            ok = K1ComposeScene(*job.scene, job.width, job.height, sheet, true) &&
+                 K1WriteTextureFiles(job.name, sheet, job.width, job.height);
+        }
+        catch (...) {
+            ControllerLogK1("pictures: drawing one failed on the background thread");
+        }
         {
             std::lock_guard<std::mutex> lock(g_bgLock);
             g_bgClaimed.erase(std::remove(g_bgClaimed.begin(), g_bgClaimed.end(), std::string(job.name)),

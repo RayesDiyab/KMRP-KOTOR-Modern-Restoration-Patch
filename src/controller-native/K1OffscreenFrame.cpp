@@ -371,9 +371,12 @@ BOOL WINAPI SwapForGame(HDC dc)
 template <typename T> bool Patch(HMODULE gl, const char* name, T wrapper, T& real)
 {
     auto function = reinterpret_cast<unsigned char*>(GetProcAddress(gl, name));
-    if (!function || !HotPatch(function, reinterpret_cast<void*>(wrapper))) return false;
+    if (!function) return false;
+    // Before the jump goes live: on Steam the game's thread is running (audit GFX-02).
     real = reinterpret_cast<T>(function + 2);
-    return true;
+    if (HotPatch(function, reinterpret_cast<void*>(wrapper))) return true;
+    real = nullptr;
+    return false;
 }
 }
 
