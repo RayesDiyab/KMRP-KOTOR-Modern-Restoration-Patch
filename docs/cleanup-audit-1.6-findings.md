@@ -13,9 +13,9 @@ the code until it is agreed and done in its own small, tested step.
 
 | Section | Items | Audited |
 | --- | --- | --- |
-| 1.1 KMRP's hooks | 36 | 15 |
+| 1.1 KMRP's hooks | 36 | 36 |
 | 1.2 the controller patch's hooks | 38 | 8 |
-| 1.3 to 1.5 bundled patches | 65 | not KMRP's code: checked for overlap and timing only |
+| 1.3 to 1.5 bundled patches | 65 | not KMRP's code: no site overlaps another, measured 2026-11-01 |
 | 2 engine recipe | 89 runs, 57 operands | 0 |
 | 3 run-time writes | 10 | 0 |
 | 4 source files | 80 | 0 |
@@ -165,3 +165,70 @@ The test names the six (`RUNTIME_CAPTIONED_TARGETS`), checks that they bake noth
 for a seventh button without an entry, or if one of the six gains one. **Passes: 38,544 badged
 buttons in 66 sets.** What was not read: whether the Mac's own badges need a width for these
 six, since its build keeps controller art in its sets.
+
+## The standard for the rest of the audit
+
+The maintainer, 2026-11-01: "The code just needs to be efficient without any convolutions, even
+hooks. We shouldn't have like hooks that do the same. It should be a very clear architecture."
+Every entry is read and asked four things: is it needed, does anything else do the same job,
+is it simple, and is it in the right module. Issue 82's limit stands: hooks merge only where
+timing, registers and behaviour really match, and the game's behaviour does not change.
+
+## F10. Two hooks with one job: `0x0040BE70` and `0x005F18F6` (open, proposed removal)
+
+`KmrpResolutionRequestedK1` at `CSWGuiManager::SetSize` calls `Prepare`, as
+`KmrpModeSwitchK1` does. Measured from the maintainer's `kmrp-native-preview.log`: 133
+"switching" lines and 133 "requested" lines, the second a second or two after the first, the
+same size. By then `KmrpRuntimeAssetsDimensions` returns at its first line. `g_requested`,
+the hook's other job, is written and never read.
+
+The game's other callers of `SetSize` are the evil ending's credits (the private
+reconstruction, `sw_gui_in_game_credits.cpp`): 640x480, which the same log shows refused
+("assets-failed 640x480"), and back to the saved size. So the hook does nothing `0x005F18F6`
+does not, apart from a log line.
+
+**Proposed:** remove the hook and `g_requested`; `KmrpResolutionObservedK1`, called from the GUI frame, stays.
+It changes `kotor1-native-runtime.hooks.toml` and `patch_config.toml`, so it needs an install
+and a run through a resolution change. Not checked: the callers by disassembly, as the Steam
+executable's code is packed; the evil ending in a game.
+
+## F11. The first preview module is still in the build's files (open, proposed removal)
+
+`build_runtime_preview.cmd`, `tools/build_runtime_kpatch.py` and `Test-RuntimeKpatch.py` make
+and check `kmrp-native-preview.dll`, the first standalone module (`8da2821`). Nothing ships
+it. Its test passes against a module last built long ago in `build/native-preview`, so it
+proves nothing about today's code. It keeps three things alive in the sources: the
+`#ifndef KMRP_NATIVE_RUNTIME` branches of `K1RuntimeResolution.cpp`, a second
+`NativeFreeSaveBufferK1` calling a different address (`0x006FA390`, not the module's
+`0x006FB7B2`), and a comment naming `K1RuntimeCore.cpp`, which does not exist. The resolution
+trace is still called `kmrp-native-preview.log`.
+
+**Proposed:** remove the three files and the branches, and rename the log to
+`kmrp-resolution.log`, with `InstallCore.cs`, `KmrpOptions.h` and `docs/kpm-edition.md`. The
+patch IDs `kmrp-native-preview` in the kpatch tools' conflict lists stay, since an old install
+may hold one. Also from this pass: `K1TextLayout.cpp` still says `CorrectHardwareMipmapsK1`
+is in `K1NativeJoystick.cpp` (F1 moved it), and 11 `.obj`, `.exp` and `.lib` files of 2026-10-04
+lie ignored in `src/controller-native`.
+
+## F12. Where the sources are too big or say a thing twice (open, measured, section 4 decides)
+
+`K1NativeJoystick.cpp` (8,455 lines) and `vendor/K1XboxControls.cpp` (7,455) are the two
+monoliths, `K1XboxHud.cpp` (2,680) and `K1RuntimeAssets.cpp` (2,007) the next. `KmrpXboxHudK1`
+is one function of 361 lines and `KmrpXboxHudBarsK1` one of 133.
+
+A token scan of 69 native files and 18 installer files, comments ignored, found 129 exact
+repeats of 50 tokens or more and 154 of the same shape at 90 or more in the native code, 16 and
+17 in the installers. The ones that matter:
+
+| Repeat | Where | Size |
+| --- | --- | --- |
+| The options page toolkit (`Extent`, `Text`, `AddControl`, `CloneButton`, `Bind`, `Navigation`) | `K1HudOptions.cpp:201-243`, `K1TextOptions.cpp:147-193` | 658 tokens, and 267 and 293 more |
+| The Xbox HUD's `Placed` arithmetic and its `Piece` table | `K1HudOptions.cpp:84-118`, `K1XboxHud.cpp:620-905` | 262 tokens, across modules |
+| Old temp folder cleanup, UTF-8 paths, SHA-256 | `K1ControllerStandalone.cpp`, `K1RuntimeAssets.cpp` | 433 tokens, across modules |
+| Picture sizing, repeated in one file | `K1XboxControls.cpp:2385-2600` | 125 tokens, five times |
+| Rounded rectangle loops | `K1NativeJoystick.cpp:5500-5519` | 153 tokens |
+| `PressDefault` and `PressListedButton` bodies | `K1NativeJoystick.cpp:3490-3560` | 149 tokens |
+| Installers | `KmrpPatcher.cs:1094` and `1282`; `KmrpPatcher.cs:2249` and `MainWindow.cs:726` | 168 and 96 tokens |
+
+Each is read when section 4 reaches its file. The scan counts text, not meaning, so a repeat
+is a place to look, not yet a finding.
