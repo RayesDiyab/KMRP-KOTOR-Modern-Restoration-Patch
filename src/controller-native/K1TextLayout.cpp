@@ -618,7 +618,7 @@ constexpr int kArtTopBorder = 2;    // rows of the art's top border counted into
 struct ArtPicture { std::string name; int width = 0, height = 0; std::vector<unsigned char> light; bool read = false; };
 std::vector<ArtPicture> artPictures;      // the last few read, newest last
 struct ArtPlace { std::string name; Rect behind{}, control{}; int middle = INT_MIN; bool read = false; };
-std::map<void*, ArtPlace> artPlaces;      // by control
+std::map<void*, ArtPlace> artPlaces;      // by control, until it goes (ForgetArtPlace)
 
 std::string ResRef(const char* at) {
     char name[17] = {};
@@ -774,6 +774,9 @@ void ArtCaptions(void* panel) {
     }
 }
 
+static void ForgetArtPlace(void* control) {artPlaces.erase(control);}
+#else
+static void ForgetArtPlace(void*) {}
 #endif
 
 // CAurTextureBasic::BuildAndStoreTexture (0x004216A0), just after glImage (0x00420970)
@@ -927,13 +930,14 @@ void KmrpTextLayoutTrackControlK1(void* panel,void* control,const char* tag) {
     if(found!=panels.end())found->second.controls[control]=tag;
 }
 void KmrpTextLayoutForgetControlK1(void* control) {
+    ForgetArtPlace(control);
     KmrpTextRowsForgetK1(control);
     for(auto& item:panels)item.second.controls.erase(control);
 }
 void KmrpTextLayoutForgetPanelK1(void* panel) {
     const auto found=panels.find(panel);
     if(found!=panels.end()) {
-        for(const auto& item:found->second.controls)KmrpTextRowsForgetK1(item.first);
+        for(const auto& item:found->second.controls) {ForgetArtPlace(item.first);KmrpTextRowsForgetK1(item.first);}
         panels.erase(found);
     }
     pauses.erase(panel);

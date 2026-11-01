@@ -59,7 +59,7 @@ tests from before this cycle were not all re-proved.
 | THR-3 | Exceptions on background threads | In-game | `75c1ed6` | By reading; `bad_alloc` not provoked |
 | THR-4 | Game thread waits on the build lock | In-game | `5576e8b` | By reading; no test of the timing |
 | THR-5 | Picture sweep per border per frame (GFX-07 with it) | In-game | this cycle | Measured with the built file's 136 glyphs and 172 pictures: one border's lookups 4.6 to 14.9 us walked, 0.26 us hashed, whatever the session's length. Test-PictureKey holds the new key to the old comparison on 400,005 pairs and fails when broken. The audit's "skip unchanged" is not needed after this. The module grew 8 KB. Pictures in a game on the checklist |
-| THR-6 | Text work on every panel each frame | Open | | |
+| THR-6 | Text work on every panel each frame | Kept | this cycle | The leak is fixed: `artPlaces` rows now go with their control, by reading, as no harness reaches them. The visible filter is not done, on evidence: an unchanged list costs 0.2 us a row (60 us for 300 rows, timed on the shipped code), far under the 0.2 to 1 ms estimated, while a filter by the manager's lists could stop preparing a panel drawn inside another, with no way to see that here |
 | THR-8 | One cache for all game folders | Tested | `5576e8b` | Test-AssetPrepare case 11 |
 | GFX-02 | Hot patch live before `real` | In-game | `75c1ed6` | By reading; the race is too narrow to provoke |
 | GFX-03 | K1DC wraps KMRP at SwapBuffers | Open | | Documents to correct; brightness with AA 8 on the checklist |
