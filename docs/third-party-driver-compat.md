@@ -310,10 +310,15 @@ K1DC declares in the unmodified 1.03 executable. KMRP's movie fixes call through
 different Bink import (`BinkBufferSetScale`, `0x0073D484`) than the one K1DC takes over.
 
 **Since 2026-10-30 one slot is shared, on purpose:** `SwapBuffers`, `0x0073D00C`. KMRP's
-offscreen frame (`K1OffscreenFrame.cpp`) points it at its own function, which copies the
-finished frame to the window, binds the window, calls whatever the slot held (K1DC's
-function when K1DC took the slot first), and then binds its own buffer again. So K1DC's
-brightness pass still draws into the window. KMRP also redirects opengl32's
+offscreen frame (`K1OffscreenFrame.cpp`) takes it first, in its `DllMain`, before the game has
+a GL context. Its function copies the finished frame to the window, binds the window, calls
+what the slot held, and binds its own buffer again. K1DC takes the slot afterwards, in
+`ARB_InstallFragmentPath` at the end of `InitExtensions`, and calls what it found. So K1DC's
+function runs first and calls KMRP's: its brightness pass copies from KMRP's buffer, which
+KMRP resolves when multisampled, draws back into it, and is in the frame KMRP then shows.
+(Until 2026-11-01 this said the reverse, that K1DC was called from KMRP's and drew into the
+window. Read from K1DC's source, audit GFX-03; both orders work.) Not seen with Anti-aliasing 8
+and a brightness away from the default. KMRP also redirects opengl32's
 `wglGetProcAddress` and `wglMakeCurrent` and three of its read functions in memory. K1DC
 reaches `glBindFramebuffer` through `wglGetProcAddress`, so its offscreen effect targets
 (`offscreen.rs`, which stand in for the game's pbuffers) return to KMRP's buffer when they

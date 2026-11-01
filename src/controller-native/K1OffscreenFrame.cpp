@@ -18,10 +18,11 @@
 // whatever the driver shows between two swaps is a finished frame. What keeps the game's
 // drawing in KMRP's buffer:
 //
-//   * SwapBuffers, through the game's import slot 0x0073D00C (K1DC 2.0.0 points the same
-//     slot at its own function; whichever is there is called in turn, with the window
-//     bound, so K1DC's brightness pass draws into the window as before): copy, swap,
-//     copy, bind KMRP's buffer for the next frame.
+//   * SwapBuffers, through the game's import slot 0x0073D00C: copy, swap, copy, bind KMRP's
+//     buffer for the next frame. K1DC 2.0.0 points the same slot at its own function, later
+//     than this, at the end of InitExtensions, so K1DC's runs first and calls this one: its
+//     brightness pass reads and draws KMRP's buffer, the reads resolved below, and is in the
+//     frame this copies. Either order works, as whatever the slot held is called in turn.
 //   * glBindFramebuffer(EXT), as opengl32's wglGetProcAddress hands it out: binding 0, the
 //     window, binds KMRP's buffer instead while the window's context is current. The
 //     engine of 2003 binds no framebuffer object; K1DC does, for the effects it draws in
@@ -121,7 +122,7 @@ GLuint frame = 0, colour = 0, depth = 0;      // KMRP's buffer
 GLuint plain = 0, plainColour = 0;            // its resolved copy, when multisampled
 int width = 0, height = 0, samples = 0;
 bool refused = false;      // incomplete or unavailable: the window draws as before
-bool swapping = false;     // inside the swap: K1DC's brightness pass draws into the window itself
+bool swapping = false;     // inside the swap the slot held, with the window bound
 bool checkedShow = false;  // this buffer's first copy to the window has been checked
 unsigned long long swaps = 0, redirected = 0, resolved = 0;
 

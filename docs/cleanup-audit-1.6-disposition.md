@@ -62,7 +62,7 @@ tests from before this cycle were not all re-proved.
 | THR-6 | Text work on every panel each frame | Kept | this cycle | The leak is fixed: `artPlaces` rows now go with their control, by reading, as no harness reaches them. The visible filter is not done, on evidence: an unchanged list costs 0.2 us a row (60 us for 300 rows, timed on the shipped code), far under the 0.2 to 1 ms estimated, while a filter by the manager's lists could stop preparing a panel drawn inside another, with no way to see that here |
 | THR-8 | One cache for all game folders | Tested | `5576e8b` | Test-AssetPrepare case 11 |
 | GFX-02 | Hot patch live before `real` | In-game | `75c1ed6` | By reading; the race is too narrow to provoke |
-| GFX-03 | K1DC wraps KMRP at SwapBuffers | Open | | Documents to correct; brightness with AA 8 on the checklist |
+| GFX-03 | K1DC wraps KMRP at SwapBuffers | In-game | this cycle | Confirmed from K1DC's source: KMRP takes the slot in `DllMain`, K1DC at the end of `InitExtensions`, so K1DC is outermost. Documents and two comments corrected. By reading the code is right in both orders. Brightness with AA 8 on the checklist |
 | MEM-01 | Pointer ceiling below 4 GB | In-game | `75c1ed6` | By reading; needs a large-address game past 2 GB |
 | TST-03 | Badge skip lost coverage | Tested | `0f4eb22` | Test-BadgeShape, fails with the old 2% rule |
 | TST-05 | Resolution test read a stale DLL | Tested | `cac345e` | Test-ResolutionGate. Reported size without a layout checked in source only |
