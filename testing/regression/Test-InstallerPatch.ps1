@@ -41,6 +41,12 @@
     DLL, nothing of it goes into patches\, its .kpatch is the bundled file, and Restore
     Original removes all of it.
 
+    Cases 13 to 17 (2026-11-01, audit INS-02 to INS-04): KPM taking the runtime over and
+    KMRP installing over that; a manifest without ini rows; an install failing near its
+    end, its rollback succeeding and its rollback blocked by a held file; and the
+    installer killed at eight moments, each followed by an install and a restore. Which
+    stage a kill lands on varies from run to run, and the log says.
+
     Case 11 (2026-10-20): an install over one made before 2026-10-20, whose files were
     loose in the game folder (its manifests, settings, KPM's licence, the swkotor.ini
     backup, KMRP.log): afterwards none is left there, the manifest names the settings in
@@ -504,6 +510,105 @@ try {
     Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "a new install succeeds"
     Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "and its restore"
     Assert ([IO.File]::ReadAllText($iniPath) -match '(?m)^Music Volume=33') "the backup was not the first install's"
+
+    Write-Host "Case 13 KOTOR Patch Manager took the runtime over (audit INS-02)"
+    Set-KmrpSettings $true $true
+    $game = New-Fixture "taken-over"
+    $folder = Split-Path -Parent $game
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the install succeeds"
+    # KPM's Apply with another patch ticked: its config, which is no longer KMRP's.
+    $toml = Join-Path $folder "patch_config.toml"
+    [IO.File]::AppendAllText($toml, "`n[[patches]]`nid = `"someone-elses-patch`"`n")
+    $pack = Join-Path $folder "patches\kmrp-assets.pack"
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "installing over the takeover is not refused by KMRP's own art pack"
+    Assert (Test-Path -LiteralPath $pack) "the art pack is written again"
+    Assert ((Get-Content -LiteralPath $toml -Raw) -match 'someone-elses-patch') "KPM's config is left alone"
+    $manifest = Join-Path $folder "KMRP\kpm.manifest"
+    Assert ((Test-Path -LiteralPath $manifest) -and (Get-Content -LiteralPath $manifest -Raw) -match 'kmrp-assets\.pack') "the art pack is recorded"
+    Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the restore succeeds"
+    Assert (-not (Test-Path -LiteralPath $pack)) "the restore removes the art pack"
+    Assert (Test-Path -LiteralPath $toml) "and leaves KPM's runtime"
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "a new install after that restore succeeds"
+
+    Write-Host "Case 14 a manifest from before its ini rows puts every key back"
+    Set-KmrpSettings $true $true
+    $game = New-Fixture "no-ini-rows"
+    $folder = Split-Path -Parent $game
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "the install succeeds"
+    $manifest = Join-Path $folder "KMRP\kpm.manifest"
+    [IO.File]::WriteAllLines($manifest, [string[]]([IO.File]::ReadAllLines($manifest) | Where-Object { $_ -notmatch "^ini`t" }))
+    Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "the restore succeeds"
+    Assert ([IO.File]::ReadAllText((Join-Path $folder "swkotor.ini")) -match '(?m)^Width=800') "the size KMRP set goes back"
+
+    Write-Host "Case 15 an install that fails near its end is undone (audit INS-04)"
+    Set-KmrpSettings $true $true
+    $game = New-Fixture "fails-late"
+    $folder = Split-Path -Parent $game
+    $before = Get-Listing $folder
+    # A folder where the art pack goes: the last write fails, after the proxy.
+    $blocker = Join-Path $folder "patches\kmrp-assets.pack"
+    New-Item -ItemType Directory -Force -Path $blocker | Out-Null
+    Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -ne 0) "the install fails"
+    Assert ([IO.File]::ReadAllBytes((Join-Path $folder "binkw32.dll")).Length -eq 64) "the game's binkw32.dll is back"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $folder "KMRP\kpm.manifest"))) "no manifest is left"
+    Assert (-not (Test-Path -LiteralPath (Join-Path $folder "KotorPatcher.dll"))) "the runtime is gone"
+    [IO.Directory]::Delete($blocker)
+    [IO.Directory]::Delete((Join-Path $folder "patches"))
+    $after = Get-Listing $folder | Where-Object { $_ -notmatch $kept }
+    Assert (($before -join "`n") -eq ($after -join "`n")) "the folder is as it was"
+
+    Write-Host "Case 16 a rollback a file blocks says so and Restore Original finishes it (audit INS-04)"
+    Set-KmrpSettings $true $true
+    $game = New-Fixture "rollback-blocked"
+    $folder = Split-Path -Parent $game
+    $before = Get-Listing $folder
+    $blocker = Join-Path $folder "patches\kmrp-assets.pack"
+    New-Item -ItemType Directory -Force -Path $blocker | Out-Null
+    $runtime = Join-Path $folder "KotorPatcher.dll"
+    $process = Start-Process -FilePath $Installer -ArgumentList @("--in-place", "`"$game`"", "1920x1080") -PassThru
+    $held = $null
+    while (-not $process.HasExited -and $held -eq $null) {
+        try { $held = [IO.File]::Open($runtime, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::None) }
+        catch { }
+    }
+    Assert ($held -ne $null) "the test got hold of the runtime while the install ran"
+    $process.WaitForExit()
+    if ($held -ne $null) { $held.Dispose() }
+    Assert ($process.ExitCode -ne 0) "the install fails"
+    $manifest = Join-Path $folder "KMRP\kpm.manifest"
+    Assert (Test-Path -LiteralPath $manifest) "the manifest stays, as the rollback did not finish"
+    Assert ((Test-Path -LiteralPath $manifest) -and (Get-Content -LiteralPath $manifest -Raw) -match '(?m)^incomplete') "and it says the install is incomplete"
+    [IO.Directory]::Delete($blocker)
+    Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "Restore Original finishes the job"
+    $after = Get-Listing $folder | Where-Object { $_ -notmatch $kept }
+    Assert (($before -join "`n") -eq ($after -join "`n")) "the folder is as it was"
+
+    Write-Host "Case 17 an install stopped at any moment can be taken out and done again (audit INS-03)"
+    Set-KmrpSettings $true $true
+    # Where the installer happens to be at each delay does not matter: what is left must
+    # always be something the next run can deal with.
+    foreach ($delay in 150, 250, 350, 450, 600, 800, 1100, 1500) {
+        $game = New-Fixture "killed-$delay"
+        $folder = Split-Path -Parent $game
+        $before = Get-Listing $folder
+        $iniBefore = Get-Sha (Join-Path $folder "swkotor.ini")
+        $process = Start-Process -FilePath $Installer -ArgumentList @("--in-place", "`"$game`"", "1920x1080") -PassThru
+        Start-Sleep -Milliseconds $delay
+        if (-not $process.HasExited) { $process.Kill() }
+        $process.WaitForExit()
+        $stage = if (Test-Path -LiteralPath (Join-Path $folder "binkw32Hooked.dll")) { "after the rename" }
+                 elseif (Test-Path -LiteralPath (Join-Path $folder "KotorPatcher.dll")) { "with the runtime in" }
+                 elseif (Test-Path -LiteralPath (Join-Path $folder "KMRP\kpm.manifest")) { "with the manifest only" }
+                 else { "before any change" }
+        Write-Host "    stopped after $delay ms, $stage"
+        Assert ((Invoke-Installer @("--in-place", "`"$game`"", "1920x1080")) -eq 0) "$delay ms: the next install succeeds"
+        Assert ((Get-Content -LiteralPath (Join-Path $folder "KMRP\kpm.manifest") -Raw) -notmatch '(?m)^incomplete') "$delay ms: and is complete"
+        Assert (Test-Path -LiteralPath (Join-Path $folder "binkw32Hooked.dll")) "$delay ms: it used KMRP's own runtime, not KPM's"
+        Assert ((Invoke-Installer @("--restore", "`"$game`"")) -eq 0) "$delay ms: the restore succeeds"
+        $after = Get-Listing $folder | Where-Object { $_ -notmatch $kept }
+        Assert (($before -join "`n") -eq ($after -join "`n")) "$delay ms: the folder is as it was"
+        Assert ((Get-Sha (Join-Path $folder "swkotor.ini")) -eq $iniBefore) "$delay ms: swkotor.ini is as it was"
+    }
 }
 finally {
     $env:LOCALAPPDATA = $playerLocalAppData

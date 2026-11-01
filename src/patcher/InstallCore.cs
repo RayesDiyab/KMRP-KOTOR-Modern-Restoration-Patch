@@ -1172,6 +1172,8 @@ namespace Kmrp
 
             string iniPath = PathForExecutable(executablePath);
             byte[] backup = File.ReadAllBytes(backupPath);
+            if (rows != null && rows.Count == 0)
+                rows = null;
             byte[] restored = File.Exists(iniPath) ? MergeOriginalKeys(File.ReadAllBytes(iniPath), backup, rows) : backup;
             WriteBytesAtomically(iniPath, restored);
             if (!BytesEqual(File.ReadAllBytes(iniPath), restored))

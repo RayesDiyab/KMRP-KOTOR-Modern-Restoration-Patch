@@ -117,6 +117,26 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: an install that stops or fails leaves nothing it cannot undo (audit INS-02,
+  INS-03, INS-04)** (2026-11-01). The manifest was written last, so an install killed
+  part way left a runtime nothing recorded, possibly with `binkw32.dll` renamed, and the
+  next run took that for KOTOR Patch Manager's. The manifest now goes first, with an
+  `incomplete` row, and each row is in it before the change it names (`InstallJournal`).
+  Every file KMRP writes goes through a temporary file, a length check and a rename, so a
+  full disk leaves no part of a file; the two leftovers a kill can still leave
+  (`*.kmrp-new`, and Windows' own `kpm.manifest~RF*.TMP`, which the test found) are removed
+  by the next run. The rollback tries every step whatever happened to the one before,
+  keeps the manifest when one fails, and says so: both installers said "no incomplete
+  changes were left behind" whatever had happened. Windows-only: the installers share
+  this code, the Mac's records first already. Separately, a restore or reinstall after
+  KPM took the runtime over left the art pack behind unrecorded, and every later install
+  refused to write over it; the pack is KMRP's in every branch now. And a Restore Original
+  of an install from before the manifest's `ini` rows (this cycle's INS-01) left the keys
+  KMRP had set, where its comment said they would go back: an empty list was not treated as
+  no list. Test-InstallerPatch cases 13 to 17 are new. Case 17 kills the installer at eight
+  moments, then installs and restores; the old code fails 17 checks across the five cases,
+  and takes a stopped install for KPM's. Not tried on a real full disk.
+
 - **Safety fixes from the audit** (2026-11-01). A mod's `.gui` holding a structure that reaches
   itself overflowed the stack (GUI-1): the clone now stops at KMRP's GFF editor's limits of
   depth 12 and 4,096 structures, and Test-ModCompatibility's fixture crashes the old code with

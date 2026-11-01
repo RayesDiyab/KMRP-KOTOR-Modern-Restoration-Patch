@@ -478,7 +478,9 @@ namespace Kmrp
             // changes and every resolution's files, and applies the size the game is
             // running at. The size given here is only where swkotor.ini starts the game.
             string folder = FolderOf(targetPath);
-            List<string[]> records = new List<string[]>();
+            if (upgrading)
+                IniOperations.KeepChosenSize(targetPath, ref width, ref height, report);
+            InstallJournal records = new InstallJournal(targetPath, width, height);
             IniEditState iniState = null;
             object dpiState = null;
             string kpatchFolder = null;
@@ -492,8 +494,6 @@ namespace Kmrp
                 // (issue 73). Until then KMRP set Prefer native wherever the game would
                 // inherit layered; a value it set that way, with its record, is removed here.
                 InstallPlatform.RemoveOldNvidiaSetting(targetPath, report);
-                if (upgrading)
-                    IniOperations.KeepChosenSize(targetPath, ref width, ref height, report);
                 iniState = IniOperations.Configure(targetPath, width, height, upgrading, report);
                 records.AddRange(iniState.Rows);
 
@@ -512,8 +512,8 @@ namespace Kmrp
                     List<string> patches = ChosenPatches(folder, report);
                     InstallEngine(folder, Path.GetFileName(targetPath), exe, patches, records, report);
                     SafeProgress(progress, 16, "Setting the 4 GB flag…");
-                    if (!steam && SetLargeAddressAware(targetPath, exe, patches, records, report))
-                        records.Add(new[] { "laa", "set" });
+                    if (!steam)
+                        SetLargeAddressAware(targetPath, exe, patches, records, report);
                     // Windows 7 and 8, where K1DC's .kpatch cannot run: its author's build
                     // for them, beside the game (DriverCompatStandalone, InstallCore.cs).
                     if (!patches.Contains(DriverCompatPatchId) && DriverCompatRoute(folder, null) == DriverCompatWindows7)
@@ -524,23 +524,14 @@ namespace Kmrp
                 SafeProgress(progress, 20, "Adding KMRP's art…");
                 Directory.CreateDirectory(GamePath.Combine(folder, PatchFolder));
                 WriteOwnedResource(folder, PatchFolder + "\\" + PackName, PackResource, records);
-                WriteManifest(targetPath, width, height, records);
+                records.Finish();
             }
-            catch
+            catch (Exception failure)
             {
-                try { InstallPlatform.RestoreDriverCompat(targetPath, null); }
-                catch { }
-                RemoveKpatches(records, null);
-                RemoveOwned(folder, records, null);
-                RemovePatchOptions(folder, records);
-                UndoEngineChanges(targetPath, records, null);
-                try { File.Delete(ManifestPath(targetPath)); }
-                catch { }
-                try { IniOperations.Rollback(iniState); }
-                catch { }
-                try { InstallPlatform.RollbackDpi(dpiState); }
-                catch { }
-                throw;
+                string left = RollBack(targetPath, records.Rows, iniState, dpiState);
+                throw new IOException(failure.Message + " " + (left ??
+                    (upgrading ? "The earlier KMRP had already been removed; what this install changed was undone."
+                               : "What this install changed was undone.")), failure);
             }
             // Every size the display offers made now, from the pack just written, so the
             // game starts and changes size without waiting (the maintainer, 2026-10-19:
@@ -583,6 +574,35 @@ namespace Kmrp
             if (steam)
                 SafeReport(report, "Steam: in KOTOR Patch Manager choose the proxy deployment, " +
                     "and start the game from Steam. Steam's swkotor.exe cannot take the 4 GB flag.");
+        }
+
+        /// <summary>Takes a failed install out again. Each step is tried whatever became of
+        /// the one before it; until 2026-11-01 a file that would not delete ended the
+        /// rollback there, with the game's binkw32.dll still renamed, and the window said
+        /// nothing incomplete was left behind (audit INS-04). The manifest goes last and only
+        /// when every step worked, since it is what lets Restore Original finish the job.
+        /// Returns null, or what the player has to do next.</summary>
+        private static string RollBack(string targetPath, List<string[]> records, IniEditState iniState, object dpiState)
+        {
+            string folder = FolderOf(targetPath);
+            string first = null;
+            Action<Action> step = delegate(Action undo)
+            {
+                try { undo(); }
+                catch (Exception error) { first = first ?? error.Message; }
+            };
+            step(() => InstallPlatform.RestoreDriverCompat(targetPath, null));
+            step(() => RemoveKpatches(records, null));
+            step(() => RemoveOwned(folder, records, null));
+            step(() => RemoveInProgress(folder));
+            step(() => RemovePatchOptions(folder, records));
+            step(() => UndoEngineChanges(targetPath, records, null));
+            step(() => IniOperations.Rollback(iniState));
+            step(() => InstallPlatform.RollbackDpi(dpiState));
+            if (first == null)
+                step(() => FileGuard.Delete(ManifestPath(targetPath)));
+            return first == null ? null : "Not everything this install changed could be undone (" + first +
+                "). Close KOTOR and anything using its files, then press Restore Original to finish.";
         }
 
         /// <summary>Removes what Install recorded, of either kind: the manifest says
@@ -642,6 +662,7 @@ namespace Kmrp
             if (whole)
                 RemoveKpmRuntime(targetPath, untouched, records, report);
             RemoveOwned(folder, records, report);
+            RemoveInProgress(folder);
             RemovePatchOptions(folder, records);
             UndoEngineChanges(targetPath, records, report);
             InstallPlatform.RestoreDpi(targetPath, report);
@@ -652,8 +673,7 @@ namespace Kmrp
             // KMRP's own Text, Icon and HUD sizes with them (2026-11-01, audit INS-01).
             if (!keepCache)
                 IniOperations.Restore(targetPath, records.FindAll(r => r[0] == "ini"), report);
-            try { File.Delete(ManifestPath(targetPath)); }
-            catch { }
+            FileGuard.Delete(ManifestPath(targetPath));
             // An install over this one (keepCache) writes into KMRP's folders next.
             if (!keepCache)
                 KmrpFolder.RemoveEmpty(targetPath);
@@ -862,7 +882,10 @@ namespace Kmrp
         /// <summary>A record of KOTOR Patch Manager's runtime as this install laid it out:
         /// the runtime, its config, its identity file and the backup it restores from,
         /// the modules, the proxy and the rename, and the 4 GB flag KPM's own KMRP patch
-        /// sets too.</summary>
+        /// sets too. Not the art pack in patches\: nothing of KPM's reads or writes it, so
+        /// it stays KMRP's to remove. Counted as runtime until 2026-11-01, when a takeover
+        /// left it behind unrecorded and every later install refused to write over it
+        /// (audit INS-02, Test-InstallerPatch Case 13).</summary>
         private static bool IsRuntimeRecord(string[] record)
         {
             // The options section is the installed patch's, so it goes with the runtime
@@ -877,7 +900,8 @@ namespace Kmrp
                 String.Equals(name, KpmStateName, StringComparison.OrdinalIgnoreCase) ||
                 String.Equals(name, BinkName, StringComparison.OrdinalIgnoreCase) ||
                 name.IndexOf(KpmBackupInfix, StringComparison.OrdinalIgnoreCase) > 0 ||
-                name.StartsWith(PatchFolder + "\\", StringComparison.OrdinalIgnoreCase);
+                (name.StartsWith(PatchFolder + "\\", StringComparison.OrdinalIgnoreCase) &&
+                 !String.Equals(name, PatchFolder + "\\" + PackName, StringComparison.OrdinalIgnoreCase));
         }
 
         // ------------------------------------------------------------ KMRP's own engine
@@ -1073,7 +1097,7 @@ namespace Kmrp
         /// <summary>Writes the [Patch Options] section of configs\kmrp.ini, in place of
         /// the one an earlier install left, and records that this install did.</summary>
         private static void WritePatchOptions(string folder, string name, KeyValuePair<string, bool>[] options,
-            List<string[]> records)
+            InstallJournal records)
         {
             string path = GamePath.Combine(folder, name);
             string rest = File.Exists(path) ? WithoutOptionsSection(File.ReadAllText(path, OptionsEncoding)) : "";
@@ -1084,8 +1108,7 @@ namespace Kmrp
             if (rest.Length > 0)
                 text.Append("\r\n").Append(rest);
             Directory.CreateDirectory(GamePath.Combine(folder, OptionsFolder));
-            File.WriteAllText(path, text.ToString(), OptionsEncoding);
-            records.Add(new[] { "options", name });
+            WriteWhole(path, OptionsEncoding.GetBytes(text.ToString()), hash => records.Add(new[] { "options", name }));
         }
 
         /// <summary>Takes the section out again. A file that held nothing else is
@@ -1123,7 +1146,7 @@ namespace Kmrp
         /// a game folder. Every file goes through WriteOwned, which refuses one it did
         /// not write; the game's binkw32.dll is renamed, and recorded, first.</summary>
         private static void InstallEngine(string folder, string exeName, GameExecutable exe, List<string> patches,
-            List<string[]> records, Action<string> report)
+            InstallJournal records, Action<string> report)
         {
             WriteOwned(folder, RuntimeName, ReadResource("Kmrp.engine.runtime"), records);
             WriteOwned(folder, KpmLicenseName, ReadResource("Kmrp.engine.license"), records);
@@ -1163,8 +1186,8 @@ namespace Kmrp
             string bink = GamePath.Combine(folder, BinkName);
             string moved = GamePath.Combine(folder, BinkMovedName);
             string binkHash = GoldPatch.HashFile(bink);
-            File.Move(bink, moved);
             records.Add(new[] { "moved", BinkName, BinkMovedName, binkHash });
+            File.Move(bink, moved);
             WriteOwned(folder, BinkName, ReadResource("Kmrp.engine.proxy"), records);
             List<string> off = new List<string>();
             foreach (KeyValuePair<string, bool> option in options)
@@ -1243,21 +1266,22 @@ namespace Kmrp
         /// <summary>Sets IMAGE_FILE_LARGE_ADDRESS_AWARE on CD 1.03's or GOG's swkotor.exe,
         /// the one-bit change the standalone installer also made (PeCompatibility), and
         /// checks the result is the known large-address file; first it leaves a backup
-        /// of the unmodified file for KOTOR Patch Manager (WriteKpmBackup). False when
-        /// there was nothing to do: the flag already set, by the player or another tool,
-        /// is left alone, and restore leaves it too.</summary>
-        private static bool SetLargeAddressAware(string targetPath, GameExecutable exe, List<string> patches,
-            List<string[]> records, Action<string> report)
+        /// of the unmodified file for KOTOR Patch Manager (WriteKpmBackup). The flag already
+        /// set, by the player or another tool, is left alone and not recorded, so restore
+        /// leaves it too.</summary>
+        private static void SetLargeAddressAware(string targetPath, GameExecutable exe, List<string> patches,
+            InstallJournal records, Action<string> report)
         {
             string hash = GoldPatch.HashFile(targetPath);
             if (hash == exe.LargeAddressAwareHash)
             {
                 SafeReport(report, "swkotor.exe already has the 4 GB flag.");
-                return false;
+                return;
             }
             if (hash != exe.Hash || exe.LargeAddressAwareHash == null)
                 throw new InvalidDataException("swkotor.exe changed during the install. No changes were kept.");
             WriteKpmBackup(targetPath, exe, patches, records);
+            records.Add(new[] { "laa", "set" });
             WriteCharacteristics(targetPath, PeCompatibility.LargeAddressAwareCharacteristics);
             if (GoldPatch.HashFile(targetPath) != exe.LargeAddressAwareHash)
             {
@@ -1265,7 +1289,6 @@ namespace Kmrp
                 throw new IOException("Setting the 4 GB flag on swkotor.exe could not be verified. No changes were kept.");
             }
             SafeReport(report, "Set the 4 GB flag on swkotor.exe (one bit of its header).");
-            return true;
         }
 
         /// <summary>A copy of the unmodified swkotor.exe as KOTOR Patch Manager 0.7.1
@@ -1280,13 +1303,13 @@ namespace Kmrp
         /// executable KPM no longer identifies (read in KPM's source). Restore removes
         /// both files while they are as written.</summary>
         private static void WriteKpmBackup(string targetPath, GameExecutable exe, List<string> patches,
-            List<string[]> records)
+            InstallJournal records)
         {
             string folder = FolderOf(targetPath);
             string name = Path.GetFileName(targetPath) + KpmBackupInfix +
                 DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
             WriteOwned(folder, name, File.ReadAllBytes(targetPath), records);
-            if (records[records.Count - 1][2] != exe.Hash)
+            if (records.Rows[records.Rows.Count - 1][2] != exe.Hash)
                 throw new InvalidDataException("swkotor.exe changed during the install. No changes were kept.");
             StringBuilder ids = new StringBuilder();
             foreach (string id in patches)
@@ -1380,7 +1403,7 @@ namespace Kmrp
                     if (GoldPatch.HashFile(targetPath) != exe.Hash)
                         throw new IOException("Clearing the 4 GB flag on swkotor.exe could not be verified.");
                 }
-                else
+                else if (exe == null || hash != exe.Hash)
                     SafeReport(report, "Left swkotor.exe's header alone because it changed after install.");
             }
         }
@@ -1445,43 +1468,129 @@ namespace Kmrp
         //   kpatch <full path> <SHA-256> created|replaced
         //                                    one of KMRP's .kpatch files, for KOTOR
         //                                    Patch Manager's app (DeliverKpatches)
+        //   incomplete                       the install had not finished when this was
+        //                                    written (InstallJournal)
         // KMRP for KPM builds before 2026-09-29 wrote file rows only, the same way.
 
-        private static void WriteOwned(string folder, string name, byte[] data, List<string[]> records)
+        /// <summary>The rows of an install in progress. They are in the manifest before the
+        /// change each one names, the first of them before anything changes, with an
+        /// "incomplete" row until Finish: an install stopped at any point (killed, the
+        /// power, the window closed) is an install Restore Original or the next install
+        /// can take out. Until 2026-11-01 the manifest was written last, so a stopped
+        /// install left a runtime nothing recorded, and possibly binkw32.dll renamed,
+        /// which the next run took for KOTOR Patch Manager's (audit INS-03). The Mac's
+        /// installer records first too (kmrp-mac.sh).</summary>
+        private sealed class InstallJournal
         {
-            string target = GamePath.Combine(folder, name);
-            if (File.Exists(target))
+            private readonly string executable;
+            private readonly int width, height;
+            internal readonly List<string[]> Rows = new List<string[]>();
+
+            internal InstallJournal(string executable, int width, int height)
             {
-                // Never clobber a file this installer did not write.
-                bool ours = false;
-                foreach (string[] record in records)
-                    if (record[0] == "file" && String.Equals(record[1], name, StringComparison.OrdinalIgnoreCase))
-                        ours = true;
-                if (!ours)
-                    throw new IOException("Left the existing " + name + " alone; " +
-                        "KMRP was not installed. Move it aside and try again.");
+                this.executable = executable;
+                this.width = width;
+                this.height = height;
+                WriteManifest(executable, width, height, Rows, false);
             }
-            File.WriteAllBytes(target, data);
-            records.Add(new[] { "file", name, GoldPatch.HashFile(target) });
+
+            internal void Add(string[] row)
+            {
+                Rows.Add(row);
+                WriteManifest(executable, width, height, Rows, false);
+            }
+
+            internal void AddRange(List<string[]> rows)
+            {
+                Rows.AddRange(rows);
+                WriteManifest(executable, width, height, Rows, false);
+            }
+
+            internal void Finish()
+            {
+                WriteManifest(executable, width, height, Rows, true);
+            }
+        }
+
+        // Beside the file it will become (WriteWhole).
+        private const string InProgressSuffix = ".kmrp-new";
+
+        /// <summary>PATH as a whole file or not at all: written beside it, its length checked,
+        /// `recorded` told its hash, and only then moved into place, so a full disk or a
+        /// stopped install never leaves part of a file under a name Install owns. Partial
+        /// files were left until 2026-11-01, and refused by the next install (audit INS-04).
+        /// </summary>
+        private static void WriteWhole(string path, long length, Action<string> write, Action<string> recorded)
+        {
+            string temporary = path + InProgressSuffix;
+            try
+            {
+                write(temporary);
+                if (new FileInfo(temporary).Length != length)
+                    throw new IOException(Path.GetFileName(path) + " could not be written in full.");
+                recorded(GoldPatch.HashFile(temporary));
+                if (File.Exists(path))
+                    FileGuard.Replace(temporary, path);
+                else
+                    File.Move(temporary, path);
+            }
+            finally
+            {
+                FileGuard.Discard(temporary);
+            }
+        }
+
+        private static void WriteWhole(string path, byte[] data, Action<string> recorded)
+        {
+            WriteWhole(path, data.Length, temporary => File.WriteAllBytes(temporary, data), recorded);
+        }
+
+        /// <summary>What a stopped WriteWhole can leave, and what Windows' own file replace
+        /// can leave of the manifest, which it rewrites for every row (Test-InstallerPatch
+        /// Case 17 stopped one there, 2026-11-01).</summary>
+        private static void RemoveInProgress(string folder)
+        {
+            string own = GamePath.Combine(folder, KmrpFolder.Name);
+            foreach (string place in new[] { folder, GamePath.Combine(folder, PatchFolder),
+                                             GamePath.Combine(folder, OptionsFolder), own })
+                if (Directory.Exists(place))
+                    foreach (string path in Directory.GetFiles(place, "*" + InProgressSuffix))
+                        FileGuard.Discard(path);
+            if (Directory.Exists(own))
+                foreach (string path in Directory.GetFiles(own, Path.GetFileName(KmrpFolder.KpmManifest) + "~RF*.TMP"))
+                    FileGuard.Discard(path);
+        }
+
+        // Never clobber a file this installer did not write.
+        private static void RefuseUnowned(string folder, string name, InstallJournal records)
+        {
+            if (File.Exists(GamePath.Combine(folder, name)) && !records.Rows.Exists(r => r[0] == "file" &&
+                    String.Equals(r[1], name, StringComparison.OrdinalIgnoreCase)))
+                throw new IOException("Left the existing " + name + " alone; " +
+                    "KMRP was not installed. Move it aside and try again.");
+        }
+
+        private static void WriteOwned(string folder, string name, byte[] data, InstallJournal records)
+        {
+            RefuseUnowned(folder, name, records);
+            WriteWhole(GamePath.Combine(folder, name), data, hash => records.Add(new[] { "file", name, hash }));
         }
 
         /// <summary>WriteOwned for an embedded resource, streamed into the file rather than
         /// held in memory first: the art pack is some 56 MB.</summary>
-        private static void WriteOwnedResource(string folder, string name, string resource, List<string[]> records)
+        private static void WriteOwnedResource(string folder, string name, string resource, InstallJournal records)
         {
-            string target = GamePath.Combine(folder, name);
-            if (File.Exists(target) && !records.Exists(r => r[0] == "file" &&
-                    String.Equals(r[1], name, StringComparison.OrdinalIgnoreCase)))
-                throw new IOException("Left the existing " + name + " alone; " +
-                    "KMRP was not installed. Move it aside and try again.");
+            RefuseUnowned(folder, name, records);
             using (Stream source = Assembly.GetExecutingAssembly().GetManifestResourceStream(resource))
             {
                 if (source == null)
                     throw new InvalidDataException("This build does not carry " + resource + ".");
-                using (FileStream output = new FileStream(target, FileMode.Create, FileAccess.Write, FileShare.None))
-                    source.CopyTo(output);
+                WriteWhole(GamePath.Combine(folder, name), source.Length, delegate(string temporary)
+                {
+                    using (FileStream output = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None))
+                        source.CopyTo(output);
+                }, hash => records.Add(new[] { "file", name, hash }));
             }
-            records.Add(new[] { "file", name, GoldPatch.HashFile(target) });
         }
 
         private static bool IsOwnedName(string name)
@@ -1499,26 +1608,42 @@ namespace Kmrp
             return leaf.Length > 0 && leaf != "." && leaf != ".." && leaf.IndexOfAny(Path.GetInvalidFileNameChars()) < 0;
         }
 
+        /// <summary>One file that will not go does not keep the rest here; the first such
+        /// file's message is thrown once they have been tried.</summary>
         private static void RemoveOwned(string folder, List<string[]> records, Action<string> report)
         {
             int kept = 0;
+            IOException blocked = null;
             foreach (string[] record in records)
             {
                 if (record[0] != "file")
                     continue;
                 string target = GamePath.Combine(folder, record[1]);
-                if (!File.Exists(target))
-                    continue;
-                if (GoldPatch.HashFile(target) != record[2])
+                try
                 {
-                    kept++;
-                    continue;
+                    if (!File.Exists(target))
+                        continue;
+                    if (GoldPatch.HashFile(target) != record[2])
+                    {
+                        kept++;
+                        continue;
+                    }
+                    FileGuard.Delete(target);
                 }
-                File.Delete(target);
+                catch (IOException error)
+                {
+                    blocked = blocked ?? new IOException(FileGuard.InUseMessage(target, "removed"), error);
+                }
+                catch (UnauthorizedAccessException error)
+                {
+                    blocked = blocked ?? new IOException(FileGuard.InUseMessage(target, "removed"), error);
+                }
             }
             if (kept > 0)
                 SafeReport(report, "Left " + kept.ToString(CultureInfo.InvariantCulture) +
                     " file(s) in place because they changed after install.");
+            if (blocked != null)
+                throw blocked;
         }
 
         // ------------------------------------------------------------ KMRP's .kpatch files
@@ -1531,7 +1656,7 @@ namespace Kmrp
         /// Returns where they went, or null. Each file is recorded (WriteKpatch); a file
         /// that could not be written into KPM's folder falls back to the game folder for
         /// an install for KPM, and is only reported otherwise.</summary>
-        private static string DeliverKpatches(string gameFolder, bool forPatchManager, List<string[]> records,
+        private static string DeliverKpatches(string gameFolder, bool forPatchManager, InstallJournal records,
             Action<string> report)
         {
             string kpm = KpmPatchesFolder();
@@ -1561,7 +1686,7 @@ namespace Kmrp
             return folder;
         }
 
-        private static void WriteKpatches(string folder, bool withReadme, List<string[]> records, Action<string> report)
+        private static void WriteKpatches(string folder, bool withReadme, InstallJournal records, Action<string> report)
         {
             for (int i = 0; i < Kpatches.GetLength(0); i++)
             {
@@ -1598,7 +1723,7 @@ namespace Kmrp
         /// brought up to this version, since KMRP's module refuses another version's data
         /// file, but a file the player had is never deleted. A file of the same name that is
         /// not KMRP's is left alone, and said so.</summary>
-        private static void WriteKpatch(string path, byte[] data, string patchId, List<string[]> records,
+        private static void WriteKpatch(string path, byte[] data, string patchId, InstallJournal records,
             Action<string> report)
         {
             string state = "created";
@@ -1617,8 +1742,7 @@ namespace Kmrp
                     return;
                 }
             }
-            File.WriteAllBytes(path, data);
-            records.Add(new[] { "kpatch", path, GoldPatch.HashFile(path), state });
+            WriteWhole(path, data, hash => records.Add(new[] { "kpatch", path, hash, state }));
         }
 
         /// <summary>Removes the .kpatch files this install created, while they are as
@@ -1773,7 +1897,7 @@ namespace Kmrp
             File.WriteAllBytes(GamePath.Combine(folder, KpatchLicenseName), ReadResource("Kmrp.engine.license"));
         }
 
-        private static void WriteManifest(string targetPath, int width, int height, List<string[]> records)
+        private static void WriteManifest(string targetPath, int width, int height, List<string[]> records, bool complete)
         {
             StringBuilder text = new StringBuilder();
             text.Append("version\t").Append(GoldPatch.PatchVersion).Append("\r\n");
@@ -1785,7 +1909,9 @@ namespace Kmrp
                 .Append(height.ToString(CultureInfo.InvariantCulture)).Append("\r\n");
             foreach (string[] record in records)
                 text.Append(String.Join("\t", record)).Append("\r\n");
-            File.WriteAllText(ManifestPath(targetPath), text.ToString(), new UTF8Encoding(false));
+            if (!complete)
+                text.Append("incomplete\r\n");
+            WriteWhole(ManifestPath(targetPath), new UTF8Encoding(false).GetBytes(text.ToString()), hash => { });
         }
 
         private static List<string[]> ReadRecords(string targetPath)

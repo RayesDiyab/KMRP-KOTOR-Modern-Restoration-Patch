@@ -946,7 +946,7 @@ namespace Kmrp
             {
                 Refresh();
                 applyState.Set("Error", Ui.Error, 0);
-                stepApply.Set(null, name + " stopped — no incomplete changes were left behind.");
+                stepApply.Set(null, name + " stopped. The message says what happened.");
                 try { PatchOperations.AppendLog(target, name + " failed: " + error); }
                 catch { }
                 Notice(name + " blocked", error.Message);

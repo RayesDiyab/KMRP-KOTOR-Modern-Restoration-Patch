@@ -4851,7 +4851,7 @@ namespace Kmrp
                 {
                     RefreshStatus();
                     SetState(applyState, "Error", UiTheme.Error);
-                    stepApply.SetSubtitle(name + " stopped — no incomplete changes were left behind.");
+                    stepApply.SetSubtitle(name + " stopped. The message says what happened.");
                     try { PatchOperations.AppendLog(target, name + " failed: " + e.Error); } catch { }
                     MessageBox.Show(this, e.Error.Message, name + " blocked", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
