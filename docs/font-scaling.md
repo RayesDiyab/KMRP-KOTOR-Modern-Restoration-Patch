@@ -101,7 +101,7 @@ assembled from source by the same emitters the gold builders use
 ([Windows engine source](windows-engine-source.md)), and since 2026-09-29 the fixes
 are applied in memory by KMRP's module rather than written into `swkotor.exe`. The
 gold chain below is the historical reference the recipe was measured against, and
-what `--apply` still reproduces. (Until 2026-10-08 this section said the build
+what `kmrp-reference.exe --apply` still reproduces. (Until 2026-10-08 this section said the build
 script defaults to the current gold, v24.)
 
 ```powershell
@@ -189,7 +189,7 @@ gold, and it did.
 
 A live install's `swkotor.exe` never matches the gold. Since 2026-09-29 it is the
 player's own file, unchanged on Steam and with only the 4 GB flag set on GOG's and
-the editable build. An `--apply` output, and an install made before that day, is
+the editable build. A `kmrp-reference.exe --apply` output, and an install made before that day, is
 `gold + ResolutionPatch`: the per-resolution constants written on top.
 
 **Font sizing no longer uses the runtime `--scale` constant.** It rides on the

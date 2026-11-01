@@ -159,7 +159,8 @@ Proton; only the installer is native.
 `src/patcher`, compiled by .NET Framework 4's `csc.exe` from `build_kmrp.ps1`:
 11,154 lines in `KmrpPatcher.cs` (8,754) and `KpmEdition.cs` (2,400), plus
 `GuiBlend.cs`, `GameArtGenerator.cs`, `AbilityIconGenerator.cs`,
-`ControllerPromptGenerator.cs` and `WindowsEnginePatch.cs`. Every class was scanned
+`ControllerPromptGenerator.cs` and `WindowsEnginePatch.cs` (in `testing/reference/` since
+2026-11-01, so in neither installer now). Every class was scanned
 for WinForms, the registry, P/Invoke, NvAPI and process control
 (`class_map.py` in the session's scratch folder; the hits checked by hand, since
 `[Graphics Options]` in INI text matched a naive "Graphics"):
@@ -167,7 +168,7 @@ for WinForms, the registry, P/Invoke, NvAPI and process control
 | Group | Classes | Platform |
 | --- | --- | --- |
 | Install and restore core | `KpmEditionOperations` (`Install`, `Restore`, `Inspect`, `CanRestore`, `PatchConfigSection`), `PatchOperations`, `IniOperations`, `KmrpFolder`, `FileGuard`, `OverrideOperations`, `OverrideRecord`, `InstallClock`, `BuildStamp` | portable: files, TOML, JSON, INI |
-| Game facts | `GameExecutable`, `PeCompatibility`, `GoldPatch`, `WindowsEnginePatch`, `ResolutionChoice`, `ResolutionCatalog`, `ResolutionPatch`, `ResolutionSelection`, `GuiBlend` | portable (PE reading and tables) |
+| Game facts | `GameExecutable`, `PeCompatibility`, `GoldPatch`, `ResolutionChoice`, `ResolutionCatalog`, `ResolutionPatch`, `ResolutionSelection`, `GuiBlend` | portable (PE reading and tables) |
 | Art made at install | `GameArtGenerator`, `AbilityIconGenerator` | portable; `ControllerPromptGenerator` draws with GDI+ |
 | Art prebuilt by the module | `ArtPreparation` (loads `kmrp.dll` with `LoadLibraryEx` and runs `KmrpRuntimeAssetsPrepare` for every display size) | **Windows only**: an x86 Windows DLL |
 | Driver checks | `DriverCompatOperations` (asks Windows for the functions K1DC's module imports) | **Windows only**; under Proton the `.kpatch` is always the route (since 2026-10-31) |

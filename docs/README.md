@@ -46,6 +46,8 @@ Design and build documentation. Engine analysis lives one level over, in
 | [patcher-ui-build.md](patcher-ui-build.md) | The Windows installer itself: window flow, proportional resize, icon pipeline, embedded resources, build process, transaction safety, and the release checklist. |
 | [windows-engine-source.md](windows-engine-source.md) | The source-built Windows engine recipe: no clean or gold executable as input, the byte guards, the eleven relocatable pages, package checks, and the measured Ubuntu cross-build. |
 | [universal-resolution-math.md](universal-resolution-math.md) | How one build covers 66 resolutions and blends the rest: the fields that hold screen geometry, the coordinate math, how the interface files are packaged, and **which resolutions have actually been play-tested.** |
+| [live-adaptive-layout.md](live-adaptive-layout.md) | The rules that lay out any `.gui` at run time, the game's or a mod's. |
+| [controller-live-adaptive-layout.md](controller-live-adaptive-layout.md) | The same for the controller patch, which draws every picture at run time. |
 | [font-scaling.md](font-scaling.md) | The font, dialogue-letterbox and list-row scaling work, and the gold snapshot chain, kept as the reference the source recipe was checked against. |
 | [documentation-standard.md](documentation-standard.md) | **The standard every document here is held to.** Read before writing or updating one. |
 | [agent-memory/](agent-memory/) | Repository-local guidance for coding agents: orientation, task routing, build and verification workflows, durable discoveries. |
@@ -56,6 +58,8 @@ Design and build documentation. Engine analysis lives one level over, in
 | --- | --- |
 | [mod-build-compatibility.md](mod-build-compatibility.md) | Accepted executables, K1CP, K1R and KOTORganizer, KOTOR Patch Manager's hash boundary, and measured limits for other executable patchers. |
 | [third-party-driver-compat.md](third-party-driver-compat.md) | **K1 Modern Driver Compatibility**, bundled with Synchro's permission: what it fixes on each vendor, every byte it writes, and the check that none of its eight sites collides with KMRP's. |
+| [mod-file-inventory.md](mod-file-inventory.md) | How each kind of a mod's file is merged with KMRP's. |
+| [linux-appimage-installer.md](linux-appimage-installer.md) | The native Linux installer. |
 | [windows-dpi-scaling.md](windows-dpi-scaling.md) | Why Windows display scaling can zoom KOTOR a second time, the compatibility value KMRP manages, restore ownership, and the tested matrix. |
 | [nvidia-present-method.md](nvidia-present-method.md) | The NVIDIA present method set for `swkotor.exe` when the driver would otherwise show half-drawn frames: when it is written, when the player's choice is left alone, restore. |
 | [linux-proton-steam-deck.md](linux-proton-steam-deck.md) | Linux and Proton procedure, the measured Ubuntu run of 2026-10-01, and what is unverified since. |
@@ -93,6 +97,8 @@ Design and build documentation. Engine analysis lives one level over, in
 | [macos/PLAYER-README.md](../macos/PLAYER-README.md) | The players' instructions, shipped in the Mac package as `README.md`. |
 | [macos/WINDOWS-PARITY.md](../macos/WINDOWS-PARITY.md) | Every Windows engine site and its state on the Mac. |
 | [macos-handoff-1.5-to-1.6.md](macos-handoff-1.5-to-1.6.md) | **The Mac's handoff from 1.5 to 1.6, 2026-10-22:** Mac players have 1.5.0 only (1.5.1 never reached them), so every change since that the macOS build needs, 1.5.1's repairs included, with what to do and how to check it. Read it first. |
+| [macos-app-store.md](macos-app-store.md) | The Mac App Store edition of the game. |
+| [windows-handoff-2026-10-09.md](windows-handoff-2026-10-09.md) | Handoff from the Mac to Windows of that date. |
 | [macos-changes-from-windows.md](macos-changes-from-windows.md) | Retired 2026-10-22 for the file above; points to the old tracker in git history. |
 | [windows-changes-from-macos.md](windows-changes-from-macos.md) | The other direction: changes the macOS build made first. |
 | [macos-handoff-2026-10-09.md](macos-handoff-2026-10-09.md) | **Handoff to the Mac side, 2026-10-09:** the area map and the grown buttons after a change of resolution, the Xbox-style HUD on by default, HD icons and High FPS Fixes as options, frame rates through the game's own list, and what each asks of the Mac. Older than the 1.5 to 1.6 handoff above. |
@@ -100,6 +106,16 @@ Design and build documentation. Engine analysis lives one level over, in
 | [macos-standalone-kpatch-handoff.md](macos-standalone-kpatch-handoff.md) | Handoff to the Mac side, 2026-10-04: the self-contained patch and its options format. |
 | [ftd-macos-upstream-audit.md](ftd-macos-upstream-audit.md) | Audit of FTD's upstream macOS patches against KMRP's. |
 | [handoffs/](handoffs/) | Dated handoff notes between the Windows and Mac sides. |
+
+## The 1.6 audit
+
+| Document | What it covers |
+| --- | --- |
+| [cleanup-audit-1.6-disposition.md](cleanup-audit-1.6-disposition.md) | **Where every finding stands**, kept current. |
+| [gameplay-checklist-1.6.md](gameplay-checklist-1.6.md) | What only the game can confirm, with steps. |
+| [cleanup-audit-1.6-report.md](cleanup-audit-1.6-report.md) | The audit's report: each finding's detail. |
+| [cleanup-audit-1.6.md](cleanup-audit-1.6.md) | Its inventory of hooks and files. |
+| [cleanup-audit-1.6-findings.md](cleanup-audit-1.6-findings.md) | The findings of its first part, F1 to F13. |
 
 ## History
 

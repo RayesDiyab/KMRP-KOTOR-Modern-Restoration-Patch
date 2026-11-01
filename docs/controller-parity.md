@@ -102,9 +102,9 @@ This is the gap list, and it is larger than it looks. Everything below is read
 out of the game's own `keymap.2da` (79 rows, extracted from `chitin.key`) and
 `../reverse-engineering/retained-gui-event-inventory.txt`.
 
-**The structural reason there was a gap at all.** The legacy path synthesises
-keystrokes, so its buttons land on KOTOR's **keymap actions** in input class
-`icpc` — real gameplay verbs. The native path sends **retained GUI panel
+**The structural reason there was a gap at all.** The legacy path synthesised
+keystrokes (removed 2026-11-01), so its buttons landed on KOTOR's **keymap actions** in
+input class `icpc` — real gameplay verbs. The native path sends **retained GUI panel
 events**, which are dispatched per screen. The gameplay HUD's dispatcher,
 `INGAME_GAMEPLAY` at `0x006E6180`, implements only `0x28`, `0x2D`, `0x2E`,
 `0x39` and `0x3A`. So `0x29`, `0x2A`, `0x2B`, `0x35` and `0x36` — X, Y, Back, LT

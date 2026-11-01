@@ -117,7 +117,7 @@ All of it is the controller patch, `kmrp-controller`, unless a row says otherwis
 | With KOTOR Patch Manager | The two `.kpatch` files go to KPM's patch folder; where KPM's runtime is already in the game folder, the installer leaves the patches to KPM. `--export-kpm-patches <folder>` writes both out. | [kpm-edition.md](kpm-edition.md) |
 | Advanced Settings | Controller support, driver compatibility, map notes, HD item icons (on), High FPS Fix and debug logs (off); remembered in `%LOCALAPPDATA%\KMRP\settings.json`. | `KmrpPatcher.cs` |
 | Update check | One request to GitHub's releases when the window opens. | [SECURITY.md](../SECURITY.md) |
-| Command line | `--in-place`, `--restore`, `--apply`, `--export-kpm-patches`. | [README](../README.md) |
+| Command line | `--in-place`, `--restore`, `--export-kpm-patches`. `--apply` moved to a test tool on 2026-11-01. | [README](../README.md) |
 
 ## How it is checked
 

@@ -298,12 +298,13 @@ from free look, Y and B pressing the HUD's combat buttons (X and Y until
 buttons of Pazaak's table (since 2026-10-19), the movie skip, and focus navigation
 itself (`SetActiveControl`).
 
-### C — legacy synthetic input
+### C — legacy synthetic input (removed 2026-11-01)
 
-XInput is read and keystrokes are synthesised, which the engine cannot tell from
-a keyboard. This is Saul's original approach and it works, but it is invisible to
-the input-description layer, fights the native path when both are live, and
-cannot express an analog value.
+XInput was read and keystrokes synthesised, which the engine cannot tell from a keyboard.
+This was Saul's original approach. It worked, but it was invisible to the input-description
+layer, fought the native path when both were live, and could not express an analog value.
+The linker had already left it out of the shipped module when it was removed (approved
+decision 1 of the 1.6 audit). This section stays for what it explains.
 
 Everything in C that has an A equivalent is listed in
 `controller-handover-plan.md`. What remains in C is there because it is not input

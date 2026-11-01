@@ -10,8 +10,9 @@ session notes summarised under *Rejected alternatives* below.
 
 **"The standalone"** in this document is KMRP's installer as it was until
 2026-09-29, which wrote the gold image into `swkotor.exe`. KMRP's installer still
-writes that image to a new file with `--apply`, and it remains the reference the
-data file is proved against (section 7); installing it is retired.
+made that image in a new file with `--apply` until 2026-11-01; the test tool
+`build/kmrp/kmrp-reference.exe` does now, and it remains the reference the data file is
+proved against (section 7). Installing it is retired.
 
 ## KMRP's own folder since 2026-10-20
 
@@ -176,7 +177,7 @@ and the three regressions of the four-patch layout (`Test-KpmEdition.ps1`,
 them as they were. **Kept:** the whole restore side (`OverrideOperations.Restore`,
 `IniOperations.Restore`, the standalone installer's restore), which removes older
 installs; `--apply`, which still builds the reference executable from the engine
-source; and `--derive-gui` with the C# generators, the reference the macOS C tools
+source (in the test tool `kmrp-reference.exe` since 2026-11-01); and `--derive-gui` with the C# generators, the reference the macOS C tools
 are compared with. **Removed later that day, on the maintainer's word:** `tools/build_kpatch.py` (the
 four-patch packaging), `src/controller-native/build.cmd` (the 245 KB module) and
 `tools/check_patcher_hook_table.py` (which compared the four config sections with the
@@ -217,8 +218,9 @@ The normal Windows build now assembles its patch recipe from tracked source,
 without a clean executable, gold snapshot, `gold.kup`, or `Kmrp.kpm.originals`.
 [Windows engine source](windows-engine-source.md) documents the current build
 and checks. The historical measurements below still describe the earlier
-snapshot-derived implementation. `--apply` remains an optional offline reference
-command using a supported editable executable, not an installer build step.
+snapshot-derived implementation. `--apply` is an optional offline reference command
+of the test tool `kmrp-reference.exe`, using a supported editable executable, and not
+an installer build step.
 
 ## The build this describes
 

@@ -41,8 +41,9 @@ All other INI sections and settings are preserved.
 **Correction, 2026-10-01:** the normal build no longer reads a clean executable
 or gold snapshot, and the installer no longer writes an engine update into
 `swkotor.exe`. Steam's file stays unchanged; supported editable CD/GOG files
-receive only the existing LAA flag. `WindowsEnginePatch.cs` specializes the
-source template and checks scaling-field coverage. See the
+receive only the existing LAA flag. `WindowsEnginePatch.cs`, in
+`testing/reference/` since 2026-11-01, specializes the source template and checks
+scaling-field coverage, for the reference tool and not the installer. See the
 [source build reference](../../docs/windows-engine-source.md).
 
 The shared artwork is generated from the repository snapshot:
@@ -117,12 +118,12 @@ per-resolution font caches are optional.
 Automation-only command-line modes are also available:
 
 ```text
-"KMRP - KOTOR Modern Restoration Patch.exe" --apply clean.exe output.exe 1920x1080
 "KMRP - KOTOR Modern Restoration Patch.exe" --in-place swkotor.exe 1920x1080
 "KMRP - KOTOR Modern Restoration Patch.exe" --restore swkotor.exe
 ```
 
 `--in-place` performs the complete installation. `--restore` restores owned
-runtime, EXE-header, INI and Override changes. `--apply` creates only an offline
-reference from a supported editable CD/GOG executable and does not change the
-INI or Override directory; it is not a build prerequisite or Steam install mode.
+runtime, EXE-header, INI and Override changes. `--apply`, which made an offline
+reference executable, left the installer on 2026-11-01: it is
+`build/kmrp/kmrp-reference.exe`, built from `testing/reference/`, used by tests and
+shipped nowhere.
