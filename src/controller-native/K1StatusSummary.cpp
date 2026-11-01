@@ -18,15 +18,15 @@ using namespace KmrpGui;
 // left it out of the panel's array and the engine never draws it; such a row must
 // not take a place.
 bool boundTo(void* panel, void* control) {
-    const int id=at<int>(control,0x50), count=at<int>(panel,0x24);
-    void** const array=at<void**>(panel,0x20);
-    return id>=0 && id<count && readable(array,count*sizeof(void*)) && array[id]==control;
+    const int id=At<int>(control,0x50), count=At<int>(panel,0x24);
+    void** const array=At<void**>(panel,0x20);
+    return id>=0 && id<count && IsReadableK1(array,count*sizeof(void*)) && array[id]==control;
 }
 
 unsigned summaryLogs = 0;
 
 void layoutStatusSummary(void* manager, void* panel) {
-    if (!readable(panel,K1_SUMMARY_OK+0x1C4) || !readable(manager,0x70)) return;
+    if (!IsReadableK1(panel,K1_SUMMARY_OK+0x1C4) || !IsReadableK1(manager,0x70)) return;
     char* const base=static_cast<char*>(panel);
     int rows[K1_SUMMARY_ROWS]={};
     int count=0, widest=0, lineHeight=0;
@@ -35,7 +35,7 @@ void layoutStatusSummary(void* manager, void* panel) {
         void* const line=base+K1_SUMMARY_LINES+i*K1_LABEL_SIZE;
         // The engine shows a row by setting its icon's visible bit (0x0062604x
         // and 0x00626245 clear it again).
-        if (!(at<unsigned>(icon,0x44)&2u) || !boundTo(panel,icon) || !boundTo(panel,line))
+        if (!(At<unsigned>(icon,0x44)&2u) || !boundTo(panel,icon) || !boundTo(panel,line))
             continue;
         int height=0;
         const int width=labelTextWidth(line,height);
@@ -47,7 +47,7 @@ void layoutStatusSummary(void* manager, void* panel) {
     if (!count) return;
     // The 640x480 layout, in units of its own 16 px line.
     auto at16=[lineHeight](int v) { return (v*lineHeight+8)/16; };
-    const int screenW=at<short>(manager,0x6C), screenH=at<short>(manager,0x6E);
+    const int screenW=At<short>(manager,0x6C), screenH=At<short>(manager,0x6E);
     if (screenW<=0 || screenH<=0) return;
     const int lineX=at16(52);
     // The widest line as drawn, and a quarter of a line more: the art's border
@@ -92,15 +92,15 @@ void layoutStatusSummary(void* manager, void* panel) {
 // The status summary, wherever the manager holds it: its panel list or, while it
 // waits for OK, its modal list.
 void updateStatusSummary(void* manager) {
-    if (!readable(manager,0x9C)) return;
+    if (!IsReadableK1(manager,0x9C)) return;
     const unsigned lists[2][2]={{0x88,0x8C},{0x94,0x98}};
     for (const auto& list: lists) {
-        void** const panels=at<void**>(manager,list[0]);
-        const int count=at<int>(manager,list[1]);
-        if (count<=0 || count>256 || !readable(panels,count*sizeof(void*))) continue;
+        void** const panels=At<void**>(manager,list[0]);
+        const int count=At<int>(manager,list[1]);
+        if (count<=0 || count>256 || !IsReadableK1(panels,count*sizeof(void*))) continue;
         for (int i=0;i<count;++i) {
             void* const panel=panels[i];
-            if (readable(panel,4) && at<std::uintptr_t>(panel,0)==K1_STATUS_SUMMARY_VTABLE) {
+            if (IsReadableK1(panel,4) && At<std::uintptr_t>(panel,0)==K1_STATUS_SUMMARY_VTABLE) {
                 layoutStatusSummary(manager,panel);
                 return;
             }

@@ -8065,13 +8065,13 @@ extern "C" void __cdecl NativeJoystickDumpK1()
     // The game froze on loading a save, because the counters have to grow
     // wide before the line is long enough to overrun.
     //
-    // wsprintfA will not emit more than 1024 bytes including the null, so
-    // 2048 cannot be overrun however many fields are added later. Anything
-    // added here still has to respect that 1024-byte ceiling or the line
-    // will simply be truncated.
+    // snprintf since 2026-11-01 (issue 82, F6): wsprintfA stops at 1024 bytes,
+    // and with every field at its widest this line reaches 1,484, which would
+    // lose the last columns and the line's end. The longest seen in a real log
+    // is 700. check_controller_drift.py measures the worst case against this size.
     char line[2048];
-    const int written = wsprintfA(
-        line,
+    const int written = std::snprintf(
+        line, sizeof line,
         "reg=%d createFail=%d count=%ld init=%lu buf=%lu rec=%lu mov=%lu ovr=%lu "
         "raw=(%ld,%ld) poll=(%ld,%ld) add=[%d %d %d %d %d %d] "
         "byclass=[%ld %ld %ld %ld %ld %ld] "
@@ -8198,7 +8198,9 @@ extern "C" void __cdecl NativeJoystickDumpK1()
     HANDLE file = !KmrpDebugLogs() ? INVALID_HANDLE_VALUE : KmrpAppendLog(L"kmrp-native-joystick.log");
     if (file != INVALID_HANDLE_VALUE) {
         DWORD done = 0;
-        WriteFile(file, line, static_cast<DWORD>(written), &done, nullptr);
+        if (written > 0) {
+            WriteFile(file, line, static_cast<DWORD>(written < static_cast<int>(sizeof line) ? written : sizeof line - 1), &done, nullptr);
+        }
         CloseHandle(file);
     }
 }

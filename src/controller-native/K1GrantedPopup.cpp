@@ -33,6 +33,7 @@
 // count +0x2A0, row height +0x2B4, rows that fit +0x2C4 (a short). Every control's extent
 // is at +0x4, set through vtable slot 1.
 #include <cstdint>
+#include "K1EngineMemory.h"
 #include <cstring>
 
 namespace {
@@ -42,9 +43,6 @@ constexpr std::size_t kExtent = 0x4, kList = 0x64, kOk = 0x484, kRows = 0x648, k
 constexpr std::size_t kRowText = 0xD0, kHex = 0x1B4, kHexLit = 0x228, kIcon = 0x29C;
 constexpr std::size_t kListInner = 0x298, kListCount = 0x2A0, kListRow = 0x2B4, kListVisible = 0x2C4;
 
-template <typename T> T& At(void* base, std::size_t offset) {
-    return *reinterpret_cast<T*>(static_cast<char*>(base) + offset);
-}
 
 using SetExtentCall = void(__thiscall*)(void*, const std::int32_t*);
 

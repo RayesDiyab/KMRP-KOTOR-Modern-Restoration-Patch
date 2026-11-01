@@ -121,7 +121,6 @@ inline const BadgeShape* Badge(const char* resref) {
         if (!std::strcmp(shape.resref, resref)) return &shape;
     return nullptr;
 }
-template<class T> T& At(void* p, unsigned n) { return *reinterpret_cast<T*>(static_cast<char*>(p) + n); }
 
 // The middle of a button's caption letters on screen, top to bottom, or -1 when its font
 // cannot be read: the letters' place in the line from the font's picture

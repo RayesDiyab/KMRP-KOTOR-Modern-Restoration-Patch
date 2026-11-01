@@ -43,6 +43,7 @@
 //
 // Documentation standard: see `docs/documentation-standard.md`.
 #include <windows.h>
+#include "K1EngineMemory.h"
 #include <algorithm>
 #include <climits>
 #include <cmath>
@@ -280,10 +281,6 @@ constexpr int kNameHeight = 26;                                // LBL_NAME
 constexpr int kNameFrame[4] = {-10, -14, 271, 64};             // LBL_INDICATE, from LBL_NAME's corner
 constexpr int kHealthBar[4] = {1, 26, 247, 9};                 // PB_HEALTH, from the same corner
 
-template <typename T> T& At(void* base, std::ptrdiff_t offset)
-{
-    return *reinterpret_cast<T*>(static_cast<char*>(base) + offset);
-}
 
 void* Part(void* base, std::ptrdiff_t offset) { return static_cast<char*>(base) + offset; }
 

@@ -207,10 +207,11 @@ controller tests that drive a running game. **Not seen in a game.**
   the rest) keep their `KMRP_CONTROLLER_STANDALONE` guards, now always true there.
 - `readable` (`K1GuiControls.h`) and `IsReadableK1` (`K1EngineMemory.h`) are the same check
   written twice, and `at`, `Field`, `At` and `FieldAt` are one helper under four names across
-  the files: a finding of their own.
+  the files: a finding of their own. (Done 2026-11-01: F4.)
 - `Test-SwoopPrompt` is broken on the last commit already.
 - The status summary laid out twice per frame with both patches, as described above. (The
   party portraits needing the controller patch: fixed since, F5.)
 - `check_controller_drift.py`'s two older warnings: three badges built and never referenced
   (`kmrpa_clssel`, `kmrpl_pzkflip`, `kmrpx_pzkplay`), and the state dump's line able to reach
-  1,484 bytes in a 1,200-byte buffer (1,499 before F1 removed `sbf=`).
+  1,484 bytes in a 1,200-byte buffer (1,499 before F1 removed `sbf=`). (Corrected 2026-11-01,
+  F6: the buffer is 2,048 bytes; the check had read another function's.)

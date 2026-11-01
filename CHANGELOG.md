@@ -117,6 +117,19 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **The native sources' repeated helpers are one copy each (issue 82, F2, F4, F6)**
+  (2026-11-01, [`docs/cleanup-audit-1.6-findings.md`](docs/cleanup-audit-1.6-findings.md)).
+  One readable-memory check where there were four, one field helper where there were 13
+  under four names, one engine routine helper where the plain copies were four. Two of the
+  checks looked at one memory region only and now follow a range into the next, the only
+  difference in behaviour. The controller's state dump uses `snprintf`: `wsprintfA` stops at
+  1,024 bytes, and the line could reach 1,484 with every field at its widest (the longest
+  seen is 700). `check_controller_drift.py`'s warning of an overrun was wrong: it had read
+  another function's buffer. The controller's resource hook is
+  `ControllerPrepareResourcesK1`, no longer KMRP's name for its own. Built, 22 regression
+  tests run (the three that failed before fail the same). Seen in the maintainer's game: "it
+  works correctly" (what was checked not stated).
+
 - **Fixed: the Party Roster Limit 32 mod's empty portraits are repaired with KMRP alone
   (issue 82, F5)** (2026-11-01,
   [`docs/cleanup-1.6/F5-party-portraits-with-kmrp-alone.md`](docs/cleanup-1.6/F5-party-portraits-with-kmrp-alone.md)).

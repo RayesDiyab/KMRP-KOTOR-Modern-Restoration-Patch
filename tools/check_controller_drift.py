@@ -322,15 +322,19 @@ def main() -> int:
     # Found inside the function that writes it, not as the file's first
     # wsprintfA: when another call was added earlier in the file this check went
     # on passing while measuring a one-conversion string instead of the line.
+    # The same mistake with the buffer: until 2026-11-01 (issue 82, F6) the size
+    # was the file's first "char line[", 1,200 bytes in the frame timing log, and
+    # this reported an overrun of a line that sits in 2,048.
     source = kc.MODULE_SOURCE.read_text(encoding="utf-8")
     try:
         # The definition, not the forward declaration: the body's opening brace.
         start = re.search(r'extern "C" void __cdecl NativeJoystickDumpK1\(\)\s*\{',
                           source).start()
-        index = source.index("wsprintfA(", start) + len("wsprintfA(")
+        index = source.index("std::snprintf(", start) + len("std::snprintf(")
     except (ValueError, AttributeError):
+        start = 0
         index = -1
-        problems.append("cannot find the diagnostic line: no wsprintfA in NativeJoystickDumpK1")
+        problems.append("cannot find the diagnostic line: no snprintf in NativeJoystickDumpK1")
     if index > 0:
         depth = 1
         literals = []
@@ -369,8 +373,8 @@ def main() -> int:
                 depth -= 1
             elif char == "," and depth == 0:
                 arguments += 1
-        # The buffer, and the empty slot the format literal leaves behind.
-        arguments -= 2
+        # The buffer, its size, and the empty slot the format literal leaves behind.
+        arguments -= 3
 
         if len(conversions) != arguments:
             problems.append(
@@ -379,7 +383,7 @@ def main() -> int:
                 f"argument in the matching position, not at the end")
         else:
             widest = len(conversion.sub("4294967295", fmt))
-            size = re.search(r"char line\[(\d+)\]", source)
+            size = re.compile(r"char line\[(\d+)\]").search(source, start)
             capacity = int(size.group(1)) if size else 0
             if capacity and widest >= capacity:
                 problems.append(

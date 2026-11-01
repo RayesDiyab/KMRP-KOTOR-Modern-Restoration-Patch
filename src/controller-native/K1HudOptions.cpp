@@ -37,6 +37,7 @@
 #include "K1RuntimeLayout.h"
 #include "K1SliderGrip.h"
 #include <windows.h>
+#include "K1EngineMemory.h"
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -48,8 +49,6 @@
 
 namespace {
 using namespace KmrpHudOptions;
-template<class T> T& At(void* p, unsigned n) { return *reinterpret_cast<T*>(static_cast<char*>(p) + n); }
-template<class T> T Fn(std::uintptr_t n) { return reinterpret_cast<T>(n); }
 void** Vtable(void* p) { return reinterpret_cast<void**>(At<std::uintptr_t>(p, 0)); }
 using Simple = void(__thiscall*)(void*);
 using Ctor = void*(__thiscall*)(void*);
@@ -206,37 +205,37 @@ void Extent(void* control, const Rect& rect) { reinterpret_cast<SetExtentFn>(Vta
 void DestroyControl(void* c) { if (c) reinterpret_cast<void*(__thiscall*)(void*, unsigned)>(Vtable(c)[0])(c, 1); }
 void Text(void* c, const char* text, bool button = false) {
     void* string[2]{};
-    Fn<void(__thiscall*)(void*, const char*)>(0x5E5A90)(string, text);
-    Fn<void(__thiscall*)(void*, void*)>(0x415E00)(static_cast<char*>(c) + (button ? 0x16C : 0xE8), string);
-    Fn<Simple>(0x5E5C20)(string);
+    EngineFn<void(__thiscall*)(void*, const char*)>(0x5E5A90)(string, text);
+    EngineFn<void(__thiscall*)(void*, void*)>(0x415E00)(static_cast<char*>(c) + (button ? 0x16C : 0xE8), string);
+    EngineFn<Simple>(0x5E5C20)(string);
 }
 bool AddControl(void* panel, void* control) {
     const int count = At<int>(panel, 0x24);
     if (count < 0 || count >= 512) return false;
     At<int>(control, 0x50) = count;
-    Fn<void(__thiscall*)(void*, void*)>(0x40B9A0)(panel, control);
+    EngineFn<void(__thiscall*)(void*, void*)>(0x40B9A0)(panel, control);
     return At<int>(panel, 0x24) == count + 1 && At<void**>(panel, 0x20)[count] == control;
 }
 void* CloneButton(void* owner, void* prototype) {
     if (!prototype || At<std::uintptr_t>(prototype, 0) != ButtonTable) return nullptr;
-    void* c = Fn<New>(0x6FA7E6)(0x1C4);
+    void* c = EngineFn<New>(0x6FA7E6)(0x1C4);
     if (!c) return nullptr;
-    Fn<Ctor>(0x41C0F0)(c);
+    EngineFn<Ctor>(0x41C0F0)(c);
     const Rect rect = At<Rect>(prototype, 4);
-    Fn<void(__thiscall*)(void*, const Rect*, void*)>(0x418D80)(c, &rect, prototype);
+    EngineFn<void(__thiscall*)(void*, const Rect*, void*)>(0x418D80)(c, &rect, prototype);
     At<unsigned>(c, 0x44) = (At<unsigned>(c, 0x44) & ~0x2Eu) | (At<unsigned>(prototype, 0x44) & 0x2Eu);
     if (!AddControl(owner, c)) { DestroyControl(c); return nullptr; }
     return c;
 }
 void* Bind(void* panel, const char* tag, unsigned size, unsigned ctor) {
-    void* c = Fn<New>(0x6FA7E6)(size);
+    void* c = EngineFn<New>(0x6FA7E6)(size);
     if (!c) return nullptr;
-    Fn<Ctor>(ctor)(c);
+    EngineFn<Ctor>(ctor)(c);
     At<int>(c, 0x50) = -1;
     void* name[2]{};
-    Fn<void(__thiscall*)(void*, const char*)>(0x5E5A90)(name, tag);
-    Fn<void(__thiscall*)(void*, void*, void*, int)>(0x40B930)(panel, c, name, 0);
-    Fn<Simple>(0x5E5C20)(name);
+    EngineFn<void(__thiscall*)(void*, const char*)>(0x5E5A90)(name, tag);
+    EngineFn<void(__thiscall*)(void*, void*, void*, int)>(0x40B930)(panel, c, name, 0);
+    EngineFn<Simple>(0x5E5C20)(name);
     if (At<int>(c, 0x50) < 0 || !AddControl(panel, c)) { DestroyControl(c); return nullptr; }
     owned.push_back(c);
     return c;
@@ -282,7 +281,7 @@ void __fastcall Defaults(void*, void*, void*) { if (Armed()) { requested = Sizes
 // needs nothing more here, and the page has no description pane to fill on entering.
 void __fastcall SliderEvent(void*, void*, void*) {}
 void SliderEvents(void* slider, void* panel) {
-    const auto add = [slider, panel](int event, void* handler) { Fn<Event>(0x41AB20)(slider, event, panel, handler); };
+    const auto add = [slider, panel](int event, void* handler) { EngineFn<Event>(0x41AB20)(slider, event, panel, handler); };
     for (const int event : {0x00, 0x01, 0x2F, 0x30, 0x3F, 0x40, 0x27}) add(event, reinterpret_cast<void*>(&SliderEvent));
     add(0x2A, reinterpret_cast<void*>(&Defaults));
 }
@@ -293,12 +292,12 @@ void __fastcall Input(void* self, void*, int event, int value) {
     if (value && event == 0x28) { Close(); return; }
     if (event == 0x2A) { if (value) Defaults(nullptr, nullptr, nullptr); return; }
     if (event == 0x29) { if (value) ToggleHud(nullptr, nullptr, nullptr); return; }
-    Fn<void(__thiscall*)(void*, int, int)>(0x409E60)(self, event, value);
+    EngineFn<void(__thiscall*)(void*, int, int)>(0x409E60)(self, event, value);
 }
 void* __fastcall Destroy(void* self, void*, unsigned flags) {
     void* manager = At<void*>(self, 0x18);
-    if (manager && Fn<Exists>(0x40BD70)(manager, self)) Fn<Exists>(0x40C830)(manager, self);
-    Fn<Focus>(0x40A630)(self, nullptr, 0);
+    if (manager && EngineFn<Exists>(0x40BD70)(manager, self)) EngineFn<Exists>(0x40C830)(manager, self);
+    EngineFn<Focus>(0x40A630)(self, nullptr, 0);
     auto array = At<void**>(self, 0x20);
     for (int i = 0; array && i < At<int>(self, 0x24); ++i) array[i] = nullptr;
     for (void* c : {tabs[0], tabs[1], otherButton, defaultsGlyph.button, backGlyph.button}) KmrpOptionsPad::SkipFocus(c, false);
@@ -307,12 +306,12 @@ void* __fastcall Destroy(void* self, void*, unsigned flags) {
     defaultsGlyph = otherGlyph = backGlyph = KmrpOptionsPad::Glyph{};
     for (void*& p : labels) p = nullptr;
     for (void*& p : sliders) p = nullptr;
-    Fn<Simple>(0x40CF70)(self);
+    EngineFn<Simple>(0x40CF70)(self);
     current = nullptr;
-    if (parent && manager && Fn<Exists>(0x40BD70)(manager, parent)) Fn<Focus>(0x40A630)(parent, returnFocus, 0);
+    if (parent && manager && EngineFn<Exists>(0x40BD70)(manager, parent)) EngineFn<Focus>(0x40A630)(parent, returnFocus, 0);
     parent = returnFocus = nullptr;
     blockReopen = true; releasedFrames = 0;
-    if (flags & 1) Fn<Delete>(0x6FA390)(self);
+    if (flags & 1) EngineFn<Delete>(0x6FA390)(self);
     return self;
 }
 
@@ -348,7 +347,7 @@ void ShowHud(int style) {
         const float strength = i == style ? 1.0f : kTabDimmed;
         float caption[3], frame[3];
         for (int c = 0; c < 3; ++c) { caption[c] = tabColour[c] * strength; frame[c] = tabFrame[c] * strength; }
-        Fn<void(__thiscall*)(void*, const float*)>(0x414E10)(static_cast<char*>(tabs[i]) + 0x16C, caption);
+        EngineFn<void(__thiscall*)(void*, const float*)>(0x414E10)(static_cast<char*>(tabs[i]) + 0x16C, caption);
         std::memcpy(&At<float>(tabs[i], kButtonFrameColour), frame, sizeof frame);
     }
     Text(otherButton, hudNames[style == Pc ? Xbox : Pc], true);
@@ -405,11 +404,11 @@ void UpdateCaptions() {
     for (int i = 0; i < ElementCount; ++i) if (displayed[i] != requested.values[i]) {
         char caption[64]; sprintf_s(caption, "%s: %d%%", captions[i], requested.values[i]);
         Text(labels[i], caption);
-        Fn<void(__thiscall*)(void*, int)>(0x417EE0)(sliders[i], (requested.values[i] - Minimum) / Step);
+        EngineFn<void(__thiscall*)(void*, int)>(0x417EE0)(sliders[i], (requested.values[i] - Minimum) / Step);
         displayed[i] = requested.values[i];
     }
     if (displayedLinked != int(requested.linked)) {
-        Fn<void(__thiscall*)(void*, unsigned)>(0x685540)(linkSizes, requested.linked);
+        EngineFn<void(__thiscall*)(void*, unsigned)>(0x685540)(linkSizes, requested.linked);
         displayedLinked = requested.linked;
     }
 }
@@ -475,7 +474,7 @@ void KeepImage(const void* control, unsigned params) {
     char name[17] = {};
     std::memcpy(name, static_cast<const char*>(control) + params + 0x40, 16);   // the fill's resref
     if (!name[0] || keptImages.count(name)) return;
-    if (void* image = Fn<void*(__cdecl*)(const char*)>(0x45A260)(name)) keptImages[name] = image;
+    if (void* image = EngineFn<void*(__cdecl*)(const char*)>(0x45A260)(name)) keptImages[name] = image;
 }
 // The Xbox-style HUD's element of a piece of its table, or -1 for context.
 int XboxElement(const xbox::Piece& x) {
@@ -555,7 +554,7 @@ void MakePreview(void* p, const Rect& area, int width, int height) {
         // Disengage centred in its box, as the game's file has it (ALIGNMENT 18); the label
         // it is made from (LBL_GAMMA) reads from the left. CSWGuiTextParams::SetAlignment,
         // 0x00415F20, `ret 4`.
-        if (text && text[0]) Fn<void(__thiscall*)(void*, int)>(0x415F20)(static_cast<char*>(pieces.back().label) + 0xE8, 18);
+        if (text && text[0]) EngineFn<void(__thiscall*)(void*, int)>(0x415F20)(static_cast<char*>(pieces.back().label) + 0xE8, 18);
     });
 }
 
@@ -635,9 +634,9 @@ void QueuePreviewPictures(void* manager, void* owner) {
 void MakeScreen(void* manager, void* owner) {
     const char* required[] = {"LBL_TITLE", "SLI_GAMMA", "LBL_GAMMA", "BTN_DEFAULT", "BTN_BACK", "LB_DESC", "CB_SHADOWS", "BTN_ADVANCED"};
     for (const char* tag : required) if (!KmrpRuntimeControlByTagK1(owner, tag)) return;
-    void* p = Fn<New>(0x6FA7E6)(0x64);
+    void* p = EngineFn<New>(0x6FA7E6)(0x64);
     if (!p) return;
-    Fn<void*(__thiscall*)(void*, void*)>(0x40B570)(p, manager);
+    EngineFn<void*(__thiscall*)(void*, void*)>(0x40B570)(p, manager);
     std::memcpy(table, reinterpret_cast<void*>(0x73E010), sizeof(table));
     table[0] = reinterpret_cast<std::uintptr_t>(&Destroy);
     table[15] = reinterpret_cast<std::uintptr_t>(&Input);
@@ -645,7 +644,7 @@ void MakeScreen(void* manager, void* owner) {
     At<std::uintptr_t*>(p, 0) = table;
     current = p; parent = owner; returnFocus = At<void*>(owner, 0x1C); owned.clear(); pieces.clear();
     char resref[16] = "optgraphics";
-    Fn<void(__thiscall*)(void*, void*)>(0x40A680)(p, resref);
+    EngineFn<void(__thiscall*)(void*, void*)>(0x40A680)(p, resref);
     void* title = Bind(p, "LBL_TITLE", 0x140, 0x41ACD0);
     for (void*& tab : tabs) tab = Bind(p, "BTN_DEFAULT", 0x1C4, 0x41C0F0);
     for (int i = 0; i < ElementCount; ++i) {
@@ -701,7 +700,7 @@ void MakeScreen(void* manager, void* owner) {
     // The pad's Y, X and B beside the three buttons' captions (K1OptionsPad.h).
     void* marks[3];
     for (void*& mark : marks) mark = Bind(p, "LBL_GAMMA", 0x140, 0x41ACD0);
-    Fn<Simple>(0x40B8F0)(p);
+    EngineFn<Simple>(0x40B8F0)(p);
     bool complete = title && tabs[0] && tabs[1] && linkSizes && defaults && other && back &&
                     marks[0] && marks[1] && marks[2] && previewCaption;
     for (int i = 0; i < ElementCount; ++i) complete = complete && labels[i] && sliders[i];
@@ -755,10 +754,10 @@ void MakeScreen(void* manager, void* owner) {
     // CSWGuiTextParams::SetAlignment (0x00415F20, 17: left, middle line) and
     // CSWGuiText::SetExtent (0x00416280) of the checkbox's text (+0x16C, +0x154, as a
     // button's).
-    Fn<void(__thiscall*)(void*, int)>(0x415F20)(static_cast<char*>(linkSizes) + 0x16C, 17);
+    EngineFn<void(__thiscall*)(void*, int)>(0x415F20)(static_cast<char*>(linkSizes) + 0x16C, 17);
     {
         const Rect caption{label.left + kCheckboxCircle + gap, placeTop(0), label.width - kCheckboxCircle - gap, slot};
-        Fn<void(__thiscall*)(void*, const Rect*)>(0x416280)(static_cast<char*>(linkSizes) + 0x154, &caption);
+        EngineFn<void(__thiscall*)(void*, const Rect*)>(0x416280)(static_cast<char*>(linkSizes) + 0x154, &caption);
     }
     // The captions as wide as the widest of them at 100% ("Disengage Button: 100%"), at
     // the text size in use, and each slider from there to the column's edge. Until
@@ -771,7 +770,7 @@ void MakeScreen(void* manager, void* owner) {
         sprintf_s(probe, "%s: 100%%", captions[i]);
         Text(labels[i], probe);
         Rect measured{};
-        Fn<void(__thiscall*)(void*, Rect*)>(0x414F10)(static_cast<char*>(labels[i]) + 0xD0, &measured);
+        EngineFn<void(__thiscall*)(void*, Rect*)>(0x414F10)(static_cast<char*>(labels[i]) + 0xD0, &measured);
         widest = (std::max)(widest, measured.width);
     }
     const int captionWidth = (std::max)(label.width / 4, (std::min)(label.width / 2, widest + gap));
@@ -784,14 +783,14 @@ void MakeScreen(void* manager, void* owner) {
         Extent(labels[i], {label.left, top, captionWidth, slot});
         // Read from the left, in the middle of its row (CSWGuiTextParams::SetAlignment,
         // 0x00415F20, `ret 4`; 1 left, 16 the middle line).
-        Fn<void(__thiscall*)(void*, int)>(0x415F20)(static_cast<char*>(labels[i]) + 0xE8, 17);
+        EngineFn<void(__thiscall*)(void*, int)>(0x415F20)(static_cast<char*>(labels[i]) + 0xE8, 17);
         Extent(sliders[i], {sliderLeft, top + (slot - sliderHeight) / 2, sliderWidth, sliderHeight});
-        Fn<void(__thiscall*)(void*, int)>(0x417EC0)(sliders[i], SliderMaximum);
+        EngineFn<void(__thiscall*)(void*, int)>(0x417EC0)(sliders[i], SliderMaximum);
     }
     // "Preview" over the miniature screen, centred on it, in the line kept above it (the
     // maintainer, 2026-10-19).
     Extent(previewCaption, {preview.left, preview.top - slot, preview.width, slot});
-    Fn<void(__thiscall*)(void*, int)>(0x415F20)(static_cast<char*>(previewCaption) + 0xE8, 18);
+    EngineFn<void(__thiscall*)(void*, int)>(0x415F20)(static_cast<char*>(previewCaption) + 0xE8, 18);
     Text(previewCaption, "Preview");
     Text(linkSizes, "Link HUD Sizes", true);
     for (int i = 0; i < 2; ++i) Text(tabs[i], hudNames[i], true);
@@ -807,16 +806,16 @@ void MakeScreen(void* manager, void* owner) {
     // the other tab's X has no counterpart there and stands beside its caption.
     defaultsGlyph.badge = "kmrpy_optgfxdef"; backGlyph.badge = "kmrpb_optgfx";
     for (void* button : {tabs[0], tabs[1], defaults, other, back}) KmrpOptionsPad::SkipFocus(button, true);
-    Fn<Event>(0x41AB20)(linkSizes, 0x27, p, reinterpret_cast<void*>(&ToggleLink));
-    Fn<Event>(0x41AB20)(tabs[Pc], 0x27, p, reinterpret_cast<void*>(&SelectPc));
-    Fn<Event>(0x41AB20)(tabs[Xbox], 0x27, p, reinterpret_cast<void*>(&SelectXbox));
-    Fn<Event>(0x41AB20)(other, 0x27, p, reinterpret_cast<void*>(&ToggleHud));
-    Fn<Event>(0x41AB20)(defaults, 0x27, p, reinterpret_cast<void*>(&Defaults));
-    Fn<Event>(0x41AB20)(back, 0x27, p, reinterpret_cast<void*>(&Back));
+    EngineFn<Event>(0x41AB20)(linkSizes, 0x27, p, reinterpret_cast<void*>(&ToggleLink));
+    EngineFn<Event>(0x41AB20)(tabs[Pc], 0x27, p, reinterpret_cast<void*>(&SelectPc));
+    EngineFn<Event>(0x41AB20)(tabs[Xbox], 0x27, p, reinterpret_cast<void*>(&SelectXbox));
+    EngineFn<Event>(0x41AB20)(other, 0x27, p, reinterpret_cast<void*>(&ToggleHud));
+    EngineFn<Event>(0x41AB20)(defaults, 0x27, p, reinterpret_cast<void*>(&Defaults));
+    EngineFn<Event>(0x41AB20)(back, 0x27, p, reinterpret_cast<void*>(&Back));
     displayed.fill(-1); drawn.fill(-1); displayedLinked = -1; displayedFocus = -2; displayedStyle = -1;
     ShowHud(Pc);
     // The page opens on "Link HUD Sizes", as the Text Size page on its link.
-    Fn<Focus>(0x40A630)(p, linkSizes, 0);
+    EngineFn<Focus>(0x40A630)(p, linkSizes, 0);
     releasedFrames = 0; UpdateCaptions(); UpdatePreview();
     SetPreviewPictures();
     // The pad's Y, X and B before the page is shown, not on its next frame: they popped
@@ -832,7 +831,7 @@ void MakeScreen(void* manager, void* owner) {
     for (const Shown& piece : pieces) if (piece.art[0]) KeepImage(piece.label, kLabelParams);
     for (KmrpOptionsPad::Glyph* glyph : {&defaultsGlyph, &otherGlyph, &backGlyph})
         if (glyph->label) KeepImage(glyph->label, kLabelParams);
-    Fn<void(__thiscall*)(void*, void*, int, int)>(0x40BC70)(manager, p, 3, 1);
+    EngineFn<void(__thiscall*)(void*, void*, int, int)>(0x40BC70)(manager, p, 3, 1);
 }
 
 // The entry button, above "Text Size and Font" (which sits above Advanced Options).
@@ -843,7 +842,7 @@ void UpdateEntry(void* owner, Entry& e) {
         e.button = CloneButton(owner, text);
         if (!e.button) return;
         Text(e.button, "HUD Size", true);
-        Fn<Event>(0x41AB20)(e.button, 0x27, owner, reinterpret_cast<void*>(&Open));
+        EngineFn<Event>(0x41AB20)(e.button, 0x27, owner, reinterpret_cast<void*>(&Open));
     }
     const KmrpTextOptions::Rect place = KmrpTextOptions::Entry(At<KmrpTextOptions::Rect>(text, 4));
     const Rect wanted{place.left, place.top, place.width, place.height};
@@ -898,9 +897,9 @@ void KmrpPreloadHudPagesK1()
         if (seen) continue;
         loaded.push_back(name);
         if (queue) { queue(name); ++done; continue; }
-        void* texture = Fn<void*(__cdecl*)(const char*, int)>(0x423A60)(name, 0);
+        void* texture = EngineFn<void*(__cdecl*)(const char*, int)>(0x423A60)(name, 0);
         if (!texture) continue;
-        Fn<void(__thiscall*)(void*)>(0x4214B0)(texture);
+        EngineFn<void(__thiscall*)(void*)>(0x4214B0)(texture);
         preloadedTextures.push_back(texture);
         ++done;
     }
@@ -946,7 +945,7 @@ void KmrpHudOptionsFrameK1(void* manager) {
     }
     if (pending) {
         void* owner = pending; pending = nullptr;
-        if (!current && Fn<Exists>(0x40BD70)(manager, owner)) MakeScreen(manager, owner);
+        if (!current && EngineFn<Exists>(0x40BD70)(manager, owner)) MakeScreen(manager, owner);
     }
     if (current && sliders[0] && !dirty) {
         for (int i = 0; i < ElementCount; ++i) {

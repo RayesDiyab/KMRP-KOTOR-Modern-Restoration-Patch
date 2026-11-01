@@ -18,45 +18,45 @@ From the `patch_config.toml` sections the build makes. A bundled patch of anothe
 | 2 | `0x00404D06` | detour | `KmrpCoreMovieWorkK1` | `src/controller-native/K1CoreFrames.cpp:116` | always | 1 | (no comment) | keep: KMRP's own movie frame site beside the controller's 0x00404D96 (patches stay independent). In K1NativeJoystick.cpp (F1) |
 | 3 | `0x0040554B` | detour | `NativeMovieWindowOpenK1` | `src/controller-native/K1MovieWindow.cpp:104` | always | 1 | Black the movie window the moment it exists. The grey flash before and after every movie is the window class. CExoMoviePlayerInternal::In... | keep: movie window open, earliest moment the handle exists. In K1NativeJoystick.cpp (F1) |
 | 4 | `0x00407230` | detour | `KmrpPrepareResourcesK1` | `src/controller-native/K1RuntimeAssets.cpp:1724` | always | 1 | Prepare the embedded bank before the first native resource lookup, so font images and TXI coordinates cannot mix cached stock and replace... | keep: KMRP's resource preparation; the controller has its own at 0x00407235 (F2) |
-| 5 | `0x0040A680` | detour | `KmrpPanelLayoutStartK1` | `src/controller-native/K1RuntimeLayout.cpp:622` | always | 2 | (no comment) | keep: panel layout start, records the panel for Live Adaptive Layout |
-| 6 | `0x0040B930` | detour | `KmrpPanelControlK1` | `src/controller-native/K1RuntimeLayout.cpp:646` | always | 4 | (no comment) | keep: InitControl, records each control by tag |
+| 5 | `0x0040A680` | detour | `KmrpPanelLayoutStartK1` | `src/controller-native/K1RuntimeLayout.cpp:644` | always | 2 | (no comment) | keep: panel layout start, records the panel for Live Adaptive Layout |
+| 6 | `0x0040B930` | detour | `KmrpPanelControlK1` | `src/controller-native/K1RuntimeLayout.cpp:668` | always | 4 | (no comment) | keep: InitControl, records each control by tag |
 | 7 | `0x0040BE70` | detour | `KmrpResolutionRequestedK1` | `src/controller-native/K1RuntimeResolution.cpp:313` | always | 3 | SetSize entry: request only; native SetSize and panel/texture handling still run. | [ ] |
-| 8 | `0x0040C24E` | detour | `KeyboardKeepFocusK1` | `src/controller-native/K1KeyboardNavigation.cpp:205` | always | 3 | GUI mouse hit testing, after coordinate storage and 3D cursor processing. mov ecx,[esi+0x10] / test ecx,ecx; the consumed exit unwinds th... | [ ] |
+| 8 | `0x0040C24E` | detour | `KeyboardKeepFocusK1` | `src/controller-native/K1KeyboardNavigation.cpp:203` | always | 3 | GUI mouse hit testing, after coordinate storage and 3D cursor processing. mov ecx,[esi+0x10] / test ecx,ecx; the consumed exit unwinds th... | [ ] |
 | 9 | `0x0040CE76` | detour | `KmrpCoreGuiWorkK1` | `src/controller-native/K1CoreFrames.cpp:104` | always | 1 | (no comment) | keep: KMRP's GUI frame, fans out to 8 per-feature frames; 2 of them live in controller files (F1) |
-| 10 | `0x0040CF70` | detour | `KmrpPanelDestroyedK1` | `src/controller-native/K1RuntimeLayout.cpp:692` | always | 1 | (no comment) | keep: panel destroyed, one entry fanning out to 4 modules' forget calls (already a shared entry) |
-| 11 | `0x00419A20` | detour | `KmrpControlDestroyedK1` | `src/controller-native/K1RuntimeLayout.cpp:773` | always | 1 | (no comment) | keep: control destroyed, one entry for layout and text state |
-| 12 | `0x0041A3E0` | detour | `KmrpTextListDrawK1` | `src/controller-native/K1TextLayout.cpp:851` | always | 1 | Native lists may populate after the common GUI frame; adapt their rows before this first draw as well. SUB ESP,8 / PUSH EBP / MOV EBP,[ES... | keep: list first draw, a one-line forward to KmrpTextRowsK1 |
-| 13 | `0x0041A9D0` | detour | `KeyboardNavigateK1` | `src/controller-native/K1KeyboardNavigation.cpp:151` | always | 3 | Keyboard navigation is core behavior, independent of the controller option. CSWGuiNavigable::HandleInputEvent: mov eax,[esp+8] / test eax... | [ ] |
-| 14 | `0x0041B4BF` | detour | `KmrpListRowK1` | `src/controller-native/K1RuntimeLayout.cpp:449` | always | 3 | CSWGuiListBox::OrganizeControls (0x41b140), the three places it hands a row its rectangle, which is on the stack at [esp+0x20]: the rows... | keep: one handler for OrganizeControls' three row-rect sites (already shared) |
-| 15 | `0x0041B540` | detour | `KmrpListRowK1` | `src/controller-native/K1RuntimeLayout.cpp:449` | always | 3 | (no comment) | keep: as above |
-| 16 | `0x0041B59F` | detour | `KmrpListRowK1` | `src/controller-native/K1RuntimeLayout.cpp:449` | always | 3 | (no comment) | keep: as above |
-| 17 | `0x0041C1D0` | detour | `KmrpListAddRowsK1` | `src/controller-native/K1RuntimeLayout.cpp:488` | always | 2 | CSWGuiListBox::AddControls, entry (K1RuntimeLayout.cpp, KmrpListAddRowsK1): the rows that outlive a change of resolution get the row heig... | keep: AddControls, the row pitch after a size change (issue 80 rows too) |
-| 18 | `0x0041CE20` | detour | `KeyboardListBoundaryK1` | `src/controller-native/K1KeyboardNavigation.cpp:174` | always | 3 | Lists retain native interior selection; keyboard arrows leave at a boundary. Same six-byte entry, with handled events made inert before n... | [ ] |
+| 10 | `0x0040CF70` | detour | `KmrpPanelDestroyedK1` | `src/controller-native/K1RuntimeLayout.cpp:714` | always | 1 | (no comment) | keep: panel destroyed, one entry fanning out to 4 modules' forget calls (already a shared entry) |
+| 11 | `0x00419A20` | detour | `KmrpControlDestroyedK1` | `src/controller-native/K1RuntimeLayout.cpp:796` | always | 1 | (no comment) | keep: control destroyed, one entry for layout and text state |
+| 12 | `0x0041A3E0` | detour | `KmrpTextListDrawK1` | `src/controller-native/K1TextLayout.cpp:849` | always | 1 | Native lists may populate after the common GUI frame; adapt their rows before this first draw as well. SUB ESP,8 / PUSH EBP / MOV EBP,[ES... | keep: list first draw, a one-line forward to KmrpTextRowsK1 |
+| 13 | `0x0041A9D0` | detour | `KeyboardNavigateK1` | `src/controller-native/K1KeyboardNavigation.cpp:149` | always | 3 | Keyboard navigation is core behavior, independent of the controller option. CSWGuiNavigable::HandleInputEvent: mov eax,[esp+8] / test eax... | [ ] |
+| 14 | `0x0041B4BF` | detour | `KmrpListRowK1` | `src/controller-native/K1RuntimeLayout.cpp:471` | always | 3 | CSWGuiListBox::OrganizeControls (0x41b140), the three places it hands a row its rectangle, which is on the stack at [esp+0x20]: the rows... | keep: one handler for OrganizeControls' three row-rect sites (already shared) |
+| 15 | `0x0041B540` | detour | `KmrpListRowK1` | `src/controller-native/K1RuntimeLayout.cpp:471` | always | 3 | (no comment) | keep: as above |
+| 16 | `0x0041B59F` | detour | `KmrpListRowK1` | `src/controller-native/K1RuntimeLayout.cpp:471` | always | 3 | (no comment) | keep: as above |
+| 17 | `0x0041C1D0` | detour | `KmrpListAddRowsK1` | `src/controller-native/K1RuntimeLayout.cpp:510` | always | 2 | CSWGuiListBox::AddControls, entry (K1RuntimeLayout.cpp, KmrpListAddRowsK1): the rows that outlive a change of resolution get the row heig... | keep: AddControls, the row pitch after a size change (issue 80 rows too) |
+| 18 | `0x0041CE20` | detour | `KeyboardListBoundaryK1` | `src/controller-native/K1KeyboardNavigation.cpp:172` | always | 3 | Lists retain native interior selection; keyboard arrows leave at a boundary. Same six-byte entry, with handled events made inert before n... | [ ] |
 | 19 | `0x0041FEB5` | replace | `` |  | always | 0 | Saturate AurTextureGetMaxTexID's return at 4999. Saturating rather than masking: an AND would wrap a legitimate 4500 down to 404 and leav... | [ ] |
-| 20 | `0x004216F1` | detour | `KmrpTextureUploadedK1` | `src/controller-native/K1TextLayout.cpp:785` | always | 1 | CAurTextureBasic::BuildAndStoreTexture, just after its CALL glImage (0x004216EC) uploaded the picture. EBX is the texture; its OpenGL nam... | [ ] |
+| 20 | `0x004216F1` | detour | `KmrpTextureUploadedK1` | `src/controller-native/K1TextLayout.cpp:783` | always | 1 | CAurTextureBasic::BuildAndStoreTexture, just after its CALL glImage (0x004216EC) uploaded the picture. EBX is the texture; its OpenGL nam... | [ ] |
 | 21 | `0x00422CC1` | detour | `KmrpFontMetricsLoadedK1` | `src/controller-native/K1RuntimeAssets.cpp:1701` | always | 1 | CAurTexture::LoadTXI common epilogue. EDI still owns this texture; both loose and embedded metadata have parsed, and every normal return... | [ ] |
-| 22 | `0x0045A2F0` | detour | `KmrpTextStringWrapK1` | `src/controller-native/K1TextLayout.cpp:560` | always | 2 | (no comment) | [ ] |
-| 23 | `0x0045A857` | detour | `KmrpTextStringDrawK1` | `src/controller-native/K1TextLayout.cpp:842` | always | 1 | The old font recipe owns Draw's entry (0x45A850..0x45A856), then restores ECX and returns here. Hook its original body, never that trampo... | keep: text draw, reinstalls the verified widths after an outer wrap |
-| 24 | `0x0045B7A0` | detour | `KmrpTextIdealHeightK1` | `src/controller-native/K1TextLayout.cpp:553` | always | 1 | CAurGUIStringInternal::GetIdealPixelHeight entry: PUSH -1 / MOV EAX,FS:[0], 8 bytes, no relative operand. With -1 it answers from the lin... | [ ] |
-| 25 | `0x0045BAC0` | detour | `KmrpTextStringCreatedK1` | `src/controller-native/K1TextLayout.cpp:503` | always | 1 | Per-instance text scale is captured after the native constructor stores +0x40. Each prefix below consists of complete instructions with n... | [ ] |
-| 26 | `0x0045BC70` | detour | `KmrpTextStringDestroyedK1` | `src/controller-native/K1TextLayout.cpp:512` | always | 1 | (no comment) | [ ] |
+| 22 | `0x0045A2F0` | detour | `KmrpTextStringWrapK1` | `src/controller-native/K1TextLayout.cpp:558` | always | 2 | (no comment) | [ ] |
+| 23 | `0x0045A857` | detour | `KmrpTextStringDrawK1` | `src/controller-native/K1TextLayout.cpp:840` | always | 1 | The old font recipe owns Draw's entry (0x45A850..0x45A856), then restores ECX and returns here. Hook its original body, never that trampo... | keep: text draw, reinstalls the verified widths after an outer wrap |
+| 24 | `0x0045B7A0` | detour | `KmrpTextIdealHeightK1` | `src/controller-native/K1TextLayout.cpp:551` | always | 1 | CAurGUIStringInternal::GetIdealPixelHeight entry: PUSH -1 / MOV EAX,FS:[0], 8 bytes, no relative operand. With -1 it answers from the lin... | [ ] |
+| 25 | `0x0045BAC0` | detour | `KmrpTextStringCreatedK1` | `src/controller-native/K1TextLayout.cpp:501` | always | 1 | Per-instance text scale is captured after the native constructor stores +0x40. Each prefix below consists of complete instructions with n... | [ ] |
+| 26 | `0x0045BC70` | detour | `KmrpTextStringDestroyedK1` | `src/controller-native/K1TextLayout.cpp:510` | always | 1 | (no comment) | [ ] |
 | 27 | `0x0046BE64` | replace | `` |  | always | 0 | Range-check the texture id in AddPartToMeshBuckets. An out-of-range part skips the bucket insert and rejoins at 0x0046BEB1, which preserv... | [ ] |
 | 28 | `0x004A8380` | replace | `` |  | always | 0 | ~CAurTriangleBin (0x004A8350), the same sequence with eax for edx. | [ ] |
 | 29 | `0x004A847C` | replace | `` |  | always | 0 | DestroyGrassPolys (0x004A8460). | [ ] |
 | 30 | `0x005DDE32` | detour | `NativeFreeSaveBufferK1` | `src/controller-native/K1CoreFrames.cpp:35` | always | 1 | --- Save game memory leak ------------------------------------------------ CERFFile::WriteResource (hook site is +0x272) passes a resourc... | [ ] |
 | 31 | `0x005F0C64` | detour | `KmrpAllowRuntimeResolutionK1` | `src/controller-native/K1RuntimeResolution.cpp:302` | always | 2 | IsValidResolution: CMP EAX,800. Callback supplies the result in EAX. Valid dimensions leave through the original RET 8. For rejection EAX... | [ ] |
 | 32 | `0x005F18F6` | detour | `KmrpModeSwitchK1` | `src/controller-native/K1RuntimeResolution.cpp:290` | always | 0 | The native mode switch, after it stores the new size (0x0078D1D4/0x0078D1D8) and before it re-creates the window at 0x005F19B2, which rel... | [ ] |
-| 33 | `0x006258E2` | detour | `FitMessageBoxK1` | `src/controller-native/K1PopupFit.cpp:87` | always | 1 | --- The message popup, fitted to its contents ------------------------------ CSWGuiMessageBox::FixMessageLabel (0x006253A0) keeps confirm... | [ ] |
+| 33 | `0x006258E2` | detour | `FitMessageBoxK1` | `src/controller-native/K1PopupFit.cpp:85` | always | 1 | --- The message popup, fitted to its contents ------------------------------ CSWGuiMessageBox::FixMessageLabel (0x006253A0) keeps confirm... | [ ] |
 | 34 | `0x0062785F` | simple | `` |  | always | 0 | ToolTipPanel constructor: width 1280 with height other than 960/1024 skipped StartLoadFromLayout entirely. Route its existing JNE to the... | [ ] |
-| 35 | `0x006AB9D5` | detour | `GrantedRowTextK1` | `src/controller-native/K1GrantedPopup.cpp:172` | always | 2 | In CSWGuiInGameSkillEntry::SetExtent (0x006AB8E0), before its last call gives the text its rect: `push eax; mov ecx, esi; call [ebp+4]`,... | [ ] |
-| 36 | `0x006CE0B0` | detour | `GrantedPopupFilledK1` | `src/controller-native/K1GrantedPopup.cpp:161` | always | 1 | --- The "granted" popup's rows ---------------------------------------------- The popup listing a level's feats or powers (skillinfo.gui)... | [ ] |
+| 35 | `0x006AB9D5` | detour | `GrantedRowTextK1` | `src/controller-native/K1GrantedPopup.cpp:170` | always | 2 | In CSWGuiInGameSkillEntry::SetExtent (0x006AB8E0), before its last call gives the text its rect: `push eax; mov ecx, esi; call [ebp+4]`,... | [ ] |
+| 36 | `0x006CE0B0` | detour | `GrantedPopupFilledK1` | `src/controller-native/K1GrantedPopup.cpp:159` | always | 1 | --- The "granted" popup's rows ---------------------------------------------- The popup listing a level's feats or powers (skillinfo.gui)... | [ ] |
 
 ### 1.2 `kmrp-controller`, 38 hooks (KMRP)
 
 | # | address | type | function | defined in | when | params | what it is for | audit |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | `0x00404D96` | detour | `NativeMovieFrameK1` | `src/controller-native/K1NativeJoystick.cpp:2469` | always | 1 | Poll XInput once per Bink frame; the normal ProcessInput hook does not run while a movie owns the game loop. This must sit INSIDE the loo... | [ ] |
-| 2 | `0x00407235` | detour | `KmrpPrepareResourcesK1` | `src/controller-native/K1ControllerStandalone.cpp:372` | always | 1 | (no comment) | keep: the controller's resource preparation, its own site so it works without KMRP (F2) |
+| 2 | `0x00407235` | detour | `ControllerPrepareResourcesK1` | `src/controller-native/K1ControllerStandalone.cpp:372` | always | 1 | (no comment) | keep: the controller's resource preparation, its own site so it works without KMRP (F2) |
 | 3 | `0x00409B80` | detour | `NativePanelLoadedK1` | `src/controller-native/K1NativeJoystick.cpp:2828` | always | 3 | (no comment) | [ ] |
 | 4 | `0x00409E60` | detour | `GuardPanelEchoK1` | `src/controller-native/K1NativeJoystick.cpp:3688` | always | 3 | The echo guard, on every panel. CSWGuiPanel::HandleInputEvent, 0x00409E60, hands an event to the focused control, [panel+0x1C]; when that... | [ ] |
 | 5 | `0x0040C1F6` | detour | `NativeNoteMouseK1` | `src/controller-native/K1NativeJoystick.cpp:2539` | always | 3 | Clear keyboard focus when the mouse moves over an action button. | [ ] |
@@ -66,27 +66,27 @@ From the `patch_config.toml` sections the build makes. A bundled patch of anothe
 | 9 | `0x005E24E0` | detour | `NativeJoystickInitK1` | `src/controller-native/K1NativeJoystick.cpp:1997` | always | 1 | Register the joystick descriptions and raise the device count, once the input singleton exists. Idempotent; runs every frame and returns... | [ ] |
 | 10 | `0x005E271E` | detour | `NativeNoteKeyboardK1` | `src/controller-native/K1NativeJoystick.cpp:2534` | always | 2 | Capture raw keyboard input before KOTOR applies its key bindings. | [ ] |
 | 11 | `0x005E30F6` | detour | `NativeJoystickBufferK1` | `src/controller-native/K1NativeJoystick.cpp:2945` | always | 1 | Replace CExoRawInputInternal::GetJoystickBuffer. Hooked past the entry, where esi holds the caller's record buffer -- at the true entry i... | [ ] |
-| 12 | `0x005F74B0` | detour | `NativeRumbleStopK1` | `src/controller-native/K1Rumble.cpp:1063` | always | 2 | CClientExoAppInternal::StopRumblePattern, 0x005F74B0, at its entry. ecx is the object; [esp+4] the index. Observes: the engine's search o... | [ ] |
+| 12 | `0x005F74B0` | detour | `NativeRumbleStopK1` | `src/controller-native/K1Rumble.cpp:1059` | always | 2 | CClientExoAppInternal::StopRumblePattern, 0x005F74B0, at its entry. ecx is the object; [esp+4] the index. Observes: the engine's search o... | [ ] |
 | 13 | `0x005F7617` | detour | `NativeRumbleK1` | `src/controller-native/K1NativeJoystick.cpp:2404` | always | 4 | Route the engine's own rumble to XInput. KOTOR still runs the Xbox build's rumble subsystem. UpdateRumble at 0x005F7500 walks the active... | [ ] |
-| 14 | `0x005FB49F` | detour | `NativeRumblePlayK1` | `src/controller-native/K1Rumble.cpp:1032` | always | 2 | CClientExoAppInternal::PlayRumblePattern, 0x005FB490, at its index test: 005FB491  mov ebp,[esp+8]        the pattern index 005FB499  jl... | [ ] |
-| 15 | `0x005FB98E` | detour | `NativeRumbleCutoffK1` | `src/controller-native/K1Rumble.cpp:1084` | always | 1 | CClientExoAppInternal::LookUpAndPerformRumbleWithCutOff, 0x005FB960, just after its frame and local string are built: 005FB961  mov ebp,e... | [ ] |
+| 14 | `0x005FB49F` | detour | `NativeRumblePlayK1` | `src/controller-native/K1Rumble.cpp:1028` | always | 2 | CClientExoAppInternal::PlayRumblePattern, 0x005FB490, at its index test: 005FB491  mov ebp,[esp+8]        the pattern index 005FB499  jl... | [ ] |
+| 15 | `0x005FB98E` | detour | `NativeRumbleCutoffK1` | `src/controller-native/K1Rumble.cpp:1080` | always | 1 | CClientExoAppInternal::LookUpAndPerformRumbleWithCutOff, 0x005FB960, just after its frame and local string are built: 005FB961  mov ebp,e... | [ ] |
 | 16 | `0x006039CF` | detour | `NativeCameraFrameK1` | `src/controller-native/K1NativeJoystick.cpp:2940` | always | 1 | Apply the right-stick camera turn, immediately after UpdateCamera has run. The timing is the whole point, and getting it wrong is why an... | [ ] |
-| 17 | `0x0060DE20` | detour | `NativeSaberContactK1` | `src/controller-native/K1Rumble.cpp:1180` | always | 1 | CSWCCreature::ShowLightSaberContactVisual, 0x0060DE20, at its entry; ecx is the wielder. Reached from the attack animation's hit-contact... | [ ] |
-| 18 | `0x00617EB0` | detour | `NativeMeleeHitK1` | `src/controller-native/K1Rumble.cpp:1195` | always | 1 | HitEvent, 0x00617EB0, the creature animation event "hit" (registered by CSWCCreature::RegisterCallbacks, 0x0061AB40): the impact moment o... | [ ] |
-| 19 | `0x0063C4F0` | detour | `NativeParryK1` | `src/controller-native/K1Rumble.cpp:1215` | always | 1 | CSWCObject::AnimationParry, 0x0063C4F0, at its entry; ecx is the object parrying. The stolen `test ecx,ecx` sets the flags the `je` at 0x... | [ ] |
-| 20 | `0x00646BA0` | detour | `NativeSaberPowerK1` | `src/controller-native/K1Rumble.cpp:1154` | always | 2 | CSWCItem::ResolveCreaturePoweredAnimations, 0x00646BA0, at its entry. ecx is the item; [esp+4] the power flag. CSWCItem::PowerItem (0x006... | [ ] |
-| 21 | `0x00670FB0` | detour | `NativeMiniGameAxisK1` | `src/controller-native/K1NativeJoystick.cpp:8287` | always | 2 | (no comment) | [ ] |
+| 17 | `0x0060DE20` | detour | `NativeSaberContactK1` | `src/controller-native/K1Rumble.cpp:1176` | always | 1 | CSWCCreature::ShowLightSaberContactVisual, 0x0060DE20, at its entry; ecx is the wielder. Reached from the attack animation's hit-contact... | [ ] |
+| 18 | `0x00617EB0` | detour | `NativeMeleeHitK1` | `src/controller-native/K1Rumble.cpp:1191` | always | 1 | HitEvent, 0x00617EB0, the creature animation event "hit" (registered by CSWCCreature::RegisterCallbacks, 0x0061AB40): the impact moment o... | [ ] |
+| 19 | `0x0063C4F0` | detour | `NativeParryK1` | `src/controller-native/K1Rumble.cpp:1211` | always | 1 | CSWCObject::AnimationParry, 0x0063C4F0, at its entry; ecx is the object parrying. The stolen `test ecx,ecx` sets the flags the `je` at 0x... | [ ] |
+| 20 | `0x00646BA0` | detour | `NativeSaberPowerK1` | `src/controller-native/K1Rumble.cpp:1150` | always | 2 | CSWCItem::ResolveCreaturePoweredAnimations, 0x00646BA0, at its entry. ecx is the item; [esp+4] the power flag. CSWCItem::PowerItem (0x006... | [ ] |
+| 21 | `0x00670FB0` | detour | `NativeMiniGameAxisK1` | `src/controller-native/K1NativeJoystick.cpp:8289` | always | 2 | (no comment) | [ ] |
 | 22 | `0x00679940` | detour | `NativeJoystickMovementK1` | `src/controller-native/K1NativeJoystick.cpp:7893` | always | 1 | Override the movement axes at the single point every control scheme passes through. ProcessInput has already clamped the keyboard values... | [ ] |
 | 23 | `0x00679B71` | detour | `NativeJoystickSkipNormalizeK1` | `src/controller-native/K1NativeJoystick.cpp:7984` | always | 1 | Bypass Control's own Vector::Normalize, but only while the stick is driving. That call is correct for the keyboard, where each axis is ex... | [ ] |
-| 24 | `0x00685ED0` | detour | `KmrpXboxHudBarsK1` | `src/controller-native/K1XboxHud.cpp:1357` | always | 1 | (no comment) | [ ] |
+| 24 | `0x00685ED0` | detour | `KmrpXboxHudBarsK1` | `src/controller-native/K1XboxHud.cpp:1354` | always | 1 | (no comment) | [ ] |
 | 25 | `0x00686BA0` | detour | `NativeActionBarK1` | `src/controller-native/K1NativeJoystick.cpp:2854` | always | 1 | Process captured keyboard input during the gameplay HUD update. | [ ] |
-| 26 | `0x0068947A` | detour | `KmrpXboxHudListsK1` | `src/controller-native/K1XboxHud.cpp:2619` | always | 1 | (no comment) | [ ] |
-| 27 | `0x0068AB10` | detour | `KmrpXboxHudK1` | `src/controller-native/K1XboxHud.cpp:1977` | always | 1 | (no comment) | [ ] |
-| 28 | `0x0068B170` | detour | `ClearActionBarControlsK1` | `src/controller-native/vendor/K1XboxControls.cpp:7262` | always | 1 | Clear cached HUD state when KOTOR destroys the gameplay interface. | [ ] |
-| 29 | `0x006C00C0` | detour | `KmrpXboxHudPauseReasonK1` | `src/controller-native/K1XboxHud.cpp:2666` | always | 1 | (no comment) | [ ] |
-| 30 | `0x006C02A4` | detour | `KmrpXboxHudPauseReasonDoneK1` | `src/controller-native/K1XboxHud.cpp:2675` | always | 1 | (no comment) | [ ] |
+| 26 | `0x0068947A` | detour | `KmrpXboxHudListsK1` | `src/controller-native/K1XboxHud.cpp:2616` | always | 1 | (no comment) | [ ] |
+| 27 | `0x0068AB10` | detour | `KmrpXboxHudK1` | `src/controller-native/K1XboxHud.cpp:1974` | always | 1 | (no comment) | [ ] |
+| 28 | `0x0068B170` | detour | `ClearActionBarControlsK1` | `src/controller-native/vendor/K1XboxControls.cpp:7246` | always | 1 | Clear cached HUD state when KOTOR destroys the gameplay interface. | [ ] |
+| 29 | `0x006C00C0` | detour | `KmrpXboxHudPauseReasonK1` | `src/controller-native/K1XboxHud.cpp:2663` | always | 1 | (no comment) | [ ] |
+| 30 | `0x006C02A4` | detour | `KmrpXboxHudPauseReasonDoneK1` | `src/controller-native/K1XboxHud.cpp:2672` | always | 1 | (no comment) | [ ] |
 | 31 | `0x006C2400` | detour | `ResolveSoloModeConfirmK1` | `src/controller-native/K1NativeJoystick.cpp:2230` | always | 3 | CSWGuiInGameSoloModeQuery::HandleInputEvent, 0x006C2400. 006C2400  mov edx,[esp+8]     value 006C2404  test edx,edx        a release (0)... | keep: solo-mode popup, A on Cancel becomes B |
-| 32 | `0x006D4440` | detour | `NativeMuzzleFlashK1` | `src/controller-native/K1Rumble.cpp:1230` | always | 1 | CSWCProjectile::CreateMuzzleFlash, 0x006D4440, at its entry; ecx is the projectile. The stolen `mov ebx,[esp+8]` is ESP-relative, and KPM... | [ ] |
+| 32 | `0x006D4440` | detour | `NativeMuzzleFlashK1` | `src/controller-native/K1Rumble.cpp:1226` | always | 1 | CSWCProjectile::CreateMuzzleFlash, 0x006D4440, at its entry; ecx is the projectile. The stolen `mov ebx,[esp+8]` is ESP-relative, and KPM... | [ ] |
 | 33 | `0x006E0CF0` | detour | `ResolveResolutionConfirmK1` | `src/controller-native/K1NativeJoystick.cpp:2246` | always | 3 | CSWGuiOptionsResolution::HandleInputEvent, 0x006E0CF0. Its frame is built on EBP, so the event is read later as [ebp+8]; at the entry it... | keep: resolution popup, confirm once (2026-10-28 double pop) |
 | 34 | `0x006F28C0` | detour | `GuardPowersConfirmK1` | `src/controller-native/K1NativeJoystick.cpp:2394` | always | 3 | (no comment) | keep: thin export over GuardChargenConfirmK1 (one per dispatcher, already shared) |
 | 35 | `0x006F4680` | detour | `GuardFeatsConfirmK1` | `src/controller-native/K1NativeJoystick.cpp:2389` | always | 3 | (no comment) | keep: as above |
@@ -353,15 +353,15 @@ Which module each file is built into is in `build_native_runtime.cmd` and `build
 
 | lines | file | in kmrp.dll | in kmrp-controller.dll | audit |
 | --- | --- | --- | --- | --- |
-| 8453 | `K1NativeJoystick.cpp` |  | yes | [ ] |
-| 7471 | `vendor/K1XboxControls.cpp` |  | yes | [ ] |
-| 2683 | `K1XboxHud.cpp` |  | yes | [ ] |
+| 8455 | `K1NativeJoystick.cpp` |  | yes | [ ] |
+| 7455 | `vendor/K1XboxControls.cpp` |  | yes | [ ] |
+| 2680 | `K1XboxHud.cpp` |  | yes | [ ] |
 | 2007 | `K1RuntimeAssets.cpp` | yes |  | [ ] |
 | 1780 | `K1ControllerLayout.cpp` |  | yes | [ ] |
-| 1309 | `K1Rumble.cpp` |  | yes | [ ] |
-| 975 | `K1TextLayout.cpp` | yes |  | [ ] |
-| 963 | `K1HudOptions.cpp` | yes |  | [ ] |
-| 921 | `K1RuntimeLayout.cpp` | yes |  | [ ] |
+| 1305 | `K1Rumble.cpp` |  | yes | [ ] |
+| 973 | `K1TextLayout.cpp` | yes |  | [ ] |
+| 962 | `K1HudOptions.cpp` | yes |  | [ ] |
+| 944 | `K1RuntimeLayout.cpp` | yes |  | [ ] |
 | 745 | `vendor/K1XboxControlsXInput.cpp` |  | yes | [ ] |
 | 674 | `K1KpmApplier.cpp` |  |  | [ ] |
 | 645 | `K1TextOptions.cpp` | yes |  | [ ] |
@@ -371,39 +371,39 @@ Which module each file is built into is in `build_native_runtime.cmd` and `build
 | 412 | `K1PartyRosterGui.cpp` | yes |  | [ ] |
 | 403 | `K1ControllerStandalone.cpp` |  | yes | [ ] |
 | 347 | `K1RuntimeResolution.cpp` | yes |  | [ ] |
-| 300 | `K1CaptionInk.h` |  |  | [ ] |
-| 263 | `K1OptionsPad.h` |  |  | [ ] |
+| 290 | `K1CaptionInk.h` |  |  | [ ] |
+| 262 | `K1OptionsPad.h` |  |  | [ ] |
 | 255 | `K1RuntimeEngine.cpp` | yes |  | [ ] |
 | 241 | `K1PcHud.cpp` | yes |  | [ ] |
-| 219 | `K1KeyboardNavigation.cpp` | yes |  | [ ] |
+| 217 | `K1KeyboardNavigation.cpp` | yes |  | [ ] |
 | 190 | `K1MovieWindow.cpp` | yes | yes | [ ] |
-| 187 | `K1GrantedPopup.cpp` | yes |  | [ ] |
 | 187 | `K1ButtonRemapPolicy.h` |  |  | [ ] |
 | 186 | `K1ClassModelTrace.h` |  |  | [ ] |
+| 185 | `K1GrantedPopup.cpp` | yes |  | [ ] |
 | 183 | `K1HudOptionsPolicy.h` |  |  | [ ] |
 | 182 | `K1ControllerPreload.cpp` |  | yes | [ ] |
 | 182 | `K1AssetPack.cpp` | yes |  | [ ] |
 | 180 | `K1PcHudLayout.h` |  |  | [ ] |
-| 170 | `K1PopupFit.cpp` | yes |  | [ ] |
+| 168 | `K1PopupFit.cpp` | yes |  | [ ] |
 | 154 | `K1ControllerBadgeShapes.inc` |  |  | [ ] |
 | 148 | `K1Xpress.cpp` |  | yes | [ ] |
+| 143 | `K1PartyRosterState.h` |  |  | [ ] |
 | 130 | `KmrpOptions.h` |  |  | [ ] |
 | 127 | `K1PcHudLayout.inc` |  |  | [ ] |
 | 126 | `K1XboxHudLayout.inc` |  |  | [ ] |
 | 122 | `K1CoreFrames.cpp` | yes |  | [ ] |
-| 119 | `K1PartyRosterState.h` |  |  | [ ] |
 | 118 | `K1StatusSummary.cpp` | yes | yes | [ ] |
-| 116 | `K1GuiControls.h` | yes |  | [ ] |
 | 115 | `K1ClassSelectArt.h` |  |  | [ ] |
 | 112 | `K1GuiModelPreload.h` |  |  | [ ] |
 | 110 | `K1SliderGrip.h` |  |  | [ ] |
+| 93 | `K1GuiControls.h` | yes |  | [ ] |
 | 92 | `K1ListRows.inc` |  |  | [ ] |
 | 88 | `K1TextFitPolicy.h` |  |  | [ ] |
 | 86 | `K1ButtonRemap.cpp` |  | yes | [ ] |
 | 83 | `K1CursorConfinement.cpp` | yes | yes | [ ] |
-| 64 | `K1PartyPortraits.cpp` | yes | yes | [ ] |
+| 66 | `K1PartyPortraits.cpp` | yes | yes | [ ] |
+| 65 | `K1EngineMemory.h` | yes |  | [ ] |
 | 58 | `K1TextOptionsPolicy.h` |  |  | [ ] |
-| 54 | `K1EngineMemory.h` | yes |  | [ ] |
 | 51 | `K1StatusSummary.h` |  |  | [ ] |
 | 47 | `K1AssetPack.h` |  |  | [ ] |
 | 38 | `K1MovieWindow.h` |  |  | [ ] |

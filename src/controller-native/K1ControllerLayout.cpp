@@ -46,7 +46,7 @@ constexpr unsigned kOwnedSlots = 192;
 constexpr unsigned kTableControls = 2 + 2 + 2 * 10 + 2 * 5;
 static_assert(K1_LAYOUT_CONTROLS + 3 * 10 + 5 + 6 + 14 + kTableControls <= kOwnedSlots, "owned[] holds every control");
 
-using namespace KmrpGui;   // at, fn, readable, setExtent, the text widths, openLog (K1GuiControls.h)
+using namespace KmrpGui;   // setExtent,the text widths, openLog (K1GuiControls.h)
 using Ctor = void*(__thiscall*)(void*);
 using Dtor = void*(__thiscall*)(void*, unsigned);
 using PanelCtor = void*(__thiscall*)(void*, void*);
@@ -107,22 +107,22 @@ void log(const char* event) {
 
 void destroyControl(void* control) {
     if (!control) return;
-    auto v = at<std::uintptr_t*>(control,0);
+    auto v = At<std::uintptr_t*>(control,0);
     reinterpret_cast<Dtor>(v[0])(control,1);
     ++controlsDestroyed;
 }
 
 void* bind(void* panel, const char* tag, bool button=false) {
-    void* c=fn<New>(0x6FA7E6)(button ? 0x1C4 : 0x140);
+    void* c=EngineFn<New>(0x6FA7E6)(button ? 0x1C4 : 0x140);
     if (!c) return nullptr;
-    fn<Ctor>(button ? 0x41C0F0 : 0x41ACD0)(c);
+    EngineFn<Ctor>(button ? 0x41C0F0 : 0x41ACD0)(c);
     ++controlsCreated;
     void* name[2] = {};
-    fn<StringCtor>(0x5E5A90)(name,tag);
-    fn<Bind>(0x40B930)(panel,c,name,1);
-    fn<Simple>(0x5E5C20)(name);
-    int id=at<int>(c,0x50), count=at<int>(panel,0x24);
-    auto array=at<void**>(panel,0x20);
+    EngineFn<StringCtor>(0x5E5A90)(name,tag);
+    EngineFn<Bind>(0x40B930)(panel,c,name,1);
+    EngineFn<Simple>(0x5E5C20)(name);
+    int id=At<int>(c,0x50), count=At<int>(panel,0x24);
+    auto array=At<void**>(panel,0x20);
     if (!array || id<0 || id>=count || array[id]!=c) {
         destroyControl(c); log("bind-failed"); return nullptr;
     }
@@ -133,7 +133,7 @@ void requestClose() {
     if (current) {
         // Manager Update removes the modal then calls its deleting destructor.
         // Never delete a panel from the control's callback stack.
-        at<unsigned>(current,0x44)=(at<unsigned>(current,0x44)&~0x700u)|0x400u;
+        At<unsigned>(current,0x44)=(At<unsigned>(current,0x44)&~0x700u)|0x400u;
         log("close-request");
     }
 }
@@ -159,30 +159,30 @@ void forgetRemap();
 void __fastcall input(void* self,void*,int event,int value) {
     if (remapInput(event, value)) return;
     if (value && event==0x28) { handleBack(); return; }
-    fn<Input>(0x409E60)(self,event,value);
+    EngineFn<Input>(0x409E60)(self,event,value);
 }
 void* __fastcall destroy(void* self,void*,unsigned flags) {
     log("destroy-begin");
     // Manager already removed the panel on normal closure. Also support an
     // engine shutdown calling the destructor while the panel remains attached.
-    void* manager=at<void*>(self,0x18);
-    if (manager && fn<Exists>(0x40BD70)(manager,self))
-        fn<Exists>(0x40C830)(manager,self);
-    fn<SetActive>(0x40A630)(self,nullptr,0);
-    auto array=at<void**>(self,0x20);
-    for (int i=0;i<at<int>(self,0x24);++i) array[i]=nullptr;
+    void* manager=At<void*>(self,0x18);
+    if (manager && EngineFn<Exists>(0x40BD70)(manager,self))
+        EngineFn<Exists>(0x40C830)(manager,self);
+    EngineFn<SetActive>(0x40A630)(self,nullptr,0);
+    auto array=At<void**>(self,0x20);
+    for (int i=0;i<At<int>(self,0x24);++i) array[i]=nullptr;
     for (unsigned i=0;i<ownedCount;++i) { destroyControl(owned[i]); owned[i]=nullptr; }
     ownedCount=0;
     forgetRemap();
-    fn<Simple>(0x40CF70)(self);
+    EngineFn<Simple>(0x40CF70)(self);
     current=nullptr;
     ++destroyed;
-    if (parent && manager && fn<Exists>(0x40BD70)(manager,parent))
-        fn<SetActive>(0x40A630)(parent,returnFocus,0);
+    if (parent && manager && EngineFn<Exists>(0x40BD70)(manager,parent))
+        EngineFn<SetActive>(0x40A630)(parent,returnFocus,0);
     parent=nullptr; returnFocus=nullptr;
     blockReopen=true; releasedFrames=0;
     log("destroy-end");
-    if (flags&1) fn<Delete>(0x6FA390)(self);
+    if (flags&1) EngineFn<Delete>(0x6FA390)(self);
     return self;
 }
 
@@ -208,7 +208,7 @@ struct ConfirmBadge { void* panel; void* label; char family; bool shown; }
 
 
 void showControl(void* c, bool visible) {
-    at<unsigned>(c,0x44)=(at<unsigned>(c,0x44)&~2u)|(visible?2u:0);
+    At<unsigned>(c,0x44)=(At<unsigned>(c,0x44)&~2u)|(visible?2u:0);
 }
 
 
@@ -219,10 +219,10 @@ void updateConfirmBadges() {
         if (!b.panel) continue;
         // The focused button's extent is read up to Cancel+0x14; the label is
         // a 0x140-byte CSWGuiLabel whose fill sits at +0x70.
-        if (!readable(b.panel,K1_MESSAGE_BOX_CANCEL+0x14) || !readable(b.label,0x140)) {
+        if (!IsReadableK1(b.panel,K1_MESSAGE_BOX_CANCEL+0x14) || !IsReadableK1(b.label,0x140)) {
             b={}; continue;                 // its box is gone: forget, never touch
         }
-        void* active=at<void*>(b.panel,0x1C);
+        void* active=At<void*>(b.panel,0x1C);
         char* base=static_cast<char*>(b.panel);
         const bool onButton=active==base+K1_MESSAGE_BOX_OK ||
                             active==base+K1_MESSAGE_BOX_CANCEL;
@@ -241,7 +241,7 @@ void updateConfirmBadges() {
             char resref[16]={};
             sprintf_s(resref,"kmr%ccnfa",family);
             using Fill=void(__thiscall*)(void*,const void*,int);
-            fn<Fill>(0x414C00)(static_cast<char*>(b.label)+0x70,
+            EngineFn<Fill>(0x414C00)(static_cast<char*>(b.label)+0x70,
                                KmrpDrawnFillK1(static_cast<char*>(b.label)+0x70,resref),1);
             b.family=family;
         }
@@ -292,14 +292,14 @@ struct DialogBadge {
 // returns -- the object CSWGuiDialog::SetReplyActive (0x006A6FC0) colours
 // through +0xE8, which is that text's parameters (+0x18).
 void* replyText(void* row) {
-    if (!readable(row,4)) return nullptr;
-    void** const vtable=at<void**>(row,0);
-    if (!readable(vtable,0x54)) return nullptr;
+    if (!IsReadableK1(row,4)) return nullptr;
+    void** const vtable=At<void**>(row,0);
+    if (!IsReadableK1(vtable,0x54)) return nullptr;
     using Owner=char*(__thiscall*)(void*);
     char* const owner=reinterpret_cast<Owner>(vtable[0x50/4])(row);
-    if (!readable(owner,0xD0+0x70)) return nullptr;
+    if (!IsReadableK1(owner,0xD0+0x70)) return nullptr;
     void* const text=owner+0xD0;
-    return readable(at<void*>(text,0x14),0x44) ? text : nullptr;
+    return IsReadableK1(At<void*>(text,0x14),0x44) ? text : nullptr;
 }
 
 // Where the reply's last line ends, in pixels from the text's left edge, read
@@ -322,27 +322,27 @@ void* replyText(void* row) {
 struct ReplyLine { int width; int lines; float scale; int lineHeight; };
 
 bool lastReplyLine(void* text, ReplyLine& out) {
-    char* const object=at<char*>(text,0x14);
-    if (!readable(object,0x44)) return false;
-    const char* const string=at<const char*>(object,0x14);
-    void* const font=at<void*>(object,0x18);
-    const int lines=at<int>(object,0x38);
-    const int* const lengths=at<const int*>(object,0x34);
-    if (lines<1 || lines>32 || !readable(lengths,lines*sizeof(int)) || !readable(font,4))
+    char* const object=At<char*>(text,0x14);
+    if (!IsReadableK1(object,0x44)) return false;
+    const char* const string=At<const char*>(object,0x14);
+    void* const font=At<void*>(object,0x18);
+    const int lines=At<int>(object,0x38);
+    const int* const lengths=At<const int*>(object,0x34);
+    if (lines<1 || lines>32 || !IsReadableK1(lengths,lines*sizeof(int)) || !IsReadableK1(font,4))
         return false;
     auto length=[&](int i) { return lengths[i]<0 ? -lengths[i] : lengths[i]; };
     int total=1;                                    // the terminator
     for (int i=0;i<lines;++i) total+=length(i)+1;   // a line and its separator
-    if (total>4096 || !readable(string,total-1)) return false;
-    void** const vtable=at<void**>(font,0);
-    if (!readable(vtable,0x3C)) return false;
+    if (total>4096 || !IsReadableK1(string,total-1)) return false;
+    void** const vtable=At<void**>(font,0);
+    if (!IsReadableK1(vtable,0x3C)) return false;
     using Info=char*(__thiscall*)(void*);
     char* const info=reinterpret_cast<Info>(vtable[0x38/4])(font);
-    if (!readable(info,0x28)) return false;
-    const char* const upperLeft=at<const char*>(info,0x18);
-    const char* const lowerRight=at<const char*>(info,0x24);
-    if (!readable(upperLeft,256*12) || !readable(lowerRight,256*12)) return false;
-    const float texels=at<float>(info,0x0C)*100.0f;
+    if (!IsReadableK1(info,0x28)) return false;
+    const char* const upperLeft=At<const char*>(info,0x18);
+    const char* const lowerRight=At<const char*>(info,0x24);
+    if (!IsReadableK1(upperLeft,256*12) || !IsReadableK1(lowerRight,256*12)) return false;
+    const float texels=At<float>(info,0x0C)*100.0f;
     const char* line=string;
     for (int i=0;i+1<lines;++i) {
         line+=length(i);
@@ -358,10 +358,10 @@ bool lastReplyLine(void* text, ReplyLine& out) {
     }
     out.width=static_cast<int>(width+0.5f);
     out.lines=lines;
-    out.scale=at<float>(object,0x40);
+    out.scale=At<float>(object,0x40);
     // One drawn line: fontheight x 100 texels (font information +0x04, as
     // CSWGuiText's height function reads it), texels being pixels here.
-    out.lineHeight=static_cast<int>(at<float>(info,0x04)*100.0f+0.5f);
+    out.lineHeight=static_cast<int>(At<float>(info,0x04)*100.0f+0.5f);
     return out.width>0;
 }
 unsigned dialogGeometryLogs = 0;
@@ -379,8 +379,8 @@ void logDialogGeometry(const DialogBadge& b, char* list, void** rows, int count,
               "lineWidth=%d lines=%d lineHeight=%d textScale=%.4f",
         GetTickCount(),b.panel,panelRect[0],panelRect[1],panelRect[2],panelRect[3],
         listRect[0],listRect[1],listRect[2],listRect[3],count,highlight,
-        static_cast<int>(at<short>(list,K1_LIST_SELECTED)),
-        at<unsigned>(b.panel,K1_DIALOG_FLAGS),placed[0],placed[1],placed[2],placed[3],
+        static_cast<int>(At<short>(list,K1_LIST_SELECTED)),
+        At<unsigned>(b.panel,K1_DIALOG_FLAGS),placed[0],placed[1],placed[2],placed[3],
         last.width,last.lines,last.lineHeight,static_cast<double>(last.scale));
     // The render viewport the text is normalised by (index at 0x007B9460, 10-byte
     // entries from 0x007B946C), to check the scale above against it.
@@ -390,7 +390,7 @@ void logDialogGeometry(const DialogBadge& b, char* list, void** rows, int count,
                 *reinterpret_cast<const short*>(0x7B946C+viewport*10),
                 *reinterpret_cast<const short*>(0x7B946E + viewport*10));
     for (int i=0;i<count && i<6;++i) {
-        if (!readable(rows[i],0x14)) break;
+        if (!IsReadableK1(rows[i],0x14)) break;
         const int* r=reinterpret_cast<const int*>(static_cast<char*>(rows[i])+4);
         fprintf(f," row%d=(%d,%d,%d,%d)",i,r[0],r[1],r[2],r[3]);
     }
@@ -403,17 +403,17 @@ void updateDialogBadges() {
     const char family=KmrpGlyphLetterK1();
     for (auto& b: dialogBadges) {
         if (!b.panel) continue;
-        if (!readable(b.panel,K1_DIALOG_FLAGS+4) || !readable(b.label,0x140)) {
+        if (!IsReadableK1(b.panel,K1_DIALOG_FLAGS+4) || !IsReadableK1(b.label,0x140)) {
             b={}; continue;                 // the panel is gone: forget, never touch
         }
         char* list=static_cast<char*>(b.panel)+K1_DIALOG_REPLIES;
-        const bool linePlaying=(at<unsigned>(b.panel,K1_DIALOG_FLAGS)&1u)!=0;
-        const int count=at<int>(list,K1_LIST_ROW_COUNT);
-        void** rows=at<void**>(list,K1_LIST_ROWS);
-        const int highlight=at<int>(b.panel,K1_DIALOG_HIGHLIGHT);
+        const bool linePlaying=(At<unsigned>(b.panel,K1_DIALOG_FLAGS)&1u)!=0;
+        const int count=At<int>(list,K1_LIST_ROW_COUNT);
+        void** rows=At<void**>(list,K1_LIST_ROWS);
+        const int highlight=At<int>(b.panel,K1_DIALOG_HIGHLIGHT);
         const bool choosing=pad && !linePlaying && count>0 && count<=K1_DIALOG_MAX_ROWS &&
-            rows && readable(rows,count*sizeof(void*)) && highlight>=0 && highlight<count &&
-            readable(rows[highlight],0x14);
+            rows && IsReadableK1(rows,count*sizeof(void*)) && highlight>=0 && highlight<count &&
+            IsReadableK1(rows[highlight],0x14);
         if (!choosing) {
             if (b.shown) { showControl(b.label,false); b.shown=false; }
             if (count<=0) b.loggedCount=0;      // the next set of replies logs again
@@ -423,8 +423,8 @@ void updateDialogBadges() {
         // still gets a glyph the height of a line, level with its first line.
         int line=0;
         for (int i=0;i<count;++i) {
-            if (!readable(rows[i],0x14)) continue;
-            const int h=at<int>(rows[i],0x10);
+            if (!IsReadableK1(rows[i],0x14)) continue;
+            const int h=At<int>(rows[i],0x10);
             if (h>0 && (line==0 || h<line)) line=h;
         }
         const int* listRect=reinterpret_cast<const int*>(list+4);
@@ -488,7 +488,7 @@ void updateDialogBadges() {
             char resref[16]={};
             sprintf_s(resref,"kmr%ccnfa",family);
             using Fill=void(__thiscall*)(void*,const void*,int);
-            fn<Fill>(0x414C00)(static_cast<char*>(b.label)+0x70,
+            EngineFn<Fill>(0x414C00)(static_cast<char*>(b.label)+0x70,
                                KmrpDrawnFillK1(static_cast<char*>(b.label)+0x70,resref),1);
             b.family=family;
         }
@@ -514,22 +514,22 @@ struct SummaryBadge { void* panel; void* label; char family; bool shown; }
     summaryBadges[4] = {};
 
 void* bindExtraLabel(void* panel, const char* like) {
-    void* c=fn<New>(0x6FA7E6)(K1_LABEL_SIZE);
+    void* c=EngineFn<New>(0x6FA7E6)(K1_LABEL_SIZE);
     if (!c) return nullptr;
-    fn<Ctor>(0x41ACD0)(c);
+    EngineFn<Ctor>(0x41ACD0)(c);
     ++controlsCreated;
-    at<int>(c,0x50)=-1;                    // set by the load only if `like` exists
+    At<int>(c,0x50)=-1;                    // set by the load only if `like` exists
     void* name[2] = {};
-    fn<StringCtor>(0x5E5A90)(name,like);
-    fn<Bind>(0x40B930)(panel,c,name,0);
-    fn<Simple>(0x5E5C20)(name);
-    void** const array=at<void**>(panel,0x20);
-    const int count=at<int>(panel,0x24);
+    EngineFn<StringCtor>(0x5E5A90)(name,like);
+    EngineFn<Bind>(0x40B930)(panel,c,name,0);
+    EngineFn<Simple>(0x5E5C20)(name);
+    void** const array=At<void**>(panel,0x20);
+    const int count=At<int>(panel,0x24);
     int slot=-1;
-    if (at<int>(c,0x50)>=0 && array && count>0 && readable(array,count*sizeof(void*)))
+    if (At<int>(c,0x50)>=0 && array && count>0 && IsReadableK1(array,count*sizeof(void*)))
         for (int i=0;i<count;++i) if (!array[i]) { slot=i; break; }
     if (slot<0) { destroyControl(c); log("bind-failed"); return nullptr; }
-    at<int>(c,0x50)=slot;
+    At<int>(c,0x50)=slot;
     array[slot]=c;
     return c;
 }
@@ -542,7 +542,7 @@ void* bindExtraLabel(void* panel, const char* like) {
 bool updateSummaryBadge(void* panel, const int* ok) {
     for (auto& b: summaryBadges) {
         if (b.panel!=panel) continue;
-        if (!readable(b.label,K1_LABEL_SIZE)) { b={}; return false; }
+        if (!IsReadableK1(b.label,K1_LABEL_SIZE)) { b={}; return false; }
         if (!IsControllerInputActiveK1()) {
             if (b.shown) { showControl(b.label,false); b.shown=false; }
             return false;
@@ -555,7 +555,7 @@ bool updateSummaryBadge(void* panel, const int* ok) {
             char resref[16]={};
             sprintf_s(resref,"kmr%ccnfa",family);
             using Fill=void(__thiscall*)(void*,const void*,int);
-            fn<Fill>(0x414C00)(static_cast<char*>(b.label)+0x70,
+            EngineFn<Fill>(0x414C00)(static_cast<char*>(b.label)+0x70,
                                KmrpDrawnFillK1(static_cast<char*>(b.label)+0x70,resref),1);
             b.family=family;
         }
@@ -576,8 +576,8 @@ void updateEntryBadges() {
     const char glyph=KmrpGlyphLetterK1();
     for (auto& e: entries) {
         if (!e.parent) continue;
-        if (!readable(e.parent,0x20) || !readable(e.button,0x1C4)) continue;
-        const bool want=pad && at<void*>(e.parent,0x1C)==e.button;
+        if (!IsReadableK1(e.parent,0x20) || !IsReadableK1(e.button,0x1C4)) continue;
+        const bool want=pad && At<void*>(e.parent,0x1C)==e.button;
         if (want==e.badged && (!want || glyph==e.family)) continue;
         KmrpPaintLayoutEntryPromptK1(e.button,want?1:0);
         e.badged=want; e.family=glyph;
@@ -698,37 +698,37 @@ void ownControl(void* c) { if (c && ownedCount < kOwnedSlots) owned[ownedCount++
 // A control made from one of the file's, by its tag, and added after the others
 // (CSWGuiPanel::AddControl, 0x0040B9A0, `ret 4`): the file's array has no free slots.
 void* bindAppend(void* panel, const char* like, bool button) {
-    void* c = fn<New>(0x6FA7E6)(button ? 0x1C4 : 0x140);
+    void* c = EngineFn<New>(0x6FA7E6)(button ? 0x1C4 : 0x140);
     if (!c) return nullptr;
-    fn<Ctor>(button ? 0x41C0F0 : 0x41ACD0)(c);
+    EngineFn<Ctor>(button ? 0x41C0F0 : 0x41ACD0)(c);
     ++controlsCreated;
-    at<int>(c, 0x50) = -1;
+    At<int>(c, 0x50) = -1;
     void* name[2] = {};
-    fn<StringCtor>(0x5E5A90)(name, like);
-    fn<Bind>(0x40B930)(panel, c, name, 0);
-    fn<Simple>(0x5E5C20)(name);
-    const int count = at<int>(panel, 0x24);
-    if (at<int>(c, 0x50) < 0 || count < 0 || count >= 512) { destroyControl(c); log("bind-failed"); return nullptr; }
-    at<int>(c, 0x50) = count;
-    fn<void(__thiscall*)(void*, void*)>(0x40B9A0)(panel, c);
-    void** const array = at<void**>(panel, 0x20);
-    if (at<int>(panel, 0x24) != count + 1 || !array || array[count] != c) { destroyControl(c); log("bind-failed"); return nullptr; }
+    EngineFn<StringCtor>(0x5E5A90)(name, like);
+    EngineFn<Bind>(0x40B930)(panel, c, name, 0);
+    EngineFn<Simple>(0x5E5C20)(name);
+    const int count = At<int>(panel, 0x24);
+    if (At<int>(c, 0x50) < 0 || count < 0 || count >= 512) { destroyControl(c); log("bind-failed"); return nullptr; }
+    At<int>(c, 0x50) = count;
+    EngineFn<void(__thiscall*)(void*, void*)>(0x40B9A0)(panel, c);
+    void** const array = At<void**>(panel, 0x20);
+    if (At<int>(panel, 0x24) != count + 1 || !array || array[count] != c) { destroyControl(c); log("bind-failed"); return nullptr; }
     ownControl(c);
     return c;
 }
 
 void setText(void* c, const char* text, bool button = false) {
     void* string[2] = {};
-    fn<StringCtor>(0x5E5A90)(string, text);
-    fn<void(__thiscall*)(void*, void*)>(0x415E00)(static_cast<char*>(c) + (button ? 0x16C : 0xE8), string);
-    fn<Simple>(0x5E5C20)(string);
+    EngineFn<StringCtor>(0x5E5A90)(string, text);
+    EngineFn<void(__thiscall*)(void*, void*)>(0x415E00)(static_cast<char*>(c) + (button ? 0x16C : 0xE8), string);
+    EngineFn<Simple>(0x5E5C20)(string);
 }
 // CSWGuiTextParams::SetColor (0x00414E10, `ret 4`): the colour at +0x1C of a label's
 // text parameters (+0xE8), passed on to its text.
 void setColour(void* label, const float* rgb) {
     const float* now = reinterpret_cast<const float*>(static_cast<char*>(label) + 0xE8 + 0x1C);
     if (now[0] == rgb[0] && now[1] == rgb[1] && now[2] == rgb[2]) return;
-    fn<void(__thiscall*)(void*, const float*)>(0x414E10)(static_cast<char*>(label) + 0xE8, rgb);
+    EngineFn<void(__thiscall*)(void*, const float*)>(0x414E10)(static_cast<char*>(label) + 0xE8, rgb);
 }
 // A fill by name, unless it already shows that picture. The controller patch draws its
 // pictures at the size they are shown and gives the border the drawing's own name, so the
@@ -741,7 +741,7 @@ void setFill(void* params, const char* resref) {
     strncpy_s(name, resref, _TRUNCATE);
     if (!_strnicmp(KmrpLogicalFillK1(static_cast<char*>(params) + 0x40), name, 16)) return;
     using Fill = void(__thiscall*)(void*, const void*, int);
-    fn<Fill>(0x414C00)(params, KmrpDrawnFillK1(params, name), 1);
+    EngineFn<Fill>(0x414C00)(params, KmrpDrawnFillK1(params, name), 1);
 }
 void labelFill(void* label, const char* resref) { setFill(static_cast<char*>(label) + 0x70, resref); }
 // A border with no picture: CSWGuiBorderParams::SetCornerImage (0x00414AE0) and
@@ -750,11 +750,11 @@ void labelFill(void* label, const char* resref) { setFill(static_cast<char*>(lab
 void clearBorder(void* params) {
     const char none[16] = {};
     using Image = void(__thiscall*)(void*, const void*, int);
-    fn<Image>(0x414AE0)(params, none, 1);
-    fn<Image>(0x414B70)(params, none, 1);
-    fn<Image>(0x414C00)(params, none, 1);
+    EngineFn<Image>(0x414AE0)(params, none, 1);
+    EngineFn<Image>(0x414B70)(params, none, 1);
+    EngineFn<Image>(0x414C00)(params, none, 1);
 }
-void selectable(void* c, bool on) { at<unsigned>(c, 0x44) = (at<unsigned>(c, 0x44) & ~8u) | (on ? 8u : 0u); }
+void selectable(void* c, bool on) { At<unsigned>(c, 0x44) = (At<unsigned>(c, 0x44) & ~8u) | (on ? 8u : 0u); }
 int* rectOf(void* c) { return reinterpret_cast<int*>(static_cast<char*>(c) + 4); }
 void place(void* c, int left, int top, int width, int height) {
     const int r[4] = {left, top, width > 1 ? width : 1, height > 1 ? height : 1};
@@ -801,7 +801,7 @@ bool buildRemap(void* p) {
         if (!frame) return false;
         clearBorder(static_cast<char*>(frame) + 0x80);
         setText(frame, "", true);
-        fn<Event>(0x41AB20)(frame, 0x27, p, reinterpret_cast<void*>(&rowPressed));
+        EngineFn<Event>(0x41AB20)(frame, 0x27, p, reinterpret_cast<void*>(&rowPressed));
         rm.frame[b] = frame;
         rm.fixed[b] = bindAppend(p, "TEXT_05", false);
         rm.dot[b] = bindAppend(p, "GLYPH_BACK", false);
@@ -828,9 +828,9 @@ bool buildRemap(void* p) {
     setText(rm.defaults, "Default", true);
     setText(rm.save, "Save", true);
     std::memcpy(rm.saveBorder, static_cast<char*>(rm.save) + 0x80 + 0x10, sizeof rm.saveBorder);
-    fn<Event>(0x41AB20)(rm.defaults, 0x27, p, reinterpret_cast<void*>(&defaultsPressed));
-    fn<Event>(0x41AB20)(rm.save, 0x27, p, reinterpret_cast<void*>(&savePressed));
-    fn<Event>(0x41AB20)(rm.change, 0x27, p, reinterpret_cast<void*>(&changePressed));
+    EngineFn<Event>(0x41AB20)(rm.defaults, 0x27, p, reinterpret_cast<void*>(&defaultsPressed));
+    EngineFn<Event>(0x41AB20)(rm.save, 0x27, p, reinterpret_cast<void*>(&savePressed));
+    EngineFn<Event>(0x41AB20)(rm.change, 0x27, p, reinterpret_cast<void*>(&changePressed));
     // The table, made before the prompts so that their dimmed box covers it. Names from
     // TEXT_05, a right-hand caption, so they read from the left; pictures from
     // GLYPH_BACK; the lines from DECO_04, the hairline under the heading.
@@ -881,14 +881,14 @@ bool buildRemap(void* p) {
     }
     setText(rm.listenLine, "If another action has that button, it is left without one");
     setText(rm.listenCancel, "Cancel", true);
-    fn<Event>(0x41AB20)(rm.listenCancel, 0x27, p, reinterpret_cast<void*>(&listenCancelPressed));
+    EngineFn<Event>(0x41AB20)(rm.listenCancel, 0x27, p, reinterpret_cast<void*>(&listenCancelPressed));
     labelFill(rm.dim, kBlack);
-    at<float>(rm.dim, 0x70 + 0x0C) = 0.7f;
+    At<float>(rm.dim, 0x70 + 0x0C) = 0.7f;
     // The box's title, lines and first button are set as it is laid out (layoutRemap):
     // it asks one of two things.
     setText(rm.cancel, "Cancel", true);
-    fn<Event>(0x41AB20)(rm.discard, 0x27, p, reinterpret_cast<void*>(&discardPressed));
-    fn<Event>(0x41AB20)(rm.cancel, 0x27, p, reinterpret_cast<void*>(&cancelPressed));
+    EngineFn<Event>(0x41AB20)(rm.discard, 0x27, p, reinterpret_cast<void*>(&discardPressed));
+    EngineFn<Event>(0x41AB20)(rm.cancel, 0x27, p, reinterpret_cast<void*>(&cancelPressed));
     // Pad buttons, not places for the pad's focus; the mouse still clicks them.
     for (void* c : {backButton, rm.change, rm.defaults, rm.save, rm.discard, rm.cancel, rm.listenCancel}) KmrpPadFocusExcludeK1(c, true);
     rm.built = true;
@@ -925,7 +925,7 @@ void layoutDrawing(void* focus, char family) {
         const bool focused = mode != Mode::View && focus == rm.frame[b];
         setColour(action, faded ? dim : waiting ? kOrange : focused ? kYellow : rm.cyan);
         setColour(fixed, faded ? dimGrey : kGrey);
-        at<float>(glyph, 0x70 + 0x0C) = faded ? 0.35f : 1.0f;
+        At<float>(glyph, 0x70 + 0x0C) = faded ? 0.35f : 1.0f;
         // The pieces of the caption on one line, from the glyph outwards: a measured
         // width each, so an action of any length sits beside what stays.
         const int gap = leftSide(row) ? g[0] - (t[0] + t[2]) : t[0] - (g[0] + g[2]);
@@ -1056,7 +1056,7 @@ void layoutTable(void* focus, char family) {
             labelFill(rm.actionGlyph[a], resref);
         }
         picture(rm.actionGlyph[a], y);
-        at<float>(rm.actionGlyph[a], 0x70 + 0x0C) = faded ? 0.35f : 1.0f;
+        At<float>(rm.actionGlyph[a], 0x70 + 0x0C) = faded ? 0.35f : 1.0f;
         place(rm.dot[a], buttonX + pic + pad, y + (rowH - dot) / 2, dot, dot);
         showControl(rm.dot[a], !none && button != a);
     }
@@ -1072,7 +1072,7 @@ void layoutTable(void* focus, char family) {
         sprintf_s(resref, "kmr%clyt%02d", family, kStay[s].row);
         labelFill(rm.stayGlyph[s], resref);
         picture(rm.stayGlyph[s], y);
-        at<float>(rm.stayGlyph[s], 0x70 + 0x0C) = listening ? 0.35f : 1.0f;
+        At<float>(rm.stayGlyph[s], 0x70 + 0x0C) = listening ? 0.35f : 1.0f;
         place(locks[s], buttonX + pic + pad, y + (rowH - lock) / 2, lock, lock);
     }
 }
@@ -1080,7 +1080,7 @@ void layoutTable(void* focus, char family) {
 // Where everything goes, and what it says, for the layout being edited and the focus.
 void layoutRemap() {
     if (!rm.built || !current) return;
-    void* const focus = at<void*>(current, 0x1C);
+    void* const focus = At<void*>(current, 0x1C);
     const char family = KmrpGlyphLetterK1();
     // The table while remapping (and under its Unsaved Changes box), the drawing in the
     // view and under its Default box. Each hides the other's controls.
@@ -1182,8 +1182,8 @@ void layoutRemap() {
         for (int i = 0; i < 2; ++i) {
             float* border = reinterpret_cast<float*>(static_cast<char*>(button[i]) + 0x80 + 0x10);
             std::memcpy(border, can[i] ? rm.saveBorder : kGrey, sizeof rm.saveBorder);
-            at<float>(glyph[i], 0x70 + 0x0C) = can[i] ? 1.0f : 0.35f;
-            fn<void(__thiscall*)(void*, const float*)>(0x414E10)(static_cast<char*>(button[i]) + 0x16C,
+            At<float>(glyph[i], 0x70 + 0x0C) = can[i] ? 1.0f : 0.35f;
+            EngineFn<void(__thiscall*)(void*, const float*)>(0x414E10)(static_cast<char*>(button[i]) + 0x16C,
                                                                  can[i] ? rm.cyan : kGrey);
         }
     }
@@ -1260,8 +1260,8 @@ void layoutRemap() {
     // While a button is awaited the focus stays on its row; the rows are not places to go.
     for (int b = 0; b < kRemapRows; ++b) selectable(rm.frame[b], browse);
     for (int b = 0; b < kRemapRows; ++b) if (focus == rm.frame[b]) browseRow = b;
-    if (browse && focus && !(at<unsigned>(focus, 0x44) & 2u)) {
-        fn<SetActive>(0x40A630)(current, rm.frame[browseRow], 0);
+    if (browse && focus && !(At<unsigned>(focus, 0x44) & 2u)) {
+        EngineFn<SetActive>(0x40A630)(current, rm.frame[browseRow], 0);
         remapDirty = true;            // laid out again next frame, with the focus on its row
     }
     remapFamily = family;
@@ -1297,7 +1297,7 @@ void enterRemap() {
     settle = true;
     remapDirty = true;
     selectable(rm.frame[browseRow], true);
-    fn<SetActive>(0x40A630)(current, rm.frame[browseRow], 0);
+    EngineFn<SetActive>(0x40A630)(current, rm.frame[browseRow], 0);
     log("remap-enter");
 }
 // Back to the layout as saved: anything not saved is dropped, and the focus is nowhere,
@@ -1308,7 +1308,7 @@ void exitRemap() {
     mode = Mode::View;
     settle = true;
     remapDirty = true;
-    fn<SetActive>(0x40A630)(current, nullptr, 0);
+    EngineFn<SetActive>(0x40A630)(current, nullptr, 0);
     log("remap-exit");
 }
 // Close while remapping: back to View, asking first if something is not saved.
@@ -1341,7 +1341,7 @@ void saveLayout() {
 void __fastcall rowPressed(void*, void*, void*) {
     ++callbacks;
     if (!armed() || settle || mode != Mode::Browse || !current) return;
-    void* const focus = at<void*>(current, 0x1C);
+    void* const focus = At<void*>(current, 0x1C);
     for (int b = 0; b < kRemapRows; ++b) if (rm.frame[b] == focus) startListening(b);
 }
 void __fastcall defaultsPressed(void*, void*, void*) {
@@ -1396,7 +1396,7 @@ void remapFrame() {
             }
         }
     }
-    if (remapDirty || at<void*>(current, 0x1C) != remapFocus || KmrpGlyphLetterK1() != remapFamily ||
+    if (remapDirty || At<void*>(current, 0x1C) != remapFocus || KmrpGlyphLetterK1() != remapFamily ||
         IsControllerInputActiveK1() != remapPad || KmrpPadPresentK1() != remapPadHere)
         layoutRemap();
 }
@@ -1477,10 +1477,10 @@ void refresh() {
     if (next==family && active==device) return;
     family=next; device=active;
     // IDs 2..5 are family headings; 6 and 7 indicate active input device.
-    auto array=at<void**>(current,0x20);
+    auto array=At<void**>(current,0x20);
     for (int i=2;i<8;++i) if (array[i]) {
         bool visible=i<6 ? "psnd"[i-2]==family : i==6+active;
-        at<unsigned>(array[i],0x44)=(at<unsigned>(array[i],0x44)&~2u)|(visible?2u:0);
+        At<unsigned>(array[i],0x44)=(At<unsigned>(array[i],0x44)&~2u)|(visible?2u:0);
     }
     using Fill=void(__thiscall*)(void*,const void*,int);
     // The diagram, ID 8, is drawn per family too: the silhouette and its
@@ -1488,16 +1488,16 @@ void refresh() {
     if (array[8]) {
         char resref[16]={};
         sprintf_s(resref,"kmr%clytdiag",family);
-        fn<Fill>(0x414C00)(static_cast<char*>(array[8])+0x70,
+        EngineFn<Fill>(0x414C00)(static_cast<char*>(array[8])+0x70,
                            KmrpDrawnFillK1(static_cast<char*>(array[8])+0x70,resref),1);
     }
     // The B inside Back: the pad's own glyph, and only while a pad is in use.
     if (void* backGlyph=array[K1_LAYOUT_BACK_GLYPH]) {
         char resref[16]={};
         sprintf_s(resref,"kmr%clytbk",family);
-        fn<Fill>(0x414C00)(static_cast<char*>(backGlyph)+0x70,
+        EngineFn<Fill>(0x414C00)(static_cast<char*>(backGlyph)+0x70,
                            KmrpDrawnFillK1(static_cast<char*>(backGlyph)+0x70,resref),1);
-        at<unsigned>(backGlyph,0x44)=(at<unsigned>(backGlyph,0x44)&~2u)|(active?2u:0);
+        At<unsigned>(backGlyph,0x44)=(At<unsigned>(backGlyph,0x44)&~2u)|(active?2u:0);
     }
     // Glyph controls follow the fixed ten, and use the same family resrefs as HUD.
     for (int i=0;i<K1_LAYOUT_ROWS;++i) {
@@ -1505,7 +1505,7 @@ void refresh() {
         if (!glyph) continue;
         char resref[16]={};
         sprintf_s(resref,"kmr%clyt%02d",family,i);
-        fn<Fill>(0x414C00)(static_cast<char*>(glyph)+0x70,
+        EngineFn<Fill>(0x414C00)(static_cast<char*>(glyph)+0x70,
                            KmrpDrawnFillK1(static_cast<char*>(glyph)+0x70,resref),1);
     }
     remapDirty = true;            // the rows' glyphs and the footer's are the remap screen's again
@@ -1515,39 +1515,39 @@ void refresh() {
 
 void ControllerLayoutReleaseGffK1(void* panel) {
     if (!panel) return;
-    auto v=at<std::uintptr_t>(panel,0);
-    if (v==0x73E010 && !at<void*>(panel,0x2C)) {
+    auto v=At<std::uintptr_t>(panel,0);
+    if (v==0x73E010 && !At<void*>(panel,0x2C)) {
         // Base destructor resets the vtable, then calls ReleaseGff before
         // disposing of the pointer array. This is an existing verified hook.
         for (auto& e: entries) if (e.parent==panel) {
             if (pending==panel) pending=nullptr;
             if (parent==panel) { parent=nullptr; returnFocus=nullptr; requestClose(); }
-            auto array=at<void**>(panel,0x20);
-            int id=at<int>(e.button,0x50);
-            if (array && id>=0 && id<at<int>(panel,0x24)) array[id]=nullptr;
+            auto array=At<void**>(panel,0x20);
+            int id=At<int>(e.button,0x50);
+            if (array && id>=0 && id<At<int>(panel,0x24)) array[id]=nullptr;
             destroyControl(e.button); e={}; log("entry-destroy");
         }
         for (auto& b: confirmBadges) if (b.panel==panel) {
-            auto array=at<void**>(panel,0x20);
-            int id=at<int>(b.label,0x50);
-            if (array && id>=0 && id<at<int>(panel,0x24)) array[id]=nullptr;
+            auto array=At<void**>(panel,0x20);
+            int id=At<int>(b.label,0x50);
+            if (array && id>=0 && id<At<int>(panel,0x24)) array[id]=nullptr;
             destroyControl(b.label); b={};
         }
         for (auto& b: dialogBadges) if (b.panel==panel) {
-            auto array=at<void**>(panel,0x20);
-            int id=at<int>(b.label,0x50);
-            if (array && id>=0 && id<at<int>(panel,0x24)) array[id]=nullptr;
+            auto array=At<void**>(panel,0x20);
+            int id=At<int>(b.label,0x50);
+            if (array && id>=0 && id<At<int>(panel,0x24)) array[id]=nullptr;
             destroyControl(b.label); b={};
         }
         for (auto& b: summaryBadges) if (b.panel==panel) {
-            auto array=at<void**>(panel,0x20);
-            int id=at<int>(b.label,0x50);
-            if (array && id>=0 && id<at<int>(panel,0x24)) array[id]=nullptr;
+            auto array=At<void**>(panel,0x20);
+            int id=At<int>(b.label,0x50);
+            if (array && id>=0 && id<At<int>(panel,0x24)) array[id]=nullptr;
             destroyControl(b.label); b={};
         }
         return;
     }
-    if (v==K1_STATUS_SUMMARY_VTABLE && at<void*>(panel,0x2C)) {
+    if (v==K1_STATUS_SUMMARY_VTABLE && At<void*>(panel,0x2C)) {
         for (const auto& b: summaryBadges) if (b.panel==panel) return;
         for (auto& b: summaryBadges) if (!b.panel) {
             void* c=bindExtraLabel(panel,"LBL_JOURNAL");
@@ -1559,7 +1559,7 @@ void ControllerLayoutReleaseGffK1(void* panel) {
         }
         return;
     }
-    if (v==K1_DIALOG_VTABLE && at<void*>(panel,0x2C)) {
+    if (v==K1_DIALOG_VTABLE && At<void*>(panel,0x2C)) {
         for (const auto& b: dialogBadges) if (b.panel==panel) return;
         for (auto& b: dialogBadges) if (!b.panel) {
             void* c=bind(panel,"LBL_KMRPDLG");
@@ -1572,7 +1572,7 @@ void ControllerLayoutReleaseGffK1(void* panel) {
         return;
     }
     if ((v==K1_MESSAGE_BOX_VTABLE || v==K1_SOLO_MODE_QUERY_VTABLE) &&
-        at<void*>(panel,0x2C)) {
+        At<void*>(panel,0x2C)) {
         for (const auto& b: confirmBadges) if (b.panel==panel) return;
         for (auto& b: confirmBadges) if (!b.panel) {
             void* c=bind(panel,"LBL_KMRPA");
@@ -1588,7 +1588,7 @@ void ControllerLayoutReleaseGffK1(void* panel) {
     // subtly different return-focus behaviour. It was CSWGuiOptionsMouse
     // (0x7585F8) until 2026-09-21; Options does not list Mouse at all, so that
     // put the entry two screens deep where nobody found it.
-    if (v!=0x758E00 || !at<void*>(panel,0x2C)) return;
+    if (v!=0x758E00 || !At<void*>(panel,0x2C)) return;
     for (const auto& e:entries) if (e.parent==panel) return;
     for (auto& e:entries) if (!e.parent) {
         void* c=bind(panel,"BTN_KMRPLAY",true);
@@ -1602,23 +1602,23 @@ void ControllerLayoutReleaseGffK1(void* panel) {
         // BTN_MOUSE ID 13, in the game's file and in ours.
         {
             struct Rect { int left, top, width, height; };
-            auto array=at<void**>(panel,0x20);
-            const int count=at<int>(panel,0x24);
+            auto array=At<void**>(panel,0x20);
+            const int count=At<int>(panel,0x24);
             void* keymap=array && count>13 ? array[12] : nullptr;
             void* mouse=array && count>13 ? array[13] : nullptr;
             if (keymap && mouse && keymap!=c && mouse!=c &&
-                at<std::uintptr_t>(keymap,0)==at<std::uintptr_t>(c,0) &&
-                at<std::uintptr_t>(mouse,0)==at<std::uintptr_t>(c,0)) {
-                const Rect k=at<Rect>(keymap,4), m=at<Rect>(mouse,4);
+                At<std::uintptr_t>(keymap,0)==At<std::uintptr_t>(c,0) &&
+                At<std::uintptr_t>(mouse,0)==At<std::uintptr_t>(c,0)) {
+                const Rect k=At<Rect>(keymap,4), m=At<Rect>(mouse,4);
                 const int step=k.top-m.top;
                 if (step>0 && k.width>0 && k.height>0 && k.left==m.left) {
                     const Rect wanted{k.left,k.top+step,k.width,k.height};
                     using SetExtent=void(__thiscall*)(void*,const Rect*);
-                    reinterpret_cast<SetExtent>(at<void**>(c,0)[1])(c,&wanted);
+                    reinterpret_cast<SetExtent>(At<void**>(c,0)[1])(c,&wanted);
                 }
             }
         }
-        fn<Event>(0x41AB20)(c,0x27,panel,reinterpret_cast<void*>(&open));
+        EngineFn<Event>(0x41AB20)(c,0x27,panel,reinterpret_cast<void*>(&open));
         e={panel,c,false,0}; log("entry-create"); return;
     }
 }
@@ -1661,14 +1661,14 @@ unsigned long long panelsAtChange=0, panelsLastFrame=0;
 
 // The screens up, as one number: each panel and its size.
 unsigned long long panelSignature(void* manager, int& count) {
-    auto panels=at<void**>(manager,0x88);              // MANAGER_PANEL_LIST_OFFSET
-    count=at<int>(manager,0x8C);                        // MANAGER_PANEL_COUNT_OFFSET
+    auto panels=At<void**>(manager,0x88);              // MANAGER_PANEL_LIST_OFFSET
+    count=At<int>(manager,0x8C);                        // MANAGER_PANEL_COUNT_OFFSET
     if (!panels || count<0 || count>64) { count=0; return 0; }
     unsigned long long h=1469598103934665603ull;
     for (int i=0;i<count;++i) {
         void* p=panels[i];
         const unsigned long long parts[3]={reinterpret_cast<std::uintptr_t>(p),
-            p ? static_cast<unsigned>(at<int>(p,0x0C)) : 0u, p ? static_cast<unsigned>(at<int>(p,0x10)) : 0u};
+            p ? static_cast<unsigned>(At<int>(p,0x0C)) : 0u, p ? static_cast<unsigned>(At<int>(p,0x10)) : 0u};
         for (unsigned long long v:parts) h=(h^v)*1099511628211ull;
     }
     return h;
@@ -1695,11 +1695,11 @@ void probeLayoutPictures(void* manager) {
     }
     if (predraw!=Predraw::Drawn || current || pending || panelCount==0) return;
     if (!held || !KmrpPicturesSettledK1()) return;
-    void* p=fn<New>(0x6FA7E6)(0x64);
+    void* p=EngineFn<New>(0x6FA7E6)(0x64);
     if (!p) return;
-    fn<PanelCtor>(0x40B570)(p,manager);
+    EngineFn<PanelCtor>(0x40B570)(p,manager);
     char resref[16]="kmrplayout";
-    fn<void(__thiscall*)(void*,void*)>(0x40A680)(p,resref);
+    EngineFn<void(__thiscall*)(void*,void*)>(0x40A680)(p,resref);
     void* copies[K1_LAYOUT_CONTROLS]={};
     const bool theScreen=KmrpQueueLayoutPanelK1(p);
     for (int i=0;theScreen && i<K1_LAYOUT_CONTROLS;++i) {
@@ -1708,11 +1708,11 @@ void probeLayoutPictures(void* manager) {
         copies[i]=bind(p,tag,i==1);
         if (copies[i]) KmrpQueueLayoutControlK1(copies[i]);
     }
-    auto array=at<void**>(p,0x20);
-    for (int i=0;array && i<at<int>(p,0x24);++i) array[i]=nullptr;
+    auto array=At<void**>(p,0x20);
+    for (int i=0;array && i<At<int>(p,0x24);++i) array[i]=nullptr;
     for (void* c:copies) destroyControl(c);
-    fn<Simple>(0x40CF70)(p);
-    fn<Delete>(0x6FA390)(p);
+    EngineFn<Simple>(0x40CF70)(p);
+    EngineFn<Delete>(0x6FA390)(p);
     if (theScreen) {
         predraw=Predraw::Done; log("pictures-queued");
     } else {
@@ -1724,19 +1724,19 @@ void ControllerLayoutFrameK1(void* manager) {
     if (manager) probeLayoutPictures(manager);
     if (pending) {
         void* owner=pending; pending=nullptr;
-        if (!current && fn<Exists>(0x40BD70)(manager,owner)) {
-            void* p=fn<New>(0x6FA7E6)(0x64);
+        if (!current && EngineFn<Exists>(0x40BD70)(manager,owner)) {
+            void* p=EngineFn<New>(0x6FA7E6)(0x64);
             if (!p) return;
-            fn<PanelCtor>(0x40B570)(p,manager);
+            EngineFn<PanelCtor>(0x40B570)(p,manager);
             memcpy(table,reinterpret_cast<void*>(0x73E010),sizeof(table));
             table[0]=reinterpret_cast<std::uintptr_t>(&destroy);
             table[15]=reinterpret_cast<std::uintptr_t>(&input);
             table[21]=reinterpret_cast<std::uintptr_t>(&onB);
-            at<std::uintptr_t*>(p,0)=table;
-            current=p; parent=owner; returnFocus=at<void*>(owner,0x1C);
+            At<std::uintptr_t*>(p,0)=table;
+            current=p; parent=owner; returnFocus=At<void*>(owner,0x1C);
             ++created; ownedCount=0;
             char resref[16]="kmrplayout";
-            fn<void(__thiscall*)(void*,void*)>(0x40A680)(p,resref);
+            EngineFn<void(__thiscall*)(void*,void*)>(0x40A680)(p,resref);
             bool complete=true;
             void* backButton=nullptr;
             for (int i=0;i<K1_LAYOUT_CONTROLS;++i) {
@@ -1750,14 +1750,14 @@ void ControllerLayoutFrameK1(void* manager) {
             forgetRemap();
             editor = KmrpRemap::Editor(KmrpRemapSavedK1());
             if (complete && !buildRemap(p)) complete = false;
-            fn<Simple>(0x40B8F0)(p);
+            EngineFn<Simple>(0x40B8F0)(p);
             if (!complete) { destroy(p,nullptr,1); return; }
-            fn<Event>(0x41AB20)(backButton,0x27,p,reinterpret_cast<void*>(&back));
+            EngineFn<Event>(0x41AB20)(backButton,0x27,p,reinterpret_cast<void*>(&back));
             // Opened in View: nothing there is a place for the focus; the screen's
             // buttons are pad buttons (Default Y, Remap X, Back B).
-            fn<SetActive>(0x40A630)(p,nullptr,0);
+            EngineFn<SetActive>(0x40A630)(p,nullptr,0);
             family=0; device=-1; releasedFrames=0; refresh(); layoutRemap();
-            fn<Add>(0x40BC70)(manager,p,3,1);
+            EngineFn<Add>(0x40BC70)(manager,p,3,1);
             log("opened");
         }
     }

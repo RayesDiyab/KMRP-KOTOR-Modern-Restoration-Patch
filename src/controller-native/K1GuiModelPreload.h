@@ -35,9 +35,9 @@ inline Graphics Api() {
 }
 inline unsigned char* Scene(void* view) {
     auto* p = static_cast<unsigned char*>(view);
-    if (!K1CaptionInk::Readable(p, 0x78)) return nullptr;
+    if (!IsReadableK1(p, 0x78)) return nullptr;
     auto* scene = *reinterpret_cast<unsigned char**>(p + 0x70);
-    return K1CaptionInk::Readable(scene, 0xD8) ? scene : nullptr;
+    return IsReadableK1(scene, 0xD8) ? scene : nullptr;
 }
 inline void Forget(void* panel) {
     pending.erase(std::remove_if(pending.begin(), pending.end(), [=](const Job& j) { return j.panel == panel; }), pending.end());
@@ -45,20 +45,20 @@ inline void Forget(void* panel) {
 }
 inline void Queue(void* panel) {
     Forget(panel);
-    if (!K1CaptionInk::Readable(panel, sizeof(void*))) return;
+    if (!IsReadableK1(panel, sizeof(void*))) return;
     const auto vt = *static_cast<const std::uintptr_t*>(panel);
     const int count = vt == 0x00758020 ? 6 : vt == 0x00752F70 ? 1 : 0;
     const int first = count == 6 ? 0x230 : 0x360;
     for (int i = 0; i < count; ++i) {
         void* view = static_cast<unsigned char*>(panel) + first + i * 0x25C;
-        if (K1CaptionInk::Readable(view, sizeof(void*)) && *static_cast<const std::uintptr_t*>(view) == 0x00752E30)
+        if (IsReadableK1(view, sizeof(void*)) && *static_cast<const std::uintptr_t*>(view) == 0x00752E30)
             pending.push_back({panel, view, count == 6 ? "class" : "main-menu"});
     }
 }
 inline bool Pending() {
     if (!*reinterpret_cast<const int*>(0x0078D1E4)) { pending.clear(); return false; }
     pending.erase(std::remove_if(pending.begin(), pending.end(), [](const Job& j) {
-        return !K1CaptionInk::Readable(j.view, 0x48) ||
+        return !IsReadableK1(j.view, 0x48) ||
             !(*reinterpret_cast<const unsigned*>(static_cast<const unsigned char*>(j.view) + 0x44) & 2u);
     }), pending.end());
     return !pending.empty();

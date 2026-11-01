@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <windows.h>
+#include "../K1EngineMemory.h"
 
 #include "K1XboxControlsXInput.h"
 #include "../K1PartyRosterState.h"
@@ -3044,46 +3045,29 @@ constexpr std::ptrdiff_t K1_TEXT_CHARS_OFFSET = 0x18;        // its CSWGuiTextPa
 // word that fits no line stay on it, the halving below answered with a width far
 // from the caption's, and at 3440x1440 the A of an Options row stood about 90 px
 // from "Load Game" (the maintainer saw it, 2026-10-06).
-bool K1BadgeReadable(const void* p, std::size_t size)
-{
-    const auto v = reinterpret_cast<std::uintptr_t>(p);
-    if (v < 0x10000u || v >= 0x7FFF0000u) {
-        return false;
-    }
-    MEMORY_BASIC_INFORMATION info{};
-    constexpr DWORD ok = PAGE_READONLY | PAGE_READWRITE | PAGE_WRITECOPY |
-        PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY;
-    if (!VirtualQuery(p, &info, sizeof(info)) || info.State != MEM_COMMIT ||
-            !(info.Protect & ok) || (info.Protect & (PAGE_GUARD | PAGE_NOACCESS))) {
-        return false;
-    }
-    return static_cast<const char*>(p) + size <=
-           static_cast<const char*>(info.BaseAddress) + info.RegionSize;
-}
-
 // `wrapLines` 0: as the engine has it now, the widest of its lines. Otherwise the
 // narrowest width that holds the caption in that many lines, broken at spaces as the
 // engine breaks it (1: the whole caption on one line).
 int MeasureK1CaptionByFont(void* string, const char* chars, int* lineHeight, int wrapLines = 0)
 {
-    if (!K1BadgeReadable(string, 0x44)) {
+    if (!IsReadableK1(string, 0x44)) {
         return 0;
     }
     void* const font = *reinterpret_cast<void**>(static_cast<char*>(string) + 0x18);
-    if (!K1BadgeReadable(font, sizeof(void*))) {
+    if (!IsReadableK1(font, sizeof(void*))) {
         return 0;
     }
     void** const vtable = *reinterpret_cast<void***>(font);
-    if (!K1BadgeReadable(vtable, 0x3C)) {
+    if (!IsReadableK1(vtable, 0x3C)) {
         return 0;
     }
     const char* const info = reinterpret_cast<const char*(__thiscall*)(void*)>(vtable[0x38 / 4])(font);
-    if (!K1BadgeReadable(info, 0x28)) {
+    if (!IsReadableK1(info, 0x28)) {
         return 0;
     }
     const char* const upperLeft = *reinterpret_cast<const char* const*>(info + 0x18);
     const char* const lowerRight = *reinterpret_cast<const char* const*>(info + 0x24);
-    if (!K1BadgeReadable(upperLeft, 256 * 12) || !K1BadgeReadable(lowerRight, 256 * 12)) {
+    if (!IsReadableK1(upperLeft, 256 * 12) || !IsReadableK1(lowerRight, 256 * 12)) {
         return 0;
     }
     float scale = *reinterpret_cast<const float*>(static_cast<char*>(string) + 0x40);
@@ -3161,11 +3145,11 @@ int MeasureK1CaptionByFont(void* string, const char* chars, int* lineHeight, int
                 }
             }
         }
-    } else if (lines > 1 && lines <= 16 && K1BadgeReadable(lengths, lines * sizeof(int)) && K1BadgeReadable(drawn, 1)) {
+    } else if (lines > 1 && lines <= 16 && IsReadableK1(lengths, lines * sizeof(int)) && IsReadableK1(drawn, 1)) {
         const char* at = drawn;
         for (int line = 0; line < lines; ++line) {
             const int length = lengths[line] < 0 ? -lengths[line] : lengths[line];
-            if (length > 512 || !K1BadgeReadable(at, static_cast<std::size_t>(length) + 1)) {
+            if (length > 512 || !IsReadableK1(at, static_cast<std::size_t>(length) + 1)) {
                 return 0;
             }
             float one = 0.0f;
@@ -3243,8 +3227,8 @@ std::uint32_t K1CaptionSignature(void* button)
     }
     const char* const chars = *reinterpret_cast<const char**>(
         static_cast<char*>(button) + K1_BUTTON_TEXT_OFFSET + K1_TEXT_CHARS_OFFSET);
-    if (K1BadgeReadable(chars, 1)) {
-        for (int i = 0; i < 96 && K1BadgeReadable(chars + i, 1) && chars[i] != '\0'; ++i) {
+    if (IsReadableK1(chars, 1)) {
+        for (int i = 0; i < 96 && IsReadableK1(chars + i, 1) && chars[i] != '\0'; ++i) {
             hash = (hash ^ static_cast<unsigned char>(chars[i])) * 16777619u;
         }
     }
@@ -3253,7 +3237,7 @@ std::uint32_t K1CaptionSignature(void* button)
     // its button's art), so the glyph follows the letters there.
     void* const string = *reinterpret_cast<void**>(
         static_cast<char*>(button) + K1_BUTTON_TEXT_OFFSET + K1_TEXT_STRING_OFFSET);
-    if (K1BadgeReadable(string, 0x14)) {
+    if (IsReadableK1(string, 0x14)) {
         const unsigned char* const top = static_cast<const unsigned char*>(string) + 0x08;
         for (int i = 0; i < 4; ++i) {
             hash = (hash ^ top[i]) * 16777619u;
@@ -3778,7 +3762,7 @@ int K1BackedCaptionLines(void* control)
     }
     void* const string = *reinterpret_cast<void**>(
         static_cast<char*>(control) + K1_BUTTON_TEXT_OFFSET + K1_TEXT_STRING_OFFSET);
-    if (!K1BadgeReadable(string, 0x44)) {
+    if (!IsReadableK1(string, 0x44)) {
         return 1;
     }
     const int lines = *reinterpret_cast<const int*>(static_cast<char*>(string) + 0x38);

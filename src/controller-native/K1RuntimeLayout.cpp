@@ -8,6 +8,7 @@
 #include "K1TextLayout.h"
 #include "../../macos/tools/kmrp-iconsize.h"
 #include <windows.h>
+#include "K1EngineMemory.h"
 #include <map>
 #include <vector>
 #include <string>
@@ -42,7 +43,6 @@ struct Panel {
 };
 std::map<void*, Panel> panels;
 int previousWidth = 0, previousHeight = 0;
-template<class T> T& Field(void* p, unsigned at) { return *reinterpret_cast<T*>(static_cast<char*>(p) + at); }
 
 struct Gff {
     static constexpr unsigned kAnyType = 0xFFFFFFFFu;
@@ -355,11 +355,11 @@ std::map<void*, BoundList> boundLists;
 // The size in force, from the list's panel's manager.
 bool SizeOf(void* list, int& width, int& height)
 {
-    void* panel = Field<void*>(list, kControlPanel);
-    void* manager = panel ? Field<void*>(panel, kPanelManager) : nullptr;
+    void* panel = At<void*>(list, kControlPanel);
+    void* manager = panel ? At<void*>(panel, kPanelManager) : nullptr;
     if (!manager) return false;
-    width = Field<short>(manager, kManagerWidth);
-    height = Field<short>(manager, kManagerHeight);
+    width = At<short>(manager, kManagerWidth);
+    height = At<short>(manager, kManagerHeight);
     return width > 0 && height > 0;
 }
 
@@ -382,7 +382,7 @@ int ListWider(int measured, void* list, int width, int height)
 
 void SetExtent(void* object, const Extent& extent)
 {
-    auto table = Field<std::uintptr_t*>(object, 0);
+    auto table = At<std::uintptr_t*>(object, 0);
     reinterpret_cast<void(__thiscall*)(void*, const Extent*)>(table[1])(object, &extent);
 }
 
@@ -394,8 +394,8 @@ void PlaceBars(const Panel& panel)
         const auto found = panel.controls.find(entry.first);
         if (found == panel.controls.end()) continue;
         void* list = found->second.pointer;
-        if (found->second.table != kListTable || Field<std::uintptr_t>(list, 0) != kListTable) continue;
-        const Extent box = Field<Extent>(list, 4);
+        if (found->second.table != kListTable || At<std::uintptr_t>(list, 0) != kListTable) continue;
+        const Extent box = At<Extent>(list, 4);
         const Extent& file = entry.second;
         void* bar = static_cast<char*>(list) + kListBar;
         // The file's rectangle is the track, the artwork's bar; the arrows go beyond
@@ -404,12 +404,12 @@ void PlaceBars(const Panel& panel)
         // bar) at each end, and the thumb's track between: placed on the file's
         // rectangle itself the track came out two arrows shorter than the artwork's
         // (the maintainer, 2026-10-18).
-        const int arrow = Field<int>(bar, kBarArrow + 4 + 12);
+        const int arrow = At<int>(bar, kBarArrow + 4 + 12);
         if (arrow < 0 || arrow > 1024) continue;
-        const Extent want{box.left + file.left, box.top + file.top - arrow, Field<int>(list, kListBarWidth),
+        const Extent want{box.left + file.left, box.top + file.top - arrow, At<int>(list, kListBarWidth),
                           box.height + file.height + 2 * arrow};
         if (want.width <= 0 || want.height <= 0 || want.width > 4096 || want.height > 32767) continue;
-        if (!(Field<Extent>(bar, 4) == want)) SetExtent(bar, want);
+        if (!(At<Extent>(bar, 4) == want)) SetExtent(bar, want);
     }
 }
 
@@ -430,7 +430,7 @@ void CapturePartyRoster(void* key, const Panel& panel)
         const auto found = panel.controls.find(tag);
         if (found == panel.controls.end()) return nullptr;
         void* control = found->second.pointer;
-        return Field<std::uintptr_t>(control, 0) == found->second.table ? control : nullptr;
+        return At<std::uintptr_t>(control, 0) == found->second.table ? control : nullptr;
     });
 }
 
@@ -441,7 +441,7 @@ void PlaceLists(void* manager, int width, int height)
 {
     for (auto& item : panels) {
         Panel& panel = item.second;
-        if (Field<void*>(item.first, kPanelManager) != manager) continue;
+        if (At<void*>(item.first, kPanelManager) != manager) continue;
         CapturePartyRoster(item.first, panel);
         KmrpMirrorPartyPageFocusK1(item.first);
         KmrpPartyPortraitsK1(item.first);
@@ -453,11 +453,11 @@ void PlaceLists(void* manager, int width, int height)
             void* list = tracked.pointer;
             const auto bound = boundLists.find(list);
             if (bound == boundLists.end() || bound->second.measured < 0 || tracked.table != kListTable ||
-                Field<std::uintptr_t>(list, 0) != kListTable || !(Field<unsigned char>(list, kListFlags) & 0x10)) continue;
+                At<std::uintptr_t>(list, 0) != kListTable || !(At<unsigned char>(list, kListFlags) & 0x10)) continue;
             const int wider = ListWider(bound->second.measured, list, width, height);
             bound->second.wider = wider;
             if (!wider) continue;
-            Extent extent = Field<Extent>(list, 4);
+            Extent extent = At<Extent>(list, 4);
             extent.width += wider;
             tracked.rowsRight = wider;
             SetExtent(list, extent);   // the content's width with it, and the rows laid out again
@@ -474,17 +474,17 @@ extern "C" void __cdecl KmrpListRowK1(void* list, void* row, int* rect)
     const auto bound = boundLists.find(list);
     if (bound == boundLists.end()) return;
     const int measured = bound->second.measured;
-    if (measured < 0 || !(Field<unsigned char>(list, kListFlags) & 0x10)) return;
+    if (measured < 0 || !(At<unsigned char>(list, kListFlags) & 0x10)) return;
     int width, height;
     if (!SizeOf(list, width, height)) return;
     double offset;
     if (!MeasuredOffset(measured, width, height, offset)) return;
-    const int padding = Field<unsigned char>(list, kListPadding);
-    const double inset = RowInset(KindOf(Field<std::uintptr_t>(row, 0), kUsualRow[measured]), Scale(height), rect[3]);
+    const int padding = At<unsigned char>(list, kListPadding);
+    const double inset = RowInset(KindOf(At<std::uintptr_t>(row, 0), kUsualRow[measured]), Scale(height), rect[3]);
     int shift = static_cast<int>(std::lround(offset + inset)) + bound->second.wider;
     if (shift > padding) shift = padding;
     const int gap = static_cast<int>(std::lround(kRowGap[measured] * Scale(height)));
-    const int rowWidth = Field<int>(list, kListContentWidth) - padding + shift;
+    const int rowWidth = At<int>(list, kListContentWidth) - padding + shift;
     if (rowWidth <= 4 * gap) return;      // no list of the game's is this narrow
     rect[0] = padding - shift + gap;
     rect[2] = rowWidth - 2 * gap;
@@ -511,17 +511,17 @@ extern "C" void __cdecl KmrpListAddRowsK1(void* list, void** slot)
 {
     void* rows = slot ? *slot : nullptr;
     if (!list || !rows) return;
-    void** const row = Field<void**>(rows, 0);
-    const int count = Field<int>(rows, 4);
+    void** const row = At<void**>(rows, 0);
+    const int count = At<int>(rows, 4);
     if (!row || count <= 0 || count > 4096) return;
     for (int i = 0; i < count; ++i) {
         if (!row[i]) continue;
         const int* height = nullptr;
-        switch (Field<std::uintptr_t>(row[i], 0)) {
+        switch (At<std::uintptr_t>(row[i], 0)) {
             case 0x00755ED0: height = reinterpret_cast<const int*>(0x006ACB20); break;   // CSWGuiInGameSkillEntry
             case 0x007578A8: height = reinterpret_cast<const int*>(0x006CD8D9); break;   // CSWGuiSkillFlow
         }
-        if (height && *height >= 8 && *height <= 4096) Field<Extent>(row[i], 4).height = *height;
+        if (height && *height >= 8 && *height <= 4096) At<Extent>(row[i], 4).height = *height;
     }
 }
 
@@ -568,14 +568,14 @@ Extent CentredSquare(const Extent& box, int side)
 int IconSide(void* image)
 {
     if (!image) return 0;
-    const int today = reinterpret_cast<int(__thiscall*)(void*)>(Field<void**>(image, 0)[4])(image);
+    const int today = reinterpret_cast<int(__thiscall*)(void*)>(At<void**>(image, 0)[4])(image);
     if (today <= 0 || today > 4096) return 0;
     return kmrp_icon_drawn(today, kmrp_icon_scale(g_iconScreenHeight), KmrpIconSizePercentK1());
 }
 
 void SetBoxExtent(void* drawable, const Extent& box)
 {
-    auto table = Field<void**>(drawable, 0);
+    auto table = At<void**>(drawable, 0);
     if (table) reinterpret_cast<RowSetExtent>(table[1])(drawable, &box);
 }
 
@@ -585,13 +585,13 @@ void __fastcall SkillRowExtent(void* self, void*, const Extent* extent)
     if (!(g_iconsScaled = g_iconsScaled || KmrpIconSizePercentK1() != KMRP_ICON_DEFAULT)) return;
     // The game places nothing for a row no wider than its icon square (it returns before
     // setting the row's extent): its icon's box is then still the last one this gave it.
-    if (std::memcmp(&Field<Extent>(self, 4), extent, sizeof(Extent))) return;
+    if (std::memcmp(&At<Extent>(self, 4), extent, sizeof(Extent))) return;
     void* icon = static_cast<char*>(self) + 0x29C;
-    const int side = IconSide(Field<void*>(icon, 0x70));
+    const int side = IconSide(At<void*>(icon, 0x70));
     if (!side) return;
-    unsigned& flags = Field<unsigned>(icon, 0x14 + 0x1C);
+    unsigned& flags = At<unsigned>(icon, 0x14 + 0x1C);
     flags = (flags & ~3u) | 2u;   // the fill drawn at its area's size (CSWGuiBorder::Draw, style 2)
-    SetBoxExtent(icon, CentredSquare(Field<Extent>(icon, 4), side));
+    SetBoxExtent(icon, CentredSquare(At<Extent>(icon, 4), side));
 }
 
 void __fastcall ChainRowExtent(void* self, void*, const Extent* extent)
@@ -600,9 +600,9 @@ void __fastcall ChainRowExtent(void* self, void*, const Extent* extent)
     if (!(g_iconsScaled = g_iconsScaled || KmrpIconSizePercentK1() != KMRP_ICON_DEFAULT)) return;
     for (int i = 0; i < 3; ++i) {
         void* icon = static_cast<char*>(self) + 0x5C + i * 0x128 + 0x74;
-        const int side = IconSide(Field<void*>(icon, 0x24));
+        const int side = IconSide(At<void*>(icon, 0x24));
         if (!side) continue;   // an empty cell
-        const Extent box = Field<Extent>(icon, 4);
+        const Extent box = At<Extent>(icon, 4);
         reinterpret_cast<void(__thiscall*)(void*, int)>(0x004159C0)(static_cast<char*>(icon) + 0x28, 0);
         SetBoxExtent(icon, CentredSquare(box, side));
     }
@@ -634,7 +634,7 @@ void InstallIconRows()
 void KmrpListRowsFrame(void* manager)
 {
     if (!manager) return;
-    const int width = Field<short>(manager, kManagerWidth), height = Field<short>(manager, kManagerHeight);
+    const int width = At<short>(manager, kManagerWidth), height = At<short>(manager, kManagerHeight);
     g_iconScreenHeight = height;
     InstallIconRows();
     if (width > 0 && height > 0) PlaceLists(manager, width, height);
@@ -653,9 +653,9 @@ extern "C" void __cdecl KmrpPanelLayoutStartK1(void* panel, const char** slot)
     KmrpTextLayoutTrackPanelK1(panel, name.c_str());
     // The size in force now. While the game makes its own panels again after a change
     // of size (CGuiInGame::ResetInterfaceForSize) that is already the new one.
-    if (void* manager = Field<void*>(panel, 0x18)) {
-        entry.width = Field<short>(manager, 0x6C);
-        entry.height = Field<short>(manager, 0x6E);
+    if (void* manager = At<void*>(panel, 0x18)) {
+        entry.width = At<short>(manager, 0x6C);
+        entry.height = At<short>(manager, 0x6E);
     }
     // The file the engine is about to load, for the size in force: the baseline
     // each control's later position is compared with.
@@ -673,8 +673,8 @@ extern "C" void __cdecl KmrpPanelControlK1(void* panel, void** controlSlot, void
     // Native InitControl is (CSWGuiControl* control, CExoString* label, int active).
     auto found = panels.find(panel);
     if (found == panels.end() || !control || !label) return;
-    const char* name = Field<const char*>(label, 0);
-    unsigned size = Field<unsigned>(label, 4);
+    const char* name = At<const char*>(label, 0);
+    unsigned size = At<unsigned>(label, 4);
     // CExoString's allocation length includes the terminator (5E5ABE/5E5AC0).
     // GFF TAG stores only the characters, so never include that terminator in keys.
     if (name && size && size <= 256 && name[size - 1] == '\0') {
@@ -694,11 +694,11 @@ extern "C" void __cdecl KmrpPanelControlK1(void* panel, void** controlSlot, void
             if (filedSlot && !*filedSlot) {
                 const auto held = found->second.controls.find(tag);
                 if (held != found->second.controls.end() && held->second.pointer != control &&
-                        Field<std::uintptr_t>(held->second.pointer, 0) == held->second.table &&
-                        Field<void*>(held->second.pointer, kControlPanel) == panel)
+                        At<std::uintptr_t>(held->second.pointer, 0) == held->second.table &&
+                        At<void*>(held->second.pointer, kControlPanel) == panel)
                     return;
             }
-            Control entry{control, Field<std::uintptr_t>(control, 0)};
+            Control entry{control, At<std::uintptr_t>(control, 0)};
             const auto file = found->second.file.find(tag);
             if (file != found->second.file.end()) { entry.known = true; entry.file = file->second; }
             found->second.controls[tag] = entry;
@@ -783,12 +783,12 @@ void KmrpReflowTextK1()
     for (auto& item : panels) {
         void* panel = item.first;
         reinterpret_cast<void(__thiscall*)(void*)>(0x40A9C0)(panel);
-        void** array = Field<void**>(panel, 0x20);
-        const int count = Field<int>(panel, 0x24);
+        void** array = At<void**>(panel, 0x20);
+        const int count = At<int>(panel, 0x24);
         if (!array || count < 0 || count > 4096) continue;
         for (int i = 0; i < count; ++i) if (void* c = array[i]) {
-            const Extent extent = Field<Extent>(c, 4);
-            auto table = Field<void**>(c, 0);
+            const Extent extent = At<Extent>(c, 4);
+            auto table = At<void**>(c, 0);
             reinterpret_cast<void(__thiscall*)(void*, const Extent*)>(table[1])(c, &extent);
         }
     }
@@ -810,7 +810,7 @@ bool KmrpRuntimeLayoutDimensions(void* manager, int width, int height)
     const double oldScale = Scale(previousHeight), newScale = Scale(height);
     for (auto& item : panels) {
         void* panel = item.first;
-        if (Field<void*>(panel, 0x18) != manager) continue;
+        if (At<void*>(panel, 0x18) != manager) continue;
         // A panel loaded since the size became this one is left alone: the game makes
         // the HUD, the dialogue and the message box again on a change of size, from the
         // new size's files, with what its own code adds already worked out for the new
@@ -828,7 +828,7 @@ bool KmrpRuntimeLayoutDimensions(void* manager, int width, int height)
         if (!gff.load(KmrpRuntimeLayoutFile(name + L".gui"))) continue;
         Extent root;
         if (!gff.extent(0, root)) return false;
-        const Extent old = Field<Extent>(panel, 4);
+        const Extent old = At<Extent>(panel, 4);
         if (old.width != previousWidth && old.left == (previousWidth - old.width) / 2) root.left = (width - root.width) / 2;
         if (old.height != previousHeight && old.top == (previousHeight - old.height) / 2) root.top = (height - root.height) / 2;
         changes.push_back({panel, root});
@@ -842,8 +842,8 @@ bool KmrpRuntimeLayoutDimensions(void* manager, int width, int height)
             if (found == item.second.controls.end()) continue;
             Control& tracked = found->second;
             void* control = tracked.pointer;
-            if (Field<void*>(control, 0x34) != panel || Field<std::uintptr_t>(control, 0) != tracked.table) return false;
-            const Extent actual = Field<Extent>(control, 4);
+            if (At<void*>(control, 0x34) != panel || At<std::uintptr_t>(control, 0) != tracked.table) return false;
+            const Extent actual = At<Extent>(control, 4);
             Extent now = actual;
             now.width -= tracked.rowsRight;   // the rows' share is put back below, for the new size
             Extent target = entry.second;
@@ -878,11 +878,11 @@ bool KmrpRuntimeLayoutDimensions(void* manager, int width, int height)
             tracked.rowsRight = 0;
             const auto list = lists.find(entry.first);
             if (list != lists.end() && tracked.table == kListTable) {
-                Field<unsigned char>(control, kListPadding) = static_cast<unsigned char>(list->second.padding);
-                if (list->second.bar >= 0) Field<int>(control, kListBarWidth) = list->second.bar;
+                At<unsigned char>(control, kListPadding) = static_cast<unsigned char>(list->second.padding);
+                if (list->second.bar >= 0) At<int>(control, kListBarWidth) = list->second.bar;
                 const auto bound = boundLists.find(control);
                 if (bound != boundLists.end() && bound->second.measured >= 0 &&
-                    (Field<unsigned char>(control, kListFlags) & 0x10)) {
+                    (At<unsigned char>(control, kListFlags) & 0x10)) {
                     bound->second.wider = ListWider(bound->second.measured, control, width, height);
                     tracked.rowsRight = bound->second.wider;
                     target.width += tracked.rowsRight;
@@ -904,10 +904,10 @@ bool KmrpRuntimeLayoutDimensions(void* manager, int width, int height)
         // 1920x1080 the map was drawn 2001x720 over a 960x540 frame (the maintainer,
         // 2026-10-09). The instance the HUD makes for its minimap is put back to the
         // game's own 512x256 and 440x256 by the recipe's wrapper and is left so.
-        if (Field<std::uintptr_t>(panel, 0) == kMapPanelTable) {
+        if (At<std::uintptr_t>(panel, 0) == kMapPanelTable) {
             void* canvas = static_cast<char*>(panel) + kMapCanvas;
             void* overlay = static_cast<char*>(panel) + kMapOverlay;
-            const Extent canvasNow = Field<Extent>(canvas, 4), overlayNow = Field<Extent>(overlay, 4);
+            const Extent canvasNow = At<Extent>(canvas, 4), overlayNow = At<Extent>(overlay, 4);
             const bool minimap = canvasNow.width == 512 && canvasNow.height == 256 &&
                                  overlayNow.width == 440 && overlayNow.height == 256;
             if (!minimap) {
@@ -925,18 +925,18 @@ bool KmrpRuntimeLayoutDimensions(void* manager, int width, int height)
             const float marker = scale > 127.f / 16.f ? 127.f / 16.f : scale;
             const struct { unsigned at; int base; } pictures[] = {{0x60, 32}, {0x64, 16}};
             for (const auto& picture : pictures) {
-                void* image = Field<void*>(overlay, picture.at);
+                void* image = At<void*>(overlay, picture.at);
                 if (!image) continue;
                 const double exact = static_cast<float>(picture.base) * marker, lower = std::floor(exact), part = exact - lower;
                 int side = static_cast<int>(lower) + (part > .5 || (part == .5 && std::fmod(lower, 2.) != 0.) ? 1 : 0);
                 if (side < 1) side = 1;
-                const Extent now = Field<Extent>(image, 4);
+                const Extent now = At<Extent>(image, 4);
                 changes.push_back({image, {now.left, now.top, side, side}});
             }
         }
     }
     for (const auto& change : changes) {
-        auto table = Field<std::uintptr_t*>(change.pointer, 0);
+        auto table = At<std::uintptr_t*>(change.pointer, 0);
         reinterpret_cast<void(__thiscall*)(void*, const Extent*)>(table[1])(change.pointer, &change.extent);
     }
     previousWidth = width; previousHeight = height;

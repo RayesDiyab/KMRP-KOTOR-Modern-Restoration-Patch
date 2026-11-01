@@ -20,7 +20,7 @@ the code until it is agreed and done in its own small, tested step.
 | 3 run-time writes | 10 | 0 |
 | 4 source files | 80 | 0 |
 
-## F1. `kmrp.dll` compiles the whole controller code base (fixed, uncommitted)
+## F1. `kmrp.dll` compiles the whole controller code base (fixed, `80f9277`)
 
 **Measured 2026-10-31.** `build_native_runtime.cmd`, which builds `kmrp.dll`, compiled
 `K1NativeJoystick.cpp` (9,067 lines), `K1ControllerBackend.cpp`, `K1ControllerLayout.cpp`,
@@ -42,33 +42,68 @@ game as both `kmrp.dll` and `kmrp-controller.dll`, on the belief that both modul
 it. Only the controller module does; `kmrp.dll` was rebuilt from the same sources and
 swapped too, which did no harm.
 
-## F2. Two resource-preparation hooks five bytes apart (keep)
+**Seen in the maintainer's game on 2026-11-01** at 3440x1440: "it works" (`kmrp.dll`
+`67B4E784...5D22`, `kmrp-controller.dll` `7815B513...9E08`).
+
+## F2. Two resource-preparation hooks five bytes apart (kept; the name fixed)
 
 `0x00407230` (KMRP, `KmrpPrepareResourcesK1` in `K1RuntimeAssets.cpp:1724`) and
 `0x00407235` (the controller patch, its own `KmrpPrepareResourcesK1` in
 `K1ControllerStandalone.cpp:372`): one name, two different functions, one per module. Each
 patch must work without the other, and KOTOR Patch Manager allows one patch per address, so
-they cannot share one entry. Kept. The shared name is confusing; renaming the controller's
-(`ControllerPrepareResourcesK1`) would change its hook table and the module's exports, so it
-is only worth it together with F1.
+they cannot share one entry. Kept.
+
+**Renamed 2026-11-01:** the controller's is `ControllerPrepareResourcesK1`
+(`RESOURCE_OWN_FUNCTION`, `tools/build_controller_kpatch.py`). The site, its bytes and the
+function's instructions are unchanged. The export's name changed, so a `kmrp-controller.dll`
+from now on needs a `patch_config.toml` that names it: a module swapped alone into a game
+installed earlier leaves that hook without its function.
 
 ## F3. Confirm guards (keep)
 
 The controller patch's five character-creation guards (`0x006F28C0` to `0x006F8FF0`) are
 one-line exports over one shared `GuardChargenConfirmK1`, as the hook table's check
 (`check_patcher_hook_table.py`) needs one export per hooked dispatcher. Already the shape
-issue 82 asks for.
+issue 82 asks for; nothing to change.
 
-## F4. One memory check and one field helper, written several times (open)
+## F4. One memory check and one field helper, written several times (fixed)
 
-Found while fixing F1. `readable` (`K1GuiControls.h`) and `IsReadableK1`
-(`K1EngineMemory.h`) are the same `VirtualQuery` check, written twice (the first also
-accepts a size of 0). The helper that reads a field at an offset has four names across the
-files: `at` (`K1GuiControls.h`), `FieldAt` (`K1EngineMemory.h`), `Field`
-(`K1RuntimeLayout.cpp`) and `At` (`K1TextLayout.cpp`), and `fn` / `EngineFn` for an engine
-routine. To be counted file by file before anything changes.
+Found while fixing F1. Counted on 2026-11-01; the first count had two copies of each.
 
-## F5. The party portrait repair needs the controller patch (fixed, uncommitted)
+| Helper | Copies before | Now |
+| --- | --- | --- |
+| The readable-memory check | `IsReadableK1`, `KmrpGui::readable`, `K1CaptionInk::Readable`, `K1BadgeReadable` (`vendor/K1XboxControls.cpp`) | `IsReadableK1` (`K1EngineMemory.h`) |
+| A field at an offset, as a reference | 13: `at` (`K1GuiControls.h`), `Field` (`K1RuntimeLayout.cpp`, `K1KeyboardNavigation.cpp`), `F` (`K1TextRows.cpp`), `At` in eight files and `K1OptionsPad.h` | `At` (`K1EngineMemory.h`) |
+| An engine routine at an address | `EngineFn`, `KmrpGui::fn`, `Fn` in `K1HudOptions.cpp` and `K1Rumble.cpp` | `EngineFn` |
+
+`FieldAt`, which returns a pointer, stays, on `At`. `K1TextRows.cpp`'s own `At` gave a part's
+address, so it is `Part` now. **Left as they are:** the `Fn` of `K1TextLayout.cpp`,
+`K1TextOptions.cpp` and `K1TextRows.cpp`, where a test harness swaps the engine's routines;
+`K1SliderGrip.h`'s `Field`, an `int` only; and the `VirtualQuery` calls of
+`K1RuntimeResolution.cpp` and `K1OffscreenFrame.cpp`, which ask about a slot about to be
+written, not whether a range can be read.
+
+**One difference in behaviour.** `K1CaptionInk::Readable` and `K1BadgeReadable` looked at the
+first memory region only, so they answered no for a range running into a second region even
+when that was readable. `IsReadableK1` walks the regions. Windows joins neighbouring pages of
+the same kind into a region, so this changes the answer only for a range that crosses a
+change of page protection. `KmrpGui::readable` said yes to a size of 0 and `IsReadableK1`
+says no: every caller was read, none can pass 0 and go on to read.
+
+**Checked.** All sources of both modules compiled from `80f9277` and from the working tree
+with the build's flags, and each function's instructions compared (jump targets, anonymous
+namespace hashes and the helpers' names made neutral): `kmrp.dll` 9,369 identical and 13 not,
+the controller 5,006 and 18. The differences were sorted by their listings, not read one
+instruction at a time: some are lambdas that the neutral names made collide; the others have
+the same operations with other registers or stack slots, or `IsReadableK1` inlined where a
+smaller copy was a call (`K1GuiModelPreload`, `K1ClassModelTrace`,
+`K1CaptionSignature`, `NativePanelReleaseGffK1`, `updateDialogBadges`), and
+`NativeJoystickDumpK1` is F6. Both modules are 512 bytes smaller.
+
+**Seen in the maintainer's game on 2026-11-01** with F2 and F6: "it works correctly" (what was
+checked not stated; `kmrp.dll` `12DA0264...58AE`, `kmrp-controller.dll` `7D216F68...8892`).
+
+## F5. The party portrait repair needs the controller patch (fixed, `80f9277`)
 
 `KmrpPartyPortraitsK1` repaired the Party Roster Limit 32 mod's empty portraits only on pages
 whose buttons the controller patch's ReleaseGff hook had found, so KMRP alone never repaired
@@ -76,13 +111,26 @@ them. Recorded first as a gap to leave (2026-10-31); the maintainer then asked f
 with KMRP alone (2026-11-01). Fixed the same day without a new hook: KMRP takes the five
 buttons' IDs from its own records of the panel's controls. Report:
 [`cleanup-1.6/F5-party-portraits-with-kmrp-alone.md`](cleanup-1.6/F5-party-portraits-with-kmrp-alone.md).
-Not seen in a game.
+The build with it runs in the maintainer's game (F1), but without the roster mod, so the
+repair itself is not seen in a game.
 
-## F6. The controller's state dump can outgrow its buffer (open)
+## F6. The controller's state dump can outgrow its buffer (fixed; no overrun)
 
-`tools/check_controller_drift.py`: the line `NativeJoystickDumpK1` writes can reach 1,484
-bytes in a 1,200-byte buffer (1,499 before F1). Already reported before F1; whether the write
-is bounded is to be read.
+`tools/check_controller_drift.py` said the line `NativeJoystickDumpK1` writes can reach 1,484
+bytes in a 1,200-byte buffer (1,499 before F1). **Read on 2026-11-01: there was no overrun.**
+The check took the file's first `char line[`, which is the frame timing log's; the dump's
+own buffer is 2,048 bytes. The same check had once measured the wrong `wsprintfA`.
+
+**What was wrong instead.** `wsprintfA` stops at 1,024 bytes, so with every field at its
+widest the line would have lost its last columns and its line end. The longest line in the
+maintainer's log of 2026-10-30 is 700 bytes (16,713 lines), so this had not happened.
+
+**Fixed:** `std::snprintf` with the buffer's size, which prints the same conversions without
+that ceiling, and the check reads the buffer inside the function. It reports 106 conversions,
+106 arguments, worst case 1,484 of 2,048 bytes.
+
+The check's other warning stands: three badges built and never referenced (`kmrpa_clssel`,
+`kmrpl_pzkflip`, `kmrpx_pzkplay`). It is not this finding's.
 
 ## F7. `Test-SwoopPrompt` fails on the last commit already (open)
 

@@ -39,6 +39,7 @@
 // the icon, a label at +0x1B4, shown when bit 0x10 of the box's +0x64 is set; the file's
 // message top at +0x970.
 #include <cstdint>
+#include "K1EngineMemory.h"
 #include <cstring>
 
 namespace {
@@ -51,9 +52,6 @@ constexpr std::size_t kExtent = 0x4, kList = 0x67C, kOk = 0x2F4, kCancel = 0x4B8
 constexpr std::size_t kSavedMessageTop = 0x970, kIconFlags = 0x64, kButtonFlags = 0x44;
 constexpr std::size_t kListInner = 0x298, kListItem = 0x2B4, kListPad = 0x2C0;
 
-template <typename T> T& At(void* base, std::size_t offset) {
-    return *reinterpret_cast<T*>(static_cast<char*>(base) + offset);
-}
 
 using ThisCall = void(__thiscall*)(void*);
 using SetExtentCall = void(__thiscall*)(void*, const std::int32_t*);

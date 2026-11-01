@@ -183,7 +183,8 @@ one start of the fixed module one folder was left, the running game's.
 
 All are KPM detours. 30 are the hooks marked `install = "controller"` in
 `src\controller-native\kotor1.hooks.toml`; `KmrpPrepareResourcesK1` is the one site
-taken from `kotor1-native-runtime.hooks.toml`. `tools\build_controller_kpatch.py
+taken from `kotor1-native-runtime.hooks.toml` (the controller's own function has been
+`ControllerPrepareResourcesK1` since 2026-11-01). `tools\build_controller_kpatch.py
 --verify-clean` compared all 31 `original_bytes` with the unmodified CD 1.03 and GOG
 executables: equal at every site.
 
@@ -227,7 +228,7 @@ executables: equal at every site.
 
 | VA | Original bytes | Function | Change |
 | --- | --- | --- | --- |
-| `0x00407235` | `8B 5C 24 10 55` | `KmrpPrepareResourcesK1` | in place of `0x00407230`, which is KMRP's |
+| `0x00407235` | `8B 5C 24 10 55` | `ControllerPrepareResourcesK1` | in place of `0x00407230`, which is KMRP's |
 | `0x00409B80` | `51 8B 0D E8 39 7A 00` | `NativePanelLoadedK1` | with the next row, in place of `NativePanelReleaseGffK1` at `0x0040B8F0`, which Scaled Kotor hooks |
 | `0x0040CFAB` | `C7 46 5C 00 00 00 00` | `NativePanelDestroyedK1` | |
 | `0x0068AB10` | `A1 FC 39 7A 00` | `KmrpXboxHudK1` | new: the Xbox-style HUD |

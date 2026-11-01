@@ -19,23 +19,13 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include "K1EngineMemory.h"
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
 namespace K1CaptionInk {
-
-inline bool Readable(const void* p, std::size_t size) {
-    const auto v = reinterpret_cast<std::uintptr_t>(p);
-    if (v < 0x10000u || v >= 0x7FFF0000u) return false;
-    MEMORY_BASIC_INFORMATION info{};
-    constexpr DWORD ok = PAGE_READONLY | PAGE_READWRITE | PAGE_WRITECOPY |
-        PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY;
-    if (!VirtualQuery(p, &info, sizeof info) || info.State != MEM_COMMIT ||
-            !(info.Protect & ok) || (info.Protect & (PAGE_GUARD | PAGE_NOACCESS))) return false;
-    return static_cast<const char*>(p) + size <= static_cast<const char*>(info.BaseAddress) + info.RegionSize;
-}
 
 // A font's letters: each character's ink, top and bottom, as shares of the line (top
 // above bottom when it has none).
@@ -54,15 +44,15 @@ struct Font {
 // are locked or the texture is still the null placeholder, which KMRP's pages met
 // ("the texture bound nothing", 2026-10-28).
 inline unsigned UploadedName(void* texture) {
-    if (!Readable(texture, sizeof(void*))) return 0;
+    if (!IsReadableK1(texture, sizeof(void*))) return 0;
     void** vtable = *reinterpret_cast<void***>(texture);
-    if (!Readable(vtable, 0x0C)) return 0;
+    if (!IsReadableK1(vtable, 0x0C)) return 0;
     void* const target = reinterpret_cast<void*(__thiscall*)(void*)>(vtable[0x08 / 4])(texture);
-    if (!Readable(target, sizeof(void*))) return 0;
+    if (!IsReadableK1(target, sizeof(void*))) return 0;
     vtable = *reinterpret_cast<void***>(target);
-    if (!Readable(vtable, 0x08)) return 0;
+    if (!IsReadableK1(vtable, 0x08)) return 0;
     void* const basic = reinterpret_cast<void*(__thiscall*)(void*)>(vtable[0x04 / 4])(target);
-    if (!Readable(basic, 0x5C)) return 0;
+    if (!IsReadableK1(basic, 0x5C)) return 0;
     return *reinterpret_cast<const unsigned*>(static_cast<char*>(basic) + 0x58);
 }
 
@@ -227,27 +217,27 @@ inline bool Middle(const Font& f, const char* chars, double* middle) {
 // The middle of the letters of `string` (a CAurGUIStringInternal) as a share of its line,
 // and that line's height in pixels; false when the font cannot be read.
 inline bool Letters(void* string, double* middle, int* line) {
-    if (!Readable(string, 0x44)) return false;
+    if (!IsReadableK1(string, 0x44)) return false;
     void* const font = *reinterpret_cast<void**>(static_cast<char*>(string) + 0x18);
-    if (!Readable(font, sizeof(void*))) return false;
+    if (!IsReadableK1(font, sizeof(void*))) return false;
     void** const vtable = *reinterpret_cast<void***>(font);
-    if (!Readable(vtable, 0xB8)) return false;
+    if (!IsReadableK1(vtable, 0xB8)) return false;
     const char* const info = reinterpret_cast<const char*(__thiscall*)(void*)>(vtable[0x38 / 4])(font);
-    if (!Readable(info, 0x30)) return false;
+    if (!IsReadableK1(info, 0x30)) return false;
     const char* const upperLeft = *reinterpret_cast<const char* const*>(info + 0x18);
     const char* const lowerRight = *reinterpret_cast<const char* const*>(info + 0x24);
-    if (!Readable(upperLeft, 12) || !Readable(lowerRight, 12)) return false;
+    if (!IsReadableK1(upperLeft, 12) || !IsReadableK1(lowerRight, 12)) return false;
     const int count = *reinterpret_cast<const int*>(info + 0x1C);
     if (count <= 0 || count > 256 || *reinterpret_cast<const int*>(info + 0x28) < count ||
-            !Readable(upperLeft, count * 12u) || !Readable(lowerRight, count * 12u)) return false;
+            !IsReadableK1(upperLeft, count * 12u) || !IsReadableK1(lowerRight, count * 12u)) return false;
     const char* const chars = *reinterpret_cast<const char* const*>(static_cast<char*>(string) + 0x14);
-    if (!Readable(chars, 1)) return false;
+    if (!IsReadableK1(chars, 1)) return false;
     const Font* const f = FontFor(font, info);
     if (!f) return false;
 
     int length = 0;
-    while (length < 4096 && Readable(chars + length, 1) && chars[length]) ++length;
-    if (length >= 4096 || !Readable(chars + length, 1) || !Middle(*f, chars, middle)) return false;
+    while (length < 4096 && IsReadableK1(chars + length, 1) && chars[length]) ++length;
+    if (length >= 4096 || !IsReadableK1(chars + length, 1) || !Middle(*f, chars, middle)) return false;
     float scale = *reinterpret_cast<const float*>(static_cast<char*>(string) + 0x40);
     if (!(scale > 0.01f && scale < 100.0f)) scale = 1.0f;
     const int height = static_cast<int>(*reinterpret_cast<const float*>(info + 0x04) * scale * 100.0f + 0.5f);
@@ -261,25 +251,25 @@ inline bool Letters(void* string, double* middle, int* line) {
 // scale and 100; 0 when it cannot be told or the caption has more than one line. The
 // controller patch's MeasureK1CaptionByFont makes the same sum (K1XboxControls.cpp).
 inline int CaptionWidth(void* string) {
-    if (!Readable(string, 0x44)) return 0;
+    if (!IsReadableK1(string, 0x44)) return 0;
     if (*reinterpret_cast<const int*>(static_cast<char*>(string) + 0x38) > 1) return 0;
     void* const font = *reinterpret_cast<void**>(static_cast<char*>(string) + 0x18);
-    if (!Readable(font, sizeof(void*))) return 0;
+    if (!IsReadableK1(font, sizeof(void*))) return 0;
     void** const vtable = *reinterpret_cast<void***>(font);
-    if (!Readable(vtable, 0x3C)) return 0;
+    if (!IsReadableK1(vtable, 0x3C)) return 0;
     const char* const info = reinterpret_cast<const char*(__thiscall*)(void*)>(vtable[0x38 / 4])(font);
-    if (!Readable(info, 0x28)) return 0;
+    if (!IsReadableK1(info, 0x28)) return 0;
     const char* const upperLeft = *reinterpret_cast<const char* const*>(info + 0x18);
     const char* const lowerRight = *reinterpret_cast<const char* const*>(info + 0x24);
-    if (!Readable(upperLeft, 256 * 12) || !Readable(lowerRight, 256 * 12)) return 0;
+    if (!IsReadableK1(upperLeft, 256 * 12) || !IsReadableK1(lowerRight, 256 * 12)) return 0;
     const char* const chars = *reinterpret_cast<const char* const*>(static_cast<char*>(string) + 0x14);
-    if (!Readable(chars, 1)) return 0;
+    if (!IsReadableK1(chars, 1)) return 0;
     float scale = *reinterpret_cast<const float*>(static_cast<char*>(string) + 0x40);
     if (!(scale > 0.01f && scale < 100.0f)) scale = 1.0f;
     const float texels = *reinterpret_cast<const float*>(info + 0x0C);
     const float spacing = *reinterpret_cast<const float*>(info + 0x10);
     float width = 0.0f;
-    for (int i = 0; i < 256 && Readable(chars + i, 1) && chars[i] != '\0'; ++i) {
+    for (int i = 0; i < 256 && IsReadableK1(chars + i, 1) && chars[i] != '\0'; ++i) {
         if (chars[i] == '\n') return 0;
         const int glyph = static_cast<unsigned char>(chars[i]) * 12;
         width += (*reinterpret_cast<const float*>(lowerRight + glyph) -

@@ -2,13 +2,11 @@
 // repair, with Windows object layouts and thiscall callbacks. Keyboard arrows
 // arrive as 0x3D..0x40; the controller's 0x2F..0x32 path remains independent.
 #include <algorithm>
+#include "K1EngineMemory.h"
 #include <cstdint>
 #include <cstdlib>
 
 namespace {
-template<class T> T& Field(void* p, unsigned offset) {
-    return *reinterpret_cast<T*>(static_cast<char*>(p) + offset);
-}
 using CastFn = void* (__thiscall*)(void*);
 using FocusFn = void (__thiscall*)(void*, void*, int);
 using InputFn = int (__thiscall*)(void*, int, int);
@@ -27,17 +25,17 @@ int Direction(int event) {
     return event == 0x3D ? 0 : event == 0x3F ? 1 : event == 0x3E ? 2 : 3;
 }
 void* Navigable(void* c) {
-    auto* table = Field<std::uintptr_t*>(c, 0);
+    auto* table = At<std::uintptr_t*>(c, 0);
     return reinterpret_cast<CastFn>(table[0x4C / 4])(c);
 }
 bool SelectableList(void* c, std::uintptr_t* table) {
     if (table[0x3C / 4] != ListInput) return false;
-    void** entries = Field<void**>(c, 0x29C);
-    const int count = Field<int>(c, 0x2A0);
+    void** entries = At<void**>(c, 0x29C);
+    const int count = At<int>(c, 0x2A0);
     if (!entries || count <= 0 || count > 4096) return false;
     for (int i = 0; i < count; ++i) {
         void* entry = entries[i];
-        if (entry && (Field<unsigned char>(entry, 0x44) & 8) && Navigable(entry)) return true;
+        if (entry && (At<unsigned char>(entry, 0x44) & 8) && Navigable(entry)) return true;
     }
     return false;
 }
@@ -50,21 +48,21 @@ struct Item { void* control; void* nav; int x, y, id, width; };
 void* Target(void* panel, void* current, int event, bool& repaired) {
     repaired = false;
     if (!panel) return nullptr;
-    void** controls = Field<void**>(panel, 0x20);
-    const int count = Field<int>(panel, 0x24);
+    void** controls = At<void**>(panel, 0x20);
+    const int count = At<int>(panel, 0x24);
     if (!controls || count <= 0 || count > 512) return nullptr;
     Item items[512];
     int used = 0;
     for (int id = 0; id < count; ++id) {
         void* c = controls[id];
-        if (!c || Field<int>(c, 0x50) != id || Field<void*>(c, 0x34) != panel) continue;
-        if ((Field<unsigned char>(c, 0x44) & 0x2A) != 0x0A) continue;
-        auto* table = Field<std::uintptr_t*>(c, 0);
-        const int events = Field<int>(c, 0x3C);
-        if (!(Field<void*>(c, 0x38) && events > 0 && events <= 64) && !SelectableList(c, table)) continue;
-        if (Field<int>(c, 0x0C) <= 0 || Field<int>(c, 0x10) <= 0) continue;
+        if (!c || At<int>(c, 0x50) != id || At<void*>(c, 0x34) != panel) continue;
+        if ((At<unsigned char>(c, 0x44) & 0x2A) != 0x0A) continue;
+        auto* table = At<std::uintptr_t*>(c, 0);
+        const int events = At<int>(c, 0x3C);
+        if (!(At<void*>(c, 0x38) && events > 0 && events <= 64) && !SelectableList(c, table)) continue;
+        if (At<int>(c, 0x0C) <= 0 || At<int>(c, 0x10) <= 0) continue;
         void* nav = Navigable(c);
-        if (nav) items[used++] = {c, nav, Field<int>(c, 4), Field<int>(c, 8), id, Field<int>(c, 0x0C)};
+        if (nav) items[used++] = {c, nav, At<int>(c, 4), At<int>(c, 8), id, At<int>(c, 0x0C)};
     }
     auto indexOf = [&](void* c) {
         for (int i = 0; i < used; ++i) if (items[i].control == c) return i;
@@ -79,14 +77,14 @@ void* Target(void* panel, void* current, int event, bool& repaired) {
         for (int step = 0; step < used; ++step) {
             if (index < 0 || seen[index]) { complete = false; break; }
             seen[index] = true;
-            index = indexOf(Field<void*>(items[index].nav, offset));
+            index = indexOf(At<void*>(items[index].nav, offset));
         }
         if (index != 0) complete = false;
     }
     for (int i = 0; i < used; ++i)
         for (int j = i + 1; j < used; ++j) sharedRow |= items[i].y == items[j].y;
     if (complete && !sharedRow) {
-        void* target = Field<void*>(items[active].nav, 0x5C + Direction(event) * 4);
+        void* target = At<void*>(items[active].nav, 0x5C + Direction(event) * 4);
         return indexOf(target) >= 0 ? target : nullptr;
     }
     std::sort(items, items + used, [](const Item& a, const Item& b) {
@@ -122,18 +120,18 @@ void* Target(void* panel, void* current, int event, bool& repaired) {
 }
 
 void Note(void* panel) {
-    void* manager = panel ? Field<void*>(panel, 0x18) : nullptr;
+    void* manager = panel ? At<void*>(panel, 0x18) : nullptr;
     keyboardManager = manager;
     keyboardPanel = panel;
-    keyboardControl = panel ? Field<void*>(panel, 0x1C) : nullptr;
+    keyboardControl = panel ? At<void*>(panel, 0x1C) : nullptr;
     if (manager) {
-        keyboardX = Field<int>(manager, 0); keyboardY = Field<int>(manager, 4);
-        keyboardPanelCount = Field<int>(manager, 0x8C);
-        keyboardModalCount = Field<int>(manager, 0x98);
+        keyboardX = At<int>(manager, 0); keyboardY = At<int>(manager, 4);
+        keyboardPanelCount = At<int>(manager, 0x8C);
+        keyboardModalCount = At<int>(manager, 0x98);
     }
 }
 void Focus(void* panel, void* target) {
-    auto* table = Field<std::uintptr_t*>(panel, 0);
+    auto* table = At<std::uintptr_t*>(panel, 0);
     reinterpret_cast<FocusFn>(table[0x08 / 4])(panel, target, 1);
     Note(panel);
 }
@@ -152,13 +150,13 @@ extern "C" int __cdecl KeyboardNavigateK1(void* control, int* eventSlot, int* va
     if (!control || !eventSlot || !valueSlot) return 0;
     const int event = *eventSlot, value = *valueSlot;
     if (!Arrow(event, value)) return 0;
-    void* panel = Field<void*>(control, 0x34);
-    if (!panel || Field<void*>(panel, 0x1C) != control) return 0;
+    void* panel = At<void*>(control, 0x34);
+    if (!panel || At<void*>(panel, 0x1C) != control) return 0;
     Note(panel);
     // Sliders own only the axis along which they slide.
-    auto* table = Field<std::uintptr_t*>(control, 0);
+    auto* table = At<std::uintptr_t*>(control, 0);
     if (table[0x3C / 4] == SliderInput) {
-        const bool horizontal = Field<int>(control, 0x10) <= Field<int>(control, 0x0C);
+        const bool horizontal = At<int>(control, 0x10) <= At<int>(control, 0x0C);
         if (horizontal == (event == 0x3F || event == 0x40)) return 0;
     }
     bool repaired = false;
@@ -175,20 +173,20 @@ extern "C" int __cdecl KeyboardListBoundaryK1(void* list, int* eventSlot, int* v
     if (!list || !eventSlot || !valueSlot) return 0;
     const int event = *eventSlot, value = *valueSlot;
     if (!Arrow(event, value)) return 0;
-    void* panel = Field<void*>(list, 0x34);
-    if (!panel || Field<void*>(panel, 0x1C) != list) return 0;
+    void* panel = At<void*>(list, 0x34);
+    if (!panel || At<void*>(panel, 0x1C) != list) return 0;
     Note(panel);
-    const int count = Field<int>(list, 0x2A0);
-    const int selected = Field<short>(list, 0x2C6);
+    const int count = At<int>(list, 0x2A0);
+    const int selected = At<short>(list, 0x2C6);
     if (count < 0 || count > 4096 || selected < -1 || selected >= count) return 0;
     if (count > 0 && selected < 0) return 0; // native initialization of selection
     // Skip nonselectable entries when deciding whether the native list can move.
-    void** entries = Field<void**>(list, 0x29C);
+    void** entries = At<void**>(list, 0x29C);
     if (count > 0 && !entries) return 0;
     if (event == 0x3D || event == 0x3E) {
         const int step = event == 0x3D ? -1 : 1;
         for (int i = selected + step; i >= 0 && i < count; i += step)
-            if (entries[i] && (Field<unsigned char>(entries[i], 0x44) & 8)) return 0;
+            if (entries[i] && (At<unsigned char>(entries[i], 0x44) & 8)) return 0;
     }
     bool repaired = false;
     void* target = Target(panel, list, event, repaired);
@@ -205,13 +203,13 @@ extern "C" int __cdecl KeyboardListBoundaryK1(void* list, int* eventSlot, int* v
 extern "C" int __cdecl KeyboardKeepFocusK1(void* manager, int x, int y) {
     if (!manager || manager != keyboardManager) return 0;
     bool bound = false;
-    void** panels = Field<void**>(manager, 0x88);
-    const int count = Field<int>(manager, 0x8C);
+    void** panels = At<void**>(manager, 0x88);
+    const int count = At<int>(manager, 0x8C);
     if (panels && count > 0 && count <= 512)
         for (int i = 0; i < count; ++i) bound |= panels[i] == keyboardPanel;
-    if (!bound || count != keyboardPanelCount || Field<int>(manager, 0x98) != keyboardModalCount ||
-        x != keyboardX || y != keyboardY || Field<void*>(manager, 0x10) ||
-        Field<void*>(manager, 0x24) || Field<void*>(keyboardPanel, 0x1C) != keyboardControl) {
+    if (!bound || count != keyboardPanelCount || At<int>(manager, 0x98) != keyboardModalCount ||
+        x != keyboardX || y != keyboardY || At<void*>(manager, 0x10) ||
+        At<void*>(manager, 0x24) || At<void*>(keyboardPanel, 0x1C) != keyboardControl) {
         keyboardManager = keyboardPanel = keyboardControl = nullptr;
         return 0;
     }

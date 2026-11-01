@@ -480,7 +480,7 @@ screens was replaced by the game's own with cues. Now the patch carries only
 
 | Step | What |
 | --- | --- |
-| When | once a session, in `KmrpPrepareResourcesK1`, after the bank is unpacked and before the folder is registered (`CueScreens`, `K1ControllerStandalone.cpp`) |
+| When | once a session, in `ControllerPrepareResourcesK1`, after the bank is unpacked and before the folder is registered (`CueScreens`, `K1ControllerStandalone.cpp`) |
 | Which screens | `KmrpControllerCueScreen`: `abilities`, `character`, `equip`, `inventory`, `top`, `optgameplay`, `confirm`, `dialog` and the eight `mipc*` |
 | From | the player's file in `Override` when there is one, else the game's own through `chitin.key` |
 | What is added | `KmrpControllerCues` (`macos/tools/kmrp-guiadapt.c`): the party cue, the swap-tabs cue, the LT and RT cues, the Controller Layout entry, the travelling A (its label cloned from the patch's `kmrplayout.gui` `LBL_TITLE`), the combat cues. The same C steps Live Adaptive Layout runs for KMRP, without laying anything out: the file keeps its own size |

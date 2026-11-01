@@ -53,6 +53,7 @@ HOOKS = 'kotor1.hooks.toml'
 # The module's one site outside the controller's table: where its files are
 # registered, before the game's first resource lookup.
 RESOURCE_HOOK = 'KmrpPrepareResourcesK1'
+RESOURCE_OWN_FUNCTION = 'ControllerPrepareResourcesK1'
 # KMRP's own patch hooks that function's entry for its own files (0x00407230,
 # CExoResMan::GetKeyEntry: mov eax, [esp+4] / push ebx), and since 2026-10-05 the two
 # patches are installed together, so this one takes the next two instructions of the
@@ -60,7 +61,7 @@ RESOURCE_HOOK = 'KmrpPrepareResourcesK1'
 # trampoline to relocate, ecx still the resource manager. Neither is a branch target.
 RESOURCE_SITE_KMRP = 0x00407230
 RESOURCE_OWN_HOOK = {
-    'address': 0x00407235, 'type': 'detour', 'function': RESOURCE_HOOK,
+    'address': 0x00407235, 'type': 'detour', 'function': RESOURCE_OWN_FUNCTION,
     'original_bytes': [0x8B, 0x5C, 0x24, 0x10, 0x55],
     'skip_original_bytes': False, 'exclude_from_restore': [],
     'parameters': [{'source': 'ecx', 'type': 'pointer'}],

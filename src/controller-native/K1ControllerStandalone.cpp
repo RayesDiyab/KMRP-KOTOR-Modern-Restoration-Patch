@@ -369,7 +369,7 @@ void CueScreens()
 }
 
 // Hooked before the game's first resource lookup, on the game's own thread.
-extern "C" void __cdecl KmrpPrepareResourcesK1(void* manager)
+extern "C" void __cdecl ControllerPrepareResourcesK1(void* manager)
 {
     static bool busy = false, failed = false, settings = false;
     if (!settings) {

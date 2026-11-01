@@ -10,6 +10,7 @@
 #include "KmrpOptions.h"
 #include "../../macos/tools/kmrp-iconsize.h"
 #include <windows.h>
+#include "K1EngineMemory.h"
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
@@ -27,7 +28,6 @@ bool KmrpTextOptionsTestConfirmHeld();
 
 namespace {
 using namespace KmrpTextOptions;
-template<class T> T& At(void* p, unsigned n) { return *reinterpret_cast<T*>(static_cast<char*>(p)+n); }
 template<class T> T Fn(unsigned n) {
 #ifdef KMRP_TEXT_OPTIONS_TEST
     return reinterpret_cast<T>(KmrpTextOptionsTestFunction(n));

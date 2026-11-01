@@ -47,6 +47,7 @@
 #include "K1PcHudLayout.h"
 #include "K1RuntimeLayout.h"
 #include <windows.h>
+#include "K1EngineMemory.h"
 #include <array>
 #include <cstdint>
 #include <cstring>
@@ -54,7 +55,6 @@
 namespace {
 using namespace KmrpPcHud;
 using KmrpHudOptions::ElementCount;
-template<class T> T& At(void* p, unsigned n) { return *reinterpret_cast<T*>(static_cast<char*>(p) + n); }
 
 constexpr std::uintptr_t kHudTable = 0x00753F50;        // CSWGuiMainInterface's vtable
 constexpr unsigned kHudManager = 0x18;

@@ -33,20 +33,20 @@ static std::vector<View> views;
 inline Scene CaptureScene(void* view) {
     Scene out;
     const auto* control = static_cast<const unsigned char*>(view);
-    if (!K1CaptionInk::Readable(control, 0x78)) return out;
+    if (!IsReadableK1(control, 0x78)) return out;
     const auto* scene = *reinterpret_cast<const unsigned char* const*>(control + 0x70);
-    if (!K1CaptionInk::Readable(scene, 0xF8)) return out;
+    if (!IsReadableK1(scene, 0xF8)) return out;
     out.object = const_cast<unsigned char*>(scene);
     std::memcpy(&out.renders, scene + 0x50, 4);
     std::memcpy(&out.children, scene + 0x58, 4);
     std::memcpy(&out.animated, scene + 0xF0, 4);
     std::memcpy(out.ambient, scene + 0x88, 12);
     const auto* manager = *reinterpret_cast<const unsigned char* const*>(scene + 0x80);
-    if (K1CaptionInk::Readable(manager, 0x14)) {
+    if (IsReadableK1(manager, 0x14)) {
         std::memcpy(&out.lights, manager + 0x0C, 4);
         const auto* list = *reinterpret_cast<const unsigned char* const* const*>(manager + 8);
-        if (out.lights > 0 && out.lights < 1024 && K1CaptionInk::Readable(list, sizeof(void*)) &&
-            K1CaptionInk::Readable(list[0], 0x58)) std::memcpy(out.firstLight, list[0] + 0x4C, 12);
+        if (out.lights > 0 && out.lights < 1024 && IsReadableK1(list, sizeof(void*)) &&
+            IsReadableK1(list[0], 0x58)) std::memcpy(out.firstLight, list[0] + 0x4C, 12);
     }
     return out;
 }
@@ -86,10 +86,10 @@ inline Snapshot Capture() {
     out.locked = *reinterpret_cast<const unsigned*>(0x007A4714);
     void** const list = *reinterpret_cast<void***>(0x007A4798);
     out.total = *reinterpret_cast<const int*>(0x007A479C);
-    if (out.total < 0 || out.total > 16384 || !K1CaptionInk::Readable(list, out.total * sizeof(void*))) return out;
+    if (out.total < 0 || out.total > 16384 || !IsReadableK1(list, out.total * sizeof(void*))) return out;
     for (int i = 0; i < out.total; ++i) {
         const auto* p = static_cast<const unsigned char*>(list[i]);
-        if (!K1CaptionInk::Readable(p, 0xE8)) continue;
+        if (!IsReadableK1(p, 0xE8)) continue;
         Texture t{};
         t.object = list[i];
         std::memcpy(&t.gl, p + 0x58, 4);
@@ -148,7 +148,7 @@ inline void __fastcall TracedDraw(void* panel, void*, float delta) {
     }
 }
 inline bool Replace(void** slot, void* traced, void* native) {
-    if (!K1CaptionInk::Readable(slot, sizeof(void*))) return false;
+    if (!IsReadableK1(slot, sizeof(void*))) return false;
     if (*slot == traced) return true;
     if (*slot != native) return false;
     DWORD protection = 0;
@@ -160,7 +160,7 @@ inline bool Replace(void** slot, void* traced, void* native) {
 }
 inline void QueuePanel(void* panel) {
     K1GuiModelPreload::Forget(panel);
-    if (!K1CaptionInk::Readable(panel, sizeof(void*))) return;
+    if (!IsReadableK1(panel, sizeof(void*))) return;
     const auto vt = *static_cast<const std::uintptr_t*>(panel);
     if (vt != 0x00758020 && vt != 0x00752F70) return;
     if (Replace(reinterpret_cast<void**>(ViewDrawSlot), reinterpret_cast<void*>(&TracedViewDraw),

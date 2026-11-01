@@ -2,6 +2,7 @@
 // build/text-layout-inventory/row-adapter-contract/contract.json;
 // reverse-engineering/listbox-geometry.md and docs/native-text-coverage.md.
 #include "K1TextRows.h"
+#include "K1EngineMemory.h"
 #include "K1TextLayout.h"
 #include "K1TextOptions.h"
 #include <algorithm>
@@ -15,7 +16,6 @@
 extern void* KmrpTextRowsTestFunctionK1(std::uintptr_t address);
 #endif
 namespace {
-template<class T> T& F(void* p, unsigned n) { return *reinterpret_cast<T*>(static_cast<char*>(p) + n); }
 template<class T> T Fn(std::uintptr_t address) {
 #ifdef KMRP_TEXT_LAYOUT_TEST
     return reinterpret_cast<T>(KmrpTextRowsTestFunctionK1(address));
@@ -32,7 +32,7 @@ bool Valid(const Rect& r) { return r.width > 0 && r.width <= 32767 && r.height >
 // chart: a feat or power chart row (see Chart), no text of its own.
 struct Kind { unsigned text = 0, amount = 0; bool content = false; unsigned frame = 0, hilight = 0, icon = 0; bool chart = false; };
 Kind Type(void* row) {
-    switch (F<std::uintptr_t>(row, 0)) {
+    switch (At<std::uintptr_t>(row, 0)) {
         case 0x73E5B8: case 0x73E8E8: return {0xD0, 0, true}; // Label / LabelHilight
         // Button, CSWGuiButtonToggle (Graphics/Feedback option rows) and
         // CSWGuiSaveLoadEntry (save/load rows). The toggle's SetExtent (0x417BA0)
@@ -51,12 +51,12 @@ Kind Type(void* row) {
         default: return {};
     }
 }
-void* At(void* p, unsigned n) { return static_cast<char*>(p) + n; }
+void* Part(void* p, unsigned n) { return static_cast<char*>(p) + n; }
 void Extent(void* p, const Rect& r) {
 #ifdef KMRP_TEXT_LAYOUT_TEST
-    const auto method = F<std::uintptr_t>(p, 0); // test resolver maps the class's SetExtent
+    const auto method = At<std::uintptr_t>(p, 0); // test resolver maps the class's SetExtent
 #else
-    const auto method = F<std::uintptr_t*>(p, 0)[1];
+    const auto method = At<std::uintptr_t*>(p, 0)[1];
 #endif
     Fn<void(__thiscall*)(void*, const Rect*)>(method)(p, &r);
 }
@@ -130,16 +130,16 @@ struct ChartRow { ChartImage image[5]; };
 std::map<void*, ChartRow> charts;
 void Chart(void* row) {
     const double scale = IconScale();
-    const Rect outer = F<Rect>(row, 4);
+    const Rect outer = At<Rect>(row, 4);
     if (!Valid(outer)) return;
     ChartRow& state = charts[row];
     for (unsigned i = 0; i < 5; ++i) {
-        void* const image = At(row, kChartImages[i]);
-        Rect& drawn = F<Rect>(image, 0x14);
+        void* const image = Part(row, kChartImages[i]);
+        Rect& drawn = At<Rect>(image, 0x14);
         if (!Valid(drawn)) continue;
         ChartImage& s = state.image[i];
         if (!Same(drawn, s.applied)) s.native = drawn;
-        const Rect box = i < 3 ? F<Rect>(image, 4) : Rect{outer.left, outer.top, outer.width, outer.height};
+        const Rect box = i < 3 ? At<Rect>(image, 4) : Rect{outer.left, outer.top, outer.width, outer.height};
         const int width = std::max(1, std::min(Valid(box) ? box.width : 32767, static_cast<int>(std::lround(s.native.width * scale))));
         const int height = std::max(1, std::min(Valid(box) ? box.height : 32767, static_cast<int>(std::lround(s.native.height * scale))));
         const Rect scaled{s.native.left + (s.native.width - width) / 2, s.native.top + (s.native.height - height) / 2, width, height};
@@ -155,11 +155,11 @@ void Stretch(void* row) {
     const Kind kind = Type(row);
     if (kind.chart) { Chart(row); return; }
     if (!kind.frame) return;
-    const Rect outer = F<Rect>(row, 4);
-    void* const iconPart = At(row, kind.icon);
-    void* const frameBorder = At(row, kind.frame);
-    void* const textWrapper = At(row, kind.text);
-    const Rect icon = F<Rect>(iconPart, 4), frame = F<Rect>(frameBorder, 4), text = F<Rect>(textWrapper, 4);
+    const Rect outer = At<Rect>(row, 4);
+    void* const iconPart = Part(row, kind.icon);
+    void* const frameBorder = Part(row, kind.frame);
+    void* const textWrapper = Part(row, kind.text);
+    const Rect icon = At<Rect>(iconPart, 4), frame = At<Rect>(frameBorder, 4), text = At<Rect>(textWrapper, 4);
     if (!Valid(outer) || !Valid(icon) || !Valid(frame) || !Valid(text)) return;
     Stretched& s = stretched[row];
     if (!Same(icon, s.applied)) {
@@ -178,17 +178,17 @@ void Stretch(void* row) {
                        newFrame.height - s.insetTop - s.insetBottom};
     if (!Valid(newFrame) || !Valid(newText)) return;
     for (unsigned part = 0; part < 3; ++part) {
-        unsigned& flags = F<unsigned>(At(row, kind.icon + part * 0x74), kBorderFillFlags);
+        unsigned& flags = At<unsigned>(Part(row, kind.icon + part * 0x74), kBorderFillFlags);
         if (!s.fillKnown) s.fill[part] = flags & 3u;
         const unsigned style = side > s.icon ? 2u : s.fill[part];
         if ((flags & 3u) != style) flags = (flags & ~3u) | style;
     }
     s.fillKnown = true;
     if (!Same(icon, newIcon))
-        for (unsigned part = 0; part < 3; ++part) Extent(At(row, kind.icon + part * 0x74), newIcon);
+        for (unsigned part = 0; part < 3; ++part) Extent(Part(row, kind.icon + part * 0x74), newIcon);
     if (!Same(frame, newFrame)) {
         Extent(frameBorder, newFrame);
-        Extent(At(row, kind.hilight), newFrame);
+        Extent(Part(row, kind.hilight), newFrame);
     }
     if (!Same(text, newText))
         Fn<void(__thiscall*)(void*, const Rect*)>(0x416280)(textWrapper, &newText);
@@ -199,21 +199,21 @@ void StretchAll(void** rows, int count) {
 }
 std::uint64_t Mix(std::uint64_t a, std::uint64_t b) { return (a ^ b) * 1099511628211ull; }
 std::uint64_t TextSignature(void* wrapper) {
-    void* text = F<void*>(wrapper, 0x14);
+    void* text = At<void*>(wrapper, 0x14);
     std::uint64_t h = reinterpret_cast<std::uintptr_t>(text);
-    const Rect bounds = F<Rect>(wrapper, 4);
+    const Rect bounds = At<Rect>(wrapper, 4);
     h = Mix(Mix(h, bounds.width), bounds.height);
-    if (!text || F<std::uintptr_t>(text, 0) != 0x741878) return h;
-    const unsigned char* value = F<unsigned char*>(text, 0x14);
+    if (!text || At<std::uintptr_t>(text, 0) != 0x741878) return h;
+    const unsigned char* value = At<unsigned char*>(text, 0x14);
     h = Mix(h, reinterpret_cast<std::uintptr_t>(value));
     // CExoString buffers can be reused. Pointer/length identity alone misses a
     // changed word boundary or a different-width digit at the same address.
     if (value) for (unsigned i = 0; i < 65536; ++i) {
         h = Mix(h, value[i]); if (!value[i]) break;
     }
-    h = Mix(h, reinterpret_cast<std::uintptr_t>(F<void*>(text, 0x18)));
-    h = Mix(h, F<unsigned>(text, 0x38));
-    h = Mix(h, F<unsigned>(text, 0x40)); // local scale bits; generation covers requested font metrics
+    h = Mix(h, reinterpret_cast<std::uintptr_t>(At<void*>(text, 0x18)));
+    h = Mix(h, At<unsigned>(text, 0x38));
+    h = Mix(h, At<unsigned>(text, 0x40)); // local scale bits; generation covers requested font metrics
     return h;
 }
 struct Row {
@@ -241,22 +241,22 @@ int Minimum(const Row& row) {
 }
 std::uint64_t Signature(void* list, void** rows, int count) {
     std::uint64_t h = Mix(Mix(1469598103934665603ull, KmrpTextLayoutGenerationK1()), viewportHeight);
-    const Rect r = F<Rect>(list, 4);
-    h = Mix(Mix(Mix(h, r.width), r.height), F<unsigned>(list, 0x2BC) & 0x108);
+    const Rect r = At<Rect>(list, 4);
+    h = Mix(Mix(Mix(h, r.width), r.height), At<unsigned>(list, 0x2BC) & 0x108);
     h = Mix(h, reinterpret_cast<std::uintptr_t>(rows)); h = Mix(h, count);
     for (int i = 0; i < count; ++i) if (rows[i]) {
         void* p = rows[i]; const Kind kind = Type(p);
         h = Mix(h, reinterpret_cast<std::uintptr_t>(p));
-        h = Mix(h, F<std::uintptr_t>(p, 0));
-        const Rect extent = F<Rect>(p, 4);
+        h = Mix(h, At<std::uintptr_t>(p, 0));
+        const Rect extent = At<Rect>(p, 4);
         h = Mix(Mix(h, extent.width), extent.height);
-        if (kind.text) h = Mix(h, TextSignature(At(p, kind.text)));
-        if (kind.amount) h = Mix(h, TextSignature(At(p, kind.amount)));
+        if (kind.text) h = Mix(h, TextSignature(Part(p, kind.text)));
+        if (kind.amount) h = Mix(h, TextSignature(Part(p, kind.amount)));
     }
     return h;
 }
 void Flow(void* row) {
-    if (row) { const Kind kind = Type(row); if (kind.text) KmrpTextFlowK1(At(row, kind.text)); }
+    if (row) { const Kind kind = Type(row); if (kind.text) KmrpTextFlowK1(Part(row, kind.text)); }
 }
 void Amounts(void** rows, int count, std::map<void*, Row>& states) {
     for (int i = 0; i < count; ++i) if (rows[i]) {
@@ -264,11 +264,11 @@ void Amounts(void** rows, int count, std::map<void*, Row>& states) {
         auto found = states.find(p);
         if (!kind.amount || found == states.end()) continue;
         Row& state = found->second;
-        void* wrapper = At(p, kind.amount);
+        void* wrapper = Part(p, kind.amount);
         const unsigned iconOffset = kind.amount == 0x334 ? 0x1D8 : 0x1C8;
-        const Rect icon = F<Rect>(At(p, iconOffset), 4);
-        const Rect outer = F<Rect>(p, 4);
-        const Rect current = F<Rect>(wrapper, 4);
+        const Rect icon = At<Rect>(Part(p, iconOffset), 4);
+        const Rect outer = At<Rect>(p, 4);
+        const Rect current = At<Rect>(wrapper, 4);
         if (!Valid(icon) || !Valid(current) || !Valid(outer)) { KmrpTextBoundedK1(wrapper); continue; }
         const Rect relative{current.left - icon.left, current.top - icon.top, current.width, current.height};
         if (!state.amountKnown || !Same(relative, state.amountApplied)) {
@@ -312,20 +312,20 @@ void Amounts(void** rows, int count, std::map<void*, Row>& states) {
 }
 }
 void KmrpTextRowsK1(void* list) {
-    if (!list || F<std::uintptr_t>(list, 0) != 0x73E840) return;
+    if (!list || At<std::uintptr_t>(list, 0) != 0x73E840) return;
     auto& state = lists[list]; if (state.busy) return;
-    void** rows = F<void**>(list, 0x29C);
-    const int count = F<int>(list, 0x2A0);
+    void** rows = At<void**>(list, 0x29C);
+    const int count = At<int>(list, 0x2A0);
     if (count < 0 || count > 4096 || (count && !rows)) return;
-    Flow(F<void*>(list, 0x2CC));
+    Flow(At<void*>(list, 0x2CC));
     if (!count) { state.rows.clear(); state.valid = false; return; }
     StretchAll(rows, count);  // before the signature: undo a native layout pass's reset
     const auto signature = Signature(list, rows, count);
     if (state.valid && state.signature == signature) return;
     state.busy = true;
-    Rect* saved = F<Rect*>(list, 0x2A8);
-    const int savedCount = F<int>(list, 0x2AC);
-    const bool fixed = !(F<unsigned>(list, 0x2BC) & 0x100);
+    Rect* saved = At<Rect*>(list, 0x2A8);
+    const int savedCount = At<int>(list, 0x2AC);
+    const bool fixed = !(At<unsigned>(list, 0x2BC) & 0x100);
     // The fixed native dirty pass restores every saved extent before measuring.
     // Refuse malformed native arrays rather than leaving a partially adapted list.
     if (fixed && (!saved || savedCount != count)) { state.busy = false; return; }
@@ -335,10 +335,10 @@ void KmrpTextRowsK1(void* list) {
         for (int i = 0; i < count; ++i) {
             void* p = rows[i]; if (!p) continue;
             const Kind kind = Type(p); if (!kind.text && !kind.chart) continue;
-            const Rect current = F<Rect>(p, 4); if (!Valid(current)) continue;
+            const Rect current = At<Rect>(p, 4); if (!Valid(current)) continue;
             Row row;
             const auto old = state.rows.find(p);
-            if (old != state.rows.end() && old->second.table == F<std::uintptr_t>(p, 0)) row = old->second;
+            if (old != state.rows.end() && old->second.table == At<std::uintptr_t>(p, 0)) row = old->second;
             // A native repopulation/resolution change supplies a new authored extent.
             // Keep the last native baseline otherwise, including when font sizes shrink.
             const bool newGeometry = !row.known || current.width != row.applied.width ||
@@ -346,14 +346,14 @@ void KmrpTextRowsK1(void* list) {
             if (newGeometry) {
                 const int previousBase = row.baseline.height;
                 const bool authoredHeight = !row.known || (fixed && saved[i].height != row.saved.height);
-                row.table = F<std::uintptr_t>(p, 0);
+                row.table = At<std::uintptr_t>(p, 0);
                 row.baseline = fixed ? saved[i] : current;
                 // A width-only reflow must not promote our expanded saved height to
                 // the new minimum. Native replacement heights are adopted explicitly.
                 if (!authoredHeight) row.baseline.height = previousBase;
                 else row.baselineScale = ViewScale();
                 if (kind.text) {
-                    const Rect textRect = F<Rect>(At(p, kind.text), 4);
+                    const Rect textRect = At<Rect>(Part(p, kind.text), 4);
                     row.inset = std::max(0, current.height - textRect.height);
                 }
                 row.known = true;
@@ -370,12 +370,12 @@ void KmrpTextRowsK1(void* list) {
                     row.saved = saved[i];
                 }
                 if (current.height != desired.height) { Extent(p, desired); changed = true; }
-                row.applied = F<Rect>(p, 4); next[p] = row;
+                row.applied = At<Rect>(p, 4); next[p] = row;
                 continue;
             }
             // Native layout already supplied the real text width and border insets.
             // NaturalHeight restores requested scale and wraps at that width.
-            const int natural = KmrpTextNaturalHeightK1(At(p, kind.text));
+            const int natural = KmrpTextNaturalHeightK1(Part(p, kind.text));
             if (natural <= 0 || natural > 32767 - row.inset) { row.applied = current; next[p] = row; continue; }
             Rect desired = current;
             desired.height = natural + row.inset;
@@ -388,22 +388,22 @@ void KmrpTextRowsK1(void* list) {
                 row.saved = saved[i];
             }
             if (current.height != desired.height) { Extent(p, desired); changed = true; }
-            row.applied = F<Rect>(p, 4); next[p] = row;
+            row.applied = At<Rect>(p, 4); next[p] = row;
         }
-        if (changed || (F<unsigned>(list, 0x2BC) & 8)) {
-            const short top = F<short>(list, 0x2C8);
-            const short selection = F<short>(list, 0x2C6);
-            const short page = F<short>(list, 0x2C2);
-            F<unsigned>(list, 0x2BC) |= 8;
+        if (changed || (At<unsigned>(list, 0x2BC) & 8)) {
+            const short top = At<short>(list, 0x2C8);
+            const short selection = At<short>(list, 0x2C6);
+            const short page = At<short>(list, 0x2C2);
+            At<unsigned>(list, 0x2BC) |= 8;
             Organize(list);
             // Dirty native layout resets top-visible. Retain the user's position,
             // then let its normal placement/scrollbar path consume the restored index.
-            const int visible = std::max(1, static_cast<int>(F<short>(list, 0x2C4)));
+            const int visible = std::max(1, static_cast<int>(At<short>(list, 0x2C4)));
             const short restored = static_cast<short>(std::max(0, std::min(static_cast<int>(top), std::max(0, count - (fixed ? visible : 1)))));
-            F<short>(list, 0x2C6) = selection >= -1 && selection < count ? selection : -1;
-            if (F<short>(list, 0x2C8) != restored) {
-                F<short>(list, 0x2C8) = restored;
-                if (!fixed) { F<short>(list, 0x2CA) = -1; F<unsigned>(list, 0x2BC) |= 0x80; }
+            At<short>(list, 0x2C6) = selection >= -1 && selection < count ? selection : -1;
+            if (At<short>(list, 0x2C8) != restored) {
+                At<short>(list, 0x2C8) = restored;
+                if (!fixed) { At<short>(list, 0x2CA) = -1; At<unsigned>(list, 0x2BC) |= 0x80; }
                 Organize(list);
             }
             if (fixed) {
@@ -411,37 +411,37 @@ void KmrpTextRowsK1(void* list) {
                 // not top-visible. Native dirty layout recomputes +2B8 from the
                 // current viewport/font height. GetPagesToScroll(4182B0) consumes
                 // that ratio; clamp just as native drag handling41B739..41B779.
-                const int viewport = F<int>(list, 0x298);
-                if (viewport > 0 && F<int>(list, 0x2B4) > viewport) {
+                const int viewport = At<int>(list, 0x298);
+                if (viewport > 0 && At<int>(list, 0x2B4) > viewport) {
                     const int pages = Fn<int(__thiscall*)(void*)>(0x4182B0)(list);
                     const short restoredPage = static_cast<short>(std::max(1, std::min(static_cast<int>(page), std::min(32767, std::max(1, pages)))));
-                    if (F<short>(list, 0x2C2) != restoredPage) {
-                        F<short>(list, 0x2C2) = restoredPage;
+                    if (At<short>(list, 0x2C2) != restoredPage) {
+                        At<short>(list, 0x2C2) = restoredPage;
                         Fn<void(__thiscall*)(void*)>(0x41A2D0)(list);
                     }
-                } else F<short>(list, 0x2C2) = 1;
+                } else At<short>(list, 0x2C2) = 1;
             }
         }
-        for (auto& entry : next) entry.second.applied = F<Rect>(entry.first, 4);
+        for (auto& entry : next) entry.second.applied = At<Rect>(entry.first, 4);
         state.rows.swap(next);
         StretchAll(rows, count);  // the native pass above reset the entry rows' boxes
         bool settled = true;
         for (const auto& entry : state.rows) {
             const Kind kind = Type(entry.first);
             if (kind.chart) {
-                const int allocated = fixed ? entry.second.saved.height : F<Rect>(entry.first, 4).height;
+                const int allocated = fixed ? entry.second.saved.height : At<Rect>(entry.first, 4).height;
                 if (ChartHeight(Minimum(entry.second)) != allocated) settled = false;
                 continue;
             }
-            const int natural = KmrpTextNaturalHeightK1(At(entry.first, kind.text));
+            const int natural = KmrpTextNaturalHeightK1(Part(entry.first, kind.text));
             int needed = kind.content ? natural + entry.second.inset : std::max(Minimum(entry.second), natural + entry.second.inset);
             if (kind.frame) needed = std::max(needed, IconMinimum(entry.first, Minimum(entry.second)));
-            const int allocated = fixed ? entry.second.saved.height : F<Rect>(entry.first, 4).height;
+            const int allocated = fixed ? entry.second.saved.height : At<Rect>(entry.first, 4).height;
             if (natural > 0 && needed > 0 && needed <= 32767 && needed != allocated) settled = false;
         }
         if (settled) break;
         if (pass == 2) for (const auto& entry : state.rows) {
-            const Kind kind = Type(entry.first); if (kind.text) KmrpTextBoundedK1(At(entry.first, kind.text));
+            const Kind kind = Type(entry.first); if (kind.text) KmrpTextBoundedK1(Part(entry.first, kind.text));
         }
     }
     Amounts(rows, count, state.rows); // after the final native row SetExtent

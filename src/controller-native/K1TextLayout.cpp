@@ -1,6 +1,7 @@
 // Draw-compatible per-instance fitting for native K1 GUI strings.
 // See docs/native-text-coverage.md and docs/text-layout-inventory.md.
 #include "K1TextLayout.h"
+#include "K1EngineMemory.h"
 #include "K1TextFitPolicy.h"
 #include "K1TextRows.h"
 #include "K1TextOptions.h"
@@ -22,9 +23,6 @@ void* KmrpTextLayoutTestAddress(std::uintptr_t address);
 #endif
 
 namespace {
-template<class T> T& At(void* p, unsigned offset) {
-    return *reinterpret_cast<T*>(static_cast<char*>(p) + offset);
-}
 void* Native(std::uintptr_t address) {
 #ifdef KMRP_TEXT_LAYOUT_TEST
     return KmrpTextLayoutTestAddress(address);

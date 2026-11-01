@@ -48,7 +48,7 @@ background device reads are enabled inside SDL and KMRP suppresses game input
 when its process is not foreground.
 
 SDL is started once on the game's main thread, from the controller module's first
-hook (`KmrpPrepareResourcesK1`, before the game's first resource lookup), not by the
+hook (`ControllerPrepareResourcesK1`, before the game's first resource lookup), not by the
 first pad read (issue 71, 2026-10-27). SDL's HIDAPI layer hears that a pad came back
 only through `WM_DEVICECHANGE` sent to a hidden window it makes on the thread that
 starts it (`SDL_hidapi.c`, `ControllerWndProc`), and that message is handled only while

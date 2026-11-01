@@ -7,13 +7,24 @@
 // docs/cleanup-1.6/F1-kmrp-without-controller-code.md). Inline, as they were inside that
 // file: moved into a .cpp of their own, every check became a call (2026-10-31, measured
 // function by function).
+// The one copy of each since 2026-11-01 (issue 82, F4): At had four names across the files,
+// and three more copies of the memory check existed. EngineFn is not used where a test
+// harness swaps the engine's routines (K1TextLayout, K1TextOptions, K1TextRows: their Fn).
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <windows.h>
 #include <cstddef>
 #include <cstdint>
 
+template <typename T> T& At(const void* base, std::ptrdiff_t offset)
+{
+    return *reinterpret_cast<T*>(reinterpret_cast<std::uintptr_t>(base) + offset);
+}
+
 template <typename T> T* FieldAt(void* base, std::size_t offset)
 {
-    return reinterpret_cast<T*>(reinterpret_cast<std::uint8_t*>(base) + offset);
+    return &At<T>(base, static_cast<std::ptrdiff_t>(offset));
 }
 
 template <typename T> T EngineFn(std::uintptr_t address)

@@ -24,6 +24,7 @@
 // only on the frames where UpdateRumble would have advanced its own patterns.
 // Load screens, fades, pause and menus freeze it and silence the motors.
 #include <windows.h>
+#include "K1EngineMemory.h"
 #include <cmath>
 #include <cstdarg>
 #include <cstdint>
@@ -41,11 +42,6 @@ std::uint32_t CurrentTargetK1();
 
 namespace {
 
-template <typename T> T& At(const void* base, std::size_t offset)
-{
-    return *reinterpret_cast<T*>(reinterpret_cast<std::uintptr_t>(base) + offset);
-}
-template <typename T> T Fn(std::uintptr_t address) { return reinterpret_cast<T>(address); }
 
 // ------------------------------------------------------------ BioWare's table
 
@@ -662,7 +658,7 @@ void* PlayerCreature()
 {
     void* const app = ClientExoAppK1();
     if (!LooksLikePointerK1(app)) return nullptr;
-    void* const creature = Fn<ThisPtrFn>(K1_GET_PLAYER_CREATURE)(app);
+    void* const creature = EngineFn<ThisPtrFn>(K1_GET_PLAYER_CREATURE)(app);
     return IsReadableK1(creature, 0x250) ? creature : nullptr;
 }
 
@@ -709,21 +705,21 @@ bool LookUpRumble(int category, int row, int& pattern, float& cutoff)
     void* const table = At<void*>(tables, category == 0 ? 0x58 : 0x88);
     if (!LooksLikePointerK1(table)) return false;
     ExoString patternColumn{}, cutoffColumn{}, label{};
-    Fn<StrTextFn>(K1_STRING_FROM_TEXT)(&patternColumn, "RumblePattern");
-    Fn<StrTextFn>(K1_STRING_FROM_TEXT)(&cutoffColumn, "RumbleCutOff");
+    EngineFn<StrTextFn>(K1_STRING_FROM_TEXT)(&patternColumn, "RumblePattern");
+    EngineFn<StrTextFn>(K1_STRING_FROM_TEXT)(&cutoffColumn, "RumbleCutOff");
     bool found;
     cutoff = 10.0f;                         // the engine's default
     if (category == 0) {
-        found = Fn<IntRowFn>(K1_2DA_INT_BY_ROW)(table, row, &patternColumn, &pattern) != 0;
-        if (found) Fn<FloatRowFn>(K1_2DA_FLOAT_BY_ROW)(table, row, &cutoffColumn, &cutoff);
+        found = EngineFn<IntRowFn>(K1_2DA_INT_BY_ROW)(table, row, &patternColumn, &pattern) != 0;
+        if (found) EngineFn<FloatRowFn>(K1_2DA_FLOAT_BY_ROW)(table, row, &cutoffColumn, &cutoff);
     } else {
-        Fn<StrIntFn>(K1_STRING_FROM_INT)(&label, row);
-        found = Fn<IntLabelFn>(K1_2DA_INT_BY_LABEL)(table, &label, &patternColumn, &pattern) != 0;
-        if (found) Fn<FloatLabelFn>(K1_2DA_FLOAT_BY_LABEL)(table, &label, &cutoffColumn, &cutoff);
-        Fn<StrFreeFn>(K1_STRING_FREE)(&label);
+        EngineFn<StrIntFn>(K1_STRING_FROM_INT)(&label, row);
+        found = EngineFn<IntLabelFn>(K1_2DA_INT_BY_LABEL)(table, &label, &patternColumn, &pattern) != 0;
+        if (found) EngineFn<FloatLabelFn>(K1_2DA_FLOAT_BY_LABEL)(table, &label, &cutoffColumn, &cutoff);
+        EngineFn<StrFreeFn>(K1_STRING_FREE)(&label);
     }
-    Fn<StrFreeFn>(K1_STRING_FREE)(&cutoffColumn);
-    Fn<StrFreeFn>(K1_STRING_FREE)(&patternColumn);
+    EngineFn<StrFreeFn>(K1_STRING_FREE)(&cutoffColumn);
+    EngineFn<StrFreeFn>(K1_STRING_FREE)(&patternColumn);
     return found && pattern >= 0 && pattern < K1_RUMBLE_PATTERN_COUNT;
 }
 
@@ -760,7 +756,7 @@ int BaseItemOf(std::uint32_t itemId)
 {
     void* const app = ClientExoAppK1();
     if (!LooksLikePointerK1(app) || itemId == 0 || itemId == K1_OBJECT_INVALID) return -1;
-    void* const item = Fn<ItemByIdFn>(K1_GET_ITEM_BY_ID)(app, itemId);
+    void* const item = EngineFn<ItemByIdFn>(K1_GET_ITEM_BY_ID)(app, itemId);
     return IsReadableK1(item, K1_ITEM_BASE_ITEM + 4) ? At<int>(item, K1_ITEM_BASE_ITEM) : -1;
 }
 
@@ -798,8 +794,8 @@ bool EngineSilent(void* owner, float dt)
     if (At<int>(owner, K1_INTERNAL_RUMBLE_OFF) != 0) return true;
     void* const gui = At<void*>(owner, K1_INTERNAL_IN_GAME_GUI);
     if (!LooksLikePointerK1(gui)) return true;
-    if (Fn<ThisIntFn>(K1_FADE_OBSCURING)(gui) || Fn<ThisIntFn>(K1_FADING)(gui)) return true;
-    return Fn<ThisIntFn>(K1_LOAD_SCREEN_EXISTS)(owner) != 0;
+    if (EngineFn<ThisIntFn>(K1_FADE_OBSCURING)(gui) || EngineFn<ThisIntFn>(K1_FADING)(gui)) return true;
+    return EngineFn<ThisIntFn>(K1_LOAD_SCREEN_EXISTS)(owner) != 0;
 }
 
 // ------------------------------------------------------------ Enhanced rules
@@ -902,14 +898,14 @@ float DamageIntensity(int damage, int maximum)
 
 void PollHealth(void* creature, bool live)
 {
-    void* const server = Fn<ThisPtrFn>(K1_GET_SERVER_CREATURE)(creature);
+    void* const server = EngineFn<ThisPtrFn>(K1_GET_SERVER_CREATURE)(creature);
     if (!IsReadableK1(server, 4)) return;
     void** const vtable = At<void**>(server, 0);
     if (!IsReadableK1(vtable, 0xA0)) return;
     // The HUD's own reads (0x006879D0, 0x006879E0): current hit points are slot
     // 0x9C called with 0, maximum hit points slot 0x98 called with 1.
-    const int hp = Fn<HitPointsFn>(reinterpret_cast<std::uintptr_t>(vtable[0x9C / 4]))(server, 0);
-    const int maximum = Fn<HitPointsFn>(reinterpret_cast<std::uintptr_t>(vtable[0x98 / 4]))(server, 1);
+    const int hp = EngineFn<HitPointsFn>(reinterpret_cast<std::uintptr_t>(vtable[0x9C / 4]))(server, 0);
+    const int maximum = EngineFn<HitPointsFn>(reinterpret_cast<std::uintptr_t>(vtable[0x98 / 4]))(server, 1);
     const std::uint32_t id = IdOf(creature);
     if (!g_health.valid || g_health.creature != id) {
         g_health = { id, hp, true, hp <= 0, -1.0f, 0 };
@@ -948,8 +944,8 @@ void PollHealth(void* creature, bool live)
 void UpdateSabers(void* creature)
 {
     const std::uint32_t id = IdOf(creature);
-    const std::uint32_t main = Fn<SlotIdFn>(K1_GET_EQUIPPED_ITEM_ID)(creature, K1_SLOT_MAIN_HAND);
-    const std::uint32_t off = Fn<SlotIdFn>(K1_GET_EQUIPPED_ITEM_ID)(creature, K1_SLOT_OFF_HAND);
+    const std::uint32_t main = EngineFn<SlotIdFn>(K1_GET_EQUIPPED_ITEM_ID)(creature, K1_SLOT_MAIN_HAND);
+    const std::uint32_t off = EngineFn<SlotIdFn>(K1_GET_EQUIPPED_ITEM_ID)(creature, K1_SLOT_OFF_HAND);
     int lit = 0;
     for (const Saber& s : g_sabers) {
         if (s.item && s.on && s.owner == id && (s.item == main || s.item == off)) ++lit;
@@ -995,7 +991,7 @@ void LogPositional(int category, int row, int pattern, float cutoff, float reach
     bool camera = false;
     void* const app = ClientExoAppK1();
     if (LooksLikePointerK1(app)) {
-        void* const gui = Fn<ThisPtrFn>(K1_GET_IN_GAME_GUI)(app);
+        void* const gui = EngineFn<ThisPtrFn>(K1_GET_IN_GAME_GUI)(app);
         camera = IsReadableK1(gui, K1_GUI_SOUND_LISTENER + 4) && At<int>(gui, K1_GUI_SOUND_LISTENER) != 0;
     }
     Log("positional %s %d pattern=BioWare %d cutoff=%.1fm reach=%.1fm player=%.1fm engineMeasuresFrom=%s",
@@ -1202,7 +1198,7 @@ extern "C" void __cdecl NativeMeleeHitK1(std::uint8_t** slot)
     if (result != 1 && result != 2 && result != 3 && result != 5) return;
     void* const creature = PlayerCreature();
     if (!creature) return;
-    const int base = BaseItemOf(Fn<SlotIdFn>(K1_GET_EQUIPPED_ITEM_ID)(creature, K1_SLOT_MAIN_HAND));
+    const int base = BaseItemOf(EngineFn<SlotIdFn>(K1_GET_EQUIPPED_ITEM_ID)(creature, K1_SLOT_MAIN_HAND));
     if (RecoilFor(base)) return;
     LoadSettings();
     char event[48];
@@ -1235,7 +1231,7 @@ extern "C" void __cdecl NativeMuzzleFlashK1(void* projectile)
     if (!creature || !PositionOf(projectile, shot) || !PositionOf(creature, player)) return;
     LoadSettings();
     const float distance = Distance(shot, player);
-    const std::uint32_t main = Fn<SlotIdFn>(K1_GET_EQUIPPED_ITEM_ID)(creature, K1_SLOT_MAIN_HAND);
+    const std::uint32_t main = EngineFn<SlotIdFn>(K1_GET_EQUIPPED_ITEM_ID)(creature, K1_SLOT_MAIN_HAND);
     const int base = BaseItemOf(main);
     const int recoil = RecoilFor(base);
     if (g_shotsLogged < 40) {
