@@ -60,6 +60,7 @@ TESTS = {
     "Test-AbilityIcons": ("full", py("Test-AbilityIcons", ROOT / "build-inputs/swpc_tex_gui.erf"), [], ""),
     "Test-AssetPack": ("quick", cmd("Test-AssetPack"), [], ""),
     "Test-AssetPrepare": ("full", py("Test-AssetPrepare"), [], ""),
+    "Test-BadgeShape": ("quick", py("Test-BadgeShape"), [], ""),
     "Test-ButtonRemap": ("quick", py("Test-ButtonRemap"), [], ""),
     "Test-ClassModelTrace": ("quick", py("Test-ClassModelTrace"), [], ""),
     "Test-ControllerGlyphs": ("full", py("Test-ControllerGlyphs"), [], ""),

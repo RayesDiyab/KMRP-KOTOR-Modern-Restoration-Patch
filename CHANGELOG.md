@@ -117,6 +117,15 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Testing: a pad badge keeps its shape, checked again (audit TST-03)** (2026-11-01). The GUI
+  audit stopped looking at badges when the run-time rule replaced fixed art, which is what took
+  its count from 1,651 to 1,269: a lost check, no fix. Test-BadgeShape compiles `K1UniformBadge`
+  and `K1BadgeKeepsShape` from the source and asks them about all 144 rows at 5,454 areas: even
+  and one-way scales, a whole scale a pixel or three out, and both borders' insets. The first
+  version passed with the 2 per cent rule of before 2026-10-09 put back, so the near-shape areas
+  were added, and it now fails that rule. `check_controller_drift` passes for the first time
+  since the baseline: it read one of the two files that name badges.
+
 - **Testing: the size rules run from today's code (audit TST-05, TST-06, F11)** (2026-11-01).
   `FieldValue` had no test: the values checked were its C# twin's, and only `--apply` reaches
   those. It moved unchanged to `K1EngineFields.h`, and Test-EngineFields compiles that with the
