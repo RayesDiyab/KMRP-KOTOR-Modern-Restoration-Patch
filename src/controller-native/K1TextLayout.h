@@ -8,6 +8,10 @@ void KmrpTextLayoutTrackPanelK1(void* panel, const char* resource);
 void KmrpTextLayoutTrackControlK1(void* panel, void* control, const char* tag);
 void KmrpTextLayoutForgetPanelK1(void* panel);
 void KmrpTextLayoutForgetControlK1(void* control);
+// The width this file's Container fit has added to a control of `panel`, 0 if none, and
+// the end of that record, for the layout that puts the panel back to its file.
+int KmrpTextLayoutWidenedK1(void* panel, void* control);
+void KmrpTextLayoutForgetWidenedK1(void* panel);
 
 // A wrapper is native CSWGuiText, not CSWGuiTextParams or the owning control.
 // Scrollable/expanding content keeps the requested scale. Layout adapters use

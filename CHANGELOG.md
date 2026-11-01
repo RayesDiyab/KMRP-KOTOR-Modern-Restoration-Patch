@@ -117,6 +117,13 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: the Container after a change of size (audit GUI-4)** (2026-11-01). Its buttons and list
+  came out wider than its panel, and a further change added to that: the width KMRP gives the panel
+  for a long button label was taken for something the engine had added, kept and scaled. The change
+  of size now takes that width off, and the fit starts again from the new size's file.
+  Test-RuntimeRelayout is new and runs a change of size on the shipped layout code, with no game; it
+  also covers GUI-3, an odd layout file costing only its own panel.
+
 - **Fixed: six hints have their wording (approved decision 6, audit TST-04)** (2026-11-01). Travel
   and Cancel on the galaxy map, OK and Cancel naming a save, and Add card and Play setting up
   Pazaak had no wording in the prompt table, so they baked a width of 0. Beside KMRP this changes

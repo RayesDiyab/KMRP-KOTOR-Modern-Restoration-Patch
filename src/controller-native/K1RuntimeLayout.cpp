@@ -879,7 +879,9 @@ bool KmrpRuntimeLayoutDimensions(void* manager, int width, int height)
             }
             const Extent actual = At<Extent>(control, 4);
             Extent now = actual;
-            now.width -= tracked.rowsRight;   // the rows' share is put back below, for the new size
+            // The rows' share is put back below, for the new size; the Container's, by
+            // the next frame's fit. Neither is the engine's, to be kept and scaled.
+            now.width -= tracked.rowsRight + KmrpTextLayoutWidenedK1(panel, control);
             Extent target = entry.second;
             if (now == target) {
                 // The engine has already laid this one out for the new size.
@@ -927,6 +929,7 @@ bool KmrpRuntimeLayoutDimensions(void* manager, int width, int height)
             }
         }
         item.second.file.swap(file);
+        KmrpTextLayoutForgetWidenedK1(panel);
         // The area map's two surfaces, which no layout file holds.
         // CSWGuiInGameMap's constructor (0x00694D50) gives them their sizes after its
         // layout has loaded: the picture's canvas, a CSWGuiImage at +0x1080, {0, 0,

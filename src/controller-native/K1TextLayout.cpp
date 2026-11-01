@@ -422,9 +422,14 @@ void Pause(void* panel, void* hud, int screenWidth, int screenHeight) {
 // panel widens by what its widest button text needs at the requested size, centred
 // on its old place, and every control in it (title, list, buttons) widens with it, so
 // the item names gain the room too. Measured from the game's own layout each time it
-// lays the panel out, so it never accumulates; at most the screen's width.
+// lays the panel out, so it never accumulates; at most the screen's width. A change of
+// size lays the panel out again from its file, which is KMRP's own work, so it asks
+// what was added here and takes it off first (KmrpTextLayoutWidenedK1): taken for the
+// engine's own addition it was scaled and kept, and the buttons came out wider than
+// the panel (audit GUI-4).
 struct Widened {
     bool known=false;
+    int grow=0;
     Rect base{},applied{};
     std::vector<std::pair<void*,Rect>> controls;
 };
@@ -436,7 +441,7 @@ void Container(void* panel,int screenWidth) {
         void** const array=At<void**>(panel,0x20);
         const int count=At<int>(panel,0x24);
         if(!array || count<0 || count>256)return;
-        s.base=now;s.controls.clear();
+        s.base=now;s.grow=0;s.controls.clear();
         for(int i=0;i<count;++i)if(array[i])s.controls.emplace_back(array[i],At<Rect>(array[i],4));
         s.known=true;s.applied=now;
     }
@@ -462,6 +467,7 @@ void Container(void* panel,int screenWidth) {
     if(Same(target,now) && Same(target,s.applied))return;
     Extent(panel,target);
     for(const auto& c:s.controls) {Rect r=c.second;r.width+=grow;Extent(c.first,r);}
+    s.grow=grow;
     s.applied=At<Rect>(panel,4);
 }
 
@@ -931,6 +937,17 @@ void KmrpTextLayoutForgetPanelK1(void* panel) {
         panels.erase(found);
     }
     pauses.erase(panel);
+    widened.erase(panel);
+}
+int KmrpTextLayoutWidenedK1(void* panel,void* control) {
+    const auto found=widened.find(panel);
+    if(found==widened.end())return 0;
+    // Only while the control still has the width given to it here.
+    for(const auto& c:found->second.controls)
+        if(c.first==control)return At<Rect>(control,4).width==c.second.width+found->second.grow?found->second.grow:0;
+    return 0;
+}
+void KmrpTextLayoutForgetWidenedK1(void* panel) {
     widened.erase(panel);
 }
 void KmrpTextLayoutFrameK1(void* manager) {

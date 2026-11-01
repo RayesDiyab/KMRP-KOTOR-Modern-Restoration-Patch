@@ -34,6 +34,8 @@ void __fastcall SetExtent(void* control,void*,const Rect* r) {
     ++extentCalls;At<Rect>(control,4)=*r;
     void* object=Internal(static_cast<char*>(control)+0xD0);
     if(object) {At<int>(object,0x0C)=r->width;At<int>(object,0x10)=r->height;}
+    // A button's label, at +0x154, keeps its inset of 8, as the engine's does.
+    if(At<std::uintptr_t>(control,0x154)==0x73E3A4)At<Rect>(control,0x158).width=r->width-8;
 }
 void __fastcall NativeWrap(void* object,void*,int) {
     ++wrapCalls;
@@ -96,8 +98,60 @@ void* KmrpTextLayoutTestFunction(std::uintptr_t address) {
     assert(false);return nullptr;
 }
 #ifndef KMRP_TEXT_LAYOUT_ROWS_TEST
+// The Container's fit and what it tells the layout of a change of size (audit GUI-4).
+void ContainerCase() {
+    Mock::Bytes manager,panel,ok,give,cancel,list;
+    static char okName[]="OK",giveName[]="Switch To Give Item",cancelName[]="Cancel";
+    At<short>(manager,0x6C)=1920;At<short>(manager,0x6E)=1080;
+    Mock::Control(panel,{660,300,600,400});At<void*>(panel,0x18)=manager;
+    void* children[]={ok.data,give.data,cancel.data,list.data};
+    At<void**>(panel,0x20)=children;At<int>(panel,0x24)=4;
+    Mock::Control(ok,{20,340,100,40});Mock::Control(give,{130,340,100,40});
+    Mock::Control(cancel,{240,340,100,40});Mock::Control(list,{20,40,560,280});
+    Mock::Text okText(okName,100,40),giveText(giveName,100,40),cancelText(cancelName,100,40);
+    for(Mock::Bytes* b:{&ok,&give,&cancel})std::memset(b->data+0x154,0,0x18);
+    std::memcpy(ok.data+0x154,okText.wrapper.data,0x18);
+    std::memcpy(give.data+0x154,giveText.wrapper.data,0x18);
+    std::memcpy(cancel.data+0x154,cancelText.wrapper.data,0x18);
+    for(Mock::Bytes* b:{&ok,&give,&cancel})At<Rect>(b->data+0x154,4).width=92;
+    KmrpTextLayoutTrackPanelK1(panel,"container");
+    KmrpTextLayoutTrackControlK1(panel,ok,"BTN_OK");
+    KmrpTextLayoutTrackControlK1(panel,give,"BTN_GIVEITEMS");
+    KmrpTextLayoutTrackControlK1(panel,cancel,"BTN_CANCEL");
+    KmrpTextLayoutFrameK1(manager);
+    const int grow=At<Rect>(panel,4).width-600;
+    assert(grow>0 && grow%2==0);
+    assert(At<Rect>(panel,4).left==660-grow/2);
+    for(Mock::Bytes* c:{&ok,&give,&cancel,&list})assert(KmrpTextLayoutWidenedK1(panel,*c)==grow);
+    assert(At<Rect>(give,4).width==100+grow && At<Rect>(list,4).width==560+grow);
+    Mock::Bytes other;Mock::Control(other,{0,0,10,10});
+    assert(KmrpTextLayoutWidenedK1(panel,other)==0);
+    assert(KmrpTextLayoutWidenedK1(other,ok)==0);
+    // A control something else has resized since is not this fit's to answer for.
+    At<Rect>(list,4).width=300;assert(KmrpTextLayoutWidenedK1(panel,list)==0);
+    At<Rect>(list,4).width=560+grow;
+    // The next frame changes nothing: it never accumulates.
+    const int calls=Mock::extentCalls;
+    KmrpTextLayoutFrameK1(manager);
+    assert(Mock::extentCalls==calls && At<Rect>(panel,4).width==600+grow);
+    // A change of size: the file's places, and the record ended. The fit then starts
+    // from them, so the panel and its controls keep their relation.
+    KmrpTextLayoutForgetWidenedK1(panel);
+    assert(KmrpTextLayoutWidenedK1(panel,ok)==0);
+    At<Rect>(panel,4)={560,240,800,520};
+    const Rect okAt{20,440,133,52},giveAt{170,440,133,52},cancelAt{320,440,133,52};
+    Mock::SetExtent(ok,nullptr,&okAt);Mock::SetExtent(give,nullptr,&giveAt);Mock::SetExtent(cancel,nullptr,&cancelAt);
+    At<Rect>(list,4)={20,50,760,370};
+    At<short>(manager,0x6C)=2560;At<short>(manager,0x6E)=1440;
+    KmrpTextLayoutFrameK1(manager);
+    const int again=At<Rect>(panel,4).width-800;
+    assert(again>=0 && At<Rect>(list,4).width==760+again && At<Rect>(give,4).width==133+again);
+    KmrpTextLayoutForgetPanelK1(panel);
+    std::cout<<"container fit ok, grew "<<grow<<" then "<<again<<"\n";
+}
 int main() {
     Mock::Init();
+    ContainerCase();
     {
         Mock::Text t("Title",400,47);
         KmrpTextStringDrawK1(t.object);

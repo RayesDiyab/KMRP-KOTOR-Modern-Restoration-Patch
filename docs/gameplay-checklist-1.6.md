@@ -64,6 +64,12 @@ hides the bug these fixed.
 | --- | --- | --- |
 | [ ] | With a pad, Enhanced haptics on, then Original: ignite a saber, throw a grenade near an enemy, take a hit. | Rumble as before. KMRP no longer gives the engine a pattern table, which nothing read. |
 
+## 3aa. The Container after a change of size (audit GUI-4)
+
+| Done | Steps | Expected |
+| --- | --- | --- |
+| [ ] | Open a container at 1920x1080 with a large Text Size. Close it, change the resolution in Options to another size, and open a container again. Change once more. | The three buttons stay inside the panel, "Switch To Give Item" fits, and the panel does not grow with each change. |
+
 ## 3b. Badges beside their captions (decision 6)
 
 **Controller only** at 1920x1080 and 3440x1440: each badge sits beside its caption, not far off to

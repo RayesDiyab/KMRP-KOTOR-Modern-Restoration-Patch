@@ -1675,6 +1675,7 @@ what Windows changed to for PAD-1 and PAD-2, so those two need nothing. Not buil
 | XInput loaded at run time, not linked | 9fee5e4 | Windows 7 |
 | A Linux pad's own key (`KEY_BACK`) not keyboard use; the Gamepad layout notice | 8f60e46 | Linux's kernel driver and Wine |
 | K1 Modern Driver Compatibility 2.0.0; left out on Windows 7 | b5cbd6a, f0ca54c | the Mac ships no K1DC or `dinput8.dll` |
+| The Container's widening is not taken for the engine's at a change of size (GUI-4): `KmrpTextLayoutWidenedK1`, `KmrpTextLayoutForgetWidenedK1` | 2026-11-01 | port both, if the Mac's Container fit and re-layout came from these files; Test-RuntimeRelayout's harness shows the case |
 | Live Layout leaves a file already scaled alone at its own size (GUI-8, decision 5) | 2026-11-01 | none needed: shared C, `kmrp-guiadapt.c`, comes with the next rebuild |
 | The manifest written first with an `incomplete` row, files by rename, a rollback that reports, a damaged record refused, the game running or a second installer refused, Repair (audit INS-02 to INS-10) | 2026-11-01 | `kmrp-mac.sh` already records first, checks each installed file for `status` and has `refuse_if_running`; it shares none of this code |
 | An upgrade keeps `swkotor.ini`; Restore Original goes key by key; installing over 1.0 works (audit INS-01, INS-11) | 2026-11-01 | `kmrp-mac.sh` already restores key by key and refuses an install over an install |

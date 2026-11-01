@@ -51,8 +51,8 @@ tests from before this cycle were not all re-proved.
 | PAD-3 | A on a slot may activate twice | Open | | Needs measuring in a game. No change without it |
 | PAD-5 | D-pad in menus moves the bar later | In-game | `2a83b64` | Test-HudPress |
 | PAD-6 | Input rebuild replays held buttons | In-game | `53ce379` | No test: needs the game's input object |
-| GUI-3 | One odd layout stops a size change | In-game | `8061ac1` | No test: needs the game's panels |
-| GUI-4 | Container's widening read as the engine's | Open | | |
+| GUI-3 | One odd layout stops a size change | Tested | `8061ac1` | Test-RuntimeRelayout, on the shipped file, fails with the old `return false` |
+| GUI-4 | Container's widening read as the engine's | In-game | this cycle | Reproduced on the shipped file, not only by reading: Test-RuntimeRelayout and Test-NativeTextLayout's Container case, each fails with its half taken out. The real Container across a size change on the checklist |
 | GUI-5 | Failed art helper sealed in | Tested | `f29e522` | Test-AssetPrepare case 10 |
 | GUI-8 | "Exactly as its author left it" (decision 5) | Tested | `e8ea7b4` | Test-ModCompatibility, fails without the fix. A real mod's screen on the checklist |
 | THR-1 | KMRP alone never preloads the HUD page | In-game | `53ce379` | No test: needs a GL context |
