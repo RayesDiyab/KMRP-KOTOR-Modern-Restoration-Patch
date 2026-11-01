@@ -5,9 +5,11 @@
 
 #include "K1MovieWindow.h"
 #include "K1EngineMemory.h"
+#include "KmrpOptions.h"
 
 #include <windows.h>
 #include <cstdint>
+#include <cstdio>
 
 namespace {
 
@@ -34,6 +36,27 @@ constexpr std::size_t K1_MOVIE_WINDOW          = 0x50;   // the HWND Bink blits 
 
 constexpr std::size_t K1_MOVIE_OFFSET_X        = 0x84;
 constexpr std::size_t K1_MOVIE_OFFSET_Y        = 0x88;
+constexpr std::size_t K1_MOVIE_BUFFER          = 0x4C;   // the BINKBUFFER
+
+// With debug logs on, a line for each movie in KMRP\logs\kmrp-movie.log: what the engine asked
+// for and what Bink's own buffer record took. BinkBufferSetScale (binkw32 0x300115C0) stores a
+// width or height only if the buffer's scale flags (+0x38) allow that kind of ratio, and the
+// engine and the .kmv stub both ignore its answer. Added for a mod's 1280x720 legal.bik, drawn
+// small and at the top left at 3440x1440, where the game's 640 wide movies are not.
+void LogMovieGeometry(void* player, std::int32_t movieW, std::int32_t movieH, std::int32_t offX, std::int32_t offY)
+{
+    if (!KmrpDebugLogs()) return;
+    const std::uint32_t* const buffer = *FieldAt<const std::uint32_t*>(player, K1_MOVIE_BUFFER);
+    if (!LooksLikePointerK1(buffer)) return;
+    RECT client{};
+    GetClientRect(*FieldAt<HWND>(player, K1_MOVIE_WINDOW), &client);
+    FILE* const log = KmrpOpenLog(L"kmrp-movie.log");
+    if (!log) return;
+    fprintf(log, "movie %dx%d offset %d,%d client %ldx%ld buffer %ux%u window %ux%u surface %08X flags %08X stretch %ux%u\n",
+            movieW, movieH, offX, offY, client.right, client.bottom, buffer[0], buffer[1], buffer[2], buffer[3], buffer[4],
+            buffer[0x38 / 4], buffer[0x3C / 4], buffer[0x40 / 4]);
+    fclose(log);
+}
 
 }  // namespace
 
@@ -140,6 +163,7 @@ void PaintMovieWindowK1(void* player)
     g_movie.lastH = movieH;
     g_movie.lastOffX = offX;
     g_movie.lastOffY = offY;
+    LogMovieGeometry(player, movieW, movieH, offX, offY);
 
     // Black the WINDOW, not the Bink buffer.
     //
