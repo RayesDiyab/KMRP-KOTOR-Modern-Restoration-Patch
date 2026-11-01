@@ -331,10 +331,10 @@ The maintainer's design: nothing is made or written until Save, and closing with
 | Thing | What it does |
 | --- | --- |
 | The page's controls | Show a change at once. Nothing goes to `swkotor.ini`, and no atlas is fitted |
-| Save, between Default and Close | Greyed, and does nothing, unless the page differs from what is saved: sizes, the link, the font or the icon size. X on a pad, whose glyph shows only then |
+| Save, between Default and Close | Greyed, caption and frame, and does nothing, unless the page differs from what is saved: sizes, the link, the font or the icon size. X on a pad, whose glyph shows only then. Its caption stands on Default's line: the art under the page's middle put it 3 px higher (`KmrpTextLayoutCaptionLikeK1`) |
 | Pressing it | Says "Saving..." for a frame, as the work holds the frame up; fits the atlases if HD Font's sizes changed; writes `swkotor.ini`; goes grey |
 | A font chosen | Fitted and shown at once, as fonts cannot be compared otherwise, and kept only by Save. So this one thing is made before Save |
-| Close with changes | The game's own message box, "You have unsaved changes.", **Save** first, which A presses, and **Don't Save**, which B presses |
+| Close with changes | The game's own message box, "You have unsaved changes.", **Save** focused, which A presses, and **Don't Save**, which B presses. Its two buttons are one width, half a line wider than the longer caption at each end, and centred. The focus is by the box's `m_bForceOk` (`+0x980`): left alone it moves the mouse onto Cancel, and the hover takes the focus |
 | Save in the box | Saves, then closes. If saving fails the page stays open and says so |
 | Don't Save | Everything back as saved, then closes. No fitting, unless a font was tried |
 | A failed fit | The text stays as it is, the page stays unsaved and says so, and it is not tried again until Save is pressed |

@@ -1,6 +1,7 @@
 // Native K1 settings, using the graphics screen's actual templates and geometry.
 // No pre-authored .gui, fixed resolution, or dependency on controller support.
 #include "K1TextOptions.h"
+#include "K1TextLayout.h"
 #include "K1TextOptionsPolicy.h"
 #include "K1HudOptions.h"
 #include "K1OptionsPad.h"
@@ -109,6 +110,10 @@ constexpr float SaveDimmed=0.4f;
 constexpr unsigned CaptionColour=0x16C+0x1C, FrameColour=0x80+0x10;
 constexpr unsigned BoxFlags=0x64, BoxCallback=0x68, BoxCallbackObject=0x6C, BoxCallbackArgument=0x70;
 constexpr unsigned BoxOk=0x2F4, BoxCancel=0x4B8, BoxSize=0x984;
+// CSWGuiMessageBox::OnPanelAdded (0x006258F0) moves the mouse onto Cancel where there is one, and
+// the hover takes the focus from OK, so the pad's A would answer Don't Save (the maintainer's
+// screenshot, 2026-11-01). This flag has it move onto OK; OnPanelRemoved clears it.
+constexpr unsigned BoxForceOk=0x980;
 constexpr unsigned BoxSetMessage=0x70/4;
 // The box Close opens over unsaved changes: the game's own message box, so confirm.gui, the
 // fit (K1PopupFit.cpp) and the pad's A are all as on any other. Made once and kept, as the game
@@ -251,6 +256,22 @@ void __fastcall WarningClosed(void* box,void*,void*) {
     }
     releasedFrames=0;
 }
+// The box's buttons as snug as FixMessageLabel leaves them had their captions touching their
+// ends (the maintainer's screenshot, 2026-11-01). One width, half a line wider than the longer
+// caption at each end, as the Container's are, centred; and room kept at the left for the pad's
+// A, which stands beside the focused button (updateConfirmBadges, K1ControllerLayout.cpp).
+void WidenWarningButtons() {
+    void* ok=static_cast<char*>(warningBox)+BoxOk;
+    void* cancel=static_cast<char*>(warningBox)+BoxCancel;
+    Rect first=At<Rect>(ok,4),second=At<Rect>(cancel,4);
+    const int panel=At<Rect>(warningBox,4).width,snug=(std::max)(first.width,second.width);
+    const int room=panel-2*(first.height+first.height/2);
+    int width=(std::max)(snug,(std::min)(snug+first.height,room));
+    width+=(panel-width)&1;     // an even remainder keeps the centre exact
+    first.left=second.left=(panel-width)/2;
+    first.width=second.width=width;
+    Extent(ok,first);Extent(cancel,second);
+}
 bool WarnOfUnsaved() {
     void* manager=At<void*>(current,0x18);
     if(!warningBox) {
@@ -271,6 +292,8 @@ bool WarnOfUnsaved() {
     struct ByValue {void* words[2];} message{};
     Fn<void(__thiscall*)(void*,const char*)>(0x5E5A90)(&message,"You have unsaved changes.");
     reinterpret_cast<void(__thiscall*)(void*,ByValue)>(Vtable(warningBox)[BoxSetMessage])(warningBox,message);
+    WidenWarningButtons();
+    At<int>(warningBox,BoxForceOk)=1;
     Fn<void(__thiscall*)(void*,void*,int,int)>(0x40BC70)(manager,warningBox,1,1);
     return true;
 }
@@ -389,10 +412,13 @@ void UpdateSaveButton() {
     shownSaveState=state;
     Text(saveButton,state==2?"Saving...":"Save",true);
     const float strength=state==1?1.0f:SaveDimmed;
+    float caption[3];
     for(int c=0;c<3;++c) {
-        (&At<float>(saveButton,CaptionColour))[c]=saveCaption[c]*strength;
+        caption[c]=saveCaption[c]*strength;
         (&At<float>(saveButton,FrameColour))[c]=saveFrame[c]*strength;
     }
+    // Through CSWGuiTextParams::SetColor: written to the field alone, the text stayed bright.
+    Fn<void(__thiscall*)(void*,const float*)>(0x414E10)(static_cast<char*>(saveButton)+0x16C,caption);
 }
 // The preview's three icons at the size in force, side by side and centred in their area:
 // the size the lists draw them at, one texel a pixel (kmrp-iconsize.h), smaller only where
@@ -517,6 +543,7 @@ void MakeScreen(void* manager,void* owner) {
     Text(linkSizes,"Link Text Sizes",true);
     for(void* mark:{defaultsMark,saveMark,backMark}){Text(mark,"");At<unsigned>(mark,0x44)&=~2u;}
     defaultsButton=defaults;saveButton=save;backButton=back;
+    KmrpTextLayoutCaptionLikeK1(save,defaults);
     defaultsGlyph=KmrpOptionsPad::Glyph{};defaultsGlyph.label=defaultsMark;defaultsGlyph.button=defaults;defaultsGlyph.code='y';
     saveGlyph=KmrpOptionsPad::Glyph{};saveGlyph.label=saveMark;saveGlyph.button=save;saveGlyph.code='x';
     backGlyph=KmrpOptionsPad::Glyph{};backGlyph.label=backMark;backGlyph.button=back;backGlyph.code='b';

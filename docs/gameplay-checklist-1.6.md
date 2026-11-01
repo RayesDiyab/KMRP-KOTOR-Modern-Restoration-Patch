@@ -55,9 +55,9 @@ hides the bug these fixed.
 | --- | --- | --- |
 | [ ] | Options, Text Size page: Text 50, Icon Size 50. Open Abilities, Skills tab. | As before this cycle. |
 | [ ] | Text 100, Icon 50. Open Skills. | Text larger. Icons as Icon Size says, centred on their rows. |
-| [ ] | Save, greyed. Open Options, Text Size page and change nothing. | Save is dimmed between Default and Close, clicking it does nothing, and a pad shows no X on it. Close closes at once. |
+| [ ] | Save, greyed. Open Options, Text Size page and change nothing. | Save's caption and frame are dimmed, its caption level with Default's and Close's, clicking it does nothing, and a pad shows no X on it. Close closes at once. |
 | [ ] | Save, HD Font. Drag a slider up. Then press Save, and try X on a pad. | The slider stays smooth and the text a little soft. Save lights up, shows "Saving...", then goes dim with the text fully sharp. At a size never used before that takes a second or so. |
-| [ ] | Close warning. Change something and press Close, or B. | "You have unsaved changes." sized to fit, with Save and Don't Save, and the pad's A beside the focused one. |
+| [ ] | Close warning. Change something and press Close, or B. | "You have unsaved changes." sized to fit. Save and Don't Save are one width with room around their text, and Save has the focus and the pad's A. |
 | [ ] | In that box press Don't Save (B). Reopen the page, and restart the game. | Sizes, font, link and icons are all as they were saved, and the text is sharp. |
 | [ ] | Change something, Close, then Save (A). Restart the game. | The page closes after saving, and the change is still there after the restart. |
 | [ ] | Try a font without saving: pick Original Font, then Close and Don't Save. | HD Font is back, sharp. |

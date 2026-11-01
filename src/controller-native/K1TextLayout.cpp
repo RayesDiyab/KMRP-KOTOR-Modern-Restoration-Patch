@@ -619,6 +619,7 @@ struct ArtPicture { std::string name; int width = 0, height = 0; std::vector<uns
 std::vector<ArtPicture> artPictures;      // the last few read, newest last
 struct ArtPlace { std::string name; Rect behind{}, control{}; int middle = INT_MIN; bool read = false; };
 std::map<void*, ArtPlace> artPlaces;      // by control, until it goes (ForgetArtPlace)
+std::map<void*, void*> captionsLike;      // KmrpTextLayoutCaptionLikeK1
 
 std::string ResRef(const char* at) {
     char name[17] = {};
@@ -769,12 +770,16 @@ void ArtCaptions(void* panel) {
             place.read = picture != nullptr;     // else asked again once it is uploaded
         }
         artMiddle = place.middle;
+        // Listed after the control it follows, so that one's is up to date.
+        const auto like = captionsLike.find(control);
+        const auto leader = like == captionsLike.end() ? artPlaces.end() : artPlaces.find(like->second);
+        if (leader != artPlaces.end()) artMiddle = leader->second.middle;
         // Moved now, before the screen is drawn or a glyph is placed beside it.
         CentreLetters(string, found->second);
     }
 }
 
-static void ForgetArtPlace(void* control) {artPlaces.erase(control);}
+static void ForgetArtPlace(void* control) {artPlaces.erase(control);captionsLike.erase(control);}
 #else
 static void ForgetArtPlace(void*) {}
 #endif
@@ -942,6 +947,13 @@ void KmrpTextLayoutForgetPanelK1(void* panel) {
     }
     pauses.erase(panel);
     widened.erase(panel);
+}
+void KmrpTextLayoutCaptionLikeK1(void* control,void* like) {
+#ifndef KMRP_TEXT_LAYOUT_TEST
+    captionsLike[control]=like;
+#else
+    (void)control;(void)like;
+#endif
 }
 int KmrpTextLayoutWidenedK1(void* panel,void* control) {
     const auto found=widened.find(panel);

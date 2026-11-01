@@ -25,6 +25,7 @@ std::string boxMessage;
 std::vector<void*> refresh;
 bool fail=false;
 bool held=false;
+std::map<void*,float> textColours;    // by CSWGuiTextParams::SetColor alone, as the engine's text
 std::map<unsigned,void*> functions;
 std::map<std::uintptr_t,std::array<unsigned char,65536>> pages;
 const char* tags[]={"LBL_TITLE","SLI_GAMMA","LBL_GAMMA","LB_DESC","BTN_DEFAULT","BTN_BACK","BTN_RESOLUTION","BTN_ADVANCED","CB_SHADOWS"};
@@ -106,8 +107,15 @@ void __cdecl BuildAll() {
 // The game's message box, as far as the page uses it.
 struct Text2 {const char* text;unsigned size;};
 void* __fastcall BoxCtor(void* self,void*,void* manager) {
-    ++boxesMade;At<std::uintptr_t>(self,0)=0x74FDB0;At<void*>(self,0x18)=manager;return self;
+    ++boxesMade;At<std::uintptr_t>(self,0)=0x74FDB0;At<void*>(self,0x18)=manager;
+    // As FixMessageLabel leaves them, each as snug as its caption, one under the other.
+    At<Rect>(self,4)=Rect{740,600,420,240};
+    for(unsigned at:{0x2F4u,0x4B8u})At<std::uintptr_t>(static_cast<char*>(self)+at,0)=0x73E658;
+    At<Rect>(static_cast<char*>(self)+0x2F4,4)=Rect{160,100,100,46};
+    At<Rect>(static_cast<char*>(self)+0x4B8,4)=Rect{100,150,220,46};
+    return self;
 }
+void __fastcall SetColour(void* params,void*,const float* rgb) {textColours[params]=rgb[0];}
 void __fastcall BoxCancel(void* self,void*,int allow) {cancelAllowed=allow;At<unsigned>(self,0x64)=(At<unsigned>(self,0x64)&~2u)|(allow?2u:0u);}
 void __fastcall BoxMessage(void*,void*,Text2 message) {boxMessage=message.text?message.text:"";std::free(const_cast<char*>(message.text));}
 void Jump(unsigned at,void* to) {
@@ -126,7 +134,7 @@ void Setup() {
     MAP(0x417EC0,SetMax);MAP(0x417EE0,SetValue);MAP(0x415DD0,SetFont);
     MAP(0x420670,Reset);MAP(0x422AF0,Load);MAP(0x41FA30,Image);
     MAP(0x46BD10,Enqueue);MAP(0x4217F0,BuildAll);
-    MAP(0x626DF0,BoxCtor);MAP(0x627130,BoxCancel);
+    MAP(0x626DF0,BoxCtor);MAP(0x627130,BoxCancel);MAP(0x414E10,SetColour);
     {
         auto table=static_cast<void**>(Native(0x74FDB0));table[0]=reinterpret_cast<void*>(&DummyDtor);
         table[0x70/4]=reinterpret_cast<void*>(&BoxMessage);
@@ -159,6 +167,8 @@ std::vector<void*> KmrpRuntimePanelsK1(const char*) {
 }
 void KmrpReflowTextK1(){++Mock::reflows;}
 bool KmrpRuntimeIsFontK1(const char* name){return !_stricmp(name,"fnt_console");}
+static void* captionFollows=nullptr,*captionLeads=nullptr;
+void KmrpTextLayoutCaptionLikeK1(void* control,void* like){captionFollows=control;captionLeads=like;}
 bool KmrpRuntimeApplyTextPreferencesK1(){++Mock::applies;if(Mock::fail){Mock::fail=false;return false;}return true;}
 // The Icon Size slider (issue 80): applied and counted.
 int iconApplies=0;
@@ -327,13 +337,14 @@ int main(int argc,char** argv) {
             const auto frame=[&]{KmrpTextOptionsFrameK1(manager);};
             const auto slide=[&](int position){At<int>(sliders[Menus],0x74)=position;frame();};
             const auto caption=[&]{return Mock::captions[static_cast<char*>(saveButton)+0x16C];};
-            const auto greyed=[&]{return At<float>(saveButton,CaptionColour)==saveCaption[0]*SaveDimmed;};
+            const auto greyed=[&]{return Mock::textColours[static_cast<char*>(saveButton)+0x16C]==saveCaption[0]*SaveDimmed && At<float>(saveButton,FrameColour)==saveFrame[0]*SaveDimmed;};
             const auto closing=[&]{return (At<unsigned>(current,0x44)&0x400u)!=0;};
             const auto keepOpen=[&]{At<unsigned>(current,0x44)&=~0x700u;};
             // The mock's buttons have no colours of their own to dim.
             saveCaption[0]=saveFrame[0]=1.0f;shownSaveState=-1;
             saved=Settings{sizing,style,iconSize};fitted=sizing;saved.sizing=requestedSizing;frame();
             assert(!Unsaved() && greyed() && caption()=="Save");
+            assert(captionFollows==saveButton && captionLeads==defaultsButton);   // on Default's line
             // Three of one width in a row, inside the two ends the game has, at every size.
             const Rect left=At<Rect>(defaultsButton,4),middle=At<Rect>(saveButton,4),right=At<Rect>(backButton,4);
             assert(left.width==middle.width && middle.width==right.width);
@@ -367,6 +378,15 @@ int main(int argc,char** argv) {
             assert(Mock::captions[static_cast<char*>(warningBox)+BoxOk+0x16C]=="Save");
             assert(Mock::captions[static_cast<char*>(warningBox)+BoxCancel+0x16C]=="Don't Save");
             assert(At<void*>(warningBox,BoxCallback)==reinterpret_cast<void*>(&WarningClosed));
+            // Save is what the box focuses, and A presses, not Don't Save.
+            assert(At<int>(warningBox,BoxForceOk)==1);
+            {
+                const Rect first=At<Rect>(static_cast<char*>(warningBox)+BoxOk,4),second=At<Rect>(static_cast<char*>(warningBox)+BoxCancel,4);
+                assert(first.width==220+46 && second.width==first.width);   // half a line at each end
+                assert(first.left==(420-first.width)/2 && second.left==first.left);
+                assert(first.top==100 && second.top==150);                  // no higher or lower
+                assert(first.left>=46+46/4);                                // the pad's A fits beside them
+            }
             // Don't Save: as it was saved, nothing fitted, as the atlases already are, and closed.
             At<unsigned>(warningBox,BoxFlags)&=~1u;WarningClosed(warningBox,nullptr,nullptr);frame();
             assert(sizing.values==saved.sizing.values && !Unsaved() && Mock::applies==makes && closing());

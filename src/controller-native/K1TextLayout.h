@@ -12,6 +12,9 @@ void KmrpTextLayoutForgetControlK1(void* control);
 // the end of that record, for the layout that puts the panel back to its file.
 int KmrpTextLayoutWidenedK1(void* panel, void* control);
 void KmrpTextLayoutForgetWidenedK1(void* panel);
+// `control`'s caption stands on the line its art gives `like`'s. For a button in a row whose
+// art differs under it: Save, under the Text Size page's middle, stood 3 px above its neighbours.
+void KmrpTextLayoutCaptionLikeK1(void* control, void* like);
 
 // A wrapper is native CSWGuiText, not CSWGuiTextParams or the owning control.
 // Scrollable/expanding content keeps the requested scale. Layout adapters use
