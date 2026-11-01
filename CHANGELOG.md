@@ -117,6 +117,17 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **The offscreen frame says when a driver refuses it, and can be turned off (audit GFX-04,
+  GFX-05)** (2026-11-01). Nothing checked the copy to the window, and a multisampled copy has
+  run only on NVIDIA, so a driver refusing it would have left a black screen with no way out. The
+  first copy of each buffer is now checked with `glGetError`, errors the game left being cleared
+  first, and a refusal puts the game back on the window. `window-drawn=1` under `[Offscreen]` in
+  `configs\kmrp.ini`, which the installer leaves alone, keeps the frame out altogether. A frame the
+  game did not draw into KMRP's buffer, as when something else is bound at the swap, is no longer
+  shown from it. Test-OffscreenFrame walks the shipped file through swaps, binds, reads, a new size,
+  anti-aliasing and every refusal against a stand-in driver, 38 checks. It says what the module
+  asks of a driver, not what a real one does: AMD, Intel and Proton are on the gameplay checklist.
+
 - **Fixed: a kill can no longer leave an install with no record (audit INS-03 again)**
   (2026-11-01). The kill test found what the first fix missed: `File.Replace` moves the old file
   aside before the new one is in, so a kill in that instant left no manifest, the runtime

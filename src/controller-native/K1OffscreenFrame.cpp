@@ -41,6 +41,11 @@
 // bytes are still `8B FF` and the five before are padding: anything else is someone
 // else's change, and the option then does nothing but say so in the log.
 //
+// If it goes wrong on a driver: a copy to the window that the driver refuses is seen on the
+// first frame shown (glGetError) and the window is drawn into as before; and `window-drawn=1`
+// in a section of its own, [Offscreen], of configs\kmrp.ini, which the installer leaves alone,
+// keeps it out altogether (audit GFX-04, 2026-11-01). No player has needed either.
+//
 // Seen 2026-10-30 in the maintainer's game (RTX 3080, 3440x1440, anti-aliasing 8, K1DC 2.0.0):
 // started on the layered path with this on, menus opened and closed, no flash ("it clearly
 // worked"). Not measured frame by frame as issue 14 was; not seen with Windows HDR or RTX
@@ -85,6 +90,7 @@ using CurrentContextFn = HGLRC(WINAPI*)();
 using CopyTexImageFn = void(WINAPI*)(GLenum, GLint, GLenum, GLint, GLint, GLsizei, GLsizei, GLint);
 using CopyTexSubImageFn = void(WINAPI*)(GLenum, GLint, GLint, GLint, GLint, GLint, GLsizei, GLsizei);
 using ReadPixelsFn = void(WINAPI*)(GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, void*);
+using GetErrorFn = GLenum(WINAPI*)();
 
 // opengl32's own, past their `mov edi, edi`.
 GetProcFn realGetProc = nullptr;
@@ -107,6 +113,7 @@ GetIntegervFn getIntegerv = nullptr;
 IsEnabledFn isEnabled = nullptr;
 CapFn enable = nullptr, disable = nullptr;
 CurrentContextFn currentContext = nullptr;
+GetErrorFn getError = nullptr;
 
 HGLRC context = nullptr;   // the window's context the buffer was made in
 HWND window = nullptr;
@@ -115,6 +122,7 @@ GLuint plain = 0, plainColour = 0;            // its resolved copy, when multisa
 int width = 0, height = 0, samples = 0;
 bool refused = false;      // incomplete or unavailable: the window draws as before
 bool swapping = false;     // inside the swap: K1DC's brightness pass draws into the window itself
+bool checkedShow = false;  // this buffer's first copy to the window has been checked
 unsigned long long swaps = 0, redirected = 0, resolved = 0;
 
 void Log(const char* text)
@@ -327,14 +335,23 @@ bool Make(HDC dc)
     }
     context = now;
     window = owner;
+    checkedShow = false;
     sprintf_s(text, "on, %dx%d, %d samples: each frame is drawn offscreen and shown when finished", width, height, samples);
     Log(text);
     return true;
 }
 
-// KMRP's buffer copied into the window's current back buffer.
+// KMRP's buffer copied into the window's current back buffer. The first copy of each buffer
+// is checked: a multisampled copy into the window has run only on NVIDIA, and a driver that
+// refused it would leave the screen black with nothing to say why. Only on that one frame,
+// as glGetError can stall a driver, and errors the game left are cleared first.
 void Show()
 {
+    const bool check = !checkedShow && getError;
+    if (check) {
+        checkedShow = true;
+        for (int left = 16; left > 0 && getError(); --left) {}
+    }
     const bool scissor = isEnabled(kScissorTest) != 0;
     if (scissor) disable(kScissorTest);
     bind(kReadFramebuffer, frame);
@@ -342,12 +359,22 @@ void Show()
     blit(0, 0, width, height, 0, 0, width, height, kColorBufferBit, kNearest);
     bind(kFramebuffer, 0);
     if (scissor) enable(kScissorTest);
+    if (check) {
+        if (const GLenum error = getError()) {
+            char text[120];
+            sprintf_s(text, "the driver refused the copy to the window (0x%X); the window is drawn into as before", error);
+            Refuse(text);
+        }
+    }
 }
 
 BOOL WINAPI SwapForGame(HDC dc)
 {
-    // The frame just drawn was drawn into KMRP's buffer when it is bound in this context.
-    const bool drawnOffscreen = Ours() && WindowFromDC(dc) == window;
+    // The frame just drawn was drawn into KMRP's buffer when it is bound in this context. Bound,
+    // not only made: the game may have left something else bound at the swap (audit GFX-05).
+    GLint drawing = 0;
+    if (Ours()) getIntegerv(kDrawBinding, &drawing);
+    const bool drawnOffscreen = Ours() && WindowFromDC(dc) == window && static_cast<GLuint>(drawing) == frame;
     if (drawnOffscreen) Show();
     swapping = true;
     const BOOL ok = nextSwap(dc);
@@ -357,7 +384,7 @@ BOOL WINAPI SwapForGame(HDC dc)
         // The next back buffer holds the frame just shown too, so an early present of it
         // shows a finished frame; then the game draws the next one offscreen.
         if (drawnOffscreen) Show();
-        bind(kFramebuffer, frame);
+        if (!refused) bind(kFramebuffer, frame);
     }
     if (KmrpDebugLevel() >= 2 && swaps % 600 == 0) {
         char text[200];
@@ -384,6 +411,12 @@ template <typename T> bool Patch(HMODULE gl, const char* name, T wrapper, T& rea
 // for a function.
 void KmrpInstallOffscreenFrame()
 {
+    wchar_t options[MAX_PATH];
+    if (KmrpGamePath(options, L"configs\\kmrp.ini") &&
+        GetPrivateProfileIntW(L"Offscreen", L"window-drawn", 0, options) != 0) {
+        Log("window-drawn=1 in configs\\kmrp.ini: not used");
+        return;
+    }
     HMODULE gl = GetModuleHandleW(L"opengl32.dll");
     if (!gl) { Log("opengl32.dll is not loaded; not used"); return; }
     getIntegerv = reinterpret_cast<GetIntegervFn>(GetProcAddress(gl, "glGetIntegerv"));
@@ -391,6 +424,7 @@ void KmrpInstallOffscreenFrame()
     enable = reinterpret_cast<CapFn>(GetProcAddress(gl, "glEnable"));
     disable = reinterpret_cast<CapFn>(GetProcAddress(gl, "glDisable"));
     currentContext = reinterpret_cast<CurrentContextFn>(GetProcAddress(gl, "wglGetCurrentContext"));
+    getError = reinterpret_cast<GetErrorFn>(GetProcAddress(gl, "glGetError"));
     auto slot = reinterpret_cast<SwapFn*>(0x0073D00C);
     MEMORY_BASIC_INFORMATION info{};
     HMODULE holder = nullptr;   // the slot must already hold a function of a loaded module
