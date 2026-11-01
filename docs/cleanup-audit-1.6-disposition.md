@@ -110,7 +110,7 @@ tests from before this cycle were not all re-proved.
 | MEM-04 | Detours written with the game running | Kept | | KPM's, upstream. Theoretical |
 | MEM-05 | Rollback omits the failed run | In-game | `75c1ed6` | By reading |
 | TST-04 | Six hints bake width 0 (decision 6) | In-game | `d04ca91` | Test-ControllerPromptAssets without its exception list. Controller alone moves three badges: checklist 3b |
-| TST-08 | Frozen diff, stale harness | Open | | |
+| TST-08 | Frozen diff, stale harness | Tested | this cycle | Test-ControllerPromptAssets reads the source, not a frozen `.diff`. Test-PartyRosterGui builds `K1XboxControls.cpp` as it ships. Stale comments corrected. The review's last words, "Live Layout key", name no file or line, so nothing was done for them |
 | MAC-1, MAC-7 | Submodule pin, truncated address | Deferred | | With the port |
 | E-1 | Font metrics multiplied by 1.0 | Open | | |
 | E-2 | A float nobody reads | Open | | |

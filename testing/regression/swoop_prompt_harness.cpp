@@ -63,8 +63,8 @@ template<typename T> T EngineFn(std::uintptr_t address) {
     if (address==0x004402F0) return reinterpret_cast<T>(&FindPart);
     return nullptr;
 }
-// The controller patch draws the prompt (families 1 and 3 here); KMRP's module, which has no
-// pictures to draw, gives no name and loads the one it carries (0 and 2).
+// The prompt is drawn (families 1 and 3 here), or where it cannot be, as when the picture is
+// not in the file, no name is given and it is loaded by its own (0 and 2).
 bool KmrpDrawnPictureK1(const char* name, char out[17]) {
     if (name[3]!='s' && name[3]!='d') return false;
     std::strcpy(out,"kmzdrawn_");out[9]=name[3];out[10]='\0';

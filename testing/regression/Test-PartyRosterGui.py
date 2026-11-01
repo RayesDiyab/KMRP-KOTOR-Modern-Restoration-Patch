@@ -146,7 +146,7 @@ def main():
             (OUT/f'base-{size}.gui').write_bytes(z.read(n))
     subprocess.run([str(runtime),str(fixture),str(OUT/'base-1920x1080.gui'),str(OUT/'base-2560x1440.gui')],check=True)
     controller=OUT/'party-roster-controller.exe'
-    args=['cl','/nologo','/O2','/Gy','/std:c++17','/EHsc','/W3',
+    args=['cl','/nologo','/O2','/Gy','/std:c++17','/EHsc','/W3','/DKMRP_CONTROLLER_STANDALONE',
           str(ROOT/'testing/regression/party_roster_controller_harness.cpp'),
           '/Fo'+str(OUT/'controller.obj'),'/Fe'+str(controller),'/link','/OPT:REF','user32.lib']
     cmd.write_text('@echo off\ncall "'+vc+'" x86 >nul\nif errorlevel 1 exit /b %errorlevel%\n'+subprocess.list2cmdline(args)+'\nexit /b %errorlevel%\n',newline='\r\n')

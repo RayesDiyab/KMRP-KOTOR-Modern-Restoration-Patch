@@ -218,18 +218,13 @@ RUNTIME_OBJECT_OFFSETS = {
 
 
 def verify_runtime_lookup_patch() -> None:
-    patch_path = (
-        ROOT
-        / "third_party"
-        / "Included"
-        / "KPM-Xbox-Controls-K1-1.2 by Saul0097"
-        / "KMRP-CONTROLLER-PROMPTS-PATCH.diff"
-    )
-    patch = patch_path.read_text(encoding="utf-8")
+    # The shipped source. Until 2026-11-01 this read a .diff frozen in third_party, so it
+    # passed whatever the code did (audit TST-08).
+    patch = (ROOT / "src" / "controller-native" / "K1XboxControls.cpp").read_text(encoding="utf-8")
     if "K1_GUI_PANEL_GET_CONTROL" in patch or "GuiPanelGetControlFn" in patch:
         raise AssertionError(
             "Runtime prompt patch still uses unsafe GUI-list/control-array lookup")
-    if "OffsetPointer(panel, prompts[i].controlOffset)" not in patch:
+    if "static_cast<unsigned char*>(panel)+binding.controlOffset" not in patch:
         raise AssertionError("Runtime prompt patch does not use object offsets")
     if "bool g_cursorParked = false;" not in patch:
         raise AssertionError(

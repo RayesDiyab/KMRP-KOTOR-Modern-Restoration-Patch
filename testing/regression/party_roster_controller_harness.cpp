@@ -12,6 +12,15 @@ static FARPROC FakeSymbol(HMODULE,LPCSTR) {return reinterpret_cast<FARPROC>(1);}
 #include "../../src/controller-native/K1XboxControls.cpp"
 #undef GetModuleHandleW
 #undef GetProcAddress
+// Built as it ships, with KMRP_CONTROLLER_STANDALONE: no other configuration of that file is
+// built by anything (audit TST-08). What the module's other files and its drawing give it,
+// which the party screen does not reach:
+bool KmrpXboxHudEnabledK1() { return false; }
+bool KmrpControllerRelistK1() { return true; }
+const std::wstring& KmrpRuntimeAssetDirectory() { static const std::wstring none; return none; }
+extern "C" int kmrp_glyph_read(const uint8_t*, size_t, size_t*, KmrpGlyph*) { return 0; }
+extern "C" void kmrp_glyph_draw(const KmrpGlyph*, uint8_t*, int, int, int, int, int, int, const uint8_t*) {}
+extern "C" void kmrp_glyph_draw_alone(const KmrpGlyph*, uint8_t*, int, int, int, int, int, int, const uint8_t*) {}
 int main() {
     SetErrorMode(SEM_NOGPFAULTERRORBOX | SEM_FAILCRITICALERRORS);
     auto dos=reinterpret_cast<IMAGE_DOS_HEADER*>(image.data());dos->e_magic=IMAGE_DOS_SIGNATURE;dos->e_lfanew=0x80;
