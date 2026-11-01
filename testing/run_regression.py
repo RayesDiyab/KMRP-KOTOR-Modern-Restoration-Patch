@@ -33,8 +33,13 @@ STEAM_GAME = Path(r"C:\Program Files (x86)\Steam\steamapps\common\swkotor")
 CSC = Path(r"C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe")
 PWSH = "pwsh"
 AUDIT_REPORT = ROOT / "build" / "test-results" / "gui-audit.md"
-# These two build into one folder, so they never run beside each other.
-ONE_AT_A_TIME = {"Test-AssetPack", "Test-AssetPrepare"}
+# Run alone, after the tests that can share the machine. The two asset tests build into one folder.
+# Test-GuiAudit takes every core it can get, and timed out beside 12 others. The rest move the
+# player's real settings aside for the run (Hide-KpmLauncherSettings): two side by side took
+# the file from each other, one failed putting it back, and it was left in its work folder
+# (2026-11-01, on going from 4 workers to 12). shared_settings() holds this list to the sources.
+ONE_AT_A_TIME = {"Test-AssetPack", "Test-AssetPrepare", "Test-GuiAudit", "Test-DpiCompatibility",
+                 "Test-LargeAddressAware", "Test-UpdateCheck", "Test-NvidiaPresentMethod", "Test-MovieResolution"}
 
 
 def py(name, *args):
@@ -130,6 +135,17 @@ TESTS = {
 }
 
 
+def shared_settings():
+    """Tests that touch a file of the player's or a setting of the machine, which must run alone."""
+    marks = ("Hide-KpmLauncherSettings", "Restore-TestNvidiaProfiles", "KPatchLauncher", "HKCU:", "settings.json")
+    found = []
+    for path in REGRESSION.glob("Test-*.ps1"):
+        name = path.stem
+        if name in TESTS and TESTS[name][0] != "mac" and any(mark in path.read_text(encoding="utf-8", errors="replace") for mark in marks):
+            found.append(name)
+    return [n for n in found if TESTS[n][0] not in ("settings", "build") and n not in ONE_AT_A_TIME]
+
+
 def unlisted():
     names = {p.stem for p in REGRESSION.glob("Test-*.*") if p.suffix in (".py", ".ps1", ".cmd", ".cpp")}
     return sorted(names - set(TESTS))
@@ -165,13 +181,20 @@ def main():
     parser.add_argument("--group", action="append", choices=("quick", "full", "settings", "mac", "build"))
     parser.add_argument("--only", nargs="+", metavar="TEST")
     parser.add_argument("--name", default=time.strftime("%Y%m%d-%H%M%S"))
-    parser.add_argument("--jobs", type=int, default=4)
-    parser.add_argument("--timeout", type=int, default=2400)
+    # Tests with their own folder run side by side. On 16 cores the quick group took 71 s with
+    # 4, 58 with 12 and 57 with 20, with the same results (2026-11-01). What shares a folder or
+    # the player's settings, or times itself, runs alone (ONE_AT_A_TIME, settings and build groups).
+    parser.add_argument("--jobs", type=int, default=min(12, os.cpu_count() or 4))
+    parser.add_argument("--timeout", type=int, default=3000)
     parser.add_argument("--compare", type=Path, help="an earlier summary.json")
     args = parser.parse_args()
     missing = unlisted()
     if missing:
         print("These tests have no row in testing/run_regression.py:", ", ".join(missing))
+        return 2
+    together_by_mistake = shared_settings()
+    if together_by_mistake:
+        print("These tests touch the player's settings and are not run alone:", ", ".join(together_by_mistake))
         return 2
     if args.only:
         unknown = [n for n in args.only if n not in TESTS]

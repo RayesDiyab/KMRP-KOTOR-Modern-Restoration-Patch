@@ -16,12 +16,18 @@ Installer behaviour is scripted.
 ## Running the tests
 
 Every test in `regression/` has a row in [`run_regression.py`](run_regression.py), and a new test
-without one stops the run. Logs and a `summary.json` go to `build/test-results/<name>`.
+without one stops the run. Logs and a `summary.json` go to `build/test-results/<name>`. Tests run
+side by side, 12 at a time here, as each has its own folder under `build/`. A test that shares a
+folder or the player's settings, or that measures its own time, runs alone after them. That matters:
+on going from 4 workers to 12, two tests that move the player's real KPM settings aside took the
+file from each other, and it was left in a work folder until put back by hand (2026-11-01). The
+runner now reads each PowerShell test for the marks of that, and stops if one is not listed to run
+alone. A new test that writes under `build/` takes a folder of its own, or a temporary one there.
 
 | Group | What | How long here |
 | --- | --- | --- |
-| `quick` | tests of the sources and the built patches | about 3 minutes |
-| `full` | also the art, the GUI audit, Live Layout, mods | about 25 minutes |
+| `quick` | tests of the sources and the built patches | about a minute |
+| `full` | also the art, the GUI audit, Live Layout, mods | about 40 minutes |
 | `settings` | the installer tests, which replace the KMRP and KPM settings files for the run and put them back, so warn the maintainer first | about 8 minutes |
 | `build` | Test-BuildCache, which rebuilds KMRP about a dozen times, by name or group only | about 28 minutes |
 | `mac` | skipped here, each with its reason | |

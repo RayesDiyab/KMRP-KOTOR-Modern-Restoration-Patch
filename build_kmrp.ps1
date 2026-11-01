@@ -25,6 +25,8 @@ param(
     [switch]$FreshResources,
     # The same for step 6, the runtime, both modules and their patches.
     [switch]$FreshModules,
+    # Runs testing\run_regression.py's quick group after the build (audit TST-01).
+    [switch]$Test,
 
     # Progress is drawn with a redrawing bar. Pass -Plain for one line per event
     # instead, which is what you want when piping the build to a file or a log.
@@ -757,3 +759,9 @@ foreach ($file in @(Get-ChildItem -LiteralPath $kpmDir -File | Where-Object { $_
     Write-Host ("  {0,-34} {1,12:n0} bytes  {2}" -f $file.Name, $file.Length, $kpmHash) -ForegroundColor Gray
 }
 Write-Host ""
+
+# What the runner's quick group finds, about a minute here (testing/README.md).
+if ($Test) {
+    & $Python (Join-Path $projectRoot "testing\run_regression.py") --group quick
+    if ($LASTEXITCODE -ne 0) { throw "The quick tests failed." }
+}

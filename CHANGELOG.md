@@ -117,6 +117,15 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Testing: 12 tests side by side, what touches the player's settings alone, a status for every
+  finding** (2026-11-01). `run_regression.py` runs 12 at a time, the quick group in 58 s against 71.
+  Going wider did harm at first: two tests that move the player's real KPM settings aside took the
+  file from each other and left it in a work folder, from which it was put back unchanged. Such
+  tests run alone now, and the runner reads their sources and stops if one is listed to run in
+  parallel. `build_kmrp.ps1 -Test` runs the quick group after a build. The status of every audit
+  finding is in `docs/cleanup-audit-1.6-disposition.md`, and what only a game can check, with its
+  steps, in `docs/gameplay-checklist-1.6.md`.
+
 - **Removed: the keystroke path (approved decision 1, audit S-2, S-9)** (2026-11-01). The first
   controller path turned the pad into synthetic key presses. Nothing has called it since the native
   path replaced it, and the linker already left it out. 72 functions and 167 constants and variables
