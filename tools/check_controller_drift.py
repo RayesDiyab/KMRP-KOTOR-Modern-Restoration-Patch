@@ -196,8 +196,14 @@ def main() -> int:
                 continue
             for index in range(len(prompts.PROMPT_STRREFS.get(key, ()))):
                 built.add(f"{target.resref}{index}".lower())
-        source = (kc.ROOT / "src" / "controller-native" / "vendor"
-                  / "K1XboxControls.cpp").read_text(encoding="utf-8")
+        # The swoop race's shift cue is no button: tools/build_controller_assets.py makes it.
+        built.add("kmrpp_swoop")
+        # K1NativeJoystick.cpp names the badges of the screens it fills itself, class
+        # selection and Pazaak's hand; read alone, the other file made those three look
+        # orphaned (2026-11-01).
+        native = kc.ROOT / "src" / "controller-native"
+        source = "\n".join(path.read_text(encoding="utf-8") for path in
+                           (native / "vendor" / "K1XboxControls.cpp", native / "K1NativeJoystick.cpp"))
         wanted = {name.lower()
                   for name in re.findall(r'"(kmrp[a-z_0-9]+)"', source)}
         unbuilt = sorted(wanted - built)
