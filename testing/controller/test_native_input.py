@@ -9,8 +9,7 @@ That makes the whole native path testable without a human watching the screen.
 
 Requirements, all of which are checked before anything runs:
 
-  * KOTOR running, with the native path selected
-    (`select_controller_path.py native`)
+  * KOTOR running, with the controller patch installed
   * the virtual pad server running (`virtual_pad_server.py`)
   * for the movement tests, a save loaded -- input class 0 has to be active,
     which it is not at the main menu

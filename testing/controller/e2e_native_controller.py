@@ -10,7 +10,7 @@ Where a check cannot be made deterministically it says so rather than guessing;
 "looks right on screen" is not a result this file will ever report.
 
 Requirements:
-  * native mode selected (`select_controller_path.py native`)
+  * the controller patch installed in the game live_game.py names
   * ViGEmBus installed, so the virtual pad appears as a real XInput device
 
 Usage:

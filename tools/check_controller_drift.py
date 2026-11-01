@@ -155,26 +155,6 @@ def main() -> int:
     else:
         print(f"  {arguments.config} not present; install check skipped")
 
-    # 4. the installer can actually render a config
-    #
-    # This checks the code path that WRITES the config, not just the table it
-    # reads. select_controller_path.apply() referred to a NATIVE_HOOKS constant
-    # that the single-source refactor had deleted, so both "native" and "both"
-    # raised NameError -- and nothing noticed, because the suite only ever calls
-    # report(). A renderer nothing exercises is a renderer nothing tests.
-    sys.path.insert(0, str(kc.ROOT / "testing" / "controller"))
-    try:
-        import select_controller_path as installer
-        rendered = installer.native_hooks_toml()
-        names = re.findall(r'function\s*=\s*"(\w+)"', rendered)
-        want = [h["function"] for h in required if not kc.is_byte_patch(h)]
-        if names != want:
-            problems.append(f"the installer renders {names}, tracked table is {want}")
-        else:
-            print(f"  installer renders all {len(names)} native hooks")
-    except Exception as error:                       # noqa: BLE001 - report it
-        problems.append(f"the installer cannot render a config: {error!r}")
-
     # 4b. every badge the module asks for is actually built
     #
     # The module swaps a button's BORDER.FILL to one of these resrefs when a

@@ -117,6 +117,18 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Removed: the keystroke path (approved decision 1, audit S-2, S-9)** (2026-11-01). The first
+  controller path turned the pad into synthetic key presses. Nothing has called it since the native
+  path replaced it, and the linker already left it out. 72 functions and 167 constants and variables
+  go, 2,811 lines of the two `vendor/` files, with the seven hook rows and 16 exports that named them,
+  `testing/controller/select_controller_path.py` and `tools/audit_controller_prompt_coverage.py`. Git
+  keeps the design, which a comment of 2026-09-06 asked to keep. Proof: `kmrp-native.dll` is byte
+  for byte the same. `kmrp-controller.dll` differs from before by 112 bytes of code, as
+  `CycleAction`, `UpdateActionBarControls`, `FindK1DescriptionListbox` and `MouseIsBeingUsedK1` each
+  have one caller left and are inlined: all four are still there. Removing the constants after
+  that changed no byte. All 43 remaining hook rows parse the same, and every hook table the installer
+  writes is byte for byte the same. Keyboard and mouse are unaffected: no code they run was removed.
+
 - **Fixed: a kill while backing up `swkotor.ini` no longer blocks every later install (audit
   INS-03)** (2026-11-01). The backup was written before its hash, so a kill between the two left a
   backup with no hash, and each later install refused it. The hash goes first and the backup in one

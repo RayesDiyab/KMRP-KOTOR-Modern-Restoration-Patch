@@ -266,8 +266,6 @@ def verify_runtime_lookup_patch() -> None:
         raise AssertionError(
             "Prompt visibility needs the recentre-vs-real-movement discriminator; "
             "without it every menu transition clears the artwork")
-    if "PollMovieControllerK1" not in patch or "ConsumeMovieSkipK1" not in patch:
-        raise AssertionError("Controller patch is missing the per-frame movie skip path")
     for name, value in RUNTIME_OBJECT_OFFSETS.items():
         declaration = f"{name} = {value};"
         if declaration not in patch:

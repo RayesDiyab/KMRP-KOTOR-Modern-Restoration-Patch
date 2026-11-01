@@ -1,19 +1,6 @@
 LIBRARY kmrp-controller
 EXPORTS
-    CaptureActionBarInputK1
-    CaptureActionBarInputK2
-    CancelMovieOnSpaceK1
-    PollMovieControllerK1
-    CancelActionBarKeyboardFocusOnMouseMoveK1
-    CancelActionBarKeyboardFocusOnMouseMoveK2
     ClearActionBarControlsK1
-    ClearActionBarControlsK2
-    DispatchContextCancelK2
-    DispatchMenuInputK1
-    MapMovieDeleteToEscapeK2
-    UpdateActionBarControlsK1
-    UpdateActionBarControlsK2
-    OnSetActiveControlK1
     ResolveSoloModeConfirmK1
     ResolveResolutionConfirmK1
     GuardAbilitiesConfirmK1
@@ -44,8 +31,6 @@ EXPORTS
     NativeActionBarK1
     NativePanelReleaseGffK1
     NativeFreeSaveBufferK1
-    CoreGuiFrameK1
-    CoreMovieFrameK1
     KmrpActionBarApplyK1
     KmrpActionBarFocusedK1
     KmrpActionBarHeldK1
@@ -55,7 +40,6 @@ EXPORTS
     KmrpUpdatePromptsK1
     KmrpNoteMouseK1
     KmrpMarkControllerActiveK1
-    KmrpMarkKeyboardMouseK1
     KmrpNoteKeyboardK1
     NativeNoteKeyboardK1
     NativeNoteMouseK1

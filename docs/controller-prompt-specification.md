@@ -533,7 +533,7 @@ The rule held while no controller button did it.
 
 More generally: the static survey resolves **288 controls registering `0x27`**
 across the executable. A button without a badge is the normal case, not a defect.
-`tools/audit_controller_prompt_coverage.py` now says "no dedicated badge --
+`tools/audit_controller_prompt_coverage.py` (removed 2026-11-01 with the keystroke path it read) said then "no dedicated badge --
 reachable by focus + A" instead of "gap".
 
 ### Confirmation modals

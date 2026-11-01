@@ -760,7 +760,7 @@ navigation layer of [`controller-native-path.md`](controller-native-path.md)
 
 ## Prompt coverage
 
-`tools/audit_controller_prompt_coverage.py` joins the module's two tables by
+`tools/audit_controller_prompt_coverage.py`, removed 2026-11-01 with the keystroke path it read, joined the module's two tables by
 panel vtable: every screen it can navigate and that screen's row of action
 buttons, against every button that carries a badge. It reported **2 of 30** when
 first run and **22 of 31** after the 2026-09-06 expansion.
