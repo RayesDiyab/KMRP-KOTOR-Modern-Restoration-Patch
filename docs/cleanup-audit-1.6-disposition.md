@@ -58,7 +58,7 @@ tests from before this cycle were not all re-proved.
 | THR-1 | KMRP alone never preloads the HUD page | In-game | `53ce379` | No test: needs a GL context |
 | THR-3 | Exceptions on background threads | In-game | `75c1ed6` | By reading; `bad_alloc` not provoked |
 | THR-4 | Game thread waits on the build lock | In-game | `5576e8b` | By reading; no test of the timing |
-| THR-5 | Picture sweep per border per frame (GFX-07 with it) | Open | | |
+| THR-5 | Picture sweep per border per frame (GFX-07 with it) | In-game | this cycle | Measured with the built file's 136 glyphs and 172 pictures: one border's lookups 4.6 to 14.9 us walked, 0.26 us hashed, whatever the session's length. Test-PictureKey holds the new key to the old comparison on 400,005 pairs and fails when broken. The audit's "skip unchanged" is not needed after this. The module grew 8 KB. Pictures in a game on the checklist |
 | THR-6 | Text work on every panel each frame | Open | | |
 | THR-8 | One cache for all game folders | Tested | `5576e8b` | Test-AssetPrepare case 11 |
 | GFX-02 | Hot patch live before `real` | In-game | `75c1ed6` | By reading; the race is too narrow to provoke |
@@ -104,7 +104,7 @@ tests from before this cycle were not all re-proved.
 | THR-10 | Sampler and applier suspend each other | Open | | Debug only |
 | GFX-05 | `drawnOffscreen` ignored the binding | Tested | `397129c` | Test-OffscreenFrame, fails without it |
 | GFX-06 | Each read resolves the whole frame | Open | | Cost unmeasured |
-| GFX-07 | Scene fills never pruned | Open | | With THR-5 |
+| GFX-07 | Scene fills never pruned | In-game | this cycle | The list by border is gone: only its picture-to-scene answer was ever read, so one row per picture drawn. With THR-5 |
 | MEM-02 | `hudInterface` outlives the HUD | In-game | `75c1ed6` | By reading |
 | MEM-03 | `_s` failure branches cannot run | In-game | `75c1ed6` | By reading; a 220-character path not run |
 | MEM-04 | Detours written with the game running | Kept | | KPM's, upstream. Theoretical |

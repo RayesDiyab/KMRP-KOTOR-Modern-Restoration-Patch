@@ -70,6 +70,12 @@ hides the bug these fixed.
 | --- | --- | --- |
 | [ ] | Open a container at 1920x1080 with a large Text Size. Close it, change the resolution in Options to another size, and open a container again. Change once more. | The three buttons stay inside the panel, "Switch To Give Item" fits, and the panel does not grow with each change. |
 
+## 3ab. Pictures after the lookup change (audit THR-5)
+
+| Done | Steps | Expected |
+| --- | --- | --- |
+| [ ] | With the Xbox HUD on: play a few minutes of combat, open the Controller Layout, change the pad family, and change the resolution once. | No white frame or badge that stays white, and no picture of the wrong family or size. |
+
 ## 3b. Badges beside their captions (decision 6)
 
 **Controller only** at 1920x1080 and 3440x1440: each badge sits beside its caption, not far off to

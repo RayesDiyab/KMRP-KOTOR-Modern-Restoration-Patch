@@ -109,6 +109,7 @@ TESTS = {
     "Test-NativeAssetsBank": ("full", py("Test-NativeAssetsBank"), [], ""),
     "Test-NativeTextLayout": ("quick", py("Test-NativeTextLayout"), [], ""),
     "Test-RuntimeRelayout": ("quick", py("Test-RuntimeRelayout"), [], ""),
+    "Test-PictureKey": ("quick", py("Test-PictureKey"), [], ""),
     "Test-NvidiaPresentMethod": ("full", ps("Test-NvidiaPresentMethod"), [], ""),
     "Test-OverrideFontMetrics": ("quick", py("Test-OverrideFontMetrics"), [], ""),
     "Test-PartyRosterFixture": ("full", py("Test-PartyRosterFixture"),

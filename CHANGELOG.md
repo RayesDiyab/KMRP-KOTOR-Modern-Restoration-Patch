@@ -117,6 +117,12 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Faster: the controller patch's picture lookups (audit THR-5, GFX-07)** (2026-11-01). Each picture
+  border, each frame, walked three lists that only grew, one of them only to trigger a load. They
+  are hash tables now, and the list by border is one map with a row per picture drawn. One border
+  went from 4.6 to 14.9 microseconds, growing through a session, to 0.26 at any length of session;
+  at 60 borders that is up to 0.9 ms a frame back. Nothing shown changes.
+
 - **Fixed: the Container after a change of size (audit GUI-4)** (2026-11-01). Its buttons and list
   came out wider than its panel, and a further change added to that: the width KMRP gives the panel
   for a long button label was taken for something the engine had added, kept and scaled. The change

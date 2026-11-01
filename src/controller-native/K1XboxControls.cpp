@@ -1572,6 +1572,7 @@ struct K1BadgeRect { int left, top, width, height; };
 }   // the anonymous namespace the drawer's C header must not be inside
 #include "../../macos/tools/kmrp-glyphs.h"
 #include "KmrpOptions.h"
+#include "K1PictureKey.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -1580,6 +1581,8 @@ struct K1BadgeRect { int left, top, width, height; };
 #include <mutex>
 #include <string>
 #include <thread>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 const std::wstring& KmrpRuntimeAssetDirectory();   // K1ControllerStandalone.cpp
 const char* KmrpLogicalFillK1(const char* fill);   // below, for K1NativeJoystick.cpp too
@@ -1598,9 +1601,13 @@ std::vector<K1GlyphEntry> g_k1Glyphs;
 struct K1ScenePart { std::string glyph; int left, top, width, height; };
 struct K1Scene { std::string name; int width, height; bool stretch; int cap; std::vector<K1ScenePart> parts; };
 std::vector<K1Scene> g_k1Scenes;
+// Every picture border asks for these every frame, so they are looked up, not walked (audit
+// THR-5): both made once, with the file, in FindK1Glyph.
+std::unordered_map<std::string, const KmrpGlyph*> g_k1GlyphIndex;
+std::unordered_map<std::string, const K1Scene*> g_k1SceneIndex;      // by K1PictureKey
 std::vector<unsigned char> g_k1GlyphData;
 std::once_flag g_k1GlyphOnce;
-std::vector<std::string> g_k1DrawnBadges;           // textures written this session
+std::unordered_set<std::string> g_k1DrawnBadges;    // textures written this session
 // While the frame's sweep runs, the folder is listed once at its end rather than after each
 // picture, and the fills that wait on that listing are set then (K1SweepFrame). Listing the
 // folder is most of a picture's cost on the game thread: 31 to 109 ms for a 44x44 badge,
@@ -1688,17 +1695,18 @@ const KmrpGlyph* FindK1Glyph(const std::string& name)
             if (!ok) break;
             g_k1Scenes.push_back(scene);
         }
+        // The first of a name, as walking the lists found.
+        for (const K1GlyphEntry& entry : g_k1Glyphs) g_k1GlyphIndex.emplace(entry.name, &entry.glyph);
+        for (const K1Scene& scene : g_k1Scenes) {
+            if (scene.name.size() <= 16) g_k1SceneIndex.emplace(K1PictureKey(scene.name.c_str()), &scene);
+        }
         char line[160];
         std::snprintf(line, sizeof line, "badges: %u glyph outlines and %u pictures read for drawing at the shown size",
                       static_cast<unsigned>(g_k1Glyphs.size()), static_cast<unsigned>(g_k1Scenes.size()));
         ControllerLogK1(line);
     });
-    for (const K1GlyphEntry& entry : g_k1Glyphs) {
-        if (entry.name == name) {
-            return &entry.glyph;
-        }
-    }
-    return nullptr;
+    const auto found = g_k1GlyphIndex.find(name);
+    return found == g_k1GlyphIndex.end() ? nullptr : found->second;
 }
 
 // A drawn texture's resref: `kind` ('g' a badge's glyph, 's' a picture), a hash of what it
@@ -1717,12 +1725,7 @@ void K1DrawnName(char kind, const std::string& what, int dw, int dh, char out[17
 
 bool K1AlreadyDrawn(const char* name)
 {
-    for (const std::string& known : g_k1DrawnBadges) {
-        if (known == name) {
-            return true;
-        }
-    }
-    return false;
+    return g_k1DrawnBadges.count(name) != 0;
 }
 
 // `sheet` (dw x dh, RGBA, top row first) written as `name`.tga with a TXI that turns
@@ -1789,7 +1792,7 @@ bool K1WriteDrawnTexture(const char* name, const std::vector<std::uint8_t>& shee
         g_k1FailedPictures.push_back(name);
         return false;
     }
-    g_k1DrawnBadges.push_back(name);
+    g_k1DrawnBadges.insert(name);
     return true;
 }
 
@@ -1819,14 +1822,9 @@ bool K1BadgeTexture(const std::string& name, const KmrpGlyph& glyph, int dw, int
 
 const K1Scene* FindK1Scene(const char* fill)
 {
-    FindK1Glyph(std::string());
-    for (const K1Scene& scene : g_k1Scenes) {
-        if (_strnicmp(scene.name.c_str(), fill, 16) == 0 && scene.name.size() <= 16 &&
-            (scene.name.size() == 16 || fill[scene.name.size()] == '\0')) {
-            return &scene;
-        }
-    }
-    return nullptr;
+    FindK1Glyph(std::string());                            // the file read, once
+    const auto found = g_k1SceneIndex.find(K1PictureKey(fill));
+    return found == g_k1SceneIndex.end() ? nullptr : found->second;
 }
 
 // `scene` drawn at dw x dh: each glyph in its box scaled to that size, keeping its own
@@ -1982,7 +1980,7 @@ void K1CollectBackgroundPictures(const char* waitFor)
     const bool listed = KmrpControllerRelistK1();
     for (const K1BackgroundDone& d : done) {
         if (d.ok && listed) {
-            g_k1DrawnBadges.push_back(d.name);
+            g_k1DrawnBadges.insert(d.name);
         }
         char line[220];
         std::snprintf(line, sizeof line, "pictures: %s drawn at %dx%d as %s in %lu ms in the background%s",
@@ -2044,11 +2042,12 @@ bool K1SceneTexture(const K1Scene& scene, int dw, int dh, char out[17])
     return true;
 }
 
-// Which border shows which drawn picture, and for what: a picture's control can be resized
-// or given another family's picture, and the code that sets the picture by name sees it as
-// the name it gave (KmrpLogicalFillK1).
-struct K1SceneFill { void* params; std::string scene; char drawn[17]; };
-std::vector<K1SceneFill> g_k1SceneFills;
+// What each drawn picture shows, by K1PictureKey: a picture's control can be resized or given
+// another family's picture, and the code that sets the picture by name sees it as the name it
+// gave (KmrpLogicalFillK1). Until 2026-11-01 this was a list by border, which only grew and was
+// walked for each border each frame (audit THR-5, GFX-07), though only this was ever read from
+// it. One row for each picture drawn; nodes stay put, so the names handed out stay good.
+std::unordered_map<std::string, std::string> g_k1DrawnScenes;
 }   // the anonymous namespace: KmrpLogicalFillK1 is called from K1NativeJoystick.cpp
 
 // The picture a border's fill stands for: the patch's own name for it where the fill is a
@@ -2057,12 +2056,8 @@ std::vector<K1SceneFill> g_k1SceneFills;
 // compares this, or it would set the name again every frame and the sweep its drawing.
 const char* KmrpLogicalFillK1(const char* fill)
 {
-    for (const K1SceneFill& known : g_k1SceneFills) {
-        if (_strnicmp(known.drawn, fill, 16) == 0) {
-            return known.scene.c_str();
-        }
-    }
-    return fill;
+    const auto found = g_k1DrawnScenes.find(K1PictureKey(fill));
+    return found == g_k1DrawnScenes.end() ? fill : found->second.c_str();
 }
 
 namespace {
@@ -2130,16 +2125,7 @@ const char* KmrpDrawnFillK1(const void* params, const char* fill)
     if (width <= 0 || height <= 0 || width > 4095 || height > 4095 || !K1SceneTexture(*scene, width, height, drawn)) {
         return fill;
     }
-    K1SceneFill* entry = nullptr;
-    for (K1SceneFill& known : g_k1SceneFills) {
-        if (known.params == params) entry = &known;
-    }
-    if (!entry) {
-        g_k1SceneFills.push_back({const_cast<void*>(params), scene->name, {}});
-        entry = &g_k1SceneFills.back();
-    }
-    entry->scene = scene->name;
-    std::memcpy(entry->drawn, drawn, 17);
+    const auto entry = g_k1DrawnScenes.insert_or_assign(K1PictureKey(drawn), scene->name).first;
     if (KmrpDebugLevel() >= 2) {
         // Level 2: each picture set by name, the border it went on and the drawing it became.
         char line[200];
@@ -2147,7 +2133,7 @@ const char* KmrpDrawnFillK1(const void* params, const char* fill)
                       params, static_cast<unsigned>(offset), control, width, height, scene->name.c_str(), drawn);
         ControllerLogK1(line);
     }
-    return entry->drawn;
+    return entry->first.c_str();
 }
 
 namespace { void K1FinishSweep(); }
@@ -2343,16 +2329,7 @@ const K1Scene* K1PictureFor(const char* params, char fill[17], int& width, int& 
 void K1SetSceneFill(char* params, const std::string& scene, const char* drawn)
 {
     reinterpret_cast<SetFillImageFn>(K1_GUI_BORDER_SET_FILL_IMAGE)(params, drawn, 1);
-    K1SceneFill* entry = nullptr;
-    for (K1SceneFill& known : g_k1SceneFills) {
-        if (known.params == params) entry = &known;
-    }
-    if (!entry) {
-        g_k1SceneFills.push_back({params, scene, {}});
-        entry = &g_k1SceneFills.back();
-    }
-    entry->scene = scene;
-    std::memcpy(entry->drawn, drawn, 17);
+    g_k1DrawnScenes.insert_or_assign(K1PictureKey(drawn), scene);
 }
 
 // A border's parameters that show one of the patch's pictures: the picture drawn for its size
@@ -2415,8 +2392,7 @@ void K1FinishSweep()
         if (!KmrpControllerRelistK1()) {
             // The engine would find none of them, and listing failed, so not drawn again.
             for (const K1WaitingFill& waiting : g_k1WaitingFills) {
-                g_k1DrawnBadges.erase(std::remove(g_k1DrawnBadges.begin(), g_k1DrawnBadges.end(),
-                                                  std::string(waiting.drawn)), g_k1DrawnBadges.end());
+                g_k1DrawnBadges.erase(waiting.drawn);
                 g_k1FailedPictures.push_back(waiting.drawn);
             }
             g_k1WaitingFills.clear();
