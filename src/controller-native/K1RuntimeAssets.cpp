@@ -524,14 +524,32 @@ bool Link(const std::wstring& from, const std::wstring& to)
     return CreateHardLinkW(to.c_str(), from.c_str(), nullptr) || CopyFileW(from.c_str(), to.c_str(), TRUE);
 }
 
+// What a folder holds, its files and their bytes, which the marker records.
+std::string Contents(const std::wstring& directory)
+{
+    unsigned long long files = 0, bytes = 0;
+    WIN32_FIND_DATAW found;
+    HANDLE search = FindFirstFileW((directory + L"\\*").c_str(), &found);
+    if (search == INVALID_HANDLE_VALUE) return {};
+    do {
+        if (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+        ++files;
+        bytes += (static_cast<unsigned long long>(found.nFileSizeHigh) << 32) | found.nFileSizeLow;
+    } while (FindNextFileW(search, &found));
+    FindClose(search);
+    return std::to_string(files) + " " + std::to_string(bytes) + "\n";
+}
+
 // A folder is complete when the marker beside it (never inside: the game lists the
-// folder as resources) holds the text it was finished with. Built under another name
-// and renamed, so a run cut short leaves nothing that looks finished.
+// folder as resources) holds the text it was finished with and what it held then. Built
+// under another name and renamed, so a run cut short leaves nothing that looks finished.
+// The text alone until 2026-11-01: a file taken out afterwards, by a virus scanner say,
+// was never made again (Test-AssetPrepare case 8).
 bool Complete(const std::wstring& directory, const std::string& stamp)
 {
     std::vector<unsigned char> text;
     return IsDirectory(directory) && Read(directory + L".complete", text) &&
-           std::string(text.begin(), text.end()) == stamp;
+           std::string(text.begin(), text.end()) == stamp + Contents(directory);
 }
 
 template<class Fill>
@@ -547,7 +565,8 @@ bool Build(const std::wstring& directory, const std::string& stamp, Fill fill)
         RemoveFlat(work);
         return false;
     }
-    return WriteNew(directory + L".complete", std::vector<unsigned char>(stamp.begin(), stamp.end()));
+    const std::string marker = stamp + Contents(directory);
+    return WriteNew(directory + L".complete", std::vector<unsigned char>(marker.begin(), marker.end()));
 }
 
 // A folder's path for the game's resource manager; the helpers take UTF-8 (Utf8Path) and need

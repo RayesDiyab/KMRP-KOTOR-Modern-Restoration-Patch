@@ -17,7 +17,12 @@ makes from the player's own game are left out, which is not an error). It checks
      index's SHA-256;
   3. a second run finds everything made, and makes nothing;
   4. three workers side by side make the same sets as one, the common files once;
-  5. without the pack the module makes nothing and says why in kmrp-kpm.log.
+  5. without the pack the module makes nothing and says why in kmrp-kpm.log;
+  6. a pack cut short, one with its header or its identity damaged: the same, and no crash;
+  7. a byte wrong in a pack's stored data: no set is marked complete with wrong files;
+  8. a set a stopped run left without its marker, and one whose file went missing under its
+     marker: the next run makes them again;
+  9. a cache folder that cannot be made: nothing is made, and no crash.
 
 It starts no game. Windows only (the module is Windows'). It takes about two minutes on
 the maintainer's PC.
@@ -147,6 +152,76 @@ def main() -> int:
         log = path.read_text(errors="replace") if path.exists() else ""
         check(code != 0 and none == -1 and "kmrp-assets.pack is not in the patches folder" in log,
               "without the pack nothing is made, and kmrp-kpm.log says the pack is missing")
+
+        # 6. A damaged pack: nothing is made, the log says so, the process lives (audit TST).
+        def with_pack(name, change):
+            folder = tmp / name
+            folder.mkdir()
+            shutil.copy2(MODULE, folder / "kmrp.dll")
+            bytes_ = bytearray(PACK.read_bytes())
+            change(bytes_)
+            (folder / "kmrp-assets.pack").write_bytes(bytes_)
+            cache = tmp / (name + "-cache")
+            cache.mkdir()
+            if path.exists():
+                path.unlink()
+            code, count = finish(run(folder / "kmrp.dll", game, cache))
+            text = path.read_text(errors="replace") if path.exists() else ""
+            return code, count, text, cache
+
+        def cut(pack):
+            del pack[len(pack) // 2:]
+
+        def first_byte(pack):
+            pack[0] ^= 0xFF
+
+        def identity_byte(pack):
+            pack[20] ^= 0xFF
+
+        for name, change, says in (("cut", cut, "cannot be read"), ("header", first_byte, "cannot be read"),
+                                   ("identity", identity_byte, "kmrp-assets.pack")):
+            code, count, text, _ = with_pack(name, change)
+            check(code != 0 and count == -1 and says in text and code & 0xC0000000 != 0xC0000000,
+                  f"a pack damaged ({name}): nothing is made, the log says so, no crash (exit {code:#x}, made {count})")
+
+        # 7. A byte wrong in the stored data, a third of the way through every block's bytes.
+        def stored_byte(pack):
+            for at in range(len(pack) // 2, len(pack), 4 << 20):
+                pack[at] ^= 0xFF
+
+        code, count, text, cache = with_pack("stored", stored_byte)
+        crashed = code & 0xC0000000 == 0xC0000000
+        check(not crashed, f"wrong bytes in the stored data do not crash it (exit {code:#x}, made {count})")
+        builds7, _, sets7 = cache_state(cache)
+        wrong = []
+        for size in sets7:
+            for name, key in dict(listed).get(size, []):
+                file = builds7[0] / "sets" / size / name
+                if file.exists() and hashlib.sha256(file.read_bytes()).digest() != key:
+                    wrong.append(f"{size}/{name}")
+        check(not wrong, f"no set marked complete holds a wrong file ({len(sets7)} sets marked)" +
+              (f": NOT {wrong[:5]}" if wrong else ""))
+
+        # 8. A stopped run, and a file gone from a set that says it is complete.
+        target = builds[0] / "sets" / sample
+        marker = target.parent / (sample + ".complete")
+        check(marker.exists(), f"the {sample} set has its marker beside it")
+        marker.unlink()
+        one = next(file for file in target.iterdir() if file.is_file())
+        one.unlink()
+        code, again = finish(run(MODULE, game, local))
+        check(code == 0 and again == made and marker.exists() and one.exists(),
+              "a set without its marker is made again")
+        one.unlink()
+        code, again = finish(run(MODULE, game, local))
+        check(code == 0 and one.exists(), "a file gone from a set with its marker is made again")
+
+        # 9. No cache folder can be made: %LOCALAPPDATA% is a file.
+        blocked = tmp / "blocked"
+        blocked.write_text("not a folder")
+        code, count = finish(run(MODULE, game, blocked))
+        check(code != 0 and count == -1 and code & 0xC0000000 != 0xC0000000,
+              f"a cache that cannot be made: nothing is made, no crash (exit {code:#x}, made {count})")
     print()
     if failures:
         print(f"{len(failures)} check(s) failed")

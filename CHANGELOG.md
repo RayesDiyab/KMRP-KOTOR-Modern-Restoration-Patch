@@ -117,6 +117,17 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: a file taken out of the art cache is made again** (2026-11-01). A finished set's
+  marker held only its build's text, so a file removed afterwards, by a virus scanner say, was
+  never made again and the game went without it. The marker now also records the folder's files
+  and bytes, so a file gone or cut short remakes that set. Size and count are read, not contents:
+  a file changed at the same size is not noticed. A cache from before this is made once again.
+  Test-AssetPrepare had only tried healthy packs. It now also tries a pack cut short, with its
+  header or identity damaged, and with wrong bytes in its stored data, a set left without its
+  marker, a file gone from a finished set, and a cache that cannot be made: nothing crashes,
+  and no set is marked complete with wrong files. The missing-file case failed before this.
+  Not in a game.
+
 - **Build: the native modules are cached too** (2026-11-01). The step that builds KPM's runtime,
   both modules and their patches took 80 to 140 s of every build, even when only the installer's
   C# had changed. It is now skipped when nothing it depends on has changed, and an unchanged or
