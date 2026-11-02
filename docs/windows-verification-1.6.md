@@ -233,6 +233,20 @@ With the movies skipped at once, game capture recorded menu, loading and play wi
 
 **Reading:** on this PC the crash is OBS game capture's hook landing after it retried through the movies, and it needs no KMRP code, so KMRP's movie changes do not cause it. Why the retries end in a crash was not traced. Windows logged no crash event. **Not shown:** that the reporter's failure is this one. They also report desktop capture failing, which did not happen here, and 1.5.1 itself was not run. Override held K1 Community Patch in every run. No AMD test.
 
+### Issue 89: where the crash is, and newer OBS
+
+A debugger attached at the menu caught the access violation on OBS's own thread: `ntdll` at `+68E26`, writing near address 0x14, called from `graphics-hook32.dll` through `d3d11.dll`, unpatched game. No KOTOR or KMRP code was executing there. (Attached from the movies on, the crash did not happen.)
+
+| OBS | `Use anti-cheat compatibility hook` | Game | Result |
+| --- | --- | --- | --- |
+| 30.0.2 | off | unpatched | game crashed, 3 of 3 |
+| 30.0.2 | off | KMRP | game crashed, 1 of 3 |
+| 33.0.1 portable | on (OBS's default) | either | OBS itself closed after its first hook attempt, 8 of 8, code 0 where read. Game unharmed, nothing captured |
+| 33.0.1 portable | off | unpatched | captured, no crash, 3 of 3 |
+| 33.0.1 portable | off | KMRP | captured, no crash, 3 of 3 |
+
+**Caveat on the OBS 33 runs with the setting on:** that portable copy could not update the shared 32-bit hook in `C:\ProgramData\obs-studio-hook` (error 32), so with the setting on it used the January 2024 hook. A clean OBS 33 install may behave differently. No patch for KOTOR and OBS was found online. No game-side fix was made: the fault is in OBS's hook, and OBS 33 with the setting off works.
+
 ### Regression on the final source
 
 On `0825f2d` with documents only changed since: quick 37 and full 22, 59 passed. Mac 12 and Test-BuildCache not run. The Steam folder was not touched in this pass and still has the build of `472ea9c`, without the PAD-9 fix.
