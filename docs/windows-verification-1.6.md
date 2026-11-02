@@ -370,6 +370,19 @@ The fight was the real one, by real damage, reached by a save copy: the player p
 
 **Not shown:** only this fight, once, on NVIDIA with a virtual pad. The reporter's 1.5.1 was not run, so whether it is the same fault that 1.6 fixed is not shown, nor that this is the fight they saw.
 
+### GFX-01: the black block, tried by hand and not reproduced
+
+The maintainer, on the Steam game with the final build, RTX 3080, 3440x1440 at 120 Hz, K1 Community Patch and BOS:SR installed, the Windows XP SP3 compatibility mode set, anti-aliasing 8. Looked at on the main menu, by eye.
+
+| Movies | KMRP's offscreen frame | Black block |
+| --- | --- | --- |
+| `Disable Movies=1` | on | none |
+| `Disable Movies=0` | on | none |
+| `Disable Movies=1` | off (`window-drawn=1`) | none |
+| `Disable Movies=0` | off (`window-drawn=1`) | none |
+
+**Left unresolved, as the maintainer decided.** The six-byte patch at `0x00401B09` was not made, as nothing shows it cures a block that cannot be seen here. **Not covered:** the NVIDIA present method, not read in these runs; an AMD card; a second monitor; 1.5.1 itself. The test settings were put back afterwards.
+
 ### Regression on the final source
 
 On `0825f2d` with documents only changed since: quick 37 and full 22, 59 passed. Mac 12 and Test-BuildCache not run. The Steam folder was not touched in this pass and still has the build of `472ea9c`, without the PAD-9 fix.
