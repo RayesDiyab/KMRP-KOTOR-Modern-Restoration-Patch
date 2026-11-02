@@ -1621,7 +1621,14 @@ bool RestorePauseNotice(void* pause)
 // and gives the three controls their rectangles anew every time it pauses
 // (SetPauseReason), so everything set here is compared with what is there and set
 // again when anything differs.
-void PauseNotice(void* pause, void* client)
+// The target's name frame as drawn, with the rows a long name adds: the frame's label, not
+// LBL_NAMEBG of the HUD beneath it, which is narrower and ends inside the frame.
+Extent g_nameFrameDrawn{};
+
+// ROOM is what the screen leaves for the one line left of the minimap and FRAMEWIDTH the
+// target's name frame. Returns true when the line did not fit there, so the box is laid out
+// in two lines, FRAMEWIDTH wide, for PlacePause to put under that frame.
+bool PauseNotice(void* pause, void* client, int room, int frameWidth)
 {
     static bool tried = false, english = false;
     if (!tried && client) {
@@ -1631,13 +1638,13 @@ void PauseNotice(void* pause, void* client)
         english = line.text && _stricmp(line.text, "PRESS THE PAUSE BUTTON TO CONTINUE") == 0;
         reinterpret_cast<void(__thiscall*)(String*)>(K1_EXOSTRING_DTOR)(&line);
     }
-    if (!english) return;
+    if (!english) return false;
     void* reason = Part(pause, kPauseReason);
     void* press = Part(pause, kPausePress);
     void* button = Part(pause, kPauseButton);
     const String& reasonNow = At<String>(reason, kLabelTextParams);
     const String& pressNow = At<String>(press, kLabelTextParams);
-    if (!reasonNow.text) return;
+    if (!reasonNow.text) return false;
     // The layout's own, while the box has nothing of this file's in it (PauseOwn).
     // Not while KmrpXboxHudPauseReasonK1 has only taken the picture off: the labels'
     // places and words are still this file's then.
@@ -1657,10 +1664,13 @@ void PauseNotice(void* pause, void* client)
     static const char second[] = "TO CONTINUE";
     static Extent set[4]{};                         // reason, press, button, panel, as last set
     static char familyShown[16] = {};               // the picture as last set
+    static int roomShown = 0, frameShown = 0;       // what it was laid out for
+    static bool stacked = false;                    // in two lines, as last set
     if (g_pauseForget) {
         g_pauseForget = false;
         first[0] = 0;
         familyShown[0] = 0;
+        roomShown = frameShown = 0;
         for (Extent& one : set) one = Extent{};
     }
     // The button that pauses: LB, or the button Pause was moved to (controller
@@ -1676,8 +1686,8 @@ void PauseNotice(void* pause, void* client)
             same(At<Extent>(button, kControlExtent), set[2]) &&
             panelNow.width == set[3].width && panelNow.height == set[3].height &&
             (At<int>(press, kControlFlags) & kControlVisible) != 0 && std::memcmp(familyShown, family, sizeof family) == 0 &&
-            !g_pauseStripped)
-        return;
+            room == roomShown && frameWidth == frameShown && !g_pauseStripped)
+        return stacked;
 
     // A reason that is not this file's line is the game's, just written, and with it
     // whether the second label is shown (PauseKept).
@@ -1689,7 +1699,7 @@ void PauseNotice(void* pause, void* client)
 
     // The font's measures, from the first label's string as it is drawn.
     LabelFont font;
-    if (!FontOfLabel(reason, font)) return;
+    if (!FontOfLabel(reason, font)) return false;
     const auto wide = [&](const char* text) { return WideIn(font, text); };
     const int lineHeight = font.lineHeight;
 
@@ -1741,12 +1751,27 @@ void PauseNotice(void* pause, void* client)
     set[0] = {end - slack, top, firstWide + 2 * slack, lineHeight};
     set[2] = {end + firstWide + gap, edge, glyph, glyph};
     set[1] = {set[2].left + glyph + gap - slack, top, secondWide + 2 * slack, lineHeight};
-    SetExtent(reason, set[0]);
-    SetExtent(press, set[1]);
-    SetExtent(button, set[2]);
     Extent box = panelNow;
     box.width = set[1].left + slack + secondWide + end;
     box.height = glyph + 2 * edge;
+    // Too wide for its place beside the name frame (800x600: over the frame, the maintainer
+    // saw it, 2026-11-02): as wide as the frame, words above, picture and words below,
+    // each centred.
+    stacked = frameWidth > 0 && box.width > room;
+    if (stacked) {
+        const int below = edge + lineHeight + edge;
+        const int across = (frameWidth - (glyph + gap + secondWide)) / 2;
+        set[0] = {(frameWidth - firstWide) / 2 - slack, edge, firstWide + 2 * slack, lineHeight};
+        set[2] = {across, below, glyph, glyph};
+        set[1] = {across + glyph + gap - slack, below + (glyph - lineHeight) / 2, secondWide + 2 * slack, lineHeight};
+        box.width = frameWidth;
+        box.height = below + glyph + edge;
+    }
+    roomShown = room;
+    frameShown = frameWidth;
+    SetExtent(reason, set[0]);
+    SetExtent(press, set[1]);
+    SetExtent(button, set[2]);
     SetExtent(pause, box);
     set[3] = box;
 
@@ -1770,6 +1795,7 @@ void PauseNotice(void* pause, void* client)
     At<int>(button, kControlFlags) |= kControlVisible;
     std::memcpy(familyShown, family, sizeof family);
     g_pauseStripped = false;        // the picture is on the button again, at its size
+    return stacked;
 }
 
 // The pause notice as this HUD has it, left of the minimap. From the HUD's hook every
@@ -1778,12 +1804,22 @@ void PauseNotice(void* pause, void* client)
 // (KmrpXboxHudPauseReasonDoneK1).
 void PlacePause(void* hud, void* pause, void* client, int width)
 {
-    PauseNotice(pause, client);
     const Extent map = At<Extent>(Part(hud, kHudMapBorder), kControlExtent);
+    // The frame's art has a clear edge, a 44th of its width on each side (measured at
+    // 800x600 and 1280x720, 2026-11-02): the box takes the width that is drawn.
+    Extent name = g_nameFrameDrawn;
+    const int clear = name.width / 44;
+    name.left += clear;
+    name.width -= 2 * clear;
+    const int margin = (std::max)(0, width - (map.left + map.width));
+    const int room = map.left - margin - (name.left + name.width) - margin;
+    const bool stacked = PauseNotice(pause, client, room, name.width);
     Extent& at = At<Extent>(pause, kControlExtent);
-    if (map.width > 0 && at.width > 0) {
-        const int margin = width - (map.left + map.width);
-        const int left = map.left - (margin > 0 ? margin : 0) - at.width;
+    if (stacked) {
+        at.left = name.left;
+        at.top = name.top + name.height + margin / 2;
+    } else if (map.width > 0 && at.width > 0) {
+        const int left = map.left - margin - at.width;
         at.left = left > 0 ? left : 0;
         at.top = map.top;
     }
@@ -2190,6 +2226,7 @@ extern "C" void __cdecl KmrpXboxHudK1(void* hud)
     // frame on the label, as before.
     const int extra = name.height - nameRow;
     const Extent frame = fromName(kNameFrame);
+    g_nameFrameDrawn = {frame.left, frame.top, frame.width, frame.height + (std::max)(0, extra)};
     void* frameLabel = Part(menu, kMenuNameBackground);
     g_nameSlices = NameSlices{};
     if (extra > 0) {
