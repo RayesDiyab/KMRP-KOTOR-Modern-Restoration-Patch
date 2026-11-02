@@ -309,6 +309,23 @@ K1DC logged `gl error site=brightness raised=during errors=INVALID_OPERATION` be
 
 Regression: 62 passed and 12 skipped with the brightness and Container fixes (the default run, not settings, Mac or build). Quick 38 passed on the final source, banner included; the full group was not repeated after the banner. Mac 12 not run. The Steam folder and the `dist` installer have none of these fixes.
 
+### PAD-4 and issue 87: bark bubble in a fight
+
+A bark bubble was raised in a real fight at last: `BarkString` from every creature's heartbeat in a save copy, in the combat fixture, the bubble panel in the list about every 6 seconds. The earlier attempts above never set this up in the save itself. Virtual pad, KMRP + controller, 2 runs.
+
+| Check | Observed | Result |
+| --- | --- | --- |
+| Focus with the bubble up | The bubble's panel has no active control, and the HUD's stays. One slot highlighted in each frame looked at | pass |
+| D-pad right | Moved along the slots, with the bubble up and after | pass |
+| A on a slot | Queued Force Push | pass |
+| B | Let go of the slot, as without a bubble | pass |
+
+**Not shown:** BOS:SR is not on this PC and 1.5.1 was not run, so the reporter's dialogue box may not be this one. The bubble's words were in no frame taken, so what stood on screen was the panel, by the panel list.
+
+### K1DC's soft shadow error
+
+`gl error site=soft_shadow raised=during errors=INVALID_OPERATION` comes once at about 0.25 s at AA 8, the same with `window-drawn=1`, so it is not KMRP's offscreen frame. The later `raised=before` lines were a `glow raised=during` with `window-drawn=1`. Not traced in K1DC's source any further. Soft shadows were not compared by eye. One for Synchro, with the brightness finding: K1DC's loader asks `wglGetProcAddress` for core functions first.
+
 ### Regression on the final source
 
 On `0825f2d` with documents only changed since: quick 37 and full 22, 59 passed. Mac 12 and Test-BuildCache not run. The Steam folder was not touched in this pass and still has the build of `472ea9c`, without the PAD-9 fix.
