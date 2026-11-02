@@ -41,6 +41,9 @@ bool KmrpWriteDrawnPictureK1(const char* name, const std::vector<std::uint8_t>& 
 bool KmrpPicturesSettledK1();   // a frame went by with nothing left to draw
 void KmrpStampPictureK1(void* control, std::ptrdiff_t paramsOffset, const char* name);
 void KmrpBadgeCentreK1(void* button, bool on);   // glyph and caption centred together
+int KmrpCaptionLineWidthK1(void* button);          // the caption on one line, at its scale now; 0 unknown
+float KmrpCaptionScaleK1(void* button);            // the scale its string is drawn at; 0 unknown
+void KmrpSetCaptionScaleK1(void* button, float scale);
 void KmrpForgetBadgeOverlaysK1(void* panel);
 void KmrpPromptDimK1(void* button, bool dim);
 void KmrpPromptFillK1(void* control, const char* value);

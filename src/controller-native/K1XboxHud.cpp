@@ -608,7 +608,7 @@ constexpr int kPieceCount = static_cast<int>(sizeof kPieces / sizeof kPieces[0])
 constexpr std::ptrdiff_t kBarBorderParams = 0x7C;
 constexpr std::ptrdiff_t kBarFillParams = 0xF0;
 constexpr std::ptrdiff_t kTextFontName = 0x3C;
-constexpr std::uintptr_t kSetBaseFont = 0x00415DD0;    // CSWGuiTextParams::SetBaseFont(CResRef*)
+constexpr std::uintptr_t kSetBaseFont = K1_TEXT_SET_BASE_FONT;   // CSWGuiTextParams::SetBaseFont(CResRef*)
 // What the HUD worked out from its layout when it was built, and keeps beside the
 // controls: the bottom edge the action description grows up from
 // (SetActionDescription, 0x00685560, reads +0xA454), and the rectangle the map is

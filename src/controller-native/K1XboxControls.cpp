@@ -4640,6 +4640,26 @@ void KmrpPromptDimK1(void* button, bool dim)
 
 // Marks (or, with false, unmarks) a button whose badge and caption are centred together
 // on it (ShowK1BadgeOverlay): class selection's Select and Cancel.
+int KmrpCaptionLineWidthK1(void* button)
+{
+    return MeasureK1Caption(button, nullptr, 1);
+}
+
+float KmrpCaptionScaleK1(void* button)
+{
+    void* const string = *reinterpret_cast<void**>(static_cast<char*>(button) + K1_BUTTON_TEXT_OFFSET + K1_TEXT_STRING_OFFSET);
+    return string ? *reinterpret_cast<const float*>(static_cast<char*>(string) + 0x40) : 0.0f;
+}
+
+// The string's scale, and its lines worked out again for it (0x0045A2F0, as K1TextLayout.cpp).
+void KmrpSetCaptionScaleK1(void* button, float scale)
+{
+    void* const string = *reinterpret_cast<void**>(static_cast<char*>(button) + K1_BUTTON_TEXT_OFFSET + K1_TEXT_STRING_OFFSET);
+    if (!string) return;
+    *reinterpret_cast<float*>(static_cast<char*>(string) + 0x40) = scale;
+    reinterpret_cast<void(__thiscall*)(void*, int)>(0x0045A2F0)(string, -1);
+}
+
 void KmrpBadgeCentreK1(void* button, bool on)
 {
     for (void*& b : g_k1CentredBadges) {

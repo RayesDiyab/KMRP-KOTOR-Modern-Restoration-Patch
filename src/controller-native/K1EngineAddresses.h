@@ -12,6 +12,7 @@ constexpr std::uintptr_t K1_BORDER_SET_FILL_IMAGE = 0x00414C00;   // CSWGuiBorde
 constexpr std::uintptr_t K1_TEXT_SET_COLOUR       = 0x00414E10;   // CSWGuiTextParams::SetColor(Vector*)
 constexpr std::uintptr_t K1_TEXT_EXTENT           = 0x00414F10;   // CSWGuiText::GetIdealWidthAndHeight(CSWGuiExtent*)
 constexpr std::uintptr_t K1_TEXT_SET_TEXT         = 0x00415E00;   // CSWGuiTextParams::SetText(CExoString*)
+constexpr std::uintptr_t K1_TEXT_SET_BASE_FONT    = 0x00415DD0;   // CSWGuiTextParams::SetBaseFont(CResRef*)
 constexpr std::uintptr_t K1_CONTROL_HANDLE_INPUT  = 0x00418750;   // CSWGuiControl: enter/exit, then the table
 constexpr std::uintptr_t K1_GUI_LABEL_CTOR        = 0x0041ACD0;   // CSWGuiLabel::CSWGuiLabel
 constexpr std::uintptr_t K1_SLIDER_DISPATCHER     = 0x0041ADF0;   // CSWGuiSlider::HandleInputEvent

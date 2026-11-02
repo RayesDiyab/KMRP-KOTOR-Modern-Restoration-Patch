@@ -4648,6 +4648,9 @@ struct PazaakTableK1 {
     void** mouseVtables[6] = {};
     void* hiddenMouseVtables[2][40] = {};
     bool shown = false;
+    float scaleBase[4] = {}, scaleSet[4] = {};  // the captions' own size, and the last written
+    bool smallFont = false;                     // the row is in the smaller font
+    char fontWas[4][20] = {};                   // the font each had
 } g_pazaakTable;
 
 int PazaakHandSlotK1(void* panel, void* card)
@@ -4908,6 +4911,8 @@ void ForgetPazaakTableK1(void* panel)
     using DeletingDtorFn = void*(__thiscall*)(void*, unsigned);
     void** const controls = *FieldAt<void**>(panel, K1_PANEL_CONTROL_ARRAY);
     const int count = *FieldAt<int>(panel, K1_PANEL_CONTROL_COUNT);
+    KmrpBadgeCentreK1(FieldAt<std::uint8_t>(panel, K1_PAZAAK_END_TURN), false);
+    KmrpBadgeCentreK1(FieldAt<std::uint8_t>(panel, K1_PAZAAK_STAND), false);
     for (void* const label : {g_pazaakTable.playButton, g_pazaakTable.flipButton}) {
         if (!label) {
             continue;
@@ -5073,6 +5078,41 @@ void UpdatePazaakActionStripK1()
         KmrpBadgeCentreK1(button, shown);
         KmrpPromptFillK1(button, shown ? prompts[i] : nullptr);
         KmrpPromptDimK1(button, !enabled);
+    }
+    // All four captions on one line beside their badges, in one size (the maintainer,
+    // 2026-11-02: at 800x600 the badges stood on the first letters and two captions wrapped).
+    // In the game's own smaller font where they do not fit: its letters are drawn for that size,
+    // where the caption's font scaled down looked squeezed. Scaled only if that is still too wide.
+    void* const row[] = {g.playButton, g.flipButton, FieldAt<char>(panel, K1_PAZAAK_END_TURN), FieldAt<char>(panel, K1_PAZAAK_STAND)};
+    double fit = 1.0;
+    for (int i = 0; i < 4; ++i) {
+        const float now = KmrpCaptionScaleK1(row[i]);
+        if (!(now > 0.0f)) continue;
+        if (now != g.scaleSet[i]) g.scaleBase[i] = now;     // the game's, or another patch's
+        if (i >= 2) KmrpBadgeCentreK1(row[i], shown);
+        const ClassBoxK1 at = *FieldAt<ClassBoxK1>(row[i], 4);
+        const int line = KmrpCaptionLineWidthK1(row[i]);
+        const double whole = line * static_cast<double>(g.scaleBase[i]) / now;
+        // The badge is about as wide as the button is tall, with half of that at each end.
+        const int room = at.width - 2 * at.height;
+        if (shown && whole > room && room > 0) fit = (std::min)(fit, room / whole);
+    }
+    if (shown != g.smallFont && (!shown || fit < 1.0)) {
+        for (int i = 0; i < 4; ++i) {
+            char* const name = FieldAt<char>(row[i], K1_BUTTON_TEXT_PARAMS + 0x3C);
+            if (shown) std::memcpy(g.fontWas[i], name, sizeof g.fontWas[i]);
+            char padded[16] = {};
+            if (shown) strncpy_s(padded, "dialogfont10x10", _TRUNCATE); else std::memcpy(padded, g.fontWas[i], 16);
+            reinterpret_cast<void(__thiscall*)(void*, const char*)>(K1_TEXT_SET_BASE_FONT)(FieldAt<char>(row[i], K1_BUTTON_TEXT_PARAMS), padded);
+        }
+        g.smallFont = shown;
+        fit = 1.0;      // measured again next frame, in the new font
+    }
+    for (int i = 0; i < 4; ++i) {
+        if (!(g.scaleBase[i] > 0.0f)) continue;
+        const float wantedScale = static_cast<float>(g.scaleBase[i] * fit);
+        if (KmrpCaptionScaleK1(row[i]) != wantedScale) KmrpSetCaptionScaleK1(row[i], wantedScale);
+        g.scaleSet[i] = wantedScale;
     }
     const char* wanted = shown ? drawn : original;
     if (_strnicmp(fill, wanted, 16)) EngineFn<SetFillImageFn>(K1_BORDER_SET_FILL_IMAGE)(params, wanted, 1);

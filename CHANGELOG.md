@@ -117,6 +117,12 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: on the Pazaak table the pad's badges covered the first letters** (2026-11-02). Where the four
+  captions do not fit on one line beside their badges, as at 800x600, the row uses the game's own
+  smaller font, `dialogfont10x10`, which is drawn for that size, and is scaled further only if it is
+  still too wide. Where they fit, as at 3440x1440, nothing changes. Back to the mouse, the row's
+  font comes back.
+
 - **Fixed: a black screen at any brightness but the default, with anti-aliasing on** (2026-11-02).
   KMRP's offscreen frame reads its multisampled buffer through a resolved copy, by redirecting
   opengl32's copy functions. K1DC asks `wglGetProcAddress` first even for core functions and NVIDIA

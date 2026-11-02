@@ -305,7 +305,7 @@ K1DC logged `gl error site=brightness raised=during errors=INVALID_OPERATION` be
 | PAD-6 | RB held through Options, a setting changed and changed back, menu closed, released: one press, one release, and the next press works | pass, virtual pad |
 | 4: Original rumble | The Rancor's death: 178 motor lines, ramped down, `muted` at the end. Log only | pass |
 | 7, 800x600, Controller only: Enemy Sighted | Ran over the name bar. Now under it at its width, in two lines | fixed; seen at 800x600 and 1280x720 by frame |
-| 800x600, Controller only: Pazaak table | Still there: the badges cover the first letter of Play and End, Flip's too, and Play and Flip wrap | open, cosmetic, this size only |
+| 800x600: Pazaak table | Was: the badges covered the first letters, and Play and Flip wrapped. Now one line beside each badge in `dialogfont10x10`. Controller only and KMRP + controller at 800x600, KMRP + controller at 3440x1440 unchanged, by frame. With Controller only the text is also scaled and is small | fixed |
 
 Regression: 62 passed and 12 skipped with the brightness and Container fixes (the default run, not settings, Mac or build). Quick 38 passed on the final source, banner included; the full group was not repeated after the banner. Mac 12 not run. The Steam folder and the `dist` installer have none of these fixes.
 
