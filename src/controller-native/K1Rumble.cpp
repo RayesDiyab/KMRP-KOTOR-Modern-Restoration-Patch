@@ -607,7 +607,6 @@ void Mix(float& heavy, float& light)
 
 constexpr std::uintptr_t K1_RULES                = 0x007A3A28;  // CSWRules*
 constexpr std::uintptr_t K1_GET_ITEM_BY_ID       = 0x005ED5A0;  // CClientExoApp::GetItemByGameObjectID
-constexpr std::uintptr_t K1_GET_SERVER_CREATURE  = 0x0060FB20;  // CSWCCreature::GetServerCreature
 constexpr std::uintptr_t K1_GET_EQUIPPED_ITEM_ID = 0x0060CA80;  // CSWCCreature::GetEquippedItemID
 constexpr std::uintptr_t K1_STRING_FROM_INT      = 0x005E5BC0;  // CExoString::CExoString(int)
 constexpr std::uintptr_t K1_2DA_INT_BY_ROW       = 0x00413660;  // C2DA::GetINTEntry(int, CExoString const&, int*)

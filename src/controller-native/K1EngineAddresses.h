@@ -23,6 +23,7 @@ constexpr std::uintptr_t K1_EXOSTRING_DTOR        = 0x005E5C20;   // CExoString:
 constexpr std::uintptr_t K1_GET_PLAYER_CREATURE   = 0x005ED540;   // CClientExoApp::GetPlayerCreature
 constexpr std::uintptr_t K1_GET_IN_GAME_GUI       = 0x005ED690;   // CClientExoApp::GetInGameGui
 constexpr std::uintptr_t K1_GET_GUI_STRING        = 0x005EDEB0;   // CClientExoApp::GetGUIString(CExoString*, strref)
+constexpr std::uintptr_t K1_GET_SERVER_CREATURE   = 0x0060FB20;   // CSWCCreature::GetServerCreature
 constexpr std::uintptr_t K1_OPERATOR_NEW          = 0x006FA7E6;
 
 // Immediates in the game's code, which KMRP's Icon Size slider rewrites.

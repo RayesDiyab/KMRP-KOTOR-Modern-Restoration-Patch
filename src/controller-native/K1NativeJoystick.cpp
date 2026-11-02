@@ -2682,10 +2682,10 @@ void LogCombatQueueK1()
     if (KmrpDebugLevel() < 2) {
         return;
     }
-    static int last = -1;
+    static int last = -1, lastActions = -1;
     void* const app = ClientExoAppK1();
     void* const client = app ? EngineFn<ClientExoAppPtrFn>(K1_GET_PLAYER_CREATURE)(app) : nullptr;
-    void* const creature = client ? EngineFn<ClientExoAppPtrFn>(0x0060FB20)(client) : nullptr;
+    void* const creature = client ? EngineFn<ClientExoAppPtrFn>(K1_GET_SERVER_CREATURE)(client) : nullptr;
     if (!IsReadableK1(creature, 0x9CC)) {
         return;
     }
@@ -2698,10 +2698,14 @@ void LogCombatQueueK1()
         return;
     }
     const int count = *FieldAt<int>(*list, 8);
-    if (count != last) {
+    // CSWSObject's own list, m_lQueuedActions at +0xFC: where a slot's feat or power waits.
+    void* const actions = *FieldAt<void*>(creature, 0xFC);
+    const int queued = IsReadableK1(actions, 12) ? *FieldAt<int>(actions, 8) : -1;
+    if (count != last || queued != lastActions) {
         last = count;
+        lastActions = queued;
         char line[48];
-        wsprintfA(line, "queue %d", count);
+        wsprintfA(line, "queue %d actions %d", count, queued);
         ControllerLogK1(line);
     }
 }

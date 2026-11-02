@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """A save beside two enemies that last, for pad trials in combat.
 
-Takes a save of the Endar Spire's first room and moves two hostile Sith soldiers next to the player,
+Takes a save and moves the two creatures nearest the player next to them, hostile,
 with hit points enough for a long fight and the player unable to die. Writes only into the test
 game's folder, and leaves the source save as it is. Saves are game data: nothing here is committed.
 
@@ -45,16 +45,23 @@ def main() -> int:
     px, py = player.get_single("XPosition"), player.get_single("YPosition")
     player.set_uint8("Min1HP", 1)
     creatures = git.root.get_list("Creature List")
+    # The nearest two who are not the party: made hostile, whatever the module's own story.
+    distance = lambda c: (c.get_single("XPosition", 0) - px) ** 2 + (c.get_single("YPosition", 0) - py) ** 2
     moved = 0
-    for creature in creatures:
-        if creature.get_string("Tag", "") == "sithsoldier" and moved < len(OFFSETS):
-            dx, dy = OFFSETS[moved]
-            creature.set_single("XPosition", px + dx)
-            creature.set_single("YPosition", py + dy)
-            creature.set_int16("CurrentHitPoints", 2000)
-            creature.set_int16("HitPoints", 2000)
-            creature.set_int16("MaxHitPoints", 2000)
-            moved += 1
+    for creature in sorted(creatures, key=distance):
+        if moved == len(OFFSETS):
+            break
+        if creature.get_uint8("IsPC", 0):
+            continue
+        dx, dy = OFFSETS[moved]
+        creature.set_single("XPosition", px + dx)
+        creature.set_single("YPosition", py + dy)
+        creature.set_uint16("FactionID", 1)
+        creature.set_uint8("Plot", 0)
+        creature.set_int16("CurrentHitPoints", 2000)
+        creature.set_int16("HitPoints", 2000)
+        creature.set_int16("MaxHitPoints", 2000)
+        moved += 1
     if moved != len(OFFSETS):
         print("FAIL no hostile soldiers in that save")
         return 1
