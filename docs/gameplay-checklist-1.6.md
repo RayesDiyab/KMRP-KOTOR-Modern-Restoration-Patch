@@ -162,7 +162,7 @@ The automated tests cover these on throwaway folders. These rows are the real St
 | Check | Needs |
 | --- | --- |
 | Linux: the running-game check, art cache removal, Repair in the AppImage window | a Linux or Steam Deck machine |
-| Proton: the offscreen frame, Proton's `opengl32` | the same |
+| Proton: the offscreen frame does not run there (Proton 11.0-100's `opengl32` has no entry KMRP can patch, seen 2026-11-03); the log line that says so | the same |
 | Windows 7 and 8: K1DC's standalone route, the rename used for the manifest | those systems |
 | A full disk during install | a small volume |
 | Mac | waits for the port |

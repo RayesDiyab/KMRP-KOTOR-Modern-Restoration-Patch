@@ -478,6 +478,17 @@ template <typename T> bool Patch(HMODULE gl, const char* name, T wrapper, T& rea
     real = nullptr;
     return false;
 }
+
+// Wine's opengl32 has no 8B FF entry, so HotPatch's refusal there says nothing about anyone else.
+void LogNotPatched(const char* functions, const char* outcome)
+{
+    const HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
+    const bool wine = ntdll && GetProcAddress(ntdll, "wine_get_version");
+    char text[200];
+    sprintf_s(text, "opengl32's %s: %s; %s", functions,
+              wine ? "no entry KMRP can patch under Wine or Proton" : "already changed by something else", outcome);
+    Log(text);
+}
 }
 
 // Installed from DllMain, before the game makes its window or anything asks the driver
@@ -515,17 +526,17 @@ void KmrpInstallOffscreenFrame()
         !Patch(gl, "glReadPixels", &ReadPixelsForGame, realReadPixels)) {
         // A redirected copy is harmless: it only resolves while KMRP's buffer exists, which
         // it now never will.
-        Log("opengl32's copy functions are already changed by something else; not used");
+        LogNotPatched("copy functions", "not used, the game draws to the window");
         return;
     }
     if (!Patch(gl, "glDrawBuffer", &DrawBufferForGame, realDrawBuffer))
-        Log("opengl32's glDrawBuffer is already changed by something else; the driver will refuse the game's own requests");
+        LogNotPatched("glDrawBuffer", "the driver will refuse the game's own requests");
     if (!Patch(gl, "wglGetProcAddress", &GetProcForGame, realGetProc)) {
-        Log("opengl32's wglGetProcAddress is already changed by something else; not used");
+        LogNotPatched("wglGetProcAddress", "not used, the game draws to the window");
         return;
     }
     if (!Patch(gl, "wglMakeCurrent", &MakeCurrentForGame, realMakeCurrent))
-        Log("opengl32's wglMakeCurrent is already changed by something else; a pbuffer would be drawn into KMRP's buffer");
+        LogNotPatched("wglMakeCurrent", "a pbuffer would be drawn into KMRP's buffer");
     DWORD old = 0;
     if (!VirtualProtect(slot, sizeof *slot, PAGE_READWRITE, &old)) { Log("the SwapBuffers slot cannot be written; not used"); return; }
     nextSwap = *slot;

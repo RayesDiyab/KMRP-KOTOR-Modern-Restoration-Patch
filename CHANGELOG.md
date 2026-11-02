@@ -117,6 +117,14 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: under Proton the offscreen frame's log blamed "something else"** (2026-11-03). The frame
+  hot-patches six opengl32 functions, which needs an `8B FF` entry. None of the six in Proton 11.0-100's
+  `opengl32.dll` has one (read from the file), so the frame has never run there and the game draws to
+  the window, while the log said the functions were "already changed by something else". Under Wine
+  and Proton it now says `no entry KMRP can patch under Wine or Proton`, on all four lines. Only the
+  log text changes: the game still draws to the window there. Compiled for 32-bit with MinGW; not
+  run, and `Test-OffscreenFrame.py` needs Windows, so it has not been run on this change.
+
 - **Fixed: the driver refused the game's draw buffer calls on every frame's way through KMRP's
   offscreen frame** (2026-11-02). The game asks for the back or front buffer, which a framebuffer
   object does not have, and each request raised `INVALID_OPERATION`, which then showed up in K1DC's log

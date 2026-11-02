@@ -113,8 +113,16 @@ Not done:
 - Ubuntu, SteamOS, Bazzite and a Steam Deck (issue 76's list); Wayland without XWayland, where
   only DRM's list answers.
 - A game whose existing files differ only in case from KMRP's names.
-- K1DC under Proton in a real game: installed by this installer since 2026-10-31, its
-  `logs/K1DriverCompat.log` not yet seen from a Proton run.
+- K1DC under Proton beyond a first run. **Seen on 2026-11-03** (until then this said its log had
+  not been seen from a Proton run): AppImage 1.6.0, SteamOS, Proton 11.0-100, RTX 3080, 3440x1440,
+  AA 0, no launch option. `logs/K1DriverCompat.log` showed version 2.0.1,
+  `capability ati_fragment_shader=accepted`, `install programs=67/67` and no warning or error, a save
+  loaded, and the brightness slider worked as reported by the maintainer. That log has no
+  `hooks installed=` line on this route; `patch_config.toml` lists its 28 hooks. Side-by-side effects
+  with K1DC off, AMD, Intel and a Steam Deck remain untested.
+- KMRP's offscreen frame under Proton: it does not run. None of the six functions it hot-patches has
+  an `8B FF` entry in Proton 11.0-100's `opengl32.dll`, so the game draws to the window. Whether
+  Proton gains anything from the frame has not been measured.
 - The window's step texts are a second copy of `MainForm.RefreshStatus`'s, in the same words.
   Moving them into the core for both windows is left for later.
 
