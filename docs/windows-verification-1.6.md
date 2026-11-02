@@ -150,6 +150,26 @@ A script in the copy's Override calling `BarkString`, as a module heartbeat and 
 
 `ReportMachineWideMode` opened the machine key from a 32-bit program, so it read the 32-bit view. It now asks for the 64-bit view on a 64-bit system. Whether Windows keeps that key apart between views was not measured, and the path was not run with a real all-users value: that needs administrator rights. The installer compiles with the change; no test covers this line.
 
+### GFX-01: full audit and two runs
+
+Audit: [`gfx01-fill.md`](cleanup-1.6/reviews/gfx01-fill.md). It replaces the static section above where they differ. In short: the earlier run did not test the reported order. In 1.5.x the fill ran after the logos; `3ab7a87` (2026-10-20) moved it before them on master. Two players in issue 39 said turning compatibility mode off removed the block on 1.5.1 (reported).
+
+The block is 38.8% of the screen, so a solid one would put that box near 1.0 black.
+
+| Run, `build/verify/steam`, AA 8 | Black in the box, of the menu frame | Result |
+| --- | --- | --- |
+| T1: `Disable Movies=1`; no layer, Win7, Win8, `DISABLEDXMAXIMIZEDWINDOWEDMODE` | 0.16 to 0.19, over 0 to 8 s | no block |
+| T2: movies on, 640 and 480 written back at `0x00403EAD` and `0x00403EB9` in memory, the 1.5.x order; no layer, Win7, Win8 | 0.16 to 0.19 | no block |
+| T0: 32-bit module list | `aclayers.dll` and `apphelp.dll` load with Win7 and Win8, not without | layers took effect |
+
+The OS version in the game's PEB stayed 10.0 under a layer, so that read proves nothing. XP mode needs elevation here and was not run. **Not reachable on this PC:** H1 stands unproven, and a present path or vendor difference (H4) cannot be settled without an AMD card or an affected player. T2 does not restore 1.5.x's DirectDraw Bink surface or forced Prefer native. Whether the fill ran in each run was not measured. The audit's fix (`jmp` at `0x00401B09`) was not made: nothing shows it cures the block.
+
+### Issue 78: full audit
+
+Audit: [`issue78-rancor.md`](cleanup-1.6/reviews/issue78-rancor.md). Static only, on no GPU. No step of the scene breaks a limit, and no candidate is more than suspected. **This corrects the static section above:** the pile starts with two grenades, so a player who left them gets the grenade branch whatever they added, and the reporter's branch is unknown; camera shake and rumble are in that branch only; skin meshes never cast stencil shadows; `glFinish` was swallowed already in K1DC 1.2.0. The scene was not reached in a game: no save stands in it, and the fixture needs the console.
+
+Questions for the reporter: did they empty the pile, their `swkotor.ini`, event times, and the AMD dumps.
+
 ### Regression on the final source
 
 On `0825f2d` with documents only changed since: quick 37 and full 22, 59 passed. Mac 12 and Test-BuildCache not run. The Steam folder was not touched in this pass and still has the build of `472ea9c`, without the PAD-9 fix.
