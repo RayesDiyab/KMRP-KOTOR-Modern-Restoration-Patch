@@ -15,6 +15,7 @@ void KmrpInstallModeListFilter();
 void KmrpInstallOffscreenFrame();
 // Where the display has no mode of swkotor.ini's size, the game starts at the
 // display's own size, not at 800x600.
+void KmrpSettleSavedDisplayMode();
 void KmrpStartAtDisplaySize();
 
 

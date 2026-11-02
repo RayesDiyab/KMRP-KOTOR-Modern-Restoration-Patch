@@ -117,6 +117,14 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Added: a saved display mode the display no longer has is replaced at start** (issue 92, 2026-11-02).
+  When `swkotor.ini`'s width, height and refresh rate are a mode the display still has, nothing is
+  touched, however low. When they are not, KMRP takes the largest size it has a layout for at that
+  size's highest allowed rate, 60 Hz without High FPS Fix, and corrects those keys alone, so the next
+  start is right too. V-Sync and everything else stay. Under Wine, Proton and Gamescope a size the
+  display does not list is left, so intentional supersampling keeps working; a rate it lacks is
+  corrected. With no list of modes nothing changes. The choice is written to `kmrp-kpm.log`.
+
 - **Fixed: on the Pazaak table the pad's badges covered the first letters** (2026-11-02). Where the four
   captions do not fit on one line beside their badges, as at 800x600, the row uses the game's own
   smaller font, `dialogfont10x10`, which is drawn for that size, and is scaled further only if it is

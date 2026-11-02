@@ -326,6 +326,19 @@ A bark bubble was raised in a real fight at last: `BarkString` from every creatu
 
 `gl error site=soft_shadow raised=during errors=INVALID_OPERATION` comes once at about 0.25 s at AA 8, the same with `window-drawn=1`, so it is not KMRP's offscreen frame. The later `raised=before` lines were a `glow raised=during` with `window-drawn=1`. Not traced in K1DC's source any further. Soft shadows were not compared by eye. One for Synchro, with the brightness finding: K1DC's loader asks `wglGetProcAddress` for core functions first.
 
+### Issue 92: saved display mode
+
+The running game on the copy, RTX 3080, 3440x1440 display, High FPS Fix on. `Test-DisplayModePolicy` covers the rest of the rules, Wine and no High FPS Fix among them, with made-up displays.
+
+| Saved | After the start | `swkotor.ini` |
+| --- | --- | --- |
+| 1280x720 at 60 | Kept | identical, byte for byte |
+| 3440x1440 at 120 | Kept | identical |
+| 1920x1080 at 77 | 3440x1440 at 120 | Width, Height, RefreshRate alone |
+| 2345x1234 at 60 | 3440x1440 at 120 | Width, Height, RefreshRate alone |
+
+**Not run:** Linux, Proton, SteamOS and Gamescope (Wine is detected by `wine_get_version`, not seen working), a second monitor, a real change of monitor, and the corrupted menu text ZimmMaster reported, which was not reproduced. The display is the one the game's own list asks about, so a game opened on another monitor is not looked at.
+
 ### Regression on the final source
 
 On `0825f2d` with documents only changed since: quick 37 and full 22, 59 passed. Mac 12 and Test-BuildCache not run. The Steam folder was not touched in this pass and still has the build of `472ea9c`, without the PAD-9 fix.

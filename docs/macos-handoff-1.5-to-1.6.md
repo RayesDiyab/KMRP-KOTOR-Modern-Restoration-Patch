@@ -1710,6 +1710,10 @@ edition (E-3), the offscreen frame, and all of the installer's changes, which ar
 
 **The pause notice.** Xbox HUD, `K1XboxHud.cpp`: where one line has no room between the name frame and the minimap, the box stands under the frame at its drawn width, in two lines. The clear edge of the frame's art is a 44th of its width on each side.
 
+## 137. A saved display mode the display no longer has (issue 92, Windows 2026-11-02)
+
+`K1DisplayModePolicy.h` holds the rules and no platform code. `KmrpSettleSavedDisplayMode` in `K1RuntimeResolution.cpp` feeds it the modes and writes the keys. The Mac needs the same with its own list of modes, before the game reads its settings.
+
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
 | Change | Commit | Why not the Mac |

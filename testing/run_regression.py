@@ -131,6 +131,7 @@ TESTS = {
     "Test-ResourceFolder": ("quick", py("Test-ResourceFolder"), [], ""),
     "Test-SwoopPrompt": ("quick", py("Test-SwoopPrompt"), [], ""),
     "Test-TextFitPolicy": ("quick", py("Test-TextFitPolicy"), [], ""),
+    "Test-DisplayModePolicy": ("quick", py("Test-DisplayModePolicy"), [], ""),
     "Test-TextLayoutRows": ("quick", py("Test-TextLayoutRows"), [], ""),
     "Test-TextOptions": ("quick", py("Test-TextOptions"), [], ""),
     "Test-TextRows": ("quick", py("Test-TextRows"), [], ""),

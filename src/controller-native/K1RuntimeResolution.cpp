@@ -14,6 +14,7 @@
 #include "K1RuntimeEngine.h"
 #include "K1RuntimeAssets.h"
 #include "K1RuntimeLayout.h"
+#include "K1DisplayModePolicy.h"
 
 namespace {
 // Written only at GUI size-change/frame hooks, on the game's GUI thread.
@@ -254,6 +255,52 @@ bool WriteSize(std::uintptr_t address, const unsigned char* original, size_t siz
     FlushInstructionCache(GetCurrentProcess(), site, size);
     return true;
 }
+}
+
+// The mode in swkotor.ini against the modes the display has now (issue 92; the rules are in
+// K1DisplayModePolicy.h). When the module loads, so before the game reads its settings and
+// before any font or layout is chosen for a size. A mode that has to go is replaced in the file
+// too, those keys alone, so the next start finds a good one; a mode that stays is not written,
+// which leaves the file exactly as it was. The display is the one the game opens on, the one
+// the game's own list asks about (a null device name).
+void KmrpSettleSavedDisplayMode()
+{
+    wchar_t ini[MAX_PATH], fix[MAX_PATH];
+    if (!KmrpGamePath(ini, L"swkotor.ini") || GetFileAttributesW(ini) == INVALID_FILE_ATTRIBUTES) return;
+    const wchar_t* const section = L"Graphics Options";
+    const KmrpDisplayMode::Mode saved{static_cast<int>(GetPrivateProfileIntW(section, L"Width", 0, ini)),
+                                      static_cast<int>(GetPrivateProfileIntW(section, L"Height", 0, ini)),
+                                      static_cast<int>(GetPrivateProfileIntW(section, L"RefreshRate", 0, ini))};
+    std::vector<KmrpDisplayMode::Mode> modes;
+    DEVMODEA mode{};
+    mode.dmSize = sizeof mode;
+    for (DWORD index = 0; EnumDisplaySettingsA(nullptr, index, &mode); ++index) {
+        if (mode.dmBitsPerPel != 32 || (mode.dmDisplayFlags & DM_INTERLACED)) continue;
+        modes.push_back({static_cast<int>(mode.dmPelsWidth), static_cast<int>(mode.dmPelsHeight), static_cast<int>(mode.dmDisplayFrequency)});
+    }
+    // As the installer decides: High FPS Fix installed and the game allowed to use it. Its module
+    // is not loaded yet at this point.
+    const bool highRates = GetPrivateProfileIntW(section, L"AllowHighMonitorFrequency", 0, ini) == 1 &&
+        KmrpGamePath(fix, L"patches\\high-fps-fixes.dll") && GetFileAttributesW(fix) != INVALID_FILE_ATTRIBUTES;
+    const HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
+    const bool wine = ntdll && GetProcAddress(ntdll, "wine_get_version");
+    const auto covers = [](int width, int height) {
+        return KmrpRuntimeDimensions(width, height) && KmrpRuntimeAssetsCovers(width, height);
+    };
+    const KmrpDisplayMode::Choice choice = KmrpDisplayMode::Decide(saved, modes, covers, highRates, wine);
+    char line[220];
+    sprintf_s(line, "[KMRP] display mode: %dx%d at %d Hz in swkotor.ini: %s", saved.width, saved.height, saved.rate, choice.why);
+    KmrpRuntimeLog(line);
+    if (!choice.change) return;
+    const auto write = [&](const wchar_t* key, int was, int value) {
+        wchar_t text[16];
+        swprintf_s(text, L"%d", value);
+        return was == value || WritePrivateProfileStringW(section, key, text, ini);
+    };
+    const bool written = write(L"Width", saved.width, choice.mode.width) && write(L"Height", saved.height, choice.mode.height) &&
+        write(L"RefreshRate", saved.rate, choice.mode.rate);
+    sprintf_s(line, "[KMRP] display mode: %s %dx%d at %d Hz", written ? "now" : "could not write", choice.mode.width, choice.mode.height, choice.mode.rate);
+    KmrpRuntimeLog(line);
 }
 
 void KmrpStartAtDisplaySize()
