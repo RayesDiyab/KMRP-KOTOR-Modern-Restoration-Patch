@@ -215,6 +215,24 @@ Same copy, virtual pad. **Controller only** means KMRP's patch removed from the 
 
 **Not run, and why:** Sleheyron (its installer is a window to work through), section 8 (no scaled mod here), Rancor (the fixture needs the console, and a keyboard), OBS, PAD-6, the Container, a store, the map, brightness, section 11. Mac tests, physical pads and Steam Input need the hardware.
 
+### Issue 89: OBS
+
+The reporter (Discord, 2026-11-01): OBS failed with desktop capture and game capture, either not recording the game or crashing, and they say it began after applying KMRP. Their KMRP version and setup are still unconfirmed.
+
+OBS 30.0.2, RTX 3080, `build/verify/steam`, 3440x1440, game capture on any fullscreen application, OBS started before the game, the movies left to play, 45 s at the menu. A hook retried through the movies in every setup, and attached at the menu.
+
+| Setup | Runs | Game crashed |
+| --- | --- | --- |
+| No KMRP, no patches, no KPM loader (the game's own `binkw32.dll`) | 3 | 3, exit `0xC0000005`, 6 s after the menu |
+| KPM loader, no patches | 4 | 3 |
+| KMRP + controller | 4 | 3 (`0xC0000005`, once `0xC0000409`) |
+| The same, Bink set back to DirectDraw in memory | 6 | 3 |
+| KMRP + controller, `Disable Movies=1` | 4 | 0 |
+
+With the movies skipped at once, game capture recorded menu, loading and play with no crash (1 run). Desktop capture recorded with the movies played (1 run on master).
+
+**Reading:** on this PC the crash is OBS game capture's hook landing after it retried through the movies, and it needs no KMRP code, so KMRP's movie changes do not cause it. Why the retries end in a crash was not traced. Windows logged no crash event. **Not shown:** that the reporter's failure is this one. They also report desktop capture failing, which did not happen here, and 1.5.1 itself was not run. Override held K1 Community Patch in every run. No AMD test.
+
 ### Regression on the final source
 
 On `0825f2d` with documents only changed since: quick 37 and full 22, 59 passed. Mac 12 and Test-BuildCache not run. The Steam folder was not touched in this pass and still has the build of `472ea9c`, without the PAD-9 fix.
