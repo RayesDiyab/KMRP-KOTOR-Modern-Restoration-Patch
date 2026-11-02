@@ -204,4 +204,4 @@ Any other AMD owner who reaches this scene on 1.5.1 or 1.6 is worth a request: o
 
 ## 9. Not done
 
-Game not run. High FPS Fixes DLL, KPM runtime, K1DC 1.2.0 binary not audited. `ANIMATION_FIREFORGET_CUSTOM01` to model animation not traced. K1R's 2DA rows not diffed in full. Room `m05ab_16a` camera containment not computed. Maintainer's private reverse engineering used only to confirm the fade entry.
+The scene has since been run on NVIDIA, both branches, on vanilla and K1CP scripts, with no freeze: see [`windows-verification-1.6.md`](../../windows-verification-1.6.md). That clears nothing on AMD. T2, T4 and T5 not run. When this was written the game had not been run. High FPS Fixes DLL, KPM runtime, K1DC 1.2.0 binary not audited. `ANIMATION_FIREFORGET_CUSTOM01` to model animation not traced. K1R's 2DA rows not diffed in full. Room `m05ab_16a` camera containment not computed. Maintainer's private reverse engineering used only to confirm the fade entry.

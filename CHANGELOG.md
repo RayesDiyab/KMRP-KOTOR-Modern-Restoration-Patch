@@ -117,6 +117,24 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: a black screen at any brightness but the default, with anti-aliasing on** (2026-11-02).
+  KMRP's offscreen frame reads its multisampled buffer through a resolved copy, by redirecting
+  opengl32's copy functions. K1DC asks `wglGetProcAddress` first even for core functions and NVIDIA
+  answers with the driver's own, past that redirection, so K1DC's brightness pass copied the buffer
+  unresolved, was refused (`gl error site=brightness`) and drew a blank texture. One step of the
+  slider blacked the screen, in menus and in play. The same request now gets KMRP's functions. Seen on
+  an RTX 3080: the slider gives the same readings at AA 8 as at AA 0 across its range, and the error is
+  gone.
+
+- **Fixed: the pad's badge sat on the first letter of the Container's "Switch To Give Item"** (2026-11-02).
+  At a large Text Size the panel widened for the caption and half a line each side, and the badge
+  stands left of the centred caption. It now leaves one and a half lines each side.
+
+- **Changed: the Xbox HUD's pause notice goes under the target's name bar when it has no room beside
+  it** (2026-11-02). At 800x600 and 1280x720 the one line left of the minimap ran over the name bar.
+  Where it would, it now stands under the bar at the bar's drawn width, in two centred lines. Where it
+  fits, as at 1024x768 and 3440x1440, it stays where it was.
+
 - **Added: descriptions for HUD Size, Text Size and Font, and Advanced Options** (2026-11-02). In
   Graphics Options these rows left the box showing the last row's words, usually Grass. Advanced
   Options does the same in the unpatched game, seen with every patch off, so KMRP did not cause it;

@@ -1702,6 +1702,14 @@ edition (E-3), the offscreen frame, and all of the installer's changes, which ar
 
 `EntryDescription` in `K1HudOptions.cpp`: on a change of focus to HUD Size, Text Size and Font or Advanced Options, the game's own SetDescription (`0x006DEE40`) lays the box out for Grass, whose text is tallest, and the row's words replace it. The Mac needs the same with its own address.
 
+## 136. Brightness, the Container's badge and the pause notice (Windows 2026-11-02)
+
+**Brightness.** The Mac has no offscreen frame unless it took `K1OffscreenFrame.cpp`'s approach. If it did, any function a patch can reach through a driver lookup bypasses a redirection of opengl32: hand out the redirected ones from the lookup too.
+
+**The Container.** `K1TextLayout.cpp` now keeps one and a half lines each side of the widest button caption, not half a line, so the badge has room at large text sizes.
+
+**The pause notice.** Xbox HUD, `K1XboxHud.cpp`: where one line has no room between the name frame and the minimap, the box stands under the frame at its drawn width, in two lines. The clear edge of the frame's art is a 44th of its width on each side.
+
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
 | Change | Commit | Why not the Mac |

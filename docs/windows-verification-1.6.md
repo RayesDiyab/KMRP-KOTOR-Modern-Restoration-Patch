@@ -261,6 +261,54 @@ The setting belongs to that one source, and it is on by default, so every new Ga
 
 The labels were read from OBS 33.0.1's language files. OBS's source code shows the check box in every mode, on 30.0.2 and on 31.0.0. The trials above turned it off by writing `"anti_cheat_hook": false` into the scene file, not by clicking through this window, so these steps have not been followed by hand.
 
+### Issue 78: the Rancor scene, run
+
+The scene ran to its end on the copy: 3440x1440, AA 8, V-Sync 1, RTX 3080, KMRP + controller + K1DC + High FPS Fixes, master plus the fixes below only in the later runs. No freeze, crash, or Event ID 4101, 117 or 141. **Nothing here says anything about AMD**, and 1.5.1 with K1DC 1.2.0 was not run.
+
+How it was reached, none of it committed: a Dantooine save with no Taris modules stored, one creature's heartbeat script in a copy of it pointed at a small compiled script that gives the odor item and starts `tar_m05ab` at `tar05_wpparty`. A quick save there, the player moved beside the pile, and `TAR_RANCOREATING` cleared, as that character had done the quest. The script and the item were taken out of the copy after. The pile opened and took the odor by pad.
+
+| Branch | Module scripts | Runs | Result |
+| --- | --- | --- | --- |
+| Grenade: choke, explosion, death, journal and XP | Vanilla rims | 3 | Ran to the end, game went on |
+| Grenade | K1CP's `tar_m05ab.mod` | 2 | Ran to the end, game went on |
+| No grenade: Rancor lives, goes home, hostile | Vanilla rims | 1 | Ran to the end, game went on |
+| No grenade | K1CP's `tar_m05ab.mod` | 1 | Ran to the end, game went on |
+
+Two runs labelled no grenade were really the grenade branch: the script that took the grenades out worked on a copy of the list, as PyKotor's `get_list` returns one. Caught from the video, and the counts above are by what happened.
+
+K1DC with `log=debug` and `frames=on`, one no-grenade run: 36.8 to 120.0 frames a second, 120 the V-Sync cap, so candidate 2 of the audit did not show here with V-Sync on. Not tried with V-Sync off. No GL error in the scene: its three, `soft_shadow` and `glow`, came in the first 12 seconds, before it. These runs did not list shader variants (T2) or time soft shadows (T5).
+
+### Brightness: a black screen, found and fixed
+
+Moving the slider one step in Graphics Options, AA 8: the captured frame went to 0.0 mean brightness, in the first run and each run after, and back to 19.2 on returning to the default. Only with K1DC and the offscreen frame both on, and only with anti-aliasing.
+
+| Setup, one step left of default | Mean: start, left |
+| --- | --- |
+| Before the fix, full, AA 8 | 19.2, 0.0 |
+| `window-drawn=1` | 19.2, 18.9 |
+| K1DC out | 19.2, 19.2 (the gamma ramp, which a capture does not show) |
+| Controller only | 25.8, 25.8 |
+| Full, AA 0 | 19.2, 18.9 |
+| **After the fix, full, AA 8** | **19.2, 18.9, then 18.5 on the next step** |
+
+K1DC logged `gl error site=brightness raised=during errors=INVALID_OPERATION` before the fix and not after. After it, 12 steps down 15.0, 24 down 12.4, 40 up 27.9, and the change stayed with the panel closed. What a person sees was not looked at: these are captures. Whether the value is saved was not checked: the test ended the game by killing it, and `swkotor.ini` still said 57. `gl error site=soft_shadow raised=during` at start-up with AA 8 stayed, and was not traced.
+
+### The rest of the list
+
+| Check | Observed | Result |
+| --- | --- | --- |
+| Container by pad | Opened on the Rancor's pile, Give and Get lists, X switches, A gives, B closes | pass |
+| 5: Container after size changes | Text Size 100: 1920x1080, then 1920x1200, then 1680x1050 in one session: buttons inside, panel not growing | pass, after the badge fix |
+| 9a store | Dantooine's store by pad: Buy 807 to 767 to 727, Sell up to 747, X switches, B closes, descriptions change | pass |
+| 9a map | Moved between notes, A opens Party Selection, B back | pass |
+| 10 brightness | Above | pass after the fix |
+| PAD-6 | RB held through Options, a setting changed and changed back, menu closed, released: one press, one release, and the next press works | pass, virtual pad |
+| 4: Original rumble | The Rancor's death: 178 motor lines, ramped down, `muted` at the end. Log only | pass |
+| 7, 800x600, Controller only: Enemy Sighted | Ran over the name bar. Now under it at its width, in two lines | fixed; seen at 800x600 and 1280x720 by frame |
+| 800x600, Controller only: Pazaak table | Still there: the badges cover the first letter of Play and End, Flip's too, and Play and Flip wrap | open, cosmetic, this size only |
+
+Regression: 62 passed and 12 skipped with the brightness and Container fixes (the default run, not settings, Mac or build). Quick 38 passed on the final source, banner included; the full group was not repeated after the banner. Mac 12 not run. The Steam folder and the `dist` installer have none of these fixes.
+
 ### Regression on the final source
 
 On `0825f2d` with documents only changed since: quick 37 and full 22, 59 passed. Mac 12 and Test-BuildCache not run. The Steam folder was not touched in this pass and still has the build of `472ea9c`, without the PAD-9 fix.
