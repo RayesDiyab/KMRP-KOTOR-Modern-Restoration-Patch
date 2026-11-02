@@ -92,6 +92,7 @@ using CopyTexImageFn = void(WINAPI*)(GLenum, GLint, GLenum, GLint, GLint, GLsize
 using CopyTexSubImageFn = void(WINAPI*)(GLenum, GLint, GLint, GLint, GLint, GLint, GLsizei, GLsizei);
 using ReadPixelsFn = void(WINAPI*)(GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, void*);
 using GetErrorFn = GLenum(WINAPI*)();
+using DrawBufferFn = void(WINAPI*)(GLenum);
 
 // opengl32's own, past their `mov edi, edi`.
 GetProcFn realGetProc = nullptr;
@@ -99,6 +100,7 @@ MakeCurrentFn realMakeCurrent = nullptr;
 CopyTexImageFn realCopyTexImage = nullptr;
 CopyTexSubImageFn realCopyTexSubImage = nullptr;
 ReadPixelsFn realReadPixels = nullptr;
+DrawBufferFn realDrawBuffer = nullptr;
 SwapFn nextSwap = nullptr;                 // what the import slot held
 BindFramebufferFn gameBind = nullptr, gameBindExt = nullptr;   // the driver's, as handed out
 BindFramebufferFn bind = nullptr;          // the driver's, for KMRP's own binds
@@ -174,9 +176,12 @@ void WINAPI BindForGameExt(GLenum target, GLuint framebuffer)
     gameBindExt(target, framebuffer);
 }
 
+void WatchGlErrors(HGLRC rc);
+
 PROC WINAPI GetProcForGame(LPCSTR name)
 {
     PROC found = realGetProc(name);
+    if (const HGLRC current = currentContext ? currentContext() : nullptr) WatchGlErrors(current);
     if (!found || !name || reinterpret_cast<ULONG_PTR>(name) < 0x10000) return found;
     if (!std::strcmp(name, "glBindFramebuffer")) {
         gameBind = reinterpret_cast<BindFramebufferFn>(found);
@@ -196,6 +201,46 @@ PROC WINAPI GetProcForGame(LPCSTR name)
     if (!std::strcmp(name, "glCopyTexSubImage2D")) return reinterpret_cast<PROC>(&CopyTexSubImageForGame);
     if (!std::strcmp(name, "glReadPixels")) return reinterpret_cast<PROC>(&ReadPixelsForGame);
     return found;
+}
+
+// With debug logs at level 2: every error the driver raises, in its own words, with the modules
+// and offsets that called it, from the first GL call of a context. K1DC's log says only that a
+// pass ended with INVALID_OPERATION, and it cannot name the call.
+void WINAPI GlErrorMessage(GLenum, GLenum type, GLuint id, GLenum, GLsizei, const char* message, const void*)
+{
+    static int left = 30;
+    if (type != 0x824C || left <= 0) return;    // GL_DEBUG_TYPE_ERROR
+    --left;
+    char text[700];
+    int used = sprintf_s(text, "GL error 0x%X: %.300s; from", id, message ? message : "");
+    void* frames[10] = {};
+    const USHORT count = RtlCaptureStackBackTrace(1, 10, frames, nullptr);
+    for (USHORT i = 0; i < count && used > 0 && used < 620; ++i) {
+        HMODULE module = nullptr;
+        char name[MAX_PATH] = "?";
+        if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                               static_cast<const char*>(frames[i]), &module))
+            GetModuleFileNameA(module, name, MAX_PATH);
+        const char* const slash = std::strrchr(name, '\\');
+        used += sprintf_s(text + used, sizeof text - used, " %s+%lX", slash ? slash + 1 : name,
+                          static_cast<unsigned long>(reinterpret_cast<char*>(frames[i]) - reinterpret_cast<char*>(module)));
+    }
+    Log(text);
+}
+
+void WatchGlErrors(HGLRC rc)
+{
+    static HGLRC watched = nullptr;
+    if (rc == watched || KmrpDebugLevel() < 2 || !enable) return;
+    watched = rc;
+    using CallbackFn = void(WINAPI*)(GLenum, GLenum, GLuint, GLenum, GLsizei, const char*, const void*);
+    using SetCallbackFn = void(WINAPI*)(CallbackFn, const void*);
+    const auto set = reinterpret_cast<SetCallbackFn>(realGetProc("glDebugMessageCallback"));
+    if (!set) { Log("the driver has no glDebugMessageCallback; GL errors are not named"); return; }
+    enable(0x92E0);     // GL_DEBUG_OUTPUT
+    enable(0x8242);     // GL_DEBUG_OUTPUT_SYNCHRONOUS: on the calling thread, so the stack is the caller's
+    set(&GlErrorMessage, nullptr);
+    Log("GL errors are named here from now on");
 }
 
 BOOL WINAPI MakeCurrentForGame(HDC dc, HGLRC rc)
@@ -245,6 +290,20 @@ void WINAPI ReadPixelsForGame(GLint x, GLint y, GLsizei w, GLsizei h, GLenum for
     const bool swapped = ReadPlain();
     realReadPixels(x, y, w, h, format, type, pixels);
     if (swapped) bind(kReadFramebuffer, frame);
+}
+
+// The game asks for the back or front buffer through a frame (0x0042CB34, and more), which a
+// framebuffer object does not have: with KMRP's bound the driver refused every one with
+// INVALID_OPERATION, found with the error log above on 2026-11-02. K1DC translates these only for
+// its own targets and passes the rest on. On KMRP's buffer they mean its one colour attachment.
+void WINAPI DrawBufferForGame(GLenum mode)
+{
+    if ((mode == 0x0404 || mode == 0x0405) && Ours()) {     // GL_FRONT, GL_BACK
+        GLint drawing = 0;
+        getIntegerv(kDrawBinding, &drawing);
+        if (static_cast<GLuint>(drawing) == frame) mode = kColorAttachment0;
+    }
+    realDrawBuffer(mode);
 }
 
 template <typename T> bool Resolve(T& out, const char* name)
@@ -459,6 +518,8 @@ void KmrpInstallOffscreenFrame()
         Log("opengl32's copy functions are already changed by something else; not used");
         return;
     }
+    if (!Patch(gl, "glDrawBuffer", &DrawBufferForGame, realDrawBuffer))
+        Log("opengl32's glDrawBuffer is already changed by something else; the driver will refuse the game's own requests");
     if (!Patch(gl, "wglGetProcAddress", &GetProcForGame, realGetProc)) {
         Log("opengl32's wglGetProcAddress is already changed by something else; not used");
         return;

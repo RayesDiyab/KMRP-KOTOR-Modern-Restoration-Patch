@@ -339,6 +339,21 @@ The running game on the copy, RTX 3080, 3440x1440 display, High FPS Fix on. `Tes
 
 **Not run:** Linux, Proton, SteamOS and Gamescope (Wine is detected by `wine_get_version`, not seen working), a second monitor, a real change of monitor, and the corrupted menu text ZimmMaster reported, which was not reproduced. The display is the one the game's own list asks about, so a game opened on another monitor is not looked at.
 
+### GL errors, named: where K1DC's soft shadow error came from
+
+`debug-logs=2` now logs each GL error with the driver's words and the call stack (`GlErrorMessage`, `K1OffscreenFrame.cpp`, from the first extension lookup, as `wglMakeCurrent` could not be hot-patched here).
+
+| Error | From | Cause | Now |
+| --- | --- | --- | --- |
+| INVALID_OPERATION, repeating | `glDrawBuffer`, through K1DC, from the game at `swkotor.exe+2CB39` | GL_BACK or GL_FRONT with KMRP's framebuffer bound. K1DC translates these for its own targets only. This was KMRP's side, and K1DC's `glow` and `soft_shadow raised=before` lines were this error, left pending | Fixed: 28 of the 30 logged before, none after, and both `raised=before` lines gone |
+| "Invalid draw binding(s)", twice, at start-up with AA 8 | A draw in `k1-modern-driver-compatibility.dll+26C9B`, from the game at `swkotor.exe+321C8`, inside `RenderShutdown` (0x00432180) | K1DC's own, the same with `window-drawn=1`. Suspected: AA 8 tears down and makes again the soft shadow pbuffers before the first frame, and K1DC's pass runs against a target that is not whole. Not proved | Not fixed: inside K1DC's code, once per start, no effect seen. For Synchro |
+
+After the fix: brightness readings as before at AA 8, and the Rancor grenade scene ran to its end with its effects, by frame.
+
+### Issue 87: the save collection
+
+The 547 saves of the maintainer's collection and the 197 in the other game folder hold no BOS:SR module. Every module script calling `BarkString` was listed: doors, triggers and story beats, with Taris's `k_ptar_gana_ud` the only one tied to a creature fleeing (save 000033 has her), not a normal fight, and it was not played. So the reporter's fight stays unreproduced here; the trial above with a bubble raised in a real fight is what stands.
+
 ### Regression on the final source
 
 On `0825f2d` with documents only changed since: quick 37 and full 22, 59 passed. Mac 12 and Test-BuildCache not run. The Steam folder was not touched in this pass and still has the build of `472ea9c`, without the PAD-9 fix.

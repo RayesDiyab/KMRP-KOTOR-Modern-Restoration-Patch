@@ -117,6 +117,15 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: the driver refused the game's draw buffer calls on every frame's way through KMRP's
+  offscreen frame** (2026-11-02). The game asks for the back or front buffer, which a framebuffer
+  object does not have, and each request raised `INVALID_OPERATION`, which then showed up in K1DC's log
+  against its glow and soft shadow passes. These requests now mean KMRP's buffer. Nothing was seen
+  wrong on screen before or after.
+
+- **Added: GL errors named in the log at `debug-logs=2`** (2026-11-02): the driver's own message
+  and the modules and offsets that called it, in `kmrp-kpm.log`.
+
 - **Added: a saved display mode the display no longer has is replaced at start** (issue 92, 2026-11-02).
   When `swkotor.ini`'s width, height and refresh rate are a mode the display still has, nothing is
   touched, however low. When they are not, KMRP takes the largest size it has a layout for at that
