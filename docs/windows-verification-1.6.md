@@ -247,6 +247,20 @@ A debugger attached at the menu caught the access violation on OBS's own thread:
 
 **Caveat on the OBS 33 runs with the setting on:** that portable copy could not update the shared 32-bit hook in `C:\ProgramData\obs-studio-hook` (error 32), so with the setting on it used the January 2024 hook. A clean OBS 33 install may behave differently. No patch for KOTOR and OBS was found online. No game-side fix was made: the fault is in OBS's hook, and OBS 33 with the setting off works.
 
+**How to turn the setting off in OBS:**
+
+1. Close KOTOR.
+2. In OBS, look at the **Sources** panel, at the bottom of the main window.
+3. If there is no Game Capture source yet, click **+** under that panel, choose **Game Capture**, and click **OK** on the name window.
+4. Double-click the Game Capture source to open its Properties window. Right-clicking it and choosing **Properties** does the same.
+5. Leave **Mode** on **Capture any fullscreen application**.
+6. Clear the check box **Use anti-cheat compatibility hook**.
+7. Click **OK**, then start KOTOR.
+
+The setting belongs to that one source, and it is on by default, so every new Game Capture source needs the same change. Each OBS scene collection keeps its own sources.
+
+The labels were read from OBS 33.0.1's language files. OBS's source code shows the check box in every mode, on 30.0.2 and on 31.0.0. The trials above turned it off by writing `"anti_cheat_hook": false` into the scene file, not by clicking through this window, so these steps have not been followed by hand.
+
 ### Regression on the final source
 
 On `0825f2d` with documents only changed since: quick 37 and full 22, 59 passed. Mac 12 and Test-BuildCache not run. The Steam folder was not touched in this pass and still has the build of `472ea9c`, without the PAD-9 fix.
