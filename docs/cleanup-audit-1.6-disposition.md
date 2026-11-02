@@ -35,7 +35,7 @@ tests from before this cycle were not all re-proved.
 | INS-11 | An install over KMRP 1.0 failed | Tested | `96bf347` | Case 14. Found during the fix of INS-01, so it is not in the report's table |
 | INS-04 | Rollback not real | Tested | `b0feedc` | Cases 15, 16. Not tried on a really full disk |
 | PAD-1 | Y and B refused the press | In-game | `2a83b64` | Test-HudPress holds the source and the handlers' test of `+0x4C`. The live value was never measured |
-| PAD-2 | D-pad and X dead after A | In-game | `2a83b64` | Test-HudPress. Needs a pad in combat |
+| PAD-2 | D-pad and X dead after A | In-game | `2a83b64`, PAD-3's commit | Test-HudPress, Test-ActionSlotEvent. Seen on the running game with the virtual pad: Down and Up right after A cycle the feats slot, X adds one action. Physical pad not tried |
 | PAD-9 | The A that skips a movie is sent again after it | Tested | this cycle | Found after the audit, from the maintainer's report. Test-PadCarry, and `trial_movie_skip.py` on the running game: 25 of 40 sent it again before, 0 of 40 after. New Game opening was not reproduced |
 | PAD-4 | A bark bubble takes the bar (issue 87) | In-game | `2a83b64` | Test-HudPress. That BOS:SR's box is this one is still only suspected |
 | GUI-1 | Cyclic `.gui` crashes at start | Tested | `75c1ed6` | Test-ModCompatibility harness: old code ends in a stack overflow |
@@ -54,7 +54,7 @@ tests from before this cycle were not all re-proved.
 | INS-06 | No running-game, second-installer or rights check | Tested | `cf60ec7`, `df3360e` | Case 21 on Windows. Linux's check not run on Linux |
 | INS-07 | Status after Steam's Verify | Tested | `cf60ec7` | Case 20. The window's Repair on the checklist |
 | INS-08 | Restore reports success with files missing | Tested | `cf60ec7` | Case 19. Departs from the audit's "check before removing the proxy": left, the next install would move it aside as the game's |
-| PAD-3 | A on a slot may activate twice | Open | | Measured 2026-11-02, inconclusive. On the running game each A reached the slot once (the module's count), and default A added exactly one action. But no slot action added to either queue the trial can read, for the pad or for a mouse click, so a double on a slot is neither shown nor ruled out. See `windows-verification-1.6.md` |
+| PAD-3 | A on a slot may activate twice | In-game | this commit | Not double: from `2a83b64` A did nothing, sent to the slot's frame, which has no 0x27 handler. Sent to the icon: one action per press on the feats, Force power, grenade and own power slots, virtual pad, running game. Defensive item adds nothing to the queue, unexplained. Physical pad not tried |
 | PAD-5 | D-pad in menus moves the bar later | In-game | `2a83b64` | Test-HudPress |
 | PAD-6 | Input rebuild replays held buttons | In-game | `53ce379` | No test: needs the game's input object |
 | GUI-3 | One odd layout stops a size change | Tested | `8061ac1` | Test-RuntimeRelayout, on the shipped file, fails with the old `return false` |

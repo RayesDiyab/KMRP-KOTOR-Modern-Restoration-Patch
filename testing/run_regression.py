@@ -114,6 +114,7 @@ TESTS = {
     "Test-HandPrototypes": ("quick", py("Test-HandPrototypes"), [], ""),
     "Test-FontInfo": ("quick", py("Test-FontInfo"), [], ""),
     "Test-PadCarry": ("quick", py("Test-PadCarry"), [], ""),
+    "Test-ActionSlotEvent": ("quick", py("Test-ActionSlotEvent"), [], ""),
     "Test-GameArtFailure": ("quick", py("Test-GameArtFailure"), [], ""),
     "Test-NvidiaPresentMethod": ("full", ps("Test-NvidiaPresentMethod"), [], ""),
     "Test-OverrideFontMetrics": ("quick", py("Test-OverrideFontMetrics"), [], ""),

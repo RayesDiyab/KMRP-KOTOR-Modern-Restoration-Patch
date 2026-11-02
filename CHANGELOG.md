@@ -117,6 +117,17 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: A on an action slot did nothing (PAD-3)** (2026-11-02). The change of 2026-11-01 that sent
+  each press through the control's own input call sent A to the slot's frame, which holds the focus,
+  but the game registers that event on the slot's icon alone. So from that commit A and X on a slot
+  had no effect at all, in any build since. Never in a release. A now goes to the icon. Measured on
+  the running game with the virtual pad, in the game's pause: one action per press on the feats,
+  Force power, grenade and own power slots, and Y takes them off one at a time. A slot's action
+  queues only once, so PAD-3's double activation is ruled out for those slots. A defensive item adds
+  nothing to the queue, as with the mouse on that slot in the earlier run, and that is not yet
+  explained. Up and Down straight after A cycle the slot (PAD-2): Critical Strike, Flurry and back.
+  `testing/controller/trial_action_slots.py`, Test-ActionSlotEvent.
+
 - **Fixed: the A that skips a movie is no longer sent to the screen after it (PAD-9)** (2026-11-02).
   The maintainer saw one A on the intro movie also press New Game, sometimes. The game does not poll
   input during a movie, so a press KMRP used for the skip and still held when the movie ended went

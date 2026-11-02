@@ -106,6 +106,30 @@ The issues' reporters ran 1.5.1 with mods. This is the closest scenario here, no
 | 83 | Checklist: rows above only. Sections 2 to 12 were not run |
 | 82 | No new work. GUI audit's 55 unreviewed groups stand |
 
+### Correction, and PAD-3 found: A on a slot did nothing
+
+Two earlier statements here were wrong. **The combat rows for PAD-2 and PAD-3 above are replaced by this section.**
+
+- **"Nor did the mouse":** those clicks never reached the game. `SetCursorPos` alone moves no pointer the game reads, and the frames showed focus unmoved. With small relative moves first, a click on Force Push took the queue from 1 to 2.
+- **The auto pause:** the first edit had damaged the copy's `swkotor.ini`, and `[Autopause Options]` was gone, so the world was not paused. The copy now holds the Steam file with tutorials off (the Steam file was only read). The sections survive a run, so the game did not cause the damage.
+
+So the mouse queued and the pad did not: a defect. A level 2 probe showed the frame's event field stay 0 after the press and the icon's stay unset, and sending the same event to the icon set it to 0x27 and added one action. The game registers 0x27 on the icon only (`0x0068B9D0`), and the focus sits on the frame. `2a83b64` (2026-11-01) brought this in by replacing a direct call of the handler, so it is in the Steam folder's install and in no release.
+
+`trial_action_slots.py`, fixed module, fresh launch, pad only, in the game's pause, three runs:
+
+| Check | Observed | Result |
+| --- | --- | --- |
+| PAD-3: A on feats | Queue +1 | pass |
+| PAD-3: A on Force Push, twice | +1, +1 | pass |
+| PAD-3: A on grenade, own power | +1 each | pass |
+| A on the defensive item | Nothing added, as with the mouse on that slot in the unpaused run. Not explained: its use was not checked | inconclusive |
+| PAD-2: Down, Up right after A | Critical Strike, Flurry, Critical Strike | pass |
+| PAD-2: X on the slot | +1 | pass |
+| Queue limit | A fifth action is not added: four, then nothing | seen |
+| Y | One off per press, 4 to 0, then the action list | pass |
+
+Physical pads, Steam Input and Controller only were not tried.
+
 ### Regression on the final source
 
 On `0825f2d` with documents only changed since: quick 37 and full 22, 59 passed. Mac 12 and Test-BuildCache not run. The Steam folder was not touched in this pass and still has the build of `472ea9c`, without the PAD-9 fix.

@@ -44,7 +44,7 @@ hides the bug these fixed.
 | [ ] | PAD-1 | Load a save near enemies. Enter combat. Queue two actions with A. Press Y. | The last queued action goes, first press. Press Y again with nothing queued: the character flourishes the weapon. | Controller only |
 | [ ] | PAD-1 | In combat, queue two actions and press B. | The whole queue clears and the character disengages, first press. | Controller only |
 | [ ] | PAD-2 | In combat, on an action slot: press A, release, then D-pad Up, D-pad Down, then X. | Up and Down cycle that slot's options straight after A. X uses the slot. No need to move focus away and back. | Controller only |
-| [ ] | PAD-3 | On a focused action slot, press A once and watch the queue. | One action queued. Not fixed, only measured: if it queues two, tell me. | |
+| [ ] | PAD-3 | On a focused action slot, press A once and watch the queue. | One action queued. Fixed 2026-11-02: since 2026-11-01 A here did nothing. Seen with the virtual pad; a physical pad is the check left. | |
 | [ ] | PAD-4 | Stand where a character barks during a fight: a BOS:SR fight, or any script bark. While the bubble shows, press D-pad, A and B. | The action bar keeps working. A does not fall back to a plain attack, and B does not disengage. | Vanilla for comparison |
 | [ ] | PAD-5 | In a menu press D-pad a few times, close it, look at the action bar. | The bar has not moved. | |
 | [ ] | PAD-6 | Open Options, change a control setting while holding a button, close, release the button. | No second press from the held button. The next press of it works. | |

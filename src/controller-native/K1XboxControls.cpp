@@ -379,6 +379,7 @@ constexpr std::ptrdiff_t MANAGER_PANEL_COUNT_OFFSET = 0x008C;
 constexpr std::ptrdiff_t MANAGER_MODAL_LIST_OFFSET = 0x0094;
 constexpr std::ptrdiff_t MANAGER_MODAL_COUNT_OFFSET = 0x0098;
 constexpr std::ptrdiff_t TARGET_ACTIONS_OFFSET = 0x0054;
+constexpr std::ptrdiff_t ACTION_SLOT_ICON_OFFSET = 0x01C4;
 constexpr std::ptrdiff_t TARGET_ACTION_LIST_COUNT_OFFSET = 0x0004;
 constexpr std::ptrdiff_t TARGET_ACTION_LIST_SIZE = 0x000C;
 constexpr int TARGET_ACTION_COUNT = 3;
@@ -4436,7 +4437,9 @@ void UpdateActionBarControls(const GameConfig& config, void* mainInterface)
         CycleAction(config, mainInterface, buttons, activeIndex, true);
     }
     if ((pending & PENDING_ACTIVATE) != 0 && activeIndex >= 0) {
-        SendControlEventK1(buttons[activeIndex], 0x27);
+        // The slot's icon, not the slot: 0x27 is registered on the icon alone (0x0068B9D0), so
+        // sent to the frame that holds the focus it did nothing at all (audit PAD-3).
+        SendControlEventK1(OffsetPointer(buttons[activeIndex], ACTION_SLOT_ICON_OFFSET), 0x27);
     }
 }
 
