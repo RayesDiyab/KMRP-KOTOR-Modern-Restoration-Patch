@@ -41,7 +41,7 @@ tests from before this cycle were not all re-proved.
 | GUI-1 | Cyclic `.gui` crashes at start | Tested | `75c1ed6` | Test-ModCompatibility harness: old code ends in a stack overflow |
 | GUI-2 | Two owners of the skill icon (decision 4) | In-game | `8061ac1` | Test-TextRows skill row, fails without the fix. Abilities at several settings on the checklist |
 | THR-2 | A failed preparation repeats forever | In-game | `4ef6081` | Test-ResourceFolder. Read-only cache and a non-code-page path not run in a game |
-| GFX-01 | The game's 1600x1200 black fill | Open | | Code path confirmed, link to issues 39 and 91 not. Needs issue 39's screenshot or an affected player. No change made without that |
+| GFX-01 | The game's 1600x1200 black fill | Open | | Issue 39's screenshots measure exactly x=0, y=0, 1600x1200: the block is the fill (38.8% of 3440x1440, not 46%). Not reproduced here on master with AA 8, with or without a version layer, on NVIDIA. Why it stays on screen, and any link to issue 91, are unproven. No change made |
 | TST-01 | Nothing runs the tests | Tested | `5007618`, this cycle | `run_regression.py`, every test listed; `build_kmrp.ps1 -Test`. CI still runs links and byte-compile only: it has no game files |
 | TST-02 | GUI audit cannot fail, measures unused files | Tested | `a88ab3a` | Measures Live Layout output; baseline of 1,317 groups; a faked new or worse group fails it. 243 unreviewed groups went to 55 on 2026-11-01, each by evidence written in its row: 71 one pixel of rounding, 65 not applicable (art holding no text, and scrollbar positions the engine ignores), 30 a button no player can reach, 16 overlapping in the game's own file, 6 alternates. None was a bug. The 55 are unreviewed and counted |
 | GFX-04 | No check of the copy, no off switch | In-game | `397129c` | Test-OffscreenFrame against a stand-in driver. AMD, Intel and Proton unknown |
@@ -54,7 +54,7 @@ tests from before this cycle were not all re-proved.
 | INS-06 | No running-game, second-installer or rights check | Tested | `cf60ec7`, `df3360e` | Case 21 on Windows. Linux's check not run on Linux |
 | INS-07 | Status after Steam's Verify | Tested | `cf60ec7` | Case 20. The window's Repair on the checklist |
 | INS-08 | Restore reports success with files missing | Tested | `cf60ec7` | Case 19. Departs from the audit's "check before removing the proxy": left, the next install would move it aside as the game's |
-| PAD-3 | A on a slot may activate twice | Open | | Needs measuring in a game. No change without it |
+| PAD-3 | A on a slot may activate twice | Open | | Measured 2026-11-02, inconclusive. On the running game each A reached the slot once (the module's count), and default A added exactly one action. But no slot action added to either queue the trial can read, for the pad or for a mouse click, so a double on a slot is neither shown nor ruled out. See `windows-verification-1.6.md` |
 | PAD-5 | D-pad in menus moves the bar later | In-game | `2a83b64` | Test-HudPress |
 | PAD-6 | Input rebuild replays held buttons | In-game | `53ce379` | No test: needs the game's input object |
 | GUI-3 | One odd layout stops a size change | Tested | `8061ac1` | Test-RuntimeRelayout, on the shipped file, fails with the old `return false` |

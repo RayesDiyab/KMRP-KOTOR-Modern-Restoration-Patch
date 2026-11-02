@@ -112,6 +112,7 @@ Design and build documentation. Engine analysis lives one level over, in
 | Document | What it covers |
 | --- | --- |
 | [cleanup-audit-1.6-disposition.md](cleanup-audit-1.6-disposition.md) | **Where every finding stands**, kept current. |
+| [windows-verification-1.6.md](windows-verification-1.6.md) | Running journal of the Windows verification pass: what was run on the real game, and each result |
 | [gameplay-checklist-1.6.md](gameplay-checklist-1.6.md) | What only the game can confirm, with steps. |
 | [cleanup-audit-1.6-report.md](cleanup-audit-1.6-report.md) | The audit's report: each finding's detail. |
 | [cleanup-audit-1.6.md](cleanup-audit-1.6.md) | Its inventory of hooks and files. |

@@ -74,3 +74,38 @@ finding, numbered here, and separate from PAD-3 until shown otherwise.
 **Pass** for the duplicate press. **Inconclusive** for New Game opening: it never opened, on either module, so the visible failure was not reproduced. Hold times of up to 2.5 s on the installed build did not open it either.
 
 The stalled trial, and one boot after it, waited for a third movie line that did not come, 40 s, and the game was stopped. **Inconclusive**: one reading is that the skip ended the playlist; no trial tested that, and two stalls in about 42 fixed runs against none in 40 before is not enough to clear the fix. The boot now waits for the menu rather than a count.
+
+### Combat: running game, virtual pad, fresh launch, no mouse before the pad presses
+
+Setup: `build/verify/steam`, the fixed module, debug level 2, `Tutorial Popups=0`. Fixture saves from `build_combat_fixture.py`: Endar Spire (Sith soldier as target) and Dantooine (two creatures made hostile, so not a story fight). Mouse clicks were used only in the separate baseline runs, each its own launch.
+
+| Check | Observed | Result |
+| --- | --- | --- |
+| Issue 88: Y removes the last action, first press | Two default A (queue 1, 2), then Y, Y gave 1, 0. Both fixtures | pass |
+| Issue 90: Y on a fresh launch | The same runs: no mouse click first | pass |
+| Issue 90: B disengages | Queue 1 to 0 on the first press, with no slot held (Endar Spire) | pass |
+| Default A | One action per press, every run | pass |
+| PAD-2: X and D-pad after A | Focus and the module's activation count moved. X added nothing to either queue; nor did the mouse on these slots | inconclusive |
+| PAD-3: A on a slot | Two presses, `hud` activations 2. Power Blast, Critical Strike, grenade and medpack slots added nothing to the combat round list or the object's action list, for pad or mouse | inconclusive |
+| Steam Input on, a physical pad, Controller only, target switching, menus in combat | Not run | blocked |
+
+The issues' reporters ran 1.5.1 with mods. This is the closest scenario here, not their setup, so neither issue should be closed on it.
+
+### GFX-01: running game
+
+`gfx_layer` run, Anti Aliasing 8, `build/verify/steam`, main menu frame by ddagrab at 3440x1440. No layer, `~ WIN7RTM HIGHDPIAWARE`, and `~ DISABLEDXMAXIMIZEDWINDOWEDMODE HIGHDPIAWARE` were set on the copy's path and removed after each run. Black share inside the fill's box: 0.376, 0.339, 0.368, against 0.55 outside it, so no solid block. **Inconclusive:** not reproduced, and it was not checked that the layers took effect. KMRP 1.5.1, where the block was reported, was not run. No AMD hardware or second monitor here.
+
+### Issues not worked in this pass
+
+| Issue | State |
+| --- | --- |
+| 87 | Blocked: no bark bubble was raised in a trial. BOS:SR is not in this game. Nothing new |
+| 89 | Blocked: the report names no software or symptom. ddagrab desktop capture worked in every trial above. OBS was not run |
+| 91 | Not reproduced. Needs a photo: the fill is 83% of a 1080p screen, and a half-scale viewport would be 75% with the picture at lower left |
+| 78 | Static results only, above. The scene was not run: no save is in the module, and this PC has no AMD card |
+| 83 | Checklist: rows above only. Sections 2 to 12 were not run |
+| 82 | No new work. GUI audit's 55 unreviewed groups stand |
+
+### Regression on the final source
+
+On `0825f2d` with documents only changed since: quick 37 and full 22, 59 passed. Mac 12 and Test-BuildCache not run. The Steam folder was not touched in this pass and still has the build of `472ea9c`, without the PAD-9 fix.
