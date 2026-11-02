@@ -130,6 +130,26 @@ So the mouse queued and the pad did not: a defect. A level 2 probe showed the fr
 
 Physical pads, Steam Input and Controller only were not tried.
 
+### Around a fight, section 1 and the menus
+
+`trial_play.py`, fixed module, virtual pad, frames read by eye.
+
+| Check | Observed | Result |
+| --- | --- | --- |
+| Target switching | LT and RT moved between targets, friend and enemy, the bar's colour with them | pass |
+| Menu in combat | Start opened it, RT walked Options, Equip, Inventory, Character, Abilities, Messages, Journal, Map, LT back. Layout and badges right on each | pass |
+| PAD-5 | Four D-pad presses in a menu, then closed: the HUD's active control was the same address, and the frame showed the same slot | pass |
+| Party | RB changed the leader. A slot the new leader lacks let the focus go | pass |
+| View | Solo Mode box, Cancel focused | pass |
+
+### PAD-4 and issue 87: not reached
+
+A script in the copy's Override calling `BarkString`, as a module heartbeat and then as the heartbeat of 21 creatures, raised no bubble in any frame or panel list. Whether the script ran was not established. **Blocked.** The two fixture attempts are not kept.
+
+### Installer: all-users compatibility mode
+
+`ReportMachineWideMode` opened the machine key from a 32-bit program, so it read the 32-bit view. It now asks for the 64-bit view on a 64-bit system. Whether Windows keeps that key apart between views was not measured, and the path was not run with a real all-users value: that needs administrator rights. The installer compiles with the change; no test covers this line.
+
 ### Regression on the final source
 
 On `0825f2d` with documents only changed since: quick 37 and full 22, 59 passed. Mac 12 and Test-BuildCache not run. The Steam folder was not touched in this pass and still has the build of `472ea9c`, without the PAD-9 fix.

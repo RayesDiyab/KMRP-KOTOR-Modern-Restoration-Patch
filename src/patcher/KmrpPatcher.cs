@@ -295,7 +295,10 @@ namespace Kmrp
         {
             try
             {
-                using (RegistryKey key = Registry.LocalMachine.OpenSubKey(LayersKeyPath))
+                // The installer is 32-bit, and the plain key would be its own view of the machine.
+                RegistryView view = Environment.Is64BitOperatingSystem ? RegistryView.Registry64 : RegistryView.Default;
+                using (RegistryKey root = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, view))
+                using (RegistryKey key = root.OpenSubKey(LayersKeyPath))
                 {
                     string value = key == null ? null : key.GetValue(executablePath, null) as string;
                     List<string> modes;
