@@ -84,8 +84,7 @@ std::array<int, ElementCount> appliedSizes{};   // what the live HUD shows, for 
 void SetExtent(void* control, const Rect& r)
 {
     if (!std::memcmp(&At<Rect>(control, 4), &r, sizeof r)) return;
-    auto table = At<void**>(control, 0);
-    reinterpret_cast<void(__thiscall*)(void*, const Rect*)>(table[1])(control, &r);
+    KmrpSetExtent(control, r);
 }
 
 // The Xbox-style HUD (kmrp-controller.dll) owns the HUD while the pad is in use: it

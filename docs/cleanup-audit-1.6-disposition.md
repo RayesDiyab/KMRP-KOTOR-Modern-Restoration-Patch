@@ -3,10 +3,9 @@
 > **Documentation standard.** This document follows
 > [`documentation-standard.md`](documentation-standard.md).
 
-**Last full run, on `65a5651` with the three stale paths then fixed in `830c7b1`:** 54 passed, 12 skipped
-for the Mac, and 3 failed on a moved source of this cycle; those 3 and Test-InstallerPatch pass on rerun.
-On `4029b23`, the last commit before this line, the quick group passes 33 of 33 and Test-BuildCache passes.
-The Steam folder has that build, by the real installer. Seen in play on 2026-11-01, and no more than this: the game starts with the bundled K1DC, loads a save, and its menus work. That first look found a bug no finding had, soft HD Font after a change of Text Size, fixed since.
+**Last full run, on the commit that finished S-8 (2026-11-02):** the quick group 36, the full group 22 and the
+settings group 2, all passed. The Mac's 12 and Test-BuildCache were not run on it.
+The Steam folder has that build, by the real installer. Seen in play on 2026-11-01, on an earlier build, and no more than this: the game starts with the bundled K1DC, loads a save, and its menus work. That first look found a bug no finding had, soft HD Font after a change of Text Size, fixed since.
 
 **Kind: working record, reconciled against the code, 2026-11-01.** It gives each finding of the
 [audit report](cleanup-audit-1.6-report.md) one status. A status was given by reading the code as it
@@ -87,7 +86,7 @@ tests from before this cycle were not all re-proved.
 | S-5 | Installer split | Deferred | `--apply`'s removal comes first (decision 3) |
 | S-6 | Options page toolkit twice | Kept | By design, the maintainer, 2026-11-01: they are two separate pages. Of the functions with the same name in the two files, none is identical |
 | S-7 | Xbox `Piece` and `Placed` three times | Deferred | The third copy is the Mac's |
-| S-8 | Small helpers written several times | Deferred | `keyed_resource` done: one `kmrp-keyed.h` for its three copies, which the report names as the piece that helps the port most, and the art helper no longer loads a whole BIF for one file. The rest (`resize`, `Utf8Path`, rounding, Rect, SetExtent, font readers, addresses, prototypes) each touch working code for no player gain, so they wait until after 1.6, or for the port where it needs one |
+| S-8 | Small helpers written several times | Tested | All of it. `kmrp-keyed.h`, `kmrp-file.h`, `kmrp-image.h` for the C tools; `K1Sha256.h`, `K1TempFolders.h`, `K1ResourceFolder.h`, `KmrpRoundEven`; `K1Rect.h` for one rectangle and one SetExtent (`480236f`). `K1EngineAddresses.h`: the 61 addresses more than one file names, 21 by the report's count, which left vtables out (`746095e`, Test-EngineAddresses). Headers for what files share, about 90 prototypes, and `kmrp-embedded.h`, which each C tool includes, so a changed signature stops the build (`e769928`, Test-HandPrototypes). `K1FontInfo.h` for six readers of the engine's font record (`53da617`, Test-FontInfo: nothing tested them before, a wrong field passed the whole quick group). Each test proved by breaking it. Left on purpose: the test seams, which the harnesses define; K1PartyRosterGui's rectangle, with other field names; K1TextLayout's own SetExtent seam; K1CaptionInk::Letters and K1TextLayout's Font, which ask more of the font. Module compare: unchanged but for what the rows name; the HUD's font readers now check the memory as the others did |
 | S-9 | Hook tables | Tested | Seven legacy rows gone, all 43 others proved unchanged, drift check passes |
 | S-10 | Build cache hashes all of `tools/` | Tested | `a88ab3a`. 63 or 64 of 128 tools count per step; a name in a comment still counts |
 
@@ -146,5 +145,5 @@ tests from before this cycle were not all re-proved.
 | F3 | Kept | Confirm guards stay |
 | F10 | Kept | Four callers found; the hook stays |
 | F11 | Tested | The preview is gone (`cac345e`) |
-| F12 | Deferred | S-1 to S-8 |
+| F12 | Deferred | S-1, S-3 to S-5, S-7 |
 | F13 | In-game | Keyboard on real hardware: gameplay checklist |

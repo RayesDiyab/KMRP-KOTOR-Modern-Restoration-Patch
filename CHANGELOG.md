@@ -122,6 +122,12 @@ proxy, and it applies the executable changes above as well.
   patched float had no reader left. KMRP now changes three fewer places in the game, and no page of
   its engine code is writable any more. Nothing shown changes.
 
+- **Changed: one home for what the modules shared (audit S-8)** (2026-11-02). The engine addresses
+  more than one file names are in `K1EngineAddresses.h`, what files call of each other in headers
+  the definitions include, the engine's font record is read in `K1FontInfo.h`, and each C tool
+  includes `kmrp-embedded.h`. A changed signature now stops the build instead of going wrong in the
+  game. Three new tests hold this. Nothing shown changes.
+
 - **New: a Save button on the Text Size and Font page, and HD Font sharp at a new size**
   (2026-11-01). Moving a Text Size slider stretched the atlas fitted to the size before, and the
   text stayed a little soft until the game restarted or the font was changed. Sliders still show a

@@ -1675,7 +1675,9 @@ port. These are the Windows fixes since then that the Mac should look at. Status
 
 **Comes by itself with the next rebuild, as the code is shared:** `kmrp-keyed.h`, the one chitin.key
 reader; a file already scaled left as made at its own size (GUI-8); `kmrp-gameart.c` surviving no
-memory and a bad key; the swoop tool's shift and 64-bit sums. `K1PictureKey.h` is portable.
+memory and a bad key; the swoop tool's shift and 64-bit sums; `kmrp-embedded.h`, which each C tool
+now includes, so a signature that differs from the header stops the Mac's build too. `K1PictureKey.h`
+is portable. `K1EngineAddresses.h` is Windows' addresses and not for the Mac, which has its own.
 
 **To check and port by hand, the Mac's code being its own:**
 

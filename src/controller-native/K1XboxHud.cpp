@@ -276,9 +276,7 @@ void SetExtent(void* control, const Extent& wanted)
     Extent& now = At<Extent>(control, kControlExtent);
     if (now.left == wanted.left && now.top == wanted.top && now.width == wanted.width && now.height == wanted.height)
         return;
-    using Fn = void(__thiscall*)(void*, const Extent*);
-    Fn fn = reinterpret_cast<Fn>((*reinterpret_cast<void***>(control))[1]);
-    fn(control, &wanted);
+    KmrpSetExtent(control, wanted);
 }
 
 bool SameName(const char* a, const char* b)

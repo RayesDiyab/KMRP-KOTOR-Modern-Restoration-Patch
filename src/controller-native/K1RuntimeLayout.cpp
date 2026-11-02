@@ -580,8 +580,7 @@ int IconSide(void* image)
 
 void SetBoxExtent(void* drawable, const Extent& box)
 {
-    auto table = At<void**>(drawable, 0);
-    if (table) reinterpret_cast<RowSetExtent>(table[1])(drawable, &box);
+    if (At<void**>(drawable, 0)) KmrpSetExtent(drawable, box);
 }
 
 void SizeSkillIcon(void* icon, const Extent& cell)
@@ -800,8 +799,7 @@ void KmrpReflowTextK1()
         if (!array || count < 0 || count > 4096) continue;
         for (int i = 0; i < count; ++i) if (void* c = array[i]) {
             const Extent extent = At<Extent>(c, 4);
-            auto table = At<void**>(c, 0);
-            reinterpret_cast<void(__thiscall*)(void*, const Extent*)>(table[1])(c, &extent);
+            KmrpSetExtent(c, extent);
         }
     }
 }
@@ -970,10 +968,7 @@ bool KmrpRuntimeLayoutDimensions(void* manager, int width, int height)
             }
         }
     }
-    for (const auto& change : changes) {
-        auto table = At<std::uintptr_t*>(change.pointer, 0);
-        reinterpret_cast<void(__thiscall*)(void*, const Extent*)>(table[1])(change.pointer, &change.extent);
-    }
+    for (const auto& change : changes) KmrpSetExtent(change.pointer, change.extent);
     previousWidth = width; previousHeight = height;
     return true;
 }
