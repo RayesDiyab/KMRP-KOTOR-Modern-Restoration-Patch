@@ -210,7 +210,7 @@ Same copy, virtual pad. **Controller only** means KMRP's patch removed from the 
 
 - Controller only, 800x600: on the Pazaak table the badges cover the first letter of Play, Flip and End, and two captions wrap.
 - Controller only, 800x600: the Xbox HUD's Enemy Sighted banner overlaps the target's bar.
-- Graphics Options: on HUD Size and Text Size the description box keeps the Grass text.
+- Graphics Options descriptions: fixed after this pass, see the changelog. With every patch off the game itself leaves Advanced Options showing Grass.
 - One frame showed a solid NVIDIA green box at the top right of the desktop, outside the game. Taken for the NVIDIA App's overlay; not traced.
 
 **Not run, and why:** Sleheyron (its installer is a window to work through), section 8 (no scaled mod here), Rancor (the fixture needs the console, and a keyboard), OBS, PAD-6, the Container, a store, the map, brightness, section 11. Mac tests, physical pads and Steam Input need the hardware.

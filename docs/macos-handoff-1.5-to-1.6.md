@@ -1698,6 +1698,10 @@ edition (E-3), the offscreen frame, and all of the installer's changes, which ar
 
 **PAD-3, nothing to do.** Windows sent A to the slot's frame, which has no 0x27 handler, from 2026-11-01 until 2026-11-02. The Mac's `hud.cpp` already presses `kSlotLabel`, the icon.
 
+## 135. Descriptions for three Graphics Options rows (Windows 2026-11-02)
+
+`EntryDescription` in `K1HudOptions.cpp`: on a change of focus to HUD Size, Text Size and Font or Advanced Options, the game's own SetDescription (`0x006DEE40`) lays the box out for Grass, whose text is tallest, and the row's words replace it. The Mac needs the same with its own address.
+
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
 | Change | Commit | Why not the Mac |

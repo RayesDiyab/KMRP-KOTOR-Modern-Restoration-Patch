@@ -119,7 +119,7 @@ Rect Placed(const Piece& piece, int width, int height) {
 }
 }  // namespace xbox
 
-struct Entry { void* button = nullptr; int badged = -1; char family = 0; };
+struct Entry { void* button = nullptr; int badged = -1; char family = 0; void* described = nullptr; };
 std::map<void*, Entry> entries;
 void *pending = nullptr, *current = nullptr, *parent = nullptr, *returnFocus = nullptr;
 std::uintptr_t table[27]{};
@@ -866,6 +866,28 @@ void EntryBadge(void* owner, Entry& e, bool pad, char family) {
     KmrpOptionsPad::EntryBadge(e.button, want);
     e.badged = want; e.family = family;
 }
+// The description box for the rows the game gave none: its focus handlers fill the box for
+// the other rows, and on these it kept the last row's words (Grass, in the game as well for
+// Advanced Options). The game's own call lays the box out, for Grass, whose text is the
+// tallest, and these words then replace it. Done on a change of focus only.
+void EntryDescription(void* owner, Entry& e) {
+    void* const active = At<void*>(owner, 0x1C);
+    if (active == e.described) return;
+    e.described = active;
+    if (!active) return;
+    const char* text = nullptr;
+    if (active == e.button) {
+        text = "Change the size of the on-screen HUD: the action bar, portraits, target bar and minimap.";
+    } else if (active == KmrpTextOptionsEntryK1(owner)) {
+        text = "Change the size of the game's text and of feat and skill icons, and choose the font.";
+    } else if (active == KmrpRuntimeControlByTagK1(owner, "BTN_ADVANCED")) {
+        text = "Change anti-aliasing, texture quality and other advanced graphics settings.";
+    }
+    void* const grass = KmrpRuntimeControlByTagK1(owner, "CB_GRASS");
+    if (!text || !grass) return;
+    EngineFn<void(__thiscall*)(void*, unsigned long)>(0x6DEE40)(owner, At<unsigned long>(grass, 0x58));
+    Text(static_cast<char*>(owner) + 0x35C, text);
+}
 }  // namespace
 
 bool KmrpHudOptionsOpenK1() { return current != nullptr; }
@@ -938,6 +960,7 @@ void KmrpHudOptionsFrameK1(void* manager) {
     for (void* p : KmrpRuntimePanelsK1("optgraphics"))
         if (At<std::uintptr_t>(p, 0) == GraphicsTable) {
             UpdateEntry(p, entries[p]); EntryBadge(p, entries[p], pad, family);
+            EntryDescription(p, entries[p]);
             QueuePreviewPictures(manager, p);   // drawn ahead, while Graphics Options is up
         }
     if (current) {

@@ -117,6 +117,12 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Added: descriptions for HUD Size, Text Size and Font, and Advanced Options** (2026-11-02). In
+  Graphics Options these rows left the box showing the last row's words, usually Grass. Advanced
+  Options does the same in the unpatched game, seen with every patch off, so KMRP did not cause it;
+  its two buttons had copied the gap. Each row now says what it opens. English only, as the other
+  text KMRP adds. Beside KMRP's module: with the controller patch alone the game's own behaviour stays.
+
 - **Fixed: at a low resolution the pad lost the menus to a mouse nobody touched** (2026-11-02). The
   engine puts the pointer back at the screen's centre and the pad's parking puts it at the top. At
   800x600 that jump is 284 pixels, under the 300 that counts as placed, so it read as a hand on the
