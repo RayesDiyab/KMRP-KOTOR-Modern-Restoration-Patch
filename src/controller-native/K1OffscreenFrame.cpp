@@ -190,6 +190,8 @@ PROC WINAPI GetProcForGame(LPCSTR name)
     // past opengl32's redirection below. Its brightness pass then copied KMRP's multisampled
     // buffer unresolved, was refused, and drew a blank texture: a black screen at any brightness
     // but the default, with anti-aliasing on (2026-11-02).
+    // A workaround for K1DC: remove these three lines once Synchro's K1DC reads core functions
+    // from opengl32 first, or copies a multisampled framebuffer through a resolved one.
     if (!std::strcmp(name, "glCopyTexImage2D")) return reinterpret_cast<PROC>(&CopyTexImageForGame);
     if (!std::strcmp(name, "glCopyTexSubImage2D")) return reinterpret_cast<PROC>(&CopyTexSubImageForGame);
     if (!std::strcmp(name, "glReadPixels")) return reinterpret_cast<PROC>(&ReadPixelsForGame);
