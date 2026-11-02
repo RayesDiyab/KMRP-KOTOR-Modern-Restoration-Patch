@@ -1,4 +1,4 @@
-# macOS handoff: everything from 1.5 to 1.6
+# macOS handoff: everything from 1.5.0 to 1.6
 
 > **Documentation standard.** This document follows
 > [`documentation-standard.md`](documentation-standard.md). Read it before editing
@@ -24,10 +24,19 @@ gained the changes it lacked, and the Codex handoff for Live Adaptive Layout of
 2026-10-29 (`docs/handoffs/codex-live-adaptive-layout-2026-10-29.md`, never committed) is
 merged in as the last section, its state brought forward.
 
+**Brought up to date on 2026-11-03**, after a commit-by-commit check of `c7d015e..03d9395` (101
+commits, 23 of them documents only). Items 131 to 141 and the additions dated 2026-11-03 come
+from it. Findings about the Mac were read in `macos/`, not run on a Mac. The shared C changes
+(`kmrp-file.h`, `kmrp-image.h`, `kmrp-keyed.h`, `kmrp-embedded.h`) have not been compiled by the
+Mac's build. **Correction:** the statement above that every item names its commit holds for 97
+to 128 and for the items from 131 on. Items 50, 51, 52, 54 to 66, 68 to 87, 95 and 96 have none,
+and item 67 has one only in its addition.
+
 Each item says what changed on Windows, where, what the Mac needs and how to check it.
 Nothing here was built or run on a Mac for this document. The Mac's own reference is
 [`macos/README.md`](../macos/README.md), and [`macos/WINDOWS-PARITY.md`](../macos/WINDOWS-PARITY.md)
-keeps the table of every Windows change and its state on the Mac.
+keeps a table of Windows changes and their state on the Mac. **It has no rows yet for 1.6's
+features** (Icon Size, HUD Size, Text Size, issue 92 and others): this document is the complete list.
 
 | # | Change |
 | --- | --- |
@@ -120,6 +129,17 @@ keeps the table of every Windows change and its state on the Mac.
 | 128 | `kmrp-path.h`'s library pragma only for MSVC |
 | 129 | Two fonts: Original Font and HD Font; the old HD font removed |
 | 130 | An Icon Size slider for feat, power and skill icons (issue 80) |
+| 131 | A cursor shown again while the pad is in use is hidden again (issue 85) |
+| 132 | The action bar under a bark bubble, and a D-pad press in a menu (audit PAD-4, PAD-5) |
+| 133 | What the 1.6 audit's fixes mean for the Mac |
+| 134 | The press that skipped a movie, and the slot's icon (audit PAD-9, PAD-3) |
+| 135 | Descriptions for three Graphics Options rows |
+| 136 | Brightness, the Container's badge and the pause notice |
+| 137 | A saved display mode the display no longer has (issue 92) |
+| 138 | The pad lost to a pointer nobody moved, at low resolutions |
+| 139 | A set's marker counts its files |
+| 140 | A failed art helper retries before the set is sealed |
+| 141 | Check: a held button when the input object is rebuilt (audit PAD-6) |
 
 Items 46 and 47 are in the 1.5.1 group below (46: the controller events log; 47: a Linux
 pad's own key, Windows and Wine only).
@@ -315,6 +335,8 @@ in [in-game text options](ingame-text-options.md); actual game presentation and
 interaction remain unverified. This menu, shared-bank format and saved preferences
 have not been ported to the macOS module.
 
+**Superseded in part (2026-11-03):** the font choices and style numbers here are replaced by item 129.
+
 ## 57. Text fitted to its space at any text size
 
 **To do on the Mac, 2026-10-17** (depends on item 56). Windows fits each native
@@ -417,6 +439,8 @@ part about its corner; the target's name stays centred over its circle.
 and shows less of the area below that (`docs/hud-size-options.md`, "Minimap"); the
 combat-mode message moves right as the minimap grows.
 
+**Also (2026-11-03, `53ce379`, THR-1):** the page's textures are preloaded from the GUI frame, two a frame, with a check for a GL context (`KmrpPreloadHudPagesK1` in `K1HudOptions.cpp`, called from `KmrpCoreGuiWorkK1`). The movie site it first used has no GL context, and `KmrpMovieFrameK1` is gone. Do it this way when the page is ported.
+
 ## 60. Controller remapping on the Controller Layout screen
 
 **To do on the Mac, 2026-10-18** (`docs/controller-layout.md`). On Windows the Controller
@@ -497,6 +521,8 @@ colon, and a text with a euro sign, curly quotes or an ellipsis shows them.
 To check: a fresh `swkotor.ini` opens the Text Size page with (New) Original HD Font
 selected; menu text then matches the original's letters and line lengths; at 100%
 text on a large screen it is sharp.
+
+**Superseded in part (2026-11-03):** the font choices and style numbers here are replaced by item 129.
 
 ## 65. The action description at the text size; the Xbox action box as tall as the tallest action
 
@@ -703,6 +729,8 @@ starting, and shows the Advanced Settings tile off and disabled with "Needs Wind
 no K1DC and no `dinput8.dll`, so there is nothing to take over. If the Mac ever offers an
 option that only some systems can run, the same tile (disabled, an amber note giving the
 reason, the saved choice kept) is the pattern to copy.
+
+**Correction (2026-11-03, `ddf8697`):** the above stopped being true on Windows. Windows 7 and 8 now get K1DC 2.0.1's standalone build, the tile stays on, and there is no "Needs Windows 8". Nothing changes for the Mac.
 
 ## 75. Marked Empty Containers, and Advanced Settings that scrolls: the Mac needs a port
 
@@ -958,6 +986,8 @@ roster's own tags and live control ids, and empty portraits are filled through t
 portrait getter. `macos/` has no roster code. **How to check:** with the roster patch, the
 party screen fills its frame at the Mac's size, both pages of 16, and the pad walks them.
 
+**Also (2026-11-03, `80f9277`, F5):** the roster's portrait repair and page focus now run with KMRP alone (`KmrpCapturePartyIdsK1`).
+
 ## 89. A on a message box no longer clicks the button behind it
 
 **To check on the Mac** (6d93283, 2026-10-13; `GuardPanelEchoK1` in `K1NativeJoystick.cpp`).
@@ -1165,6 +1195,8 @@ from the texture's OpenGL name at +0x58; never through the engine's `Bind`, whic
 nothing while textures are locked. **To do on the Mac:** the same point in the Mac's
 texture upload.
 
+**Also (2026-11-03, `56962b6`, THR-6):** a list here only grew; its rows now go with their control. Keep that in mind when porting.
+
 ## 105. Close in one place on every in-game screen (Windows 2026-10-28, 8ddb433)
 
 The in-game menu's Close and the button beside it take the Character screen's rectangles
@@ -1227,6 +1259,8 @@ Mac:** the same, and the A remap and badges. **How to check:** start Pazaak with
 the Xbox screen over the table, the cards solid and in their places, Y adds and removes, LT
 and RT switch lists, A plays; with the mouse, the game's screen as before.
 
+**Also (2026-11-03, `0c3ee0f`):** on the game's own 640-unit panel the third card column lay 93 units over the middle one. Where the columns do not fit, the cards keep the layout's spacing and the middle column takes what is left (`SetupLayoutForK1`, `K1NativeJoystick.cpp`). The Mac has no side deck code yet (no `SetupLayout` or `pazaaksetup` in `macos/patches`), so port this with the item.
+
 ## 110. Pazaak gameplay's four action boxes (Windows 2026-10-29, 33a3b4d)
 
 `K1NativeJoystick.cpp` `UpdatePazaakActionStripK1` clones End Turn twice for Play
@@ -1275,6 +1309,8 @@ in the Steam game at 3440x1440 and reported "works flawlessly". Module SHA-256
 2,586,112 bytes. Production handler/focus tests, controller package checks and
 relative documentation links pass. Other resolutions and controller families
 remain not play-tested. The Mac port of this item is still to do.
+
+**Also (2026-11-03, `45d1e26`):** all four captions stand on one line beside their badges, in one size. Where they do not fit, as at 800x600, the row uses `dialogfont10x10`, whose letters are drawn for that size, and scales only if that is still too wide (the room is the button's width less twice its height). The maintainer chose a real smaller font over scaling, which looked squeezed. End Turn and Stand get `KmrpBadgeCentreK1` while the pad shows, undone in `ForgetPazaakTableK1`, and the font comes back with the mouse. Windows: `UpdatePazaakActionStripK1`; `KmrpCaptionLineWidthK1`, `KmrpCaptionScaleK1`, `KmrpSetCaptionScaleK1`; `CSWGuiTextParams::SetBaseFont` 0x00415DD0; the line breaker 0x0045A2F0; the string's scale at +0x40; the font's name at the text params' +0x3C. Windows addresses: the Mac needs its own.
 
 ## 111. Class selection joins Live Adaptive Layout (2026-10-29, 6b4b17f)
 
@@ -1335,6 +1371,8 @@ rejection, GUI-only resize and the sizing boundary. In-game startup performance,
 GPU collection and the Mac port remain untested. See the
 [controller layout reference](controller-live-adaptive-layout.md#movie-triggered-controller-gui-preload-2026-10-29)
 for scope, addresses and verification.
+
+**Also (2026-11-03, `1b3e039`, THR-7):** on Windows 64 KB is not cleared per frame on this path, and the file query runs once in 30 frames at a size already seen. Keep both when porting.
 
 ## 113. First-priority 3D preview initialization (2026-10-29, 6b4b17f)
 
@@ -1639,8 +1677,10 @@ row's and the feat and power chart row's `SetExtent` are wrapped (their vtable s
 each icon at its box's size in a centred square of the slider's size, and the engine
 recipe makes the rows grow with the icons (`FieldValue`). No icon file is made per size.
 **The Mac:** its page is item 56, not ported; when it is, the same two wrappers (the
-addresses are the same program's) and its own row constants made the same way. Not built
+the Mac's own addresses for them, as this file's other items give them) and its own row constants made the same way. Not built
 or run on a Mac.
+
+**Also (2026-11-03, `8061ac1`, GUI-2):** once the slider leaves its default, the row gives the skill icon its box and the slider sizes it; before, the two undid each other (`KmrpSkillIconOwnedK1`, `KmrpSizeSkillIconK1` in `K1RuntimeLayout.cpp`; `kSkillIcon` 0x1B4 in `K1TextRows.cpp`). GUI-3 in the same commit needs nothing: the Mac's `Relayout` in `kmrp-assets/layout.cpp` already skips with `continue`.
 
 ## 131. A cursor shown again while the pad is in use is hidden again (issue 85; Windows 2026-10-31)
 
@@ -1683,14 +1723,17 @@ is portable. `K1EngineAddresses.h` is Windows' addresses and not for the Mac, wh
 
 | Windows | What to look at on the Mac |
 | --- | --- |
-| The Container's widening taken for the engine's at a change of size (GUI-4): `KmrpTextLayoutWidenedK1`, `KmrpTextLayoutForgetWidenedK1`; `testing/regression/runtime_relayout_harness.cpp` shows the case | `macos/patches/kmrp-layout/popup_fit.cpp` does the Container's fit and the re-layout came from the same Windows code, so check that a change of size does not keep and scale the fit's width |
+| The Container's widening taken for the engine's at a change of size (GUI-4): `KmrpTextLayoutWidenedK1`, `KmrpTextLayoutForgetWidenedK1`; `testing/regression/runtime_relayout_harness.cpp` shows the case | **Corrected 2026-11-03:** `popup_fit.cpp` has no Container code. The Mac's widening is made in the sets (`fit_container_to_caption`, `kmrp-guiblend.c`), so there is no run-time fit to check. This applies once item 57 is ported |
 | Picture lookups by hash, the list by border now one map from drawn name to picture (THR-5, GFX-07) | Whether `prompts.cpp` and `overlays.cpp` walk lists per border per frame. Measure before changing it |
 | The motors stopped as a movie starts (PAD-7) | `rumble.cpp` has no movie case. The Mac's pads are SDL's, whose rumble is a 1.5 second lease, so it may stop by itself: check before adding anything |
-| A Save button on the Text Size page, with a warning on closing unsaved (`K1TextOptions.cpp`, `docs/ingame-text-options.md`) | The Mac's text page should do the same. Check first whether it reloads the fitted atlases on a size change; the symptom is soft text until a restart or a change of font |
+| A Save button on the Text Size page, with a warning on closing unsaved (`K1TextOptions.cpp`, `docs/ingame-text-options.md`) | **The Mac has no text page yet** (item 56): this applies when it is ported. It should do the same. Check first whether it reloads the fitted atlases on a size change; the symptom is soft text until a restart or a change of font |
+| Details of that page (`5922c1c`): `m_bForceOk` so that A answers Save, the caption's colour only through `CSWGuiTextParams::SetColor` (`K1_TEXT_SET_COLOUR` 0x00414E10), the box's two buttons one width, Save's caption on Default's line (`KmrpTextLayoutCaptionLikeK1`) | With item 56 |
 | The six hints' wording (decision 6, TST-04) | The Mac's prompt table: Travel and Cancel on the galaxy map, OK and Cancel naming a save, Add card and Play setting up Pazaak |
 
 **Not for the Mac:** the font stubs and the unread float taken out of the engine recipe (E-1, E-2; `WINDOWS-PARITY.md` has the Mac's own), the rumble table's removal (R-1; the Mac never had one), the applier's old
 edition (E-3), the offscreen frame, and all of the installer's changes, which are in the table below.
+
+**Also (2026-11-03):** `kmrp-file.h` and `kmrp-image.h` (`d5cbc4f`) and GUI-1's limits in `ll_clone_struct` (`75c1ed6`) are shared C and come with the next rebuild, so they belong with the changes that need nothing. None of them has been compiled by the Mac's build yet.
 
 ## 134. The press that skipped a movie, and the slot's icon (audit PAD-9, PAD-3; Windows 2026-11-02)
 
@@ -1700,19 +1743,43 @@ edition (E-3), the offscreen frame, and all of the installer's changes, which ar
 
 ## 135. Descriptions for three Graphics Options rows (Windows 2026-11-02)
 
-`EntryDescription` in `K1HudOptions.cpp`: on a change of focus to HUD Size, Text Size and Font or Advanced Options, the game's own SetDescription (`0x006DEE40`) lays the box out for Grass, whose text is tallest, and the row's words replace it. The Mac needs the same with its own address.
+**On the Mac today only Advanced Options applies:** its HUD Size and Text Size rows do not exist yet, and `kmrp-layout/options.cpp` has no description code. `EntryDescription` in `K1HudOptions.cpp`: on a change of focus to HUD Size, Text Size and Font or Advanced Options, the game's own SetDescription (`0x006DEE40`) lays the box out for Grass, whose text is tallest, and the row's words replace it. The Mac needs the same with its own address.
 
 ## 136. Brightness, the Container's badge and the pause notice (Windows 2026-11-02)
 
-**Brightness.** The Mac has no offscreen frame unless it took `K1OffscreenFrame.cpp`'s approach. If it did, any function a patch can reach through a driver lookup bypasses a redirection of opengl32: hand out the redirected ones from the lookup too.
+**Brightness.** The Mac has no offscreen frame and no K1DC, so nothing is needed today (`897a41d`). If it ever gets one, any function a patch can reach through a driver lookup bypasses a redirection of opengl32: hand out the redirected ones from the lookup too.
 
-**The Container.** `K1TextLayout.cpp` now keeps one and a half lines each side of the widest button caption, not half a line, so the badge has room at large text sizes.
+**The Container.** `K1TextLayout.cpp` now keeps one and a half lines each side of the widest button caption, not half a line, so the badge has room at large text sizes (`ba4015f`). This is the run-time fit, which the Mac lacks until item 57; the widening in its sets is unchanged.
 
-**The pause notice.** Xbox HUD, `K1XboxHud.cpp`: where one line has no room between the name frame and the minimap, the box stands under the frame at its drawn width, in two lines. The clear edge of the frame's art is a 44th of its width on each side.
+**The pause notice.** Xbox HUD, `K1XboxHud.cpp`: where one line has no room between the name frame and the minimap, the box stands under the frame at its drawn width, in two lines (`3817905`). The clear edge of the frame's art is a 44th of its width on each side.
 
 ## 137. A saved display mode the display no longer has (issue 92, Windows 2026-11-02)
 
-`K1DisplayModePolicy.h` holds the rules and no platform code. `KmrpSettleSavedDisplayMode` in `K1RuntimeResolution.cpp` feeds it the modes and writes the keys. The Mac needs the same with its own list of modes, before the game reads its settings.
+(`c28d7f4`.) `K1DisplayModePolicy.h` holds the rules and no platform code, and `testing/regression/Test-DisplayModePolicy.py` tests them. `KmrpSettleSavedDisplayMode` in `K1RuntimeResolution.cpp` feeds it the modes and writes the keys. The Mac needs the same with its own list of modes, before the game reads its settings.
+
+## 138. The pad lost to a pointer nobody moved, at low resolutions (Windows 2026-11-02, 0c3ee0f)
+
+The engine puts the pointer back at the screen's centre and the pad's parking puts it at the top. At 800x600 that jump is 284 pixels, under the 300 that counts as placed by a program, so each pad press handed the menus back to the mouse and hover took the focus. Windows: `MouseIsBeingUsedK1` in `K1XboxControls.cpp` now ignores a jump with no sideways movement to the middle of the screen at the centre's height or the parked height (`K1_SCREEN_WIDTH`, `K1_SCREEN_HEIGHT`, `K1_PARKED_CURSOR_Y`).
+
+**The Mac has the same fault, read not run:** `macos/patches/kmrp-controller/prompts.cpp`, `kMouseTeleport = 300` and `kParkedCursorY = 16`, with no exception, and the same sum applies to any height up to about 632. Which low sizes a Mac can reach was not checked. **To check:** at a low size, press the pad in a menu with the mouse untouched: the focus must stay.
+
+## 139. A set's marker counts its files (Windows 2026-11-01, e3c7a90)
+
+A set's marker now records the folder's file count and bytes, so a file taken out of the cache is made again. Windows: `Contents`, `Complete` and `Build` in `K1RuntimeAssets.cpp`.
+
+**The Mac has the old fault:** `macos/patches/kmrp-assets/assets.cpp`, `Complete` compares the stamp's text only and `Build` writes the stamp only. **To check:** delete one file from a built set and start: it must be made again.
+
+## 140. A failed art helper retries before the set is sealed (Windows 2026-11-01, f29e522)
+
+When an art helper fails with the game's files present, the set is used but not sealed. The next two starts try again, and the third failure seals it, counted in a `.tries` file. Windows: `BuildSet` and `Build(seal)` in `K1RuntimeAssets.cpp`.
+
+**The Mac has the old fault:** `assets.cpp` logs the failure and `Build` seals, so one failure stays for good. **To check:** make the helper fail once: the next start must try again.
+
+## 141. Check: a held button when the input object is rebuilt (audit PAD-6; Windows 2026-11-01, 53ce379)
+
+An input rebuild no longer clears `lastButtons` (`EnsureNativeJoystickK1`), which replayed a held button as a new press and lost its release.
+
+**Not known on the Mac, read not run:** `macos/patches/kmrp-controller/native.cpp`, `KmrpControllerTick`, clears `g_heldDigital` and `g_sentAs` when the input object changes, and the engine rebuilds it after a movie, while `g_pad.buttons` is kept. So a held button may be sent again. The Mac has no remap suppression flag. Goes with item 134. **To check:** hold a button through a movie's end and through Options, release it, and read the log for a second press.
 
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
@@ -1721,7 +1788,7 @@ edition (E-3), the offscreen frame, and all of the installer's changes, which ar
 | KMRP's own XPRESS decoder, no `cabinet.dll`; the game found under Wine; the DPI record restored at another path; the `%TEMP%` copy of `kmrp-sdl3.dll` | 1c40997 | Windows, Wine and Proton installers |
 | XInput loaded at run time, not linked | 9fee5e4 | Windows 7 |
 | A Linux pad's own key (`KEY_BACK`) not keyboard use; the Gamepad layout notice | 8f60e46 | Linux's kernel driver and Wine |
-| K1 Modern Driver Compatibility 2.0.0; left out on Windows 7 | b5cbd6a, f0ca54c | the Mac ships no K1DC or `dinput8.dll` |
+| K1 Modern Driver Compatibility 2.0.0; left out on Windows 7 (both superseded: 2.0.1, row below) | b5cbd6a, f0ca54c | the Mac ships no K1DC or `dinput8.dll` |
 | One chitin.key reader for the C tools, `kmrp-keyed.h` (S-8, GUI-7) | 2026-11-01 | none needed: shared C, comes with the next rebuild. `kmrp-gameart` now reads only the resource's bytes, not the whole BIF |
 | Live Layout leaves a file already scaled alone at its own size (GUI-8, decision 5) | 2026-11-01 | none needed: shared C, `kmrp-guiadapt.c`, comes with the next rebuild |
 | The manifest written first with an `incomplete` row, files by rename, a rollback that reports, a damaged record refused, the game running or a second installer refused, Repair (audit INS-02 to INS-10) | 2026-11-01 | `kmrp-mac.sh` already records first, checks each installed file for `status` and has `refuse_if_running`; it shares none of this code |
@@ -1743,6 +1810,14 @@ edition (E-3), the offscreen frame, and all of the installer's changes, which ar
 | Restore Original with the game running: a plain message when `dinput8.dll` is locked (issue 75, `FileGuard.Delete`) | 22f2c9b | the Mac ships no `dinput8.dll` and has its own installer |
 | K1 Modern Driver Compatibility 2.0.1 as a bundled `.kpatch` on Windows and Linux, its Windows 7 and 8 build there (issue 44) | 2026-10-31 | the Mac ships no K1DC; its module is a Windows DLL |
 | `kmrp.dll` built without the controller code; shared files for what both modules need (issue 82, F1) | 2026-11-01 | the Windows modules' file layout; the Mac's patches are their own sources (`macos/patches/`) |
+| `glDrawBuffer` redirected so that GL_FRONT and GL_BACK mean KMRP's buffer; GL errors named at `debug-logs=2`; the offscreen frame's copy checked and `window-drawn=1`; K1DC's lookup handed the redirected copy functions | 2bd8d6f, 397129c, 897a41d | `K1OffscreenFrame.cpp`: the Mac has no offscreen frame (no `glBindFramebuffer` or `glDrawBuffer` in `macos/patches`) and no K1DC |
+| Debug log of each movie's geometry | 9895ab2 | `K1MovieWindow.cpp`: the Mac has no movie fit |
+| The all-users compatibility mode read from the 64-bit registry view | 44752e6 | Windows setting |
+| `--apply` moved out of the installer to `testing/reference` | dd1a626 | Build and installer. Mac comments naming `ResolutionPatch` stay right as a name |
+| The keystroke path and the preview module removed | cadbace, cac345e | Windows code the Mac never had (read: none in `macos/patches/kmrp-controller`) |
+| A failed preparation stops, not repeating on every resource lookup (THR-2) | 4ef6081 | The Mac's `Register` runs at the override call and on a real change of size, not per lookup. Judged from the commit message and the files named, the diff was not read |
+| Worker exceptions caught, 32-bit pointer range, `wcscat` replacements, applier fixes (THR-3, MEM-01 to 05, GFX-02) | 75c1ed6 | The Mac is 64-bit with no picture worker thread, and its `g_hud` is checked against the manager's list |
+| The version raised to 1.6.0 | e763bab | Windows and Linux, as asked. The Mac's three `manifest.toml` files still say 1.5.1 |
 
 ## Working on Live Adaptive Layout (from the Codex handoff of 2026-10-29)
 

@@ -192,7 +192,7 @@ States: **done** (behaves as on Windows, checked as stated), **to port**, **n/a*
 
 | Windows | What | Mac |
 | --- | --- | --- |
-| `0x00755788` | dialogue letterbox (`.klb` sites) | **done**: K7, the same `2H/3` rule. Seen with KMRP's layout at 3024x1964: bars a sixth of the screen each, three replies in the bottom bar (2026-09-29) |
+| `0x00755788` | dialogue letterbox (`.klb` sites) | **done**: K7, the same `2H/3` rule. Seen with KMRP's layout at 3024x1964: bars a sixth of the screen each, three replies in the bottom bar (2026-09-29) **Note 2026-11-03:** `0a0dee1` removed this address from Windows' recipe, so check whether this still applies. |
 | `.kmv`, `0x004057AC` | movie aspect fit | **n/a**: Aspyr's Bink player pillarboxes (checked in play) |
 
 ### Controller
