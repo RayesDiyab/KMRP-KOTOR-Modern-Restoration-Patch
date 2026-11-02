@@ -122,7 +122,7 @@ So the mouse queued and the pad did not: a defect. A level 2 probe showed the fr
 | PAD-3: A on feats | Queue +1 | pass |
 | PAD-3: A on Force Push, twice | +1, +1 | pass |
 | PAD-3: A on grenade, own power | +1 each | pass |
-| A on the defensive item | Nothing added, as with the mouse on that slot in the unpaused run. Not explained: its use was not checked | inconclusive |
+| A on the defensive item | At full health the game refuses it: the caption says Full Health and nothing queues. With the character at 20 of 66, the Energy Shield entry took one action (+1). Use of the item itself was not watched to its end | pass |
 | PAD-2: Down, Up right after A | Critical Strike, Flurry, Critical Strike | pass |
 | PAD-2: X on the slot | +1 | pass |
 | Queue limit | A fifth action is not added: four, then nothing | seen |

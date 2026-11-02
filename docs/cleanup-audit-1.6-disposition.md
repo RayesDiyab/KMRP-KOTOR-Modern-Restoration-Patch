@@ -54,7 +54,7 @@ tests from before this cycle were not all re-proved.
 | INS-06 | No running-game, second-installer or rights check | Tested | `cf60ec7`, `df3360e` | Case 21 on Windows. Linux's check not run on Linux |
 | INS-07 | Status after Steam's Verify | Tested | `cf60ec7` | Case 20. The window's Repair on the checklist |
 | INS-08 | Restore reports success with files missing | Tested | `cf60ec7` | Case 19. Departs from the audit's "check before removing the proxy": left, the next install would move it aside as the game's |
-| PAD-3 | A on a slot may activate twice | In-game | this commit | Not double: from `2a83b64` A did nothing, sent to the slot's frame, which has no 0x27 handler. Sent to the icon: one action per press on the feats, Force power, grenade and own power slots, virtual pad, running game. Defensive item adds nothing to the queue, unexplained. Physical pad not tried |
+| PAD-3 | A on a slot may activate twice | In-game | this commit | Not double: from `2a83b64` A did nothing, sent to the slot's frame, which has no 0x27 handler. Sent to the icon: one action per press on the feats, Force power, grenade, own power and defensive item slots, virtual pad, running game. Physical pad not tried |
 | PAD-5 | D-pad in menus moves the bar later | In-game | `2a83b64` | Test-HudPress |
 | PAD-6 | Input rebuild replays held buttons | In-game | `53ce379` | No test: needs the game's input object |
 | GUI-3 | One odd layout stops a size change | Tested | `8061ac1` | Test-RuntimeRelayout, on the shipped file, fails with the old `return false` |

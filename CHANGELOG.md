@@ -122,10 +122,9 @@ proxy, and it applies the executable changes above as well.
   but the game registers that event on the slot's icon alone. So from that commit A and X on a slot
   had no effect at all, in any build since. Never in a release. A now goes to the icon. Measured on
   the running game with the virtual pad, in the game's pause: one action per press on the feats,
-  Force power, grenade and own power slots, and Y takes them off one at a time. A slot's action
-  queues only once, so PAD-3's double activation is ruled out for those slots. A defensive item adds
-  nothing to the queue, as with the mouse on that slot in the earlier run, and that is not yet
-  explained. Up and Down straight after A cycle the slot (PAD-2): Critical Strike, Flurry and back.
+  Force power, grenade, own power and defensive item slots, and Y takes them off one at a time. A
+  slot's action queues only once, so PAD-3's double activation is ruled out for those slots. Up and
+  Down straight after A cycle the slot (PAD-2): Critical Strike, Flurry and back.
   `testing/controller/trial_action_slots.py`, Test-ActionSlotEvent.
 
 - **Fixed: the A that skips a movie is no longer sent to the screen after it (PAD-9)** (2026-11-02).
