@@ -117,6 +117,18 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: at a low resolution the pad lost the menus to a mouse nobody touched** (2026-11-02). The
+  engine puts the pointer back at the screen's centre and the pad's parking puts it at the top. At
+  800x600 that jump is 284 pixels, under the 300 that counts as placed, so it read as a hand on the
+  mouse: about 70 ms after every pad press the game went back to keyboard and mouse, the pointer
+  came down onto New Game, and its hover took the focus back, so A opened New Game whatever was lit.
+  A jump between those two places no longer counts. Measured on the running game, controller patch
+  alone at 800x600: five taps moved the focus five times, with no change of device.
+- **Fixed: Pazaak's side deck on the game's own layout** (2026-11-02). The pad's screen widens the
+  cards and the middle column for KMRP's wider panel. On the game's 640 units the third column of
+  cards lay 93 units over the captions. With no room, the cards now keep the layout's spacing and
+  the middle column takes the space left. KMRP + controller at 3440x1440 is unchanged.
+
 - **Fixed: A on an action slot did nothing (PAD-3)** (2026-11-02). The change of 2026-11-01 that sent
   each press through the control's own input call sent A to the slot's frame, which holds the focus,
   but the game registers that event on the slot's icon alone. So from that commit A and X on a slot

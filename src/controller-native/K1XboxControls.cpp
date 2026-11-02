@@ -5009,6 +5009,19 @@ bool MouseIsBeingUsedK1(int mouseX, int mouseY)
         return false;
     }
 
+    // The park spot and the screen's centre, where the engine puts the pointer back: a jump
+    // between them is not a hand, however short. At 800x600 it is 284 pixels, under the
+    // teleport limit below, so the game went back to the mouse after every pad press, the
+    // pointer came down onto New Game, and its hover took the focus back.
+    {
+        const int width = *reinterpret_cast<const int*>(K1_SCREEN_WIDTH);
+        const int height = *reinterpret_cast<const int*>(K1_SCREEN_HEIGHT);
+        if (dx == 0 && mouseX == width / 2 &&
+            (mouseY == height / 2 || mouseY == K1_PARKED_CURSOR_Y)) {
+            return false;
+        }
+    }
+
     // Placed, not moved. The baseline has already been taken above, so the next
     // real movement is measured from where the cursor now is; this contributes
     // nothing to the window.

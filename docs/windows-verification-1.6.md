@@ -189,6 +189,32 @@ Seen, not a defect by itself: on the side deck the D-pad can rest on the empty p
 
 Section 1: PAD-4 blocked, PAD-6, PAD-8, Controller only. Sections 2, 3, 4, 5, 6, 8 and 9, the store and map rows of 9a, 10's brightness rows, 11, 12. Steam Input and physical pads. The Steam folder still has the build of `472ea9c`, without PAD-9 or the slot fix.
 
+### Everything that needs no person: second pass
+
+Same copy, virtual pad. **Controller only** means KMRP's patch removed from the copy's `patch_config.toml`, which ran at 800x600. All of these ran with K1 Community Patch in Override, so they are the checklist's K1CP setup too.
+
+| Check | Observed | Result |
+| --- | --- | --- |
+| Settings 2, BuildCache | Passed. Mac 12 need a Mac | pass |
+| PAD-9 stall | 92 more trials: 0 sent again, 0 past the menu. 3 waited for a third movie; the 2 caught both stood at the main menu, alive. A skip can end the playlist: the trial's wait, not a hang | pass |
+| 2: Text Size page | Sliders, Save lighting up, Close warning, Save reaching `swkotor.ini` | pass |
+| 2: Text and Icon sizes | 100/50, 50/25, 50/100, 100/75 at 3440x1440, 50/50, 100/100 at 1920x1080: Skills and Feats follow, centred, nothing outside its row | pass |
+| 3: size change in Options | To 1920x1440 live, Graphics rebuilt, `swkotor.ini` updated | pass |
+| 4: rumble, Enhanced | Log: ignite, hum, hit, player damage, grenade, clash. Log only; nothing felt | pass |
+| 4: rumble, Original | No event in 12 s of the same fight, as its rows fire from scripts. Not a full check | partial |
+| PAD-8 | Load with a blade lit: `stop all`, then no output | pass |
+| Controller only: slots, Y, X, Up and Down, targets, menus, Pazaak | As with KMRP, after the two fixes in the changelog | pass |
+| 7: Pazaak side deck, Controller only | Fixed, frame read | pass |
+
+**Open, seen, not fixed:**
+
+- Controller only, 800x600: on the Pazaak table the badges cover the first letter of Play, Flip and End, and two captions wrap.
+- Controller only, 800x600: the Xbox HUD's Enemy Sighted banner overlaps the target's bar.
+- Graphics Options: on HUD Size and Text Size the description box keeps the Grass text.
+- One frame showed a solid NVIDIA green box at the top right of the desktop, outside the game. Taken for the NVIDIA App's overlay; not traced.
+
+**Not run, and why:** Sleheyron (its installer is a window to work through), section 8 (no scaled mod here), Rancor (the fixture needs the console, and a keyboard), OBS, PAD-6, the Container, a store, the map, brightness, section 11. Mac tests, physical pads and Steam Input need the hardware.
+
 ### Regression on the final source
 
 On `0825f2d` with documents only changed since: quick 37 and full 22, 59 passed. Mac 12 and Test-BuildCache not run. The Steam folder was not touched in this pass and still has the build of `472ea9c`, without the PAD-9 fix.

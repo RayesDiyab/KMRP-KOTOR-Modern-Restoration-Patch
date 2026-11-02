@@ -1692,6 +1692,12 @@ is portable. `K1EngineAddresses.h` is Windows' addresses and not for the Mac, wh
 **Not for the Mac:** the font stubs and the unread float taken out of the engine recipe (E-1, E-2; `WINDOWS-PARITY.md` has the Mac's own), the rumble table's removal (R-1; the Mac never had one), the applier's old
 edition (E-3), the offscreen frame, and all of the installer's changes, which are in the table below.
 
+## 134. The press that skipped a movie, and the slot's icon (audit PAD-9, PAD-3; Windows 2026-11-02)
+
+**PAD-9, needs checking on the Mac.** The game does not poll input during a movie, so a press that skipped one and was still held at its end went out again as a fresh press on the next screen. Windows now holds it back until it is released: `K1PadCarry.h`, `g_padCarry` in `K1NativeJoystick.cpp`. `gameplay.cpp`'s movie hook reads the pad too. See whether the Mac's first poll after a movie does the same, with the level 2 style log of a press and its class.
+
+**PAD-3, nothing to do.** Windows sent A to the slot's frame, which has no 0x27 handler, from 2026-11-01 until 2026-11-02. The Mac's `hud.cpp` already presses `kSlotLabel`, the icon.
+
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
 | Change | Commit | Why not the Mac |

@@ -53,7 +53,9 @@ def trial(game: Game, hold: float, delay: float, movies: int) -> dict:
     try:
         for number in range(1, movies + 1):
             if not wait_for(lambda: movie_lines(game.folder) >= number, 40):
-                return {"hold": hold, "delay": delay, "error": f"movie {number} did not start"}
+                return {"hold": hold, "delay": delay, "error": f"movie {number} did not start",
+                        "final": game.panel_names(), "movie_player": game.movie_player(),
+                        "alive": game.alive()}
             timeline.append((round(time.time() - start, 2), f"movie {number}"))
             time.sleep(delay if number == movies else 0.3)
             if not game.alive():

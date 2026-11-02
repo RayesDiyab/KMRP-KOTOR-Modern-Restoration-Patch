@@ -5565,6 +5565,18 @@ bool SetupLayoutForK1(void* panel, SetupLayoutK1& L)
     L.boxR = wide(441.25f);
     L.colL = L.boxL - K1_SETUP_GAP * s;
     L.colR = L.boxR + K1_SETUP_GAP * s;
+    // Those widths assume KMRP's wider panel. On the game's own 640 units there is no room for
+    // both: the third column of cards lay 93 units over the middle one and its captions. Then
+    // the cards keep the layout's spacing, and the middle column takes what is between them
+    // and the frame.
+    if (L.leftR + K1_SETUP_GAP * s > L.colL || L.colR + K1_SETUP_GAP * s > L.frameL) {
+        if (cols.size() > 1) L.availPitch = static_cast<float>(cols[1] - cols[0]);
+        L.leftR = L.availLeft + L.availPitch * (L.availCols - 1) + L.cardW - 1.0f * s;
+        L.colL = L.leftR + K1_SETUP_GAP * s;
+        L.colR = L.frameL - K1_SETUP_GAP * s;
+        L.boxL = L.colL + K1_SETUP_GAP * s;
+        L.boxR = L.colR - K1_SETUP_GAP * s;
+    }
     L.mid = (L.boxL + L.boxR) / 2.0f;
     return true;
 }
