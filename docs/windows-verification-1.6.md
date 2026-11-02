@@ -170,6 +170,25 @@ Audit: [`issue78-rancor.md`](cleanup-1.6/reviews/issue78-rancor.md). Static only
 
 Questions for the reporter: did they empty the pile, their `swkotor.ini`, event times, and the AMD dumps.
 
+### Dialogue, Pazaak and the display rows
+
+Fixed module, virtual pad, a copy of a real Taris save, frames read by eye.
+
+| Check | Observed | Result |
+| --- | --- | --- |
+| 9a: dialogue, first line on | Bars, replies and spoken line in place, one press one step, into the game's next screen | pass |
+| 7: Pazaak side deck, KMRP + controller | Y adds a card, count falls, ten chosen, badges beside their captions, the too-few box and the confirm box fit | pass |
+| Pazaak play | X plays a hand card and its caption greys, A ends the turn, the set box works, one set played to its end | pass |
+| GFX-04: AA 0, 4, 8 | `offscreen frame: on` at each, no `refused`, to a loaded save | pass |
+| GFX-04: `window-drawn=1` | Log says not used, the game runs | pass |
+| GFX-05 | A save load at each AA: game ran. A stale picture was not looked for beyond one frame each | partial |
+
+Seen, not a defect by itself: on the side deck the D-pad can rest on the empty place below +5, and the confirm box opens on Cancel. Neither was compared with vanilla.
+
+### Still not run
+
+Section 1: PAD-4 blocked, PAD-6, PAD-8, Controller only. Sections 2, 3, 4, 5, 6, 8 and 9, the store and map rows of 9a, 10's brightness rows, 11, 12. Steam Input and physical pads. The Steam folder still has the build of `472ea9c`, without PAD-9 or the slot fix.
+
 ### Regression on the final source
 
 On `0825f2d` with documents only changed since: quick 37 and full 22, 59 passed. Mac 12 and Test-BuildCache not run. The Steam folder was not touched in this pass and still has the build of `472ea9c`, without the PAD-9 fix.
