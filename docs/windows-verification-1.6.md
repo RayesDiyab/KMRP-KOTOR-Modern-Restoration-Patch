@@ -354,6 +354,22 @@ After the fix: brightness readings as before at AA 8, and the Rancor grenade sce
 
 The 547 saves of the maintainer's collection and the 197 in the other game folder hold no BOS:SR module. Every module script calling `BarkString` was listed: doors, triggers and story beats, with Taris's `k_ptar_gana_ud` the only one tied to a creature fleeing (save 000033 has her), not a normal fight, and it was not played. So the reporter's fight stays unreproduced here; the trial above with a bubble raised in a real fight is what stands.
 
+### Issue 87: the real BOS:SR popup
+
+BOS:SR 1.0 with the 1.1 patch on the test copy, KMRP + controller from `2bd8d6f`, virtual pad, 3440x1440. BOS:SR never calls `BarkString`. Its popup is a one-line conversation started in the middle of a fight, which the engine shows in the same bark bubble panel: `tem_bossuser` in `bos_sincan` starts `tem_kobchat1` when damage takes the boss to 750 HP.
+
+The fight was the real one, by real damage, reached by a save copy: the player placed beside the boss, the boss at 755 HP, the guardians and rancors and the party taken out, the player given 5000 HP. The bubble came up after 14 seconds, with its words on screen.
+
+| Check, bubble up | Observed | Result |
+| --- | --- | --- |
+| Highlight | One slot, in every frame looked at, never two | pass |
+| D-pad right, twice | Attack to Critical Strike to Force Push | pass |
+| A | Force Push queued, "Action added to queue" | pass |
+| Up, Down, B | Input reached the bar, B let go of the slot | pass |
+| After the bubble | Target, slots, A and B as usual | pass |
+
+**Not shown:** only this fight, once, on NVIDIA with a virtual pad. The reporter's 1.5.1 was not run, so whether it is the same fault that 1.6 fixed is not shown, nor that this is the fight they saw.
+
 ### Regression on the final source
 
 On `0825f2d` with documents only changed since: quick 37 and full 22, 59 passed. Mac 12 and Test-BuildCache not run. The Steam folder was not touched in this pass and still has the build of `472ea9c`, without the PAD-9 fix.
