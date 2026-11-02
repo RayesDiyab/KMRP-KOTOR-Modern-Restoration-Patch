@@ -127,17 +127,18 @@ proxy, and it applies the executable changes above as well.
   still hands the camera back at once. **Played under Proton** (SteamOS, Proton 11.0-100, RTX 3080,
   DualSense through Steam Input, the "Gamepad With Camera Controls" layout): the nudge is gone, and
   pad and keyboard with mouse both worked, as reported by the maintainer. That run used 1.6.0's own
-  `kmrp-controller.dll` with this change patched in (`9988C4D9...`). The source change itself has
-  only been type-checked, with MinGW on a copy with the MSVC-only `__except` replaced: no MSVC build of
-  it has been run, nor Windows, AMD, Intel or a Steam Deck.
+  `kmrp-controller.dll` with this change patched in (`9988C4D9...`). The source builds with MSVC and
+  the quick tests passed on it (39, 2026-11-03). It has not been played on Windows, AMD, Intel or a
+  Steam Deck.
 
 - **Fixed: under Proton the offscreen frame's log blamed "something else"** (2026-11-03). The frame
   hot-patches six opengl32 functions, which needs an `8B FF` entry. None of the six in Proton 11.0-100's
   `opengl32.dll` has one (read from the file), so the frame has never run there and the game draws to
   the window, while the log said the functions were "already changed by something else". Under Wine
   and Proton it now says `no entry KMRP can patch under Wine or Proton`, on all four lines. Only the
-  log text changes: the game still draws to the window there. Compiled for 32-bit with MinGW; not
-  run, and `Test-OffscreenFrame.py` needs Windows, so it has not been run on this change.
+  log text changes: the game still draws to the window there. Builds with MSVC, and
+  `Test-OffscreenFrame.py` passed on it in the quick tests (2026-11-03). The new line has not been
+  seen in a Proton log.
 
 - **Fixed: the driver refused the game's draw buffer calls on every frame's way through KMRP's
   offscreen frame** (2026-11-02). The game asks for the back or front buffer, which a framebuffer

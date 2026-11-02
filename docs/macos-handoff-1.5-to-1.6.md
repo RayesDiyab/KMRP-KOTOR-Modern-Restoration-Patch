@@ -140,6 +140,7 @@ features** (Icon Size, HUD Size, Text Size, issue 92 and others): this document 
 | 139 | A set's marker counts its files |
 | 140 | A failed art helper retries before the set is sealed |
 | 141 | Check: a held button when the input object is rebuilt (audit PAD-6) |
+| 142 | Check: the mouse turning the camera while the pad is in use |
 
 Items 46 and 47 are in the 1.5.1 group below (46: the controller events log; 47: a Linux
 pad's own key, Windows and Wine only).
@@ -1781,6 +1782,12 @@ An input rebuild no longer clears `lastButtons` (`EnsureNativeJoystickK1`), whic
 
 **Not known on the Mac, read not run:** `macos/patches/kmrp-controller/native.cpp`, `KmrpControllerTick`, clears `g_heldDigital` and `g_sentAs` when the input object changes, and the engine rebuilds it after a movie, while `g_pad.buttons` is kept. So a held button may be sent again. The Mac has no remap suppression flag. Goes with item 134. **To check:** hold a button through a movie's end and through Options, release it, and read the log for a second press.
 
+## 142. Check: the mouse turning the camera while the pad is in use (Windows 2026-11-03, 7afa0f2)
+
+Reported from SteamOS with a DualSense through Steam Input: A, B and Y turned the camera a little at each press, and so did leaving a menu with Start. A cursor resting at a screen edge was the cause. `UpdateCamera` turns the camera for it, and `RotateCamera` only stores that turn in camera+0x10C for the camera update later in the frame. So `FeedNativeCameraK1`, with the pad in use and the right stick at rest, now calls `RotateCamera(0, 0)` after it, as the engine does at `0x006039CA` when input is suppressed. Touching the mouse or keyboard hands the camera back.
+
+**Not known on the Mac, read not run:** `FeedCamera` in `macos/patches/kmrp-controller/gameplay.cpp` returns under the deadzone with no such reset, and the Mac turns the camera through `AcclTurnCamera`, not `RotateCamera`. Whether its cursor can turn the camera this way has not been checked. **To check:** with the pad in use and the real pointer at the right edge of the screen, press A, B and Y and leave a menu with Start: the camera must not move.
+
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
 | Change | Commit | Why not the Mac |
@@ -1817,6 +1824,7 @@ An input rebuild no longer clears `lastButtons` (`EnsureNativeJoystickK1`), whic
 | The keystroke path and the preview module removed | cadbace, cac345e | Windows code the Mac never had (read: none in `macos/patches/kmrp-controller`) |
 | A failed preparation stops, not repeating on every resource lookup (THR-2) | 4ef6081 | The Mac's `Register` runs at the override call and on a real change of size, not per lookup. Judged from the commit message and the files named, the diff was not read |
 | Worker exceptions caught, 32-bit pointer range, `wcscat` replacements, applier fixes (THR-3, MEM-01 to 05, GFX-02) | 75c1ed6 | The Mac is 64-bit with no picture worker thread, and its `g_hud` is checked against the manager's list |
+| The offscreen frame's log names Wine or Proton as the reason it is not used | 346b059 | Log text under Wine and Proton: the Mac has no offscreen frame |
 | The version raised to 1.6.0 | e763bab | Windows and Linux, as asked. The Mac's three `manifest.toml` files still say 1.5.1 |
 
 ## Working on Live Adaptive Layout (from the Codex handoff of 2026-10-29)
