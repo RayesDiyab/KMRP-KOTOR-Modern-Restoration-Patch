@@ -158,6 +158,10 @@ bool WindowTarget(GLenum target)
     return target == kFramebuffer || target == kDrawFramebuffer || target == kReadFramebuffer;
 }
 
+void WINAPI CopyTexImageForGame(GLenum, GLint, GLenum, GLint, GLint, GLsizei, GLsizei, GLint);
+void WINAPI CopyTexSubImageForGame(GLenum, GLint, GLint, GLint, GLint, GLint, GLsizei, GLsizei);
+void WINAPI ReadPixelsForGame(GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, void*);
+
 void WINAPI BindForGame(GLenum target, GLuint framebuffer)
 {
     if (framebuffer == 0 && !refused && Ours() && WindowTarget(target)) { framebuffer = frame; ++redirected; }
@@ -182,6 +186,13 @@ PROC WINAPI GetProcForGame(LPCSTR name)
         gameBindExt = reinterpret_cast<BindFramebufferFn>(found);
         return reinterpret_cast<PROC>(&BindForGameExt);
     }
+    // K1DC asks here first even for core functions, and NVIDIA answers with the driver's own,
+    // past opengl32's redirection below. Its brightness pass then copied KMRP's multisampled
+    // buffer unresolved, was refused, and drew a blank texture: a black screen at any brightness
+    // but the default, with anti-aliasing on (2026-11-02).
+    if (!std::strcmp(name, "glCopyTexImage2D")) return reinterpret_cast<PROC>(&CopyTexImageForGame);
+    if (!std::strcmp(name, "glCopyTexSubImage2D")) return reinterpret_cast<PROC>(&CopyTexSubImageForGame);
+    if (!std::strcmp(name, "glReadPixels")) return reinterpret_cast<PROC>(&ReadPixelsForGame);
     return found;
 }
 
