@@ -460,8 +460,11 @@ void Container(void* panel,int screenWidth) {
         const int inset=At<Rect>(button,4).width-At<Rect>(wrapper,4).width;
         // Room around the text: one line's height, half on each side. Fitting the text
         // exactly left "Switch To Give Item" touching both ends of its button (the
-        // panel grew 28 px at 100%; the maintainer: "too confined", 2026-10-18).
-        const double margin=KmrpTextNaturalLineHeightK1(wrapper);
+        // panel grew 28 px at 100%; the maintainer: "too confined", 2026-10-18). One and a
+        // half lines on each side since 2026-11-02: the caption is centred and the pad's
+        // badge stands left of it, a line wide and a quarter off, and half a line each side
+        // left the X on the S of "Switch" at large text sizes.
+        const double margin=KmrpTextNaturalLineHeightK1(wrapper)*3;
         if(native.width<=0 || !(natural>0) || natural>32767 || inset<0 || !(margin>=0) || margin>32767)continue;
         need=(std::max)(need,static_cast<int>(std::ceil(natural+margin))+inset-native.width);
     }
