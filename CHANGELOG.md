@@ -117,6 +117,14 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: the A that skips a movie is no longer sent to the screen after it (PAD-9)** (2026-11-02).
+  The maintainer saw one A on the intro movie also press New Game, sometimes. The game does not poll
+  input during a movie, so a press KMRP used for the skip and still held when the movie ended went
+  out again as a fresh press, close to the moment the main menu appeared. Measured on the running
+  game with the virtual pad, 40 trials each: sent again in 25 before, in 0 after. What is down at
+  the first poll after a movie now stays out of the game until it is let go. New Game itself was not
+  seen to open in those trials, so the maintainer's exact case still wants a look.
+
 - **Removed: engine patches that did nothing (audit E-1, E-2)** (2026-11-01). Two stubs at the entry
   of the game's text drawing multiplied each font's metrics by 1.0, on every text draw path, and one
   patched float had no reader left. KMRP now changes three fewer places in the game, and no page of

@@ -36,6 +36,7 @@ tests from before this cycle were not all re-proved.
 | INS-04 | Rollback not real | Tested | `b0feedc` | Cases 15, 16. Not tried on a really full disk |
 | PAD-1 | Y and B refused the press | In-game | `2a83b64` | Test-HudPress holds the source and the handlers' test of `+0x4C`. The live value was never measured |
 | PAD-2 | D-pad and X dead after A | In-game | `2a83b64` | Test-HudPress. Needs a pad in combat |
+| PAD-9 | The A that skips a movie is sent again after it | Tested | this cycle | Found after the audit, from the maintainer's report. Test-PadCarry, and `trial_movie_skip.py` on the running game: 25 of 40 sent it again before, 0 of 40 after. New Game opening was not reproduced |
 | PAD-4 | A bark bubble takes the bar (issue 87) | In-game | `2a83b64` | Test-HudPress. That BOS:SR's box is this one is still only suspected |
 | GUI-1 | Cyclic `.gui` crashes at start | Tested | `75c1ed6` | Test-ModCompatibility harness: old code ends in a stack overflow |
 | GUI-2 | Two owners of the skill icon (decision 4) | In-game | `8061ac1` | Test-TextRows skill row, fails without the fix. Abilities at several settings on the checklist |

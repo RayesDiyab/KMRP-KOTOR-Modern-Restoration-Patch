@@ -20,6 +20,7 @@
 #include "K1NativeJoystick.h"
 #include "K1EngineMemory.h"
 #include "K1MovieWindow.h"
+#include "K1PadCarry.h"
 #include "K1CursorConfinement.h"
 #include "K1GuiControls.h"
 #include "K1ControllerBackend.h"
@@ -838,6 +839,7 @@ StickState g_stick;
 // the Controller Layout reads them while it waits for the button an action is given,
 // which can be any of them, including the ones a menu sends no event for.
 std::uint16_t g_padPhysicalButtons = 0;
+KmrpPadCarry g_padCarry;
 // Controls a screen keeps for the mouse but takes off the pad's focus: buttons the pad
 // presses with a button of its own, which the D-pad must not land on (the Controller
 // Layout's Default, Save and Back are Y, X and B; the maintainer, 2026-10-18). A
@@ -1289,6 +1291,18 @@ constexpr unsigned long K1_NAV_REPEAT_MS       = 120;   // between repeats
 
 // ------------------------------------------------------------- record filling
 
+// Debug level 2: each button's press and release as this file sees them, and the input class,
+// for telling one press from two in a trial (docs/windows-verification-1.6.md).
+void LogPadEdgeK1(std::uint16_t mask, bool down)
+{
+    if (KmrpDebugLevel() < 2) {
+        return;
+    }
+    char line[64];
+    wsprintfA(line, "pad %04X %s class %d", mask, down ? "press" : "release", InputClassK1());
+    ControllerLogK1(line);
+}
+
 void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
 {
     ++g_stick.bufferCalls;
@@ -1347,7 +1361,7 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
         if (lt > K1_TRIGGER_THRESHOLD) word |= 0x0400;
         if (rt > K1_TRIGGER_THRESHOLD) word |= 0x0800;
         g_padPhysicalButtons = word;     // what the Controller Layout reads while it waits for a button
-        const std::uint16_t seen = KmrpRemapButtonsK1(word, world);
+        const std::uint16_t seen = KmrpRemapButtonsK1(g_padCarry.Filter(word), world);
         if (seen != word) {
             buttons = static_cast<std::uint16_t>(seen & ~KmrpRemap::TriggerBits);
             lt = (seen & 0x0400) ? 255 : 0;
@@ -1452,6 +1466,7 @@ void FillNativeJoystickBufferK1(int deviceIndex, void* outBuffer)
         if (now == was) {
             continue;
         }
+        LogPadEdgeK1(mask, now);
         // A screen may redefine a button -- Feats' A and X, or A on a Pazaak
         // card. The native code is suppressed so the press means one thing, and
         // the replacement is dispatched on the GUI frame rather than here, because
@@ -2291,6 +2306,7 @@ extern "C" void __cdecl NativeMovieFrameK1(void* moviePlayer)
     if (!TrackMovieFrameK1(moviePlayer)) {
         return;
     }
+    g_padCarry.MovieFrame();
 
     std::int32_t x = 0, y = 0, rx = 0, ry = 0;
     std::uint16_t buttons = 0;
@@ -2658,6 +2674,38 @@ extern "C" void __cdecl NativePanelDestroyedK1(void* panel)
     }
 }
 
+// Debug level 2: the player's queued actions as the engine holds them, each time their number
+// changes. CSWSCombatRound's list of them, m_pScheduledActions: creature +0x9C8, round +0x9B0,
+// the list's count at +8 of its internals. What a trial counts one press by.
+void LogCombatQueueK1()
+{
+    if (KmrpDebugLevel() < 2) {
+        return;
+    }
+    static int last = -1;
+    void* const app = ClientExoAppK1();
+    void* const client = app ? EngineFn<ClientExoAppPtrFn>(K1_GET_PLAYER_CREATURE)(app) : nullptr;
+    void* const creature = client ? EngineFn<ClientExoAppPtrFn>(0x0060FB20)(client) : nullptr;
+    if (!IsReadableK1(creature, 0x9CC)) {
+        return;
+    }
+    void* const round = *FieldAt<void*>(creature, 0x9C8);
+    if (!IsReadableK1(round, 0x9B4)) {
+        return;
+    }
+    void** const list = *FieldAt<void**>(round, 0x9B0);
+    if (!IsReadableK1(list, 4) || !IsReadableK1(*list, 12)) {
+        return;
+    }
+    const int count = *FieldAt<int>(*list, 8);
+    if (count != last) {
+        last = count;
+        char line[48];
+        wsprintfA(line, "queue %d", count);
+        ControllerLogK1(line);
+    }
+}
+
 // CSWGuiMainInterface's per-frame update, with ecx holding the interface. The
 // gameplay HUD's action bar is driven from here: the engine functions it calls
 // expect to run during GUI work, not inside CExoInput's polling.
@@ -2713,6 +2761,7 @@ extern "C" void __cdecl NativeActionBarK1(void* mainInterface)
     }
     g_stick.hudInterface = reinterpret_cast<unsigned long>(mainInterface);
     g_stick.hudState = KmrpActionBarStateK1(mainInterface);
+    LogCombatQueueK1();
     // Y, then B: undo the last queued action, then disengage altogether. Y with
     // nothing to undo flourishes the weapons (PerformPendingStickActionsK1, L3's).
     if (clearOne && !PressHudButtonK1(mainInterface, K1_HUD_CLEAR_ONE)) {
