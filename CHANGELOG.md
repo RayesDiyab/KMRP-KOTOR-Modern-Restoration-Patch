@@ -127,8 +127,30 @@ proxy, and it applies the executable changes above as well.
   before, and the installer says why. **Checked:** the worker on Windows made 19 sizes in 17 s with four
   workers into a scratch cache (546 MB); in WSL a real install against a stand-in `proton` script found
   the Proton, passed the module and game as Wine paths with six workers, and read the progress.
-  **Not run:** under a real Proton, SteamOS, Gamescope or a Steam Deck. Under Gamescope the sizes the
+  **Run on SteamOS** by the maintainer (2026-11-03): it worked, but showed a console and no progress,
+  fixed in the next entry. **Not run:** under Gamescope or on a Steam Deck. Under Gamescope the sizes the
   prefix reports at install may not be the game's; a size not made then is made when first used.
+
+- **Fixed: the Linux installer's art step is silent and shows its progress** (2026-11-03, seen on
+  SteamOS: "during the artwork step a terminal opens and you can see the work being done under
+  proton", while the installer's bar stood still and then jumped to the end). `kmrp-prepare.exe` was
+  a console program, and Proton gave it a console window of its own, which also took the progress
+  lines meant for the installer. It is now linked as a windowed program and starts its workers with
+  no window, and each worker writes its lines to a file of its own (`share-N.txt` in a folder the
+  installer names), which the installer reads four times a second; Proton's own output is ignored.
+  The counting is the Windows installer's, now one class both use (`src/patcher/ArtProgress.cs`), so
+  the bar, "N of M resolutions ready…" and the time left read the same on both. **Checked:** on
+  Windows, the new worker reports each size as it is made (19 sizes, about 15 s, four workers, three
+  runs); in WSL against a stand-in `proton` that writes its progress over three seconds, the
+  installer showed 22, 47, 73 and 99% a second apart. **Not seen:** under a real Proton.
+- **Fixed: a worker of the art step could give up its share on a new build's first install**
+  (2026-11-03, Windows and Linux). Every worker made the build's cache folder if it was not there,
+  and gave up when making it failed; started together, one could find the folder missing, lose the
+  race to make it, and fail, leaving its sizes to the game. Found when the Proton worker's third of
+  four made nothing in a fresh cache. The module now makes the folder first and gives up only when it
+  is still not there (`K1RuntimeAssets.cpp`, `Initialize`). The Mac's copy already allowed for this.
+  **Checked:** three runs of four workers on a fresh cache each made all 19 sizes;
+  `Test-AssetPrepare.py` passed.
 
 - **macOS: KMRP 1.6 ported to the Mac** (2026-11-03, issue 81; uncommitted). Every item of
   `docs/macos-handoff-1.5-to-1.6.md`, with its state and how it was seen, is in

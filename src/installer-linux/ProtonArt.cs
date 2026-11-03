@@ -1,9 +1,9 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
+using System.Text;
 
 namespace Kmrp
 {
@@ -14,9 +14,12 @@ namespace Kmrp
     /// (the maintainer, SteamOS: "on linux its instant but it takes longer to launch the game").
     ///
     /// The work is kmrp-prepare.exe's (src/installer-linux/prepare), a 32-bit Windows program
-    /// with no .NET, which loads the installed patches\kmrp.dll and calls its KmrpPrepareAssets,
-    /// started with the Proton the game last ran with (`proton run`). Anything missing, the
-    /// prefix, that Proton, or Steam's own folder, leaves the art to the game, as before.</summary>
+    /// with no .NET and no window, which loads the installed patches\kmrp.dll and calls its
+    /// KmrpPrepareAssets, started with the Proton the game last ran with (`proton run`).
+    /// Its workers write their progress to one file each, read here while they work: through
+    /// Proton's standard output nothing arrived until the end (SteamOS, 2026-11-03). Anything
+    /// missing, the prefix, that Proton, or Steam's own folder, leaves the art to the game, as
+    /// before.</summary>
     internal static class ProtonArt
     {
         private const string Worker = "kmrp-prepare.exe";
@@ -27,7 +30,8 @@ namespace Kmrp
             return Math.Max(1, Math.Min(6, Environment.ProcessorCount / 2));
         }
 
-        internal static void Run(string folder, Action<string> report, Action<int, string> progress, int from, int to)
+        internal static void Run(string folder, Action<string> report, Action<int, string> progress, InstallClock timing,
+            int from, int to)
         {
             string prefix = InstallPlatform.Prefix();
             string compat = prefix == null ? null : Path.GetDirectoryName(prefix);
@@ -42,7 +46,8 @@ namespace Kmrp
                 return;
             }
             string work = Path.Combine(Path.GetTempPath(), "KMRP-prepare-" + Environment.ProcessId.ToString(CultureInfo.InvariantCulture));
-            Directory.CreateDirectory(work);
+            string lines = Path.Combine(work, "progress");
+            Directory.CreateDirectory(lines);
             string exe = Path.Combine(work, Worker);
             try
             {
@@ -56,7 +61,7 @@ namespace Kmrp
                     using (FileStream target = File.Create(exe))
                         source.CopyTo(target);
                 }
-                Make(proton, steam, compat, exe, module, folder, report, progress, from, to);
+                Make(proton, steam, compat, exe, module, folder, lines, report, progress, timing, from, to);
             }
             finally
             {
@@ -66,7 +71,7 @@ namespace Kmrp
         }
 
         private static void Make(string proton, string steam, string compat, string exe, string module, string folder,
-            Action<string> report, Action<int, string> progress, int from, int to)
+            string lines, Action<string> report, Action<int, string> progress, InstallClock timing, int from, int to)
         {
             int workers = Workers();
             ProcessStartInfo start = new ProcessStartInfo(Path.Combine(proton, "proton"))
@@ -75,52 +80,99 @@ namespace Kmrp
                 RedirectStandardError = true,
                 UseShellExecute = false,
             };
-            foreach (string argument in new[] { "run", exe, WinePath(module), WinePath(folder), workers.ToString(CultureInfo.InvariantCulture) })
+            foreach (string argument in new[] { "run", exe, WinePath(module), WinePath(folder),
+                         workers.ToString(CultureInfo.InvariantCulture), WinePath(lines) })
                 start.ArgumentList.Add(argument);
             start.Environment["STEAM_COMPAT_DATA_PATH"] = compat;
             start.Environment["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = steam;
             start.Environment["SteamAppId"] = "32370";
             start.Environment["SteamGameId"] = "32370";
-            progress?.Invoke(from, "Making KMRP's interface under Proton…");
-            Dictionary<int, int[]> shares = new Dictionary<int, int[]>();
-            int made = 0, finished = 0;
+            start.Environment["WINEDEBUG"] = "-all";
+            ArtProgress shares = new ArtProgress(workers, timing);
+            long[] read = new long[workers];
+            shares.Tell(progress, from, to);
             Stopwatch clock = Stopwatch.StartNew();
+            bool late = false;
             using (Process process = Process.Start(start))
             {
+                // Proton's and Wine's own output, not the work's: drained, so a full pipe never
+                // stops them.
+                process.OutputDataReceived += delegate { };
                 process.ErrorDataReceived += delegate { };
+                process.BeginOutputReadLine();
                 process.BeginErrorReadLine();
-                string line;
-                while ((line = process.StandardOutput.ReadLine()) != null)
+                while (!process.WaitForExit(250))
                 {
-                    string[] part = line.Trim().Split(' ');
-                    int share, done, total, count;
-                    if (part.Length == 6 && part[0] == "step" && int.TryParse(part[1], out share) &&
-                        int.TryParse(part[2], out done) && int.TryParse(part[3], out total))
+                    if (Poll(lines, read, shares))
+                        shares.Tell(progress, from, to);
+                    // As on Windows, far longer than the slowest disk measured.
+                    if (clock.Elapsed > TimeSpan.FromMinutes(30))
                     {
-                        shares[share] = new[] { done, total };
-                        int all = 0, ready = 0;
-                        foreach (int[] each in shares.Values) { ready += each[0]; all += each[1]; }
-                        if (all > 0)
-                            progress?.Invoke(from + (to - from) * ready / all, "Making KMRP's interface under Proton…");
-                    }
-                    else if (part.Length == 3 && part[0] == "made" && int.TryParse(part[2], out count))
-                    {
-                        if (count > 0) made += count;
-                        ++finished;
+                        late = true;
+                        try { process.Kill(true); }
+                        catch { }
+                        process.WaitForExit();
+                        break;
                     }
                 }
-                if (!process.WaitForExit(15 * 60 * 1000))
-                {
-                    try { process.Kill(true); }
-                    catch { }
-                }
-                bool ok = process.HasExited && process.ExitCode == 0 && finished == workers;
-                report?.Invoke(ok
-                    ? "Made KMRP's interface ahead under Proton: " + made.ToString(CultureInfo.InvariantCulture) + " display sizes in " +
-                      ((int)clock.Elapsed.TotalSeconds).ToString(CultureInfo.InvariantCulture) + " s."
-                    : "KMRP's interface was not all made ahead under Proton (" + made.ToString(CultureInfo.InvariantCulture) +
-                      " sizes made); the game makes the rest when it first needs them.");
             }
+            if (Poll(lines, read, shares))
+                shares.Tell(progress, from, to);
+            // Each worker's "made" line is the result: Proton does not always pass the
+            // program's exit code on.
+            int made = 0;
+            bool failed = late;
+            for (int i = 0; i < workers; i++)
+            {
+                if (shares.Made(i) < 0)
+                    failed = true;
+                else
+                    made += shares.Made(i);
+            }
+            string seconds = ((int)Math.Round(clock.Elapsed.TotalSeconds)).ToString(CultureInfo.InvariantCulture);
+            report?.Invoke(failed
+                ? "KMRP's interface was made ahead for " + made.ToString(CultureInfo.InvariantCulture) +
+                  " resolutions under Proton, but not all; the game makes the rest when it needs them."
+                : "KMRP's interface is ready for " + made.ToString(CultureInfo.InvariantCulture) +
+                  (made == 1 ? " resolution" : " resolutions") + " your display offers (" + seconds + " s, " +
+                  workers.ToString(CultureInfo.InvariantCulture) + (workers == 1 ? " worker" : " workers") + ", under Proton).");
+        }
+
+        /// <summary>Reads the new whole lines in every worker's file (share-N.txt) from where
+        /// the last read stopped. True when one was a progress line.</summary>
+        private static bool Poll(string lines, long[] read, ArtProgress shares)
+        {
+            bool any = false;
+            for (int i = 0; i < read.Length; i++)
+            {
+                string path = Path.Combine(lines, "share-" + i.ToString(CultureInfo.InvariantCulture) + ".txt");
+                byte[] fresh;
+                try
+                {
+                    using (FileStream file = new FileStream(path, FileMode.Open, FileAccess.Read,
+                               FileShare.ReadWrite | FileShare.Delete))
+                    {
+                        if (file.Length <= read[i])
+                            continue;
+                        file.Seek(read[i], SeekOrigin.Begin);
+                        fresh = new byte[file.Length - read[i]];
+                        int got = 0, count;
+                        while (got < fresh.Length && (count = file.Read(fresh, got, fresh.Length - got)) > 0)
+                            got += count;
+                        Array.Resize(ref fresh, got);
+                    }
+                }
+                catch (IOException) { continue; }
+                catch (UnauthorizedAccessException) { continue; }
+                // Only whole lines: the rest is read again next time.
+                int end = Array.LastIndexOf(fresh, (byte)'\n');
+                if (end < 0)
+                    continue;
+                read[i] += end + 1;
+                foreach (string line in Encoding.ASCII.GetString(fresh, 0, end).Split('\n'))
+                    any |= shares.Read(i, line);
+            }
+            return any;
         }
 
         /// <summary>Wine's name for a Linux path: its Z: drive is the Linux root.</summary>

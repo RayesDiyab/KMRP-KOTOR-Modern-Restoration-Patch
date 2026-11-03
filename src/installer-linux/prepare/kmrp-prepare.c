@@ -10,12 +10,18 @@
    (%LOCALAPPDATA%\KMRP\cache). Without it the game made the art at its first start, which was
    the long first launch the maintainer saw under SteamOS (2026-11-03).
 
-       kmrp-prepare.exe <kmrp.dll> <game folder> <workers>      starts the workers, waits
-       kmrp-prepare.exe <kmrp.dll> <game folder> <share> <of>   one worker
+       kmrp-prepare.exe <kmrp.dll> <game folder> <workers> <progress folder>
+           starts the workers, waits
+       kmrp-prepare.exe <kmrp.dll> <game folder> <progress folder> <share> <of>
+           one worker
 
-   Every worker writes "step <share> <done> <total> <width> <height>" lines as it goes and
-   "made <share> <sizes>" at the end, to the standard output it was started with, which the
-   Linux installer reads. The exit code is 0 when every worker made its share. */
+   Each worker appends its lines to share-<share>.txt in the progress folder, which the Linux
+   installer reads as they come (ProtonArt.cs): "step <done> <total> <width> <height>" before
+   each part and "made <sizes>" at the end, the lines the Windows installer's workers write
+   (ArtProgress.cs), or "failed <why>". The program is linked for the windowed subsystem: built
+   as a console program, Proton gave it a console window of its own, which showed the work and
+   took its standard output, so the installer saw no progress until the end (the maintainer,
+   SteamOS, 2026-11-03). The exit code is 0 when every worker made its share. */
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,75 +29,68 @@
 typedef int(__stdcall* PrepareStep)(int done, int total, int width, int height, void* context);
 typedef int(__cdecl* PrepareAssets)(const wchar_t* game, int share, int shares, PrepareStep step, void* context);
 
-static HANDLE g_output;
-static int g_share;
+static HANDLE g_progress = INVALID_HANDLE_VALUE;
 
 static void Line(const char* text)
 {
     DWORD written = 0;
-    WriteFile(g_output, text, (DWORD)strlen(text), &written, NULL);    /* one write a line */
+    WriteFile(g_progress, text, (DWORD)strlen(text), &written, NULL);    /* one write a line */
 }
 
 static int __stdcall Step(int done, int total, int width, int height, void* context)
 {
     char text[96];
     (void)context;
-    _snprintf_s(text, sizeof text, _TRUNCATE, "step %d %d %d %d %d\n", g_share, done, total, width, height);
+    _snprintf_s(text, sizeof text, _TRUNCATE, "step %d %d %d %d\n", done, total, width, height);
     Line(text);
     return 0;
 }
 
-static int Worker(const wchar_t* module, const wchar_t* game, int share, int shares)
+static int Worker(const wchar_t* module, const wchar_t* game, const wchar_t* folder, int share, int shares)
 {
+    wchar_t path[MAX_PATH + 32];
     char text[64];
     HMODULE library;
     PrepareAssets prepare;
     int made;
-    HANDLE nul;
-    g_share = share;
-    g_output = GetStdHandle(STD_OUTPUT_HANDLE);
-    /* The module's helpers print to standard output through its own C runtime, which could
-       cut a progress line in two: they get NUL, as on Windows. */
-    nul = CreateFileW(L"NUL", GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
-    if (nul != INVALID_HANDLE_VALUE) SetStdHandle(STD_OUTPUT_HANDLE, nul);
+    _snwprintf_s(path, sizeof path / sizeof path[0], _TRUNCATE, L"%s\\share-%d.txt", folder, share);
+    g_progress = CreateFileW(path, FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
+                             CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (g_progress == INVALID_HANDLE_VALUE) return 4;
     SetEnvironmentVariableW(L"KMRP_PREPARE", L"1");
     library = LoadLibraryExW(module, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
     SetEnvironmentVariableW(L"KMRP_PREPARE", NULL);
     if (!library) {
-        _snprintf_s(text, sizeof text, _TRUNCATE, "failed %d load %lu\n", share, GetLastError());
+        _snprintf_s(text, sizeof text, _TRUNCATE, "failed load %lu\n", GetLastError());
         Line(text);
         return 2;
     }
     prepare = (PrepareAssets)GetProcAddress(library, "KmrpPrepareAssets");
     if (!prepare) {
-        _snprintf_s(text, sizeof text, _TRUNCATE, "failed %d export\n", share);
-        Line(text);
+        Line("failed export\n");
         return 3;
     }
     made = prepare(game, share, shares, Step, NULL);
-    _snprintf_s(text, sizeof text, _TRUNCATE, "made %d %d\n", share, made);
+    _snprintf_s(text, sizeof text, _TRUNCATE, "made %d\n", made);
     Line(text);
     FreeLibrary(library);
+    CloseHandle(g_progress);
     return made < 0 ? 1 : 0;
 }
 
-static int Workers(const wchar_t* self, const wchar_t* module, const wchar_t* game, int count)
+static int Workers(const wchar_t* self, const wchar_t* module, const wchar_t* game, const wchar_t* folder, int count)
 {
     HANDLE processes[MAXIMUM_WAIT_OBJECTS];
     int started = 0, failed = 0, i;
     for (i = 0; i < count && i < MAXIMUM_WAIT_OBJECTS; i++) {
-        wchar_t command[3 * MAX_PATH + 64];
+        wchar_t command[4 * MAX_PATH + 64];
         STARTUPINFOW startup;
         PROCESS_INFORMATION process;
         ZeroMemory(&startup, sizeof startup);
         startup.cb = sizeof startup;
-        startup.dwFlags = STARTF_USESTDHANDLES;
-        startup.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
-        startup.hStdError = GetStdHandle(STD_ERROR_HANDLE);
-        startup.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
-        _snwprintf_s(command, sizeof command / sizeof command[0], _TRUNCATE, L"\"%s\" \"%s\" \"%s\" %d %d",
-                     self, module, game, i, count);
-        if (!CreateProcessW(self, command, NULL, NULL, TRUE, 0, NULL, NULL, &startup, &process)) {
+        _snwprintf_s(command, sizeof command / sizeof command[0], _TRUNCATE, L"\"%s\" \"%s\" \"%s\" \"%s\" %d %d",
+                     self, module, game, folder, i, count);
+        if (!CreateProcessW(self, command, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &startup, &process)) {
             ++failed;
             continue;
         }
@@ -108,13 +107,11 @@ static int Workers(const wchar_t* self, const wchar_t* module, const wchar_t* ga
     return failed ? 1 : 0;
 }
 
+/* wmain, through /ENTRY:wmainCRTStartup, so the arguments come parsed with no console. */
 int wmain(int argc, wchar_t** argv)
 {
     wchar_t self[MAX_PATH];
-    if (argc == 5) return Worker(argv[1], argv[2], _wtoi(argv[3]), _wtoi(argv[4]));
-    if (argc != 4 || !GetModuleFileNameW(NULL, self, MAX_PATH)) {
-        fputs("usage: kmrp-prepare.exe <kmrp.dll> <game folder> <workers>\n", stderr);
-        return 64;
-    }
-    return Workers(self, argv[1], argv[2], max(1, _wtoi(argv[3])));
+    if (argc == 6) return Worker(argv[1], argv[2], argv[3], _wtoi(argv[4]), _wtoi(argv[5]));
+    if (argc != 5 || !GetModuleFileNameW(NULL, self, MAX_PATH)) return 64;
+    return Workers(self, argv[1], argv[2], argv[4], max(1, _wtoi(argv[3])));
 }

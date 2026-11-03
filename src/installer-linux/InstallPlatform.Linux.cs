@@ -77,7 +77,7 @@ namespace Kmrp
         {
             if (timing != null)
                 timing.ArtBegun();
-            ProtonArt.Run(folder, report, progress, from, to);
+            ProtonArt.Run(folder, report, progress, timing, from, to);
         }
 
         static partial void OnMoveOver(string from, string to, ref bool moved)

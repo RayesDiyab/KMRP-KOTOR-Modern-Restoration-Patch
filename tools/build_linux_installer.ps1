@@ -34,7 +34,8 @@ $items = foreach ($line in [System.IO.File]::ReadAllLines($list)) {
     '    <EmbeddedResource Include="{0}" LogicalName="{1}" />' -f [System.Security.SecurityElement]::Escape($path), $name
 }
 # kmrp-prepare.exe, which makes the art ahead under Proton (src/installer-linux/prepare,
-# ProtonArt.cs): a 32-bit Windows program, compiled here with the C compiler the modules use.
+# ProtonArt.cs): a 32-bit Windows program, compiled here with the C compiler the modules use,
+# for the windowed subsystem, so Proton opens no console window for it.
 $vc = ([regex]::Match((Get-Content -Raw -LiteralPath (Join-Path $projectRoot "src\controller-native\build_native_runtime.cmd")),
     '(?m)^set VC=(.+)$').Groups[1].Value).Trim().Trim('"')
 $prepareOut = Join-Path $out "prepare"
@@ -42,7 +43,7 @@ New-Item -ItemType Directory -Force -Path $prepareOut | Out-Null
 $prepareSource = Join-Path $projectRoot "src\installer-linux\prepare\kmrp-prepare.c"
 $prepareExe = Join-Path $prepareOut "kmrp-prepare.exe"
 $prepareCmd = Join-Path $prepareOut "build.cmd"
-[System.IO.File]::WriteAllText($prepareCmd, ("@echo off`r`ncall `"{0}`" x86 >nul`r`ncl /nologo /O2 /W4 /WX /MT `"{1}`" /Fo`"{2}\\`" /Fe`"{3}`" /link kernel32.lib`r`n" -f $vc, $prepareSource, $prepareOut, $prepareExe))
+[System.IO.File]::WriteAllText($prepareCmd, ("@echo off`r`ncall `"{0}`" x86 >nul`r`ncl /nologo /O2 /W4 /WX /MT `"{1}`" /Fo`"{2}\\`" /Fe`"{3}`" /link /SUBSYSTEM:WINDOWS /ENTRY:wmainCRTStartup kernel32.lib`r`n" -f $vc, $prepareSource, $prepareOut, $prepareExe))
 & cmd.exe /d /c $prepareCmd
 if ($LASTEXITCODE -ne 0) { throw "kmrp-prepare.exe could not be compiled" }
 $items = @($items) + ('    <EmbeddedResource Include="{0}" LogicalName="kmrp-prepare.exe" />' -f [System.Security.SecurityElement]::Escape($prepareExe))

@@ -34,6 +34,7 @@
     <Compile Include="..\patcher\AbilityIconGenerator.cs" />
     <Compile Include="..\patcher\AssemblyInfo.cs" />
     <Compile Include="..\patcher\LightField.cs" />
+    <Compile Include="..\patcher\ArtProgress.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="InstallPlatform.Linux.cs" />
     <Compile Include="SteamLibraries.cs" />

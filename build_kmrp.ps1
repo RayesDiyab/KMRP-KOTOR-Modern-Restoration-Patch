@@ -427,6 +427,7 @@ $compilerArgs += (Join-Path $projectRoot "src\patcher\InstallCore.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\InstallPlatform.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\InstallPlatform.Windows.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\ArtPreparation.cs")
+$compilerArgs += (Join-Path $projectRoot "src\patcher\ArtProgress.cs")
 $compilerArgs += (Join-Path $projectRoot "src\patcher\LightField.cs")
 
 # Properties -> Details must name the version the install record names. The two live

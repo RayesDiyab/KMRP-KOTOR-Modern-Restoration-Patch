@@ -58,6 +58,7 @@ $sources = @(
     "src\patcher\InstallPlatform.cs",
     "src\patcher\InstallPlatform.Windows.cs",
     "src\patcher\ArtPreparation.cs",
+    "src\patcher\ArtProgress.cs",
     "src\patcher\LightField.cs",
     "testing\regression\NvidiaPresentSelfTest.cs"
 ) | ForEach-Object { Join-Path $projectRoot $_ }

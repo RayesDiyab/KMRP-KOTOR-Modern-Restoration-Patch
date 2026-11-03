@@ -281,7 +281,9 @@ bool Initialize()
     CreateDirectoryW(parent.c_str(), nullptr);
     const std::wstring build = std::wstring(KMRP_ASSET_BUILD).substr(0, 16);
     root = parent + L"\\" + build;
-    if (!IsDirectory(root) && !CreateDirectoryW(root.c_str(), nullptr)) { CloseHandle(file); return false; }
+    // Created first and looked for after: the installer's workers start together, and one
+    // that saw no folder lost the race to create it and gave up its share (2026-11-03).
+    if (!CreateDirectoryW(root.c_str(), nullptr) && !IsDirectory(root)) { CloseHandle(file); return false; }
     CreateDirectoryW((root + L"\\sets").c_str(), nullptr);
     CreateDirectoryW((root + L"\\fonts").c_str(), nullptr);
     // Held for the life of the process and deleted with it, even on a crash: a later

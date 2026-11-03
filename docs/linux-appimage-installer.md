@@ -245,13 +245,20 @@ src/installer-linux/     .NET 8 + Avalonia app: Linux UI, Steam discovery,
 
 * Prebuilt art on Linux: **decided 2026-11-03, built.** The maintainer saw the first launch
   take longer than on Windows and macOS, as the game made its art itself. The installer now
-  runs `kmrp-prepare.exe` (`src/installer-linux/prepare`, a 32-bit C program, no .NET, compiled
-  by `tools/build_linux_installer.ps1` and embedded) with `proton run`, in the game's prefix:
+  runs `kmrp-prepare.exe` (`src/installer-linux/prepare`, a 32-bit C program, no .NET, linked
+  as a windowed program so Proton opens no console for it, compiled by
+  `tools/build_linux_installer.ps1` and embedded) with `proton run`, in the game's prefix:
   `STEAM_COMPAT_DATA_PATH` the game's `compatdata/32370`, `STEAM_COMPAT_CLIENT_INSTALL_PATH`
   the first of `~/.steam/steam`, `~/.local/share/Steam`, the Flatpak's and `~/.steam/root`, and the
   Proton the one `config_info` names. It loads the installed `patches/kmrp.dll` with
-  `KMRP_PREPARE` set and calls `KmrpPrepareAssets`, in up to six processes. Checked on Windows
-  (19 sizes, 17 s, 546 MB) and in WSL with a stand-in `proton`; not yet run under a real Proton.
+  `KMRP_PREPARE` set and calls `KmrpPrepareAssets`, in up to six processes. Each worker writes
+  its progress to `share-N.txt` in a folder the installer passes, read by `ProtonArt.Poll` four
+  times a second and counted by `ArtProgress.cs`, as on Windows: Proton's standard output is
+  not used, as a console program's lines went to the console window Proton opened for it.
+  Checked on Windows (19 sizes, about 15 s) and in WSL with a stand-in `proton`; run by the
+  maintainer on SteamOS on 2026-11-03, where the art was made, but in a visible console with
+  the bar standing still until the end, which the windowed build and the progress files fix
+  (not yet seen on SteamOS).
   Open: whether a game never started from Steam (no prefix yet) should be told to start once and
   install again, which is what the log says now.
 * Issue 72's runtime half: the module may still need to read Gamescope's size at

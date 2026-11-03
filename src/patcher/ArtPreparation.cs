@@ -69,14 +69,6 @@ namespace Kmrp
         private delegate int PrepareAssets([MarshalAs(UnmanagedType.LPWStr)] string game, int share, int shares,
             PrepareStep step, IntPtr context);
 
-        // One worker's progress, as its lines report it.
-        private sealed class Share
-        {
-            internal int Done;
-            internal int Total = -1;
-            internal int Made = -1;
-        }
-
         /// <summary>Makes the art for the game in `folder`, reporting progress from `from`
         /// to `to` percent. Never throws: what is not made here, the game makes.</summary>
         internal static void Run(string folder, string kpatchResource, string moduleEntry, Action<string> report,
@@ -94,41 +86,17 @@ namespace Kmrp
                 "KMRP-prepare-" + Process.GetCurrentProcess().Id.ToString(CultureInfo.InvariantCulture));
             int count = Workers();
             List<Process> workers = new List<Process>();
-            Share[] shares = new Share[count];
+            ArtProgress shares = new ArtProgress(count, timing);
             object gate = new object();
             Stopwatch clock = Stopwatch.StartNew();
             bool stopped = false;
             Action tell = delegate
             {
+                // Inside the lock, so nothing is told once the work is over; the window's
+                // progress is posted, not waited for.
                 lock (gate)
-                {
-                    if (stopped)
-                        return;
-                    // Parts: worker 0's first is the common files, every other a resolution.
-                    int all = 0, finished = 0, sizes = 0, ready = 0;
-                    for (int i = 0; i < shares.Length; i++)
-                    {
-                        Share each = shares[i];
-                        if (each == null || each.Total < 0)
-                            continue;
-                        int done = Math.Min(each.Done, each.Total);
-                        all += each.Total;
-                        finished += done;
-                        sizes += i == 0 ? Math.Max(0, each.Total - 1) : each.Total;
-                        ready += i == 0 ? Math.Max(0, done - 1) : done;
-                    }
-                    int percent = from + (all > 0 ? (to - from) * finished / all : 0);
-                    string what = ready == 0 || sizes == 0 ? "Unpacking KMRP's art…"
-                        : ready.ToString(CultureInfo.InvariantCulture) + " of " + sizes.ToString(CultureInfo.InvariantCulture) +
-                          " resolutions ready…";
-                    // Inside the lock, so nothing is told once the work is over; the
-                    // window's progress is posted, not waited for.
-                    if (progress != null)
-                    {
-                        try { progress(percent, what); }
-                        catch { }
-                    }
-                }
+                    if (!stopped)
+                        shares.Tell(progress, from, to);
             };
             try
             {
@@ -138,7 +106,6 @@ namespace Kmrp
                 string self = Assembly.GetExecutingAssembly().Location;
                 for (int i = 0; i < count; i++)
                 {
-                    Share share = shares[i] = new Share();
                     int index = i;
                     ProcessStartInfo start = new ProcessStartInfo(self, Quote(WorkerSwitch) + " " + Quote(copy) + " " +
                         Quote(folder) + " " + i.ToString(CultureInfo.InvariantCulture) + " " +
@@ -150,26 +117,11 @@ namespace Kmrp
                     worker.StartInfo = start;
                     worker.OutputDataReceived += delegate(object sender, DataReceivedEventArgs line)
                     {
-                        string[] parts = (line.Data ?? String.Empty).Split(' ');
-                        int done, total;
+                        bool read;
                         lock (gate)
-                        {
-                            if (parts.Length == 5 && parts[0] == "step" &&
-                                Int32.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out done) &&
-                                Int32.TryParse(parts[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out total))
-                            {
-                                share.Done = done;
-                                share.Total = total;
-                                // The time left is the install's clock's, worker by worker.
-                                if (timing != null)
-                                    timing.ArtWorker(index, done, total);
-                            }
-                            else if (parts.Length == 2 && parts[0] == "made")
-                                Int32.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out share.Made);
-                            else
-                                return;
-                        }
-                        tell();
+                            read = shares.Read(index, line.Data);
+                        if (read)
+                            tell();
                     };
                     worker.Start();
                     worker.BeginOutputReadLine();
@@ -193,10 +145,13 @@ namespace Kmrp
                 bool failed = late;
                 for (int i = 0; i < workers.Count; i++)
                 {
-                    if (workers[i].ExitCode != 0 || shares[i].Made < 0)
+                    int share;
+                    lock (gate)
+                        share = shares.Made(i);
+                    if (workers[i].ExitCode != 0 || share < 0)
                         failed = true;
                     else
-                        made += shares[i].Made;
+                        made += share;
                 }
                 string seconds = ((int)Math.Round(clock.Elapsed.TotalSeconds)).ToString(CultureInfo.InvariantCulture);
                 Report(report, failed
