@@ -133,8 +133,10 @@ proxy, and it applies the executable changes above as well.
   with no party leader, and a double-click on a script row confirms again. The package builds from the repository alone;
   until now it needed `--kpm` and a KotOR Patch Manager clone beside the repository. Three reviewers
   audited the change against the Mac executable, its decompile and Windows' code; eleven findings, one
-  high (the map-note correction hook had lost its `rbx` parameter), were fixed the same day, and two
-  low ones were left as found. **Playtested** (2026-11-03) from the final package installed as a
+  high (the map-note correction hook had lost its `rbx` parameter), were fixed the same day, and so
+  were two low ones left at first: a drawn picture no longer adds the controller's folder to the
+  game's search again (it is listed anew in place), and the rumble hook, from before this port, takes
+  its exit, so the engine's own queue code no longer runs after every rumble. **Playtested** (2026-11-03) from the final package installed as a
   player gets it: a new game through Trask's conversation, and a save on Manaan through every in-game
   screen at 50% and 100% text, the option pages, a remap, a change of resolution, the galaxy map and a
   hand of Pazaak (both opened by a test-only trigger), and a footlocker marked empty, with a scripted

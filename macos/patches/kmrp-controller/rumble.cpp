@@ -1095,9 +1095,10 @@ extern "C" __attribute__((visibility("default"))) int KmrpRumbleFrame(void* inte
     return 1;
 }
 
-// CClientExoAppInternal::PlayRumblePattern, after its prologue (0x10027A106), with the index in
+// CClientExoAppInternal::PlayRumblePattern, at its entry (0x10027A0FC), with the index in
 // esi. Every rumble the engine starts -- a script's PlayRumblePattern, a footstep, a VFX --
-// arrives here, and the mixer plays it instead of the engine's queue.
+// arrives here, and the mixer plays it instead of the engine's queue. The 1 returned is the
+// hook's consumed exit: the engine's own queue code is skipped (any other value runs it).
 extern "C" __attribute__((visibility("default"))) int KmrpRumblePlay(void* internal, int index) {
     (void)internal;
     LoadSettings();

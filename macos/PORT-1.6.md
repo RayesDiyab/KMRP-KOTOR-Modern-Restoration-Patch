@@ -102,10 +102,12 @@ same day:
 | The mini-games read the raw pad, so a button held through a movie fired there | They read the filtered word, as Windows does |
 | A texture call declared with an `int` where the engine takes a pointer | Declared as a pointer, passed null |
 
-Left as found, both low: the Pazaak and class-selection pictures add their folder to the game's
-search again for each new picture, so the list grows over a session (it works); and the rumble hook at
-0x10027A106, from before this port, never takes its consumed exit because its stolen `xor eax, eax`
-clears the handler's result (the engine's own queue code then runs, unplayed).
+The two low findings left at first were fixed the same day, after the playtest below:
+
+| Finding | Fix | Seen |
+| --- | --- | --- |
+| A drawn picture (Pazaak, class selection) gave the controller's folder to the game again under a new alias, so the search list grew by one a picture | `standalone::ListAgain`: the same alias added again, which `CExoResMan::AddKeyTable` (0x100369130) answers by rebuilding that table in place (0x10035C2F4) as Windows' 0x4088E0 does; `RegisterAgain` is kept for a change of resolution, which needs the folder in front again | A Pazaak hand: its pictures shown, the folder registered once (`KMRPCTL1`) in the run |
+| The rumble hook at 0x10027A106, from before this port, never took its consumed exit: KotOR Patch Manager runs the stolen bytes before its test, and their `xor eax, eax` cleared the handler's 1, so the engine's queue code ran after every rumble | The hook moved to the function's entry (0x10027A0FC), the prologue stolen: no instruction there touches `eax`, the epilogue at the exit unwinds that frame, and a 0 resumes at 0x10027A106 untouched | A script's `PlayRumblePattern(9999)` returns 1 (the exit taken) where the old hook returned the engine's 0, told apart by the pattern the script played next; the script's pattern 1 reaches the mixer. Not with a physical pad |
 
 ## Playtest (2026-11-03)
 
@@ -120,6 +122,16 @@ footlocker marked empty and the Container screen; the keyboard's hotkeys, the PC
 badges shown; the App Store game loading a save. **Not reached:** a fight against an enemy (the saves
 at hand have none near; a script that made a bystander hostile did not take), the swoop race and the
 turret. No run crashed.
+
+## The release build (2026-11-03)
+
+Built from a fresh checkout, the package showed that `build/fonts`, the font sets
+`tools/build_font_scale_sets.py` makes and `build.sh` reads, had been a cache from 2026-09-29 in
+every earlier build, before the font tools' changes of 2026-10-18 to 2026-11-01 (README.md,
+section 9). Made afresh, every atlas file differs from the old cache. The package built from
+scratch with them passes the seven Mac suites, Test-MacAssets included, and was seen in the
+Steam game at 50% and 100% text and with the Original font (Options, Equip, Inventory, the HUD),
+the Original font's glyphs told apart from the HD font's.
 
 ## Faults known at the end
 

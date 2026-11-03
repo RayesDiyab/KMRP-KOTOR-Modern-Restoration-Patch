@@ -38,8 +38,8 @@
     - The texture behind a name is 0x1001F9FF4, its GL name 0x1001F7362, CAurTexture::Bind
       0x1001F72B0. Mac textures are read back through OpenGL here as Windows' K1CaptionInk does.
     - A picture this file draws is written to this run's folder of links with a .txi beside it and
-      the folder given to the game again (standalone::RegisterAgain), as Windows lists its folder
-      anew (K1WriteDrawnTexture).
+      the folder listed anew in place (standalone::ListAgain), as Windows lists its folder anew
+      (K1WriteDrawnTexture).
 
   What differs from Windows in kind: the LT and RT glyphs are the carried kmr?rmlt and kmr?rmrt
   (Windows draws them; handoff item 101), and the table's picture is brought in by Bind on first
@@ -269,8 +269,7 @@ bool WritePicture(const char* name, const std::vector<std::uint8_t>& sheet, int 
     written = std::fwrite(kTxi, 1, sizeof kTxi - 1, f) == sizeof kTxi - 1;
     written = std::fclose(f) == 0 && written;
     if (!written) return false;
-    standalone::RegisterAgain();
-    return true;
+    return standalone::ListAgain();
 }
 
 // The badge `resref` (the Xbox art's name) on a button, in the pad's family, or none.

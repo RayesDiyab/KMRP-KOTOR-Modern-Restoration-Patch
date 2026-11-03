@@ -27,5 +27,9 @@ std::string SettingsPath();
 // has added a directory (KMRP's menu set for a resolution chosen in the game).
 void RegisterAgain();
 
+// Lists this patch's folder anew where it stands, after a file was written into it (a drawn
+// picture), so the game finds the file. Adds nothing to the search.
+bool ListAgain();
+
 }  // namespace standalone
 }  // namespace kmrp

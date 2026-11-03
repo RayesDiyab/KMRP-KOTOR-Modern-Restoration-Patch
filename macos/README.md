@@ -911,7 +911,7 @@ and makes its call itself, because a relative call cannot run from KPM's wrapper
 | `0x1003563f3` | 5 | `E8 54 34 00 00` (the keyboard buffer read) | consumed | `KmrpNoteKeyboard` (rdi, rsi) | a key hides the prompts and gives the cursor back | `NativeNoteKeyboardK1` |
 | `0x10049d986` | 6 | `55 48 89 E5 53 50` | detour | `KmrpPanelReleaseGff` (rdi) | `CSWGuiPanel::StopLoadFromLayout`: binds the GUI cues and badges while the panel's `.gui` is loaded, forgets them at the base destructor | `0x0040B8F0` |
 | `0x1002687f1` | 5 | `E8 00 27 00 00` (`UpdateRumble`) | consumed | `KmrpRumbleFrame` (r13) | the rumble mixer's frame and the pad's motors | `0x005F7617` |
-| `0x10027a106` | 6 | `89 F3 31 C0 85 DB` | consumed, exit `0x10027a185` | `KmrpRumblePlay` (rdi, esi) | `PlayRumblePattern`: the pattern goes to the mixer; returns 1 through the function's own epilogue (Windows 0; only a script reads it) | `0x005FB49F` |
+| `0x10027a0fc` | 10 | `55 48 89 E5 41 57 41 56 53 50` | consumed, exit `0x10027a185` | `KmrpRumblePlay` (rdi, esi) | `PlayRumblePattern`, at its entry: the pattern goes to the mixer; returns 1 through the function's own epilogue (Windows 0; only a script reads it). At `0x10027a106` until 2026-11-03, where the stolen `xor eax, eax` cleared the 1 and the engine's queue code ran too | `0x005FB49F` |
 | `0x10027a1d2` | 11 | `55 48 89 E5 48 63 87 E8 04 00 00` | detour | `KmrpRumbleStop` (rdi, esi) | `StopRumblePattern`, observed | `0x005F74B0` |
 | `0x10027a892` | 8 | prologue | detour | `KmrpRumbleCutoff` (rdi, esi, edx, rcx) | `LookUpAndPerformRumbleWithCutOff`, observed | `0x005FB98E` |
 | `0x100359d86` | 8 | `55 48 89 E5 48 8B 7F 08` | detour | `KmrpRumblePause` | `PauseRumble`'s wrapper: the pause the Mac no longer keeps | `CExoInput::PauseRumble` |
@@ -1018,7 +1018,7 @@ whatever interface is loaded and takes nothing from another patch.
 | Its files | `macos/tools/make_controller_assets.py`: the steps of Windows' `tools/build_controller_assets.py` run on the Mac game's own layouts (`build-inputs/vanilla-gui`, extracted by the build), packed with zlib into the section `__KMRPC,__assets`: 17 layout files, the badge and cue art of four controller families, the Xbox-style HUD's art, SDL. 1,014 files, 9.5 MB |
 | Unpacked to | `~/Library/Caches/KMRP-Controller/<build>/files`, once; each run registers a folder of links, `run-<pid>`, with the game's resource manager (`standalone.cpp`) |
 | Beside KMRP | the run's folder has no layout file, so KMRP's layouts load (they hold the same added controls); the art is still this patch's own |
-| Search order | registered at `0x10026c73e`, the instruction after KMRP's patch registers its menu set, so this patch's art is found first; registered again after the resolution is changed in the game (`RegisterAgain`), since KMRP then adds another set |
+| Search order | registered at `0x10026c73e`, the instruction after KMRP's patch registers its menu set, so this patch's art is found first; registered again after the resolution is changed in the game (`RegisterAgain`), since KMRP then adds another set; after a picture is drawn into the folder it is listed anew in place (`ListAgain`: the same alias added again rebuilds its table), where until 2026-11-03 each picture added the folder again under a new alias |
 | A badge's shape | `overlays.cpp`: where the live button's fill area is not the shape the badge was made for (`src/controller-native/K1ControllerBadgeShapes.inc`, the table Windows compiles, which `build.sh` checks against the Mac bank), the badge is drawn on a label of its own, as tall as the fill area, beside the caption as the caption's own font measures it |
 | Hooks | 24: the port's 21 (section 7), the registration of its files, and the two of the Xbox-style HUD; none at an address `kmrp`, the Widescreen Patch or the Stray Bug Fixes hook (`build.sh` stages the four together, and the controller patch alone and with FTD's two) |
 | After a change of resolution in the game | the files are registered again, and the badges and cues are placed again for the new size: three fixes of 2026-10-07 (`CHANGELOG.md`, "the pad's badges and cues after the resolution is changed in the game"), in `KmrpPanelControl` of KMRP's patch and `overlays.cpp` here |
@@ -1119,6 +1119,20 @@ come from the submodule (`git submodule update --init`), FTD's two patches from 
 `macos/third_party/kpm-patches` (its `SOURCE.md` says from which commits and why). Until then the
 command above carried `--kpm "../third_party/Kotor-Patch-Manager"`, the clone the maintainer's
 workspace keeps beside this repository, and the build stopped without it.
+
+**Before a release build, make the font sets afresh** (2 min 40 s on this Mac), as
+`build_kmrp.ps1` expects them on Windows:
+
+```sh
+python tools/build_font_scale_sets.py "<game>/Contents/Assets/TexturePacks/swpc_tex_gui.erf" build/fonts
+```
+
+`build/fonts` is a cache outside git that the script only adds to, so a folder made before the
+font tools changed keeps its old atlases. Without the folder, `build.sh` warns and gives every
+resolution the shared 3.0 atlas (measured: 57.5 MB of art pack instead of 65.1 MB, an 800x600
+`dialogfont10x10.tga` of 1024x1024 instead of 256x256). Found on 2026-11-03: the cache in the
+maintainer's workspace was from 2026-09-29, before the font work of 2026-10-18 to 2026-11-01,
+and every 1.6 package built before then had those older atlases.
 
 | Option | What |
 | --- | --- |

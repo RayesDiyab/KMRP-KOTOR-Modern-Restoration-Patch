@@ -220,16 +220,21 @@ exclude_from_restore = ["eax"]
 source = "r13"
 type = "pointer"
 
-# CClientExoAppInternal::PlayRumblePattern (0x10027A0FC; Windows 0x005FB49F), after its prologue:
-#   10027a106  mov ebx, esi / xor eax, eax / test ebx, ebx   <- here; the stolen bytes
+# CClientExoAppInternal::PlayRumblePattern (0x10027A0FC; Windows 0x005FB49F), at its entry:
+#   10027a0fc  push rbp / mov rbp, rsp / push r15 / push r14 / push rbx / push rax   <- the stolen bytes
+#   10027a106  mov ebx, esi / xor eax, eax / test ebx, ebx / js 10027a185 ...
 #   10027a185  add rsp, 8 / pop rbx / pop r14 / pop r15 / pop rbp / ret
 # The handler plays the index and returns 1, and the consumed exit is the function's own
-# epilogue, which returns that 1 (Windows' returns 0; only the script command reads it).
+# epilogue, which returns that 1 (Windows' returns 0; only the script command reads it). The
+# stolen prologue makes the frame that epilogue unwinds; a 0 resumes at 0x10027a106 untouched.
+# Until 2026-11-03 the hook was at 0x10027a106 with those three instructions stolen: KotOR Patch
+# Manager runs stolen bytes before its consumed-exit test, so their xor eax, eax cleared the 1,
+# the exit was never taken and the engine's queue code ran after every rumble (the 2026-11-03 audit).
 [[hooks]]
-address = 0x10027a106
+address = 0x10027a0fc
 type = "detour"
 function = "KmrpRumblePlay"
-original_bytes = [0x89, 0xf3, 0x31, 0xc0, 0x85, 0xdb]
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57, 0x41, 0x56, 0x53, 0x50]
 skip_original_bytes = false
 consumed_exit_address = 0x10027a185
 exclude_from_restore = ["eax"]

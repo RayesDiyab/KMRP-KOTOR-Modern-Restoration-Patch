@@ -243,20 +243,30 @@ const auto AddDirectory = reinterpret_cast<int (*)(void*, ExoString*)>(0x1003693
 void** const kExoBase = reinterpret_cast<void**>(0x100677cb8);
 void** const kResourceManager = reinterpret_cast<void**>(0x100677cc8);
 
+// CExoResMan::AddKeyTable (0x100369130), behind AddResourceDirectory, first looks for a
+// directory table of the same name: found, it rebuilds that table from the folder
+// (0x10035C2F4) and returns 1 without adding one. So the alias added again lists its folder
+// anew in place, as Windows' 0x4088E0 does.
+bool ListDirectory(void* manager, const std::string& alias) {
+    if (!manager) return false;
+    ExoString directory{};
+    MakeString(&directory, (alias + ":").c_str());
+    const int result = AddDirectory(manager, &directory);
+    FreeString(&directory);
+    return result != 0;
+}
+
 bool AddAliasedDirectory(void* manager, const char* alias, const std::string& path) {
     void* base = *kExoBase;
     void* aliases = base ? *reinterpret_cast<void**>(static_cast<char*>(base) + 0x18) : nullptr;
     if (!aliases || !manager) return false;
-    ExoString name{}, value{}, directory{};
+    ExoString name{}, value{};
     MakeString(&name, alias);
     MakeString(&value, (path + "/").c_str());
     AliasAdd(aliases, &name, &value);
     FreeString(&value);
     FreeString(&name);
-    MakeString(&directory, (std::string(alias) + ":").c_str());
-    const int result = AddDirectory(manager, &directory);
-    FreeString(&directory);
-    return result != 0;
+    return ListDirectory(manager, alias);
 }
 
 bool Register(void* manager) {
@@ -348,6 +358,13 @@ const char* RunDirectory() { return g_run ? g_run->c_str() : nullptr; }
 
 void RegisterAgain() {
     if (g_generation && *kResourceManager) Register(*kResourceManager);
+}
+
+// Until 2026-11-03 a picture written called RegisterAgain, which added a directory under a new
+// alias for each picture: the game's search list grew by one for every picture of a session.
+bool ListAgain() {
+    if (!g_generation || !*kResourceManager) return false;
+    return ListDirectory(*kResourceManager, "KMRPCTL" + std::to_string(g_generation));
 }
 
 }  // namespace standalone
