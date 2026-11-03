@@ -84,8 +84,8 @@ installed while *High FPS Fix* is on.
 
 | Patch file | Id, and the module it installs | Whose | What |
 | --- | --- | --- | --- |
-| `K1StrayBugFixes.kpatch` | `k1-stray-bug-fixes-patch`, `patches/k1-stray-bug-fixes-patch.dylib` | FTD's, with two commits of KMRP's not yet merged by him (`macos/third_party/kpm-patches/SOURCE.md`) | the engine fixes that hold at any resolution (K1, K2, K3, K5 below), the memory-safety fixes among them |
-| `K1WidescreenPatch.kpatch` | `k1widescreenpatch`, `patches/k1widescreenpatch.dylib` | FTD's, with two commits of KMRP's not yet merged by him (`macos/third_party/kpm-patches/SOURCE.md`) | the resolution, the video mode (K4, K8, K9, the letterbox bars) and its `.gui` mode: no layout of its own, and the sizes, lists, popups and map that menus laid out for the resolution need |
+| `K1StrayBugFixes.kpatch` | `k1-stray-bug-fixes-patch`, `patches/k1-stray-bug-fixes-patch.dylib` | FTD's, as of 2026-11-02 (`macos/third_party/kpm-patches/SOURCE.md`) | the engine fixes that hold at any resolution (K1, K2, K3, K5 below), the memory-safety fixes among them |
+| `K1WidescreenPatch.kpatch` | `k1widescreenpatch`, `patches/k1widescreenpatch.dylib` | FTD's, as upstream has it since 2026-10-28, KMRP's two commits merged there (`macos/third_party/kpm-patches/SOURCE.md`) | the resolution, the video mode (K4, K8, K9, the letterbox bars) and its `.gui` mode: no layout of its own, and the sizes, lists, popups and map that menus laid out for the resolution need |
 | `KMRP-macOS.kpatch` | `kmrp`, `patches/kmrp.dylib`; name "KMRP for macOS" | KMRP's | every resolution's menu set and the artwork, from the art pack `patches/kmrp-assets.pack` beside the module (inside the module until 2026-11-03), the resolution chosen in the game, list rows centred, keyboard navigation, the text-height fixes, the status summary, map notes. `requires` the two above |
 | `KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch` | `kmrp-controller`, `patches/kmrp-controller.dylib`; name "KOTOR 1 Native Controller Mod + Xbox HUD (macOS)" | KMRP's | controller support with its own files and SDL (sections 7 and 7a). Requires nothing: it also works without KMRP and without FTD's patches |
 
@@ -569,7 +569,7 @@ controller patch hooks. The table of the four is at the top of section 1; what f
 | | |
 | --- | --- |
 | The build | `tools/make_kmrp_patch.py --split`: KMRP's parts only. FTD's two are built from `macos/third_party/kpm-patches` (since 2026-11-03), or from the `--kpm` tree, with KPM's own `Patches/create-patch.py` (`build.sh`), and the patches are staged together by KPatchCore, whose overlap check then covers them |
-| Hooks FTD's patches already declare | left out of `kmrp` when identical: five, the four memory-safety fixes (`0x1001d0663`, `0x1001fa2bf`, `0x1001e00cd`, `0x1001e1627`) and the Scripts Enter fix (`0x1002d3e34`), which FTD's Stray Bug Fixes carries. `kmrp`'s parts declare 29 hooks and the patch has 24. A different hook at the same address stops the build |
+| Hooks FTD's patches already declare | left out of `kmrp` when identical: four, the memory-safety fixes (`0x1001d0663`, `0x1001fa2bf`, `0x1001e00cd`, `0x1001e1627`), which FTD's Stray Bug Fixes carries. Until 2026-11-03 a fifth, the Scripts Enter fix (`0x1002d3e34`); FTD's version of 2026-11-02 changed it (a mouse double-click on a row still confirms), so `kmrp-layout` no longer declares it. A different hook at the same address stops the build |
 | The `.gui` mode | asked for from KMRP's constructor through `K1Widescreen_UseGuiFileLayouts(1)`, so `swkotor.ini` needs no `UseGuiFileLayouts`. KPM loads a patch after the ones it requires; the Widescreen Patch writes its mode when the engine first sets its video mode, which is later |
 | A change of resolution | `K1Widescreen_SetTargetResolution(w, h)`, which applies that patch's size-dependent parts again; KMRP then registers the size's set, reads the fonts again and lays the panels out |
 | Finding those entry points | KotorPatcher loads each module privately: `patches/kmrp-assets/widescreen.cpp` looks in `patches/k1widescreenpatch.dylib`, opened with `RTLD_NOLOAD` |
@@ -585,8 +585,8 @@ This repository's submodule (`2a784bf`, section 9) is from before them: `build.s
 its Widescreen Patch. Until 2026-11-03 the build therefore needed `--kpm` with a KPM tree that
 has the entry points; since then it builds FTD's two from the copy in
 `macos/third_party/kpm-patches` (audit MAC-1), whose `SOURCE.md` names the commits: FTD's
-widescreen patch as of 2026-10-22 with two commits that bring back the entry points and add the
-`gui-mode` option, offered to FTD and not merged there yet.
+latest (2026-11-02). His widescreen patch took in the two commits that bring back the entry
+points and add the `gui-mode` option on 2026-10-28 (LaneDibello/Kotor-Patch-Manager#339).
 
 Measured on 2026-10-04 (14" MacBook Pro, the Steam game, fullscreen):
 
@@ -652,8 +652,9 @@ the layout patch, which this data's GPL-3.0 licence and FTD's MIT patch argue ag
 hook list today: the [menu-input hooks](../reverse-engineering/macos-keyboard-navigation.md)
 (five detours and one byte patch), the five text-height hooks
 (`CAurGUIStringInternal::GetIdealPixelHeight` and the font-height getter, rounded up),
-and `KmrpCoreGuiFrame`. The four memory-safety hooks and the Scripts Enter fix in its hook
-file are FTD's Stray Bug Fixes' in the shipped patch (section 2, "KMRP on FTD's patches").
+and `KmrpCoreGuiFrame`. The four memory-safety hooks in its hook file are FTD's Stray Bug
+Fixes' in the shipped patch (section 2, "KMRP on FTD's patches"); the Scripts Enter fix is
+only FTD's since 2026-11-03.
 
 **The resolution-dependent sites below are not written by this part since 2026-10-04.**
 FTD's Widescreen Patch took them over in its `.gui` mode (his update of 2026-10-03:

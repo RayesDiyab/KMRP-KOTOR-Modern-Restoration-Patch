@@ -127,8 +127,10 @@ proxy, and it applies the executable changes above as well.
   Layout and the shared asset fixes in the module, the Text Size and Font and HUD Size pages, text
   fitted to its box, the original Xbox controls, the Controller Layout with remapping, the Xbox HUD's
   six places, Pazaak with the pad, K1 Marked Empty Containers, and the controller's settings in
-  `KMRP/controller.ini`. FTD's two patches are built from a copy in `macos/third_party/kpm-patches`
-  (its `SOURCE.md` says from which commits and why), so the package builds from the repository alone;
+  `KMRP/controller.ini`. FTD's two patches are built from a copy of his latest (2026-11-02) in
+  `macos/third_party/kpm-patches` (its `SOURCE.md` says from which commits and why), which brings his
+  newest Stray Bug Fixes: no crash at a change of module from a freed key table, none from Caps Lock
+  with no party leader, and a double-click on a script row confirms again. The package builds from the repository alone;
   until now it needed `--kpm` and a KotOR Patch Manager clone beside the repository. Three reviewers
   audited the change against the Mac executable, its decompile and Windows' code; eleven findings, one
   high (the map-note correction hook had lost its `rbx` parameter), were fixed the same day, and two

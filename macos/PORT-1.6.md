@@ -8,8 +8,16 @@
 (items 42 to 142), at `master` 4b34210 with the changes uncommitted. The package is
 `KMRP-macOS-1.6.0.dmg`, built by `macos/build.sh` from the repository alone. The submodule's pin has
 no widescreen entry points (audit MAC-1) and stays as Windows has it, so FTD's two Mac patches are a
-copy in `macos/third_party/kpm-patches` (its `SOURCE.md` says from which commits and why). Until
-2026-11-03 the package needed `--kpm` and a KotOR Patch Manager clone kept beside the repository.
+copy in `macos/third_party/kpm-patches` (its `SOURCE.md` says from which commits and why): FTD's
+latest of 2026-11-02, taken the same day, whose widescreen patch is upstream's with KMRP's two
+commits merged. Until 2026-11-03 the package needed `--kpm` and a KotOR Patch Manager clone kept
+beside the repository.
+
+**FTD's latest (2026-11-03, after the playtest below).** His newest Stray Bug Fixes changes the
+Scripts Enter fix at `0x1002d3e34`, which `kmrp-layout` also declared, identically until then; it
+no longer does. Rebuilt and checked: original bytes against the game, the App Store translation of
+the new hooks, the six Mac suites, and in the Steam game a save loaded, the menus, and two loads
+from inside the game across a change of module, with no crash (`SOURCE.md` has the details).
 
 ## How it was checked
 

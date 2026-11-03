@@ -158,14 +158,9 @@ type = "replace"
 original_bytes = [0xf3, 0xf, 0x58, 0x5, 0x2b, 0xbd, 0x37, 0x0]
 replacement_bytes = [0x50, 0x9c, 0x48, 0x83, 0xec, 0x10, 0xf3, 0xf, 0x7f, 0x14, 0x24, 0xf3, 0xf, 0x2c, 0xc0, 0xf3, 0xf, 0x2a, 0xd0, 0xf, 0x2e, 0xc2, 0x76, 0x2, 0xff, 0xc0, 0xf3, 0xf, 0x2a, 0xc0, 0xf3, 0xf, 0x6f, 0x14, 0x24, 0x48, 0x83, 0xc4, 0x10, 0x9d, 0x58]
 
-# FTD ScriptsEnterFix, bfc425fd6534a03dc7662c420cfff75068ad9fdd:
-# row Enter callback must not close the Scripts panel behind a tutorial modal.
-# Native ScriptSelect input handling and the Select button remain responsible for selection.
-[[hooks]]
-address = 0x1002d3e34
-type = "simple"
-original_bytes = [0x55]
-replacement_bytes = [0xc3]
+# FTD's Scripts Enter fix (0x1002d3e34) is not declared here since 2026-11-03: FTD's Stray Bug
+# Fixes, which KMRP requires, carries it, and its version of 2026-11-02 lets a mouse double-click
+# on a row still confirm (README.md, section 2, "KMRP on FTD's patches").
 
 # KMRP's work in the GUI's frame (status_summary.cpp, KmrpCoreGuiFrame): the resolution watched,
 # open panels laid out again after a change, the status summary laid out at the font's size.
