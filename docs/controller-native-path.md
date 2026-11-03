@@ -557,6 +557,11 @@ Ruled out on the way, measured the same day in the test game:
   frame, a run would bend. In pad mode the parked cursor prevents it: with the
   mouse left at the left edge, the first stick movement moved the cursor to the
   top centre (1720, 16 at 3440x1440) and the camera stopped.
+  **Correction, 2026-11-03:** parking was not enough. Under Proton the camera still turned a little at
+  each face button and each return from a menu, and followed the real pointer. While the pad is in
+  use and the right stick at rest, `FeedNativeCameraK1` now stores no turn after `UpdateCamera`
+  (`RotateCamera(0, 0)`), so a turn from the cursor is dropped. Played the same day under Proton on a
+  patched 1.6.0 DLL: the nudge is gone. No MSVC build of the source change has been run.
 * **Turning the camera while moving (issue 46's third report)** kept up with the
   stick: switching from forward to right while the right stick turned changed the
   heading in the next sample. Not reproduced with an Xbox pad; the report used a

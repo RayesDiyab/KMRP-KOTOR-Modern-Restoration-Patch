@@ -117,6 +117,20 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Fixed: the mouse no longer turns the camera while the pad is in use** (2026-11-03, reported from
+  SteamOS with a DualSense through Steam Input). Under Proton A, B and Y turned the camera a little at
+  each press, and so did leaving a menu with Start; LB did not. The right stick stayed under its
+  deadzone and the game stayed on the pad, so neither was the cause, and moving the real pointer to
+  the right edge turned the camera that way. Each frame the pad is the device in use and the right
+  stick is at rest, KMRP now stores no turn after `UpdateCamera`, the call the engine makes itself
+  when input is suppressed (`RotateCamera(0, 0)`, `0x006039CA`). Touching the mouse or keyboard
+  still hands the camera back at once. **Played under Proton** (SteamOS, Proton 11.0-100, RTX 3080,
+  DualSense through Steam Input, the "Gamepad With Camera Controls" layout): the nudge is gone, and
+  pad and keyboard with mouse both worked, as reported by the maintainer. That run used 1.6.0's own
+  `kmrp-controller.dll` with this change patched in (`9988C4D9...`). The source change itself has
+  only been type-checked, with MinGW on a copy with the MSVC-only `__except` replaced: no MSVC build of
+  it has been run, nor Windows, AMD, Intel or a Steam Deck.
+
 - **Fixed: under Proton the offscreen frame's log blamed "something else"** (2026-11-03). The frame
   hot-patches six opengl32 functions, which needs an `8B FF` entry. None of the six in Proton 11.0-100's
   `opengl32.dll` has one (read from the file), so the frame has never run there and the game draws to

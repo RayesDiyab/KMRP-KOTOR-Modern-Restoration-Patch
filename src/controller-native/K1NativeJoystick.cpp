@@ -1928,6 +1928,16 @@ void FeedNativeCameraK1(void* clientInternal)
     if (magnitude <= K1_CAMERA_DEADZONE) {
         ++g_stick.cameraBelowDeadzone;
         g_stick.cameraApplied = 0.0f;
+        // The mouse has no say over the camera while the pad is in use. UpdateCamera has
+        // just turned it for a cursor at a screen edge, and RotateCamera only stored that
+        // in camera+0x10C for the camera update later in the frame, so storing nothing
+        // here takes the turn back, as the engine does at 0x006039CA when input is
+        // suppressed. Under Proton the turn came as a nudge at each face button and each
+        // return from a menu (2026-11-03). Touching the mouse gives the camera back.
+        void* const camera = *FieldAt<void*>(clientInternal, K1_INTERNAL_CAMERA_OWNER);
+        if (IsControllerInputActiveK1() && LooksLikePointerK1(camera)) {
+            EngineFn<RotateCameraFn>(K1_ROTATE_CAMERA)(camera, 0.0f, 0.0f);
+        }
         return;
     }
 
