@@ -864,6 +864,9 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     {"Backing up KOTOR_Exe", "Backing up KOTOR_Exe…", 16},
     {"Installing the engine patches", "Installing the engine…", 22},
     {"Setting the resolution", "Setting the resolution…", 28},
+    // KMRP's art made at install (kmrp-mac.sh, prepare_art; handoff item 73), then "N of M
+    // resolutions ready..." as each size is made, which scriptLines spreads from here to 98.
+    {"Unpacking KMRP's art", "Unpacking KMRP's art…", 30},
     {"Installing artwork and the menu set", "Installing artwork…", 34},
     {"Making the row frames", "Making row frames…", 82},
     {"Enlarging the feat", "Enlarging icons…", 90},
@@ -880,7 +883,7 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
 @property (nonatomic, strong) KMRPState *verifyState, *resolutionState, *applyState;
 @property (nonatomic, strong) KMRPPill *browseButton, *actionButton, *settingsButton;
 @property (nonatomic, strong) KMRPCard *settingsView;
-@property (nonatomic, strong) KMRPToggle *markerToggle, *iconsToggle, *controllerToggle, *fpsToggle, *debugToggle;
+@property (nonatomic, strong) KMRPToggle *markerToggle, *iconsToggle, *emptyToggle, *controllerToggle, *fpsToggle, *debugToggle;
 @property (nonatomic, strong) NSMutableArray<NSView *> *mainViews;
 // The size macOS is set to, in points; 0 when it could not be read.
 @property (nonatomic) NSInteger currentWidth, currentHeight;
@@ -1106,7 +1109,7 @@ static BOOL HighFpsAuto(void) { return DisplayRefresh() >= 62; }
     title.textColor = THEME_TEXT;
     title.frame = NSMakeRect(S(36), S(24), S(cardWidth - 72), S(48));
     [view addSubview:title];
-    NSTextField *subtitle = [NSTextField labelWithString:@"Choose optional components. The first three are on by default, High FPS Fix "
+    NSTextField *subtitle = [NSTextField labelWithString:@"Choose optional components. All but logs are on by default, High FPS Fix only "
                                                          @"where the display runs above 60 Hz."];
     subtitle.font = BodyFont(Pt(14), NSFontWeightRegular);
     subtitle.textColor = THEME_TEXT_MUTED;
@@ -1142,6 +1145,15 @@ static BOOL HighFpsAuto(void) { return DisplayRefresh() >= 62; }
     if ([defaults boolForKey:@"KMRPNoHdIcons"]) self.iconsToggle.on = NO;
     self.iconsToggle.changed = ^(BOOL on) { [[NSUserDefaults standardUserDefaults] setBool:on forKey:@"HdIcons"]; };
     [view addSubview:self.iconsToggle];
+    // The patch's marked-empty option (kmrp-mac.sh --no-marked-empty), on unless turned off, as
+    // Windows' tile (issue 43).
+    self.emptyToggle = [[KMRPToggle alloc] initWithFrame:tile(4)];
+    self.emptyToggle.title = @"Marked Empty Containers";
+    self.emptyToggle.author = @"ShaeMyName";
+    self.emptyToggle.detail = @"Shows (empty) on a container or corpse with nothing left in it.";
+    self.emptyToggle.on = [defaults objectForKey:@"MarkedEmpty"] ? [defaults boolForKey:@"MarkedEmpty"] : YES;
+    self.emptyToggle.changed = ^(BOOL on) { [[NSUserDefaults standardUserDefaults] setBool:on forKey:@"MarkedEmpty"]; };
+    [view addSubview:self.emptyToggle];
     // MainForm's controllerToggle: KMRP's controller support, the module and SDL (kmrp-mac.sh
     // --no-controller leaves both out, and its settings file).
     self.controllerToggle = [[KMRPToggle alloc] initWithFrame:tile(0)];
@@ -1170,7 +1182,7 @@ static BOOL HighFpsAuto(void) { return DisplayRefresh() >= 62; }
     if ([defaults objectForKey:@"KMRPHighFps"]) self.fpsToggle.on = [defaults boolForKey:@"KMRPHighFps"];
     self.fpsToggle.changed = ^(BOOL on) { [[NSUserDefaults standardUserDefaults] setBool:on forKey:@"HighFpsFix"]; };
     [view addSubview:self.fpsToggle];
-    self.debugToggle = [[KMRPToggle alloc] initWithFrame:tile(4)];
+    self.debugToggle = [[KMRPToggle alloc] initWithFrame:tile(5)];
     self.debugToggle.title = @"Debug Logs";
     self.debugToggle.author = @"KMRP";
     self.debugToggle.detail = @"Writes a diagnostic log file. Turn on when reporting a problem.";
@@ -1191,6 +1203,8 @@ static BOOL HighFpsAuto(void) { return DisplayRefresh() >= 62; }
     self.markerToggle.on = YES;
     self.iconsToggle.on = YES;
     [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"HdIcons"];
+    self.emptyToggle.on = YES;
+    [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"MarkedEmpty"];
     self.controllerToggle.on = YES;
     // High FPS Fix follows the display again.
     [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"HighFpsFix"];
@@ -1463,6 +1477,7 @@ static BOOL HighFpsAuto(void) { return DisplayRefresh() >= 62; }
     [arguments addObjectsFromArray:@[@"--resolution", @"current"]];
     if (!self.markerToggle.on) [arguments addObject:@"--no-map-notes"];
     if (!self.iconsToggle.on) [arguments addObject:@"--no-hd-icons"];
+    if (!self.emptyToggle.on) [arguments addObject:@"--no-marked-empty"];
     if (!self.controllerToggle.on) [arguments addObject:@"--no-controller"];
     [arguments addObject:self.fpsToggle.on ? @"--high-fps" : @"--no-high-fps"];
     if (self.debugToggle.on) [arguments addObject:@"--debug-logs"];
@@ -1561,13 +1576,27 @@ static BOOL HighFpsAuto(void) { return DisplayRefresh() >= 62; }
 - (void)scriptLines:(NSString *)lines {
     [self.output appendString:lines];
     [self appendLogFile:lines];
-    for (NSString *line in [lines componentsSeparatedByString:@"\n"])
+    for (NSString *line in [lines componentsSeparatedByString:@"\n"]) {
+        // "7 of 23 resolutions ready...": the art is most of an install's time, and the text is
+        // the script's own, as Windows' window shows it (ArtPreparation.cs).
+        int ready = 0, total = 0;
+        if (sscanf(line.UTF8String, "%d of %d resolutions ready", &ready, &total) == 2 && total > 0 &&
+            [line hasSuffix:@"resolutions ready..."]) {
+            const int percent = 30 + 68 * MIN(ready, total) / total;
+            if (percent >= self.percent) {
+                self.percent = percent;
+                self.stage = [NSString stringWithFormat:@"%d of %d resolutions ready…", ready, total];
+                [self showProgress];
+            }
+            continue;
+        }
         for (size_t i = 0; i < sizeof kStages / sizeof kStages[0]; i++)
             if ([line hasPrefix:@(kStages[i].prefix)] && kStages[i].percent > self.percent) {
                 self.percent = kStages[i].percent;
                 self.stage = @(kStages[i].stage);
                 [self showProgress];
             }
+    }
 }
 
 // ----------------------------------------------------------------------------- running a command

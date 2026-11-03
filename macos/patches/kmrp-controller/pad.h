@@ -14,6 +14,9 @@ enum PadButton : std::uint32_t {
     kPadStart = 0x0010, kPadBack = 0x0020, kPadL3 = 0x0040, kPadR3 = 0x0080,
     kPadLB = 0x0100, kPadRB = 0x0200,
     kPadA = 0x1000, kPadB = 0x2000, kPadX = 0x4000, kPadY = 0x8000,
+    // Never set by a read: the triggers, pulled or not, folded into the two bits XInput leaves
+    // unused, for what takes the pad's buttons as one word (K1ButtonRemapPolicy.h's Mask).
+    kPadLT = 0x0400, kPadRT = 0x0800,
 };
 
 struct PadState {
@@ -50,5 +53,9 @@ void Status();
 
 // "[KMRP controller] ..." to stderr, which the game's own output goes to as well.
 void Log(const char* format, ...) __attribute__((format(printf, 1, 2)));
+
+// With the debug-logs option on, one line for a press: its slot, the input class it was made in
+// and the slot it went out as (0 when a bridge took it).
+void LogPress(int slot, int inputClass, int sentAs);
 
 }  // namespace kmrp

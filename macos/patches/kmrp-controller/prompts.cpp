@@ -197,8 +197,8 @@ const PromptBinding kQuestitemPrompts[] = {   // CSWGuiQuestItem
 };
 const PromptBinding kJournalPrompts[] = {   // CSWGuiInGameJournal
     {0xaf0, "kmrpx_jrnitems", Variant::None, nullptr, nullptr},   // BTN_QUESTITEMS (Windows 0x08A4)
-    {0xd30, "kmrpa_jrndone", Variant::None, nullptr, nullptr},   // BTN_SWAPTEXT (Windows 0x0A68)
-    {0xf70, "kmrpy_jrnsort", Variant::None, nullptr, nullptr},   // BTN_SORT (Windows 0x0C2C)
+    {0xd30, "kmrpy_jrndone", Variant::None, nullptr, nullptr},   // BTN_SWAPTEXT (Windows 0x0A68)
+    {0xf70, "kmrprb_jrnsort", Variant::None, nullptr, nullptr},   // BTN_SORT (Windows 0x0C2C)
     {0x11b0, "kmrpb_jrnclose", Variant::None, nullptr, nullptr},   // BTN_EXIT (Windows 0x0DF0)
 };
 const PromptBinding kMapPrompts[] = {   // CSWGuiInGameMap
@@ -261,7 +261,7 @@ const PromptBinding kOptionsGraphicsPrompts[] = {   // CSWGuiOptionsGraphics
 };
 const PromptBinding kOptionsGraphicsAdvancedPrompts[] = {   // CSWGuiOptionsGraphicsAdvanced
     {0x2a18, "kmrpb_optgfxadv", Variant::None, nullptr, nullptr},   // BTN_CANCEL (Windows 0x214C)
-    {0x2598, "kmrpa_optgfxadv", Variant::None, nullptr, nullptr},   // BTN_BACK (Windows 0x1DC4)
+    {0x2598, "kmrpx_optgfxadv", Variant::None, nullptr, nullptr},   // BTN_BACK (Windows 0x1DC4), OK: X, A toggles the box
     {0x27d8, "kmrpy_optgfxadef", Variant::None, nullptr, nullptr},   // BTN_DEFAULT (Windows 0x1F88)
 };
 const PromptBinding kOptionsSoundPrompts[] = {   // CSWGuiOptionsSound
@@ -272,6 +272,32 @@ const PromptBinding kKeyMappingsPrompts[] = {   // CSWGuiInGameOptKeyMappings
     {0x6a8, "kmrpb_optkeys", Variant::None, nullptr, nullptr},   // BTN_Cancel (Windows 0x0538)
     {0x468, "kmrpa_optkeys", Variant::None, nullptr, nullptr},   // BTN_Accept (Windows 0x0374)
     {0x228, "kmrpy_optkeysdef", Variant::None, nullptr, nullptr},   // BTN_Default (Windows 0x01B0)
+};
+// Pazaak's table: A is End Turn and Y Stand whatever holds focus, as on the Xbox (gui.cpp's
+// remaps), so neither follows the focus and the pad never focuses either.
+const PromptBinding kPazaakGamePrompts[] = {   // CSWGuiPazaakGame
+    {0x8960, "kmrpa_pzkend", Variant::None, nullptr, nullptr},   // BTN_XTEXT (Windows 0x6C4C)
+    {0x8bb0, "kmrpy_pzkstand", Variant::None, nullptr, nullptr},   // BTN_YTEXT (Windows 0x6E20)
+};
+// Pazaak's side deck screen: Add Card is Y, the dispatcher's own, and Play is A, pressed by the
+// module; both hints (K1_PAZAAK_SETUP_PROMPTS). The switch, which the PC layout hides, is +0x8D08
+// (its A is the panel's 0x10021F3FA); the constructor binds no tag to it on the Mac as it stands.
+const PromptBinding kPazaakSetupPrompts[] = {   // CSWGuiPazaakStart
+    {0x8d08, "kmrpy_pzswitch", Variant::None, nullptr, nullptr},   // BTN_YTEXT (Windows 0x6F34)
+    {0x8f58, "kmrpa_pzplay", Variant::None, nullptr, nullptr},   // BTN_ATEXT (Windows 0x7108)
+};
+// The galaxy map answers A with Travel and B with Cancel whatever holds focus (0x1002B7208: 0x27
+// runs k_sup_galaxymap, 0x28 closes), so both are hints and never focused; the D-pad picks the
+// planet (gui.cpp, NavigateGalaxyMap).
+const PromptBinding kGalaxyMapPrompts[] = {   // CSWGuiInGameGalaxyMap
+    {0x27b0, "kmrpa_galtravel", Variant::None, nullptr, nullptr},   // BTN_ACCEPT (Windows 0x1F24)
+    {0x29f0, "kmrpb_galback", Variant::None, nullptr, nullptr},   // BTN_BACK (Windows 0x20E8)
+};
+// The save name popup answers A with OK and B with Cancel whatever holds focus (Windows'
+// CSWGuiSaveNamePanel::HandleInputEvent; the Mac's is 0x100303170), so both are hints.
+const PromptBinding kSaveNamePrompts[] = {   // CSWGuiSaveNamePanel
+    {0x88, "kmrpa_svnmok", Variant::None, nullptr, nullptr},   // BTN_OK (Windows 0x0068)
+    {0x2c8, "kmrpb_svnmcncl", Variant::None, nullptr, nullptr},   // BTN_CANCEL (Windows 0x022C)
 };
 const PromptBinding kPazaakWagerPrompts[] = {   // CSWGuiWagerPopup
     {0x9e8, "kmrpa_pzkwager", Variant::None, nullptr, nullptr},   // BTN_WAGER (Windows 0x07CC)
@@ -304,14 +330,14 @@ const PromptBinding kCustomChargenPrompts[] = {   // CSWGuiCustomPanel
     {0x1fe0, "kmrpa_cust5", Variant::FocusOnly, nullptr, nullptr},   // BTN_STEPNAME4 (Windows 0x1934)
     {0x2220, "kmrpa_cust6", Variant::FocusOnly, nullptr, nullptr},   // BTN_STEPNAME5 (Windows 0x1AF8)
     {0x25f8, "kmrpb_custback", Variant::None, nullptr, nullptr},   // BTN_BACK (Windows 0x1DFC)
-    {0x2838, "kmrpa_custcncl", Variant::FocusOnly, nullptr, nullptr},   // BTN_CANCEL (Windows 0x1FC0)
+    {0x2838, "kmrpx_custcncl", Variant::None, nullptr, nullptr},   // BTN_CANCEL (Windows 0x1FC0), X wherever the focus is
 };
 const PromptBinding kQuickChargenPrompts[] = {   // CSWGuiQuickPanel
     {0xd50, "kmrpa_quik1", Variant::FocusOnly, nullptr, nullptr},   // BTN_STEPNAME0 (Windows 0x0A88)
     {0xf90, "kmrpa_quik2", Variant::FocusOnly, nullptr, nullptr},   // BTN_STEPNAME1 (Windows 0x0C4C)
     {0x11d0, "kmrpa_quik3", Variant::FocusOnly, nullptr, nullptr},   // BTN_STEPNAME2 (Windows 0x0E10)
     {0x1410, "kmrpb_quikback", Variant::None, nullptr, nullptr},   // BTN_BACK (Windows 0x0FD4)
-    {0x1650, "kmrpa_quikcncl", Variant::FocusOnly, nullptr, nullptr},   // BTN_CANCEL (Windows 0x1198)
+    {0x1650, "kmrpx_quikcncl", Variant::None, nullptr, nullptr},   // BTN_CANCEL (Windows 0x1198), X wherever the focus is
 };
 const PromptBinding kPortraitChargenPrompts[] = {   // CSWGuiPortraitCharGen
     {0xe20, "kmrpa_portok", Variant::FocusFallback, nullptr, nullptr},   // BTN_ACCEPT (Windows 0x0AFC)
@@ -380,6 +406,10 @@ const PromptScreen kPromptScreens[] = {
     {0x1005ac490UL, kOptionsSoundPrompts, sizeof kOptionsSoundPrompts / sizeof kOptionsSoundPrompts[0]},   // CSWGuiOptionsSound
     {0x1005a72d0UL, kKeyMappingsPrompts, sizeof kKeyMappingsPrompts / sizeof kKeyMappingsPrompts[0]},   // CSWGuiInGameOptKeyMappings
     {0x1005a59a0UL, kPazaakWagerPrompts, sizeof kPazaakWagerPrompts / sizeof kPazaakWagerPrompts[0]},   // CSWGuiWagerPopup
+    {0x1005a5b80UL, kPazaakGamePrompts, sizeof kPazaakGamePrompts / sizeof kPazaakGamePrompts[0]},   // CSWGuiPazaakGame
+    {0x1005a5a90UL, kPazaakSetupPrompts, sizeof kPazaakSetupPrompts / sizeof kPazaakSetupPrompts[0]},   // CSWGuiPazaakStart
+    {0x1005ab248UL, kGalaxyMapPrompts, sizeof kGalaxyMapPrompts / sizeof kGalaxyMapPrompts[0]},   // CSWGuiInGameGalaxyMap
+    {0x1005ae3f0UL, kSaveNamePrompts, sizeof kSaveNamePrompts / sizeof kSaveNamePrompts[0]},   // CSWGuiSaveNamePanel
     {0x1005a9e18UL, kSkillInfoPrompts, sizeof kSkillInfoPrompts / sizeof kSkillInfoPrompts[0]},   // CSWGuiSkillInfoBox
     {0x1005a5180UL, kUpgradePrompts, sizeof kUpgradePrompts / sizeof kUpgradePrompts[0]},   // CSWGuiUpgrade
     {0x1005ad040UL, kStorePrompts, sizeof kStorePrompts / sizeof kStorePrompts[0]},   // CSWGuiStore
@@ -442,6 +472,17 @@ const float kActivityStick = 0.35f;
 // frame's change of the sampled position.
 const std::uint64_t kMouseUseWindowMs = 250;
 const int kMouseUseDistance = 24, kMouseUseMinEvents = 2, kMouseTeleport = 300;
+// The engine puts the pointer back at the screen's centre and the pad's parking puts it at the
+// top, a jump straight up or down (Windows 2026-11-02, 0c3ee0f). At 800x600 that is 284 pixels,
+// under the limit above, so each pad press handed the menus back to the mouse and hover took the
+// focus. Windows names the two places; the sampled position is in the platform's coordinates,
+// which are not the game's above the display's point size, so here it is the jump's shape: not one
+// pixel across and this far along, in one frame, which a hand does not do.
+const int kMousePlacedJump = 100;
+// After a change of the screen's size the pointer is put into the new window in steps too short to
+// be told from a hand by their length (K1XboxControls.cpp, 2026-10-09): for this long nothing is
+// mouse use.
+const std::uint64_t kScreenChangeQuietMs = 1500;
 
 struct Mouse {
     bool known = false;
@@ -450,11 +491,15 @@ struct Mouse {
     int windowDistance = 0, windowEvents = 0;
     std::uint64_t ownMoveUntil = 0;   // until then a change is the module's own move settling
     unsigned long moves = 0;          // changes of position seen, KMRP's own left out
+    int screenWidth = 0, screenHeight = 0;
+    std::uint64_t quietUntil = 0;     // until then the screen's size has only just changed
 } g_mouse;
 
 struct Cursor {
     bool parked = false, followedPadMode = false, pendingToggle = false;
     unsigned long parks = 0, returns = 0, reasserts = 0;
+    std::uint64_t softwareCheckedAt = 0;   // ReassertHidden
+    int rehideTries = 0;
 } g_cursor;
 
 bool MouseIsBeingUsed(int x, int y) {
@@ -466,12 +511,15 @@ bool MouseIsBeingUsed(int x, int y) {
         g_mouse.windowStart = now;
         return false;
     }
-    // The pad is in the player's hands: a pointer that moves meanwhile is not a hand on the
-    // mouse (2026-10-12, as Windows since 1.5.1). A pad presented a second time as a Steam
-    // Controller also moves the pointer (its trackpad and gyro), and the game then went back and
-    // forth between the two devices while the player walked: on Windows 2,556 times taken for
-    // the mouse in 202 seconds. Not measured on the Mac.
-    if (PadHeldRecently()) {
+    // A Steam Controller or Steam Deck in the player's hands: a pointer that moves meanwhile is
+    // not a hand on the mouse. Such a pad, and a translator that presents a pad as one, moves the
+    // pointer by itself (its trackpad and gyro), and the game then went back and forth between the
+    // two devices while the player walked: on Windows 2,556 times taken for the mouse in 202
+    // seconds. Not measured on the Mac. Until Windows' 2026-10-19 this held for every pad, and
+    // for a second and a half after it was last held, so every change from the pad to the mouse
+    // waited that long (the maintainer: "it should swap instantly"). An Xbox pad does not move the
+    // pointer, so with one the mouse is taken at once.
+    if (ControllerTypesByItself() || now < g_mouse.quietUntil) {
         g_mouse.lastX = x;
         g_mouse.lastY = y;
         g_mouse.windowEvents = 0;
@@ -483,6 +531,7 @@ bool MouseIsBeingUsed(int x, int y) {
     g_mouse.lastY = y;
     if (dx == 0 && dy == 0) return false;
     ++g_mouse.moves;
+    if (dx == 0 && (dy >= kMousePlacedJump || dy <= -kMousePlacedJump)) return false;
     if (dx > kMouseTeleport || dx < -kMouseTeleport || dy > kMouseTeleport || dy < -kMouseTeleport) return false;
     if (now - g_mouse.windowStart > kMouseUseWindowMs) {
         g_mouse.windowStart = now;
@@ -522,6 +571,34 @@ void SetCursorHidden(void* internal, bool hide) {
     (hide ? HideMouse : ShowMouse)(internal, kCursorHideReason);
 }
 
+// ReassertK1CursorHidden (issue 85, Windows 2026-10-31). Windows' HideMouse asks the system only
+// when it says the cursor is showing, so a pointer can come back with KMRP's reason still set. The
+// Mac's (0x1002FCA30) has no such test: it clears the flag the frame loop shows the system cursor
+// by (0x1005D34E0, set again only by ShowMouse with no reason left, and the frame loop hides it
+// within a frame) and frees the manager's software cursor. So the system cursor needs nothing.
+// The software cursor can come back: changing the Hardware Cursor option (0x10027B182) makes
+// one whatever reasons are set. So four times a second while parked it is looked for at the
+// manager's +0x38 (Windows +0x24) and hidden again, at most three tries in a row that change
+// nothing.
+const std::size_t kMgrSoftwareCursor = 0x38;
+const std::uint64_t kCursorRecheckMs = 250;
+const int kCursorRehideTries = 3;
+
+void ReassertHidden(void* internal) {
+    const std::uint64_t now = NowMs();
+    if (now - g_cursor.softwareCheckedAt < kCursorRecheckMs) return;
+    g_cursor.softwareCheckedAt = now;
+    void* manager = Manager();
+    if (!manager || !At<void*>(manager, kMgrSoftwareCursor)) {
+        g_cursor.rehideTries = 0;
+        return;
+    }
+    if (g_cursor.rehideTries >= kCursorRehideTries) return;
+    ++g_cursor.rehideTries;
+    HideMouse(internal, kCursorHideReason);
+    Log("cursor: a software cursor while parked, hidden again, try %d of %d", g_cursor.rehideTries, kCursorRehideTries);
+}
+
 // UpdateK1CursorState: parked when the pad becomes the device in use, given back the moment the
 // mouse or keyboard is; a move that fails (no viewport yet, a load) is retried, not dropped; and
 // while parked, the park spot is re-asserted against panels that place the pointer as they open.
@@ -545,6 +622,7 @@ void UpdateCursor() {
     }
     if (!g_cursor.parked) return;
     SetCursorHidden(internal, true);
+    ReassertHidden(internal);
     void* manager = Manager();
     if (!manager) return;
     const int width = At<std::int16_t>(manager, kMgrViewportWidth);
@@ -840,11 +918,34 @@ namespace prompts {
 
 char FamilyLetter() { return g_familyLetter; }
 
+bool PadHintControl(void* panel, void* control) {
+    const PromptScreen* const screen = PromptsFor(panel);
+    if (!screen) return false;
+    for (std::size_t i = 0; i < screen->count; ++i) {
+        if (screen->prompts[i].variant == Variant::FocusOnly) continue;
+        if (static_cast<char*>(panel) + screen->prompts[i].offset == control) return true;
+    }
+    return false;
+}
+
 void PaintLayoutEntry(void* button, bool shown) {
     SetPromptFill(At<void*>(button, 0x50), button, shown ? "kmrpa_optgamelay" : nullptr);   // +0x50: its panel
 }
 
+void PaintGraphicsEntry(void* button, bool shown) {
+    SetPromptFill(At<void*>(button, 0x50), button, shown ? "kmrpa_optgfxadvn" : nullptr);
+}
+
 void Frame() {
+    if (void* manager = Manager()) {
+        const int width = At<std::int16_t>(manager, kMgrViewportWidth);
+        const int height = At<std::int16_t>(manager, kMgrViewportHeight);
+        if (width != g_mouse.screenWidth || height != g_mouse.screenHeight) {
+            g_mouse.screenWidth = width;
+            g_mouse.screenHeight = height;
+            g_mouse.quietUntil = NowMs() + kScreenChangeQuietMs;
+        }
+    }
     if (MouseIsBeingUsed(*reinterpret_cast<const int*>(kSampledPointerX),
                          *reinterpret_cast<const int*>(kSampledPointerY)))
         MarkKeyboardMouse(false);
@@ -869,16 +970,32 @@ void Status() {
 // looked at (KmrpNoteKeyboardK1). Every record in it is a key's: a key pressed is the keyboard
 // in use. Always consumes: the stolen bytes are a relative call, which cannot run from the
 // wrapper, and its result is not used by GetEvents.
+//
+// The pad that types (Windows 161559c). A Steam Controller types by itself while it is held: its
+// stick is also the arrow keys and its buttons Enter and Escape, unless something turns that off.
+// The game then got the stick twice, and the keys turn the character ("moves mostly left", issue
+// 37). A key pressed while one of Valve's pads is held is made a release, which is what GetEvents'
+// loop reads the value for, and is not the keyboard being used. Not seen on a Mac: no such pad.
 extern "C" __attribute__((visibility("default"))) int KmrpNoteKeyboard(void* raw, void* buffer) {
     if (!raw || !buffer) return 1;
     kmrp::ReadKeyboardBuffer(raw, buffer);
     const char* records = *static_cast<char**>(buffer);
     const int count = *reinterpret_cast<int*>(static_cast<char*>(buffer) + 8);
+    const bool padTypes = kmrp::ControllerTypesByItself();
+    bool marked = false;
     for (int i = 0; records && i < count && i < 256; ++i) {
-        const std::uint32_t value = *reinterpret_cast<const std::uint32_t*>(records + i * kmrp::kRecordBytes + kmrp::kRecordValue);
-        if (value & kmrp::kKeyPressed) {
+        std::uint32_t& value = *reinterpret_cast<std::uint32_t*>(const_cast<char*>(records) + i * kmrp::kRecordBytes + kmrp::kRecordValue);
+        if (!(value & kmrp::kKeyPressed)) continue;
+        if (padTypes) {
+            // For the debug log: the first ten, then every two-hundredth.
+            static unsigned long dropped = 0;
+            if (++dropped <= 10 || dropped % 200 == 0)
+                kmrp::Log("key 0x%x dropped: a Steam pad is held (%lu so far)",
+                          *reinterpret_cast<const std::int32_t*>(records + i * kmrp::kRecordBytes), dropped);
+            value = 0;
+        } else if (!marked) {
+            marked = true;
             kmrp::MarkKeyboardMouse(true, *reinterpret_cast<const std::int32_t*>(records + i * kmrp::kRecordBytes));
-            break;
         }
     }
     return 1;

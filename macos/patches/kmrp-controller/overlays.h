@@ -20,6 +20,18 @@ bool Show(void* panel, void* button, const char* resref);
 bool IsBacked(const char* resref);
 bool ShowBacked(void* panel, void* button, const char* resref);
 
+// Marks (or unmarks) a button whose badge and caption are centred together on it, the caption
+// moved over by half the badge (KmrpBadgeCentreK1).
+void Centre(void* button, bool centred);
+
+// A button's badge at 0.4 of its colours, or back (KmrpPromptDimK1): its caption's own colour
+// cannot reach the label the badge is on.
+void Dim(void* button, bool dim);
+
+// The width of a button's caption on one line, in pixels (KmrpCaptionLineWidthK1), 0 when it
+// cannot be read.
+int CaptionLineWidth(void* button);
+
 // The button's label hidden and its caption and its own rectangle put back as they were.
 void Hide(void* button);
 

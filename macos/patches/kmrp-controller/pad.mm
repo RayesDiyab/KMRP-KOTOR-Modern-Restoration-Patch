@@ -65,6 +65,10 @@ void Log(const char* format, ...) {
     }
 }
 
+void LogPress(int slot, int inputClass, int sentAs) {
+    if (DebugLogs()) Log("press: slot 0x%x class %d sent as 0x%x", slot, inputClass, sentAs);
+}
+
 namespace {
 
 double Now() {

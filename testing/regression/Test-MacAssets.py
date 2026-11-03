@@ -53,6 +53,8 @@ DRIVER = r"""
 int g_targetWidth, g_targetHeight;
 void InitTargetResolution() {}
 namespace kmrp { FILE* (*g_iniOpen)(const char*, const char*) = nullptr; }
+// fonts.cpp fits the fonts for the running game, reading its options through the engine.
+namespace kmrp { namespace fonts { void Prepare(const std::string&, const std::string&, int) {} } }
 int main(int argc, char** argv) {
     std::string art, set;
     const bool ok = kmrp::assets::Prepare(atoi(argv[1]), atoi(argv[2]), &art, &set);
@@ -116,7 +118,9 @@ def main() -> int:
         tools = tmp / "tools"
         tools.mkdir()
         for name in ("kmrp-guiblend", "kmrp-abilityicons", "kmrp-gameart"):
-            run("clang", "-O2", "-w", "-o", str(tools / name), str(TOOLS / f"{name}.c"))
+            # As the module's own: x86_64, whose image arithmetic is what ships (arm64 contracts
+            # multiply-adds and rounds a few icons' pixels differently, audit MAC-4).
+            run("clang", "-arch", "x86_64", "-O2", "-w", "-o", str(tools / name), str(TOOLS / f"{name}.c"))
         # The stand-in game: the driver where KOTOR_Exe is, the game's assets beside it.
         contents = tmp / "Game.app/Contents"
         assets = contents / "Assets"
@@ -130,14 +134,21 @@ def main() -> int:
         objects.mkdir()
         (tmp / "driver.cpp").write_text(DRIVER)
         for name, define in (("kmrp-guiblend", "-DKMRP_GUI_EMBEDDED"), ("kmrp-abilityicons", "-DKMRP_EMBEDDED"),
-                             ("kmrp-gameart", "-DKMRP_EMBEDDED")):
+                             ("kmrp-gameart", "-DKMRP_EMBEDDED"), ("kmrp-guiadapt", "-DKMRP_EMBEDDED"),
+                             ("kmrp-swoophud", "-DKMRP_EMBEDDED"), ("kmrp-merge", "-DKMRP_EMBEDDED")):
             run("clang", "-arch", "x86_64", "-std=c11", "-O2", "-w", define, "-c", str(TOOLS / f"{name}.c"),
                 "-o", str(objects / f"{name}.o"))
+        # The art pack's decoder, as make_kmrp_patch.py compiles it, and the pack beside the "module".
+        lzma = ROOT / "third_party/lzma-sdk"
+        run("clang", "-arch", "x86_64", "-std=c11", "-O2", "-w", "-c", str(lzma / "LzmaDec.c"), "-o", str(objects / "LzmaDec.o"))
+        identity = bank.read_bytes()[8:40].hex()
         driver = contents / "MacOS/driver"
-        part = [str(PART / "assets.cpp"), str(PART / "widescreen.cpp"), str(ROOT / "macos/patches/kmrp-layout/options.cpp")]
-        run("clang++", "-arch", "x86_64", "-std=c++17", "-O2", "-w", "-I", str(PART), str(tmp / "driver.cpp"), *part,
-            *(str(p) for p in sorted(objects.glob("*.o"))), "-lz", f"-Wl,-sectcreate,__KMRP,__assets,{bank}",
-            "-o", str(driver))
+        (contents / "MacOS/kmrp-assets.pack").symlink_to(bank)
+        part = [str(PART / "assets.cpp"), str(PART / "widescreen.cpp"),
+                str(ROOT / "macos/patches/kmrp-layout/options.cpp"), str(ROOT / "src/controller-native/K1AssetPack.cpp")]
+        run("clang++", "-arch", "x86_64", "-std=c++17", "-O2", "-w", "-I", str(PART), "-I", str(lzma),
+            f'-DKMRP_ASSET_BUILD="{identity}"', str(tmp / "driver.cpp"), *part,
+            *(str(p) for p in sorted(objects.glob("*.o"))), "-o", str(driver))
         home = tmp / "home"
         home.mkdir()
         env = dict(os.environ, HOME=str(home))
@@ -160,10 +171,16 @@ def main() -> int:
             made = prepare(width, height)
             if not made:
                 continue
-            art, set_dir = Path(made["art"]), Path(made["set"])
+            # The set whole in the cache: the folder the game is shown holds Live Adaptive Layout's
+            # screens over its copies (checked below), and the swoop model and the derive record
+            # are the module's alone.
+            art, view = Path(made["art"]), Path(made["set"])
+            set_dir = view.parent / "sets" / size
             got = {p.name: digest(p) for p in art.iterdir()}
-            got.update({p.name: digest(p) for p in set_dir.iterdir()})   # the set is searched first
+            got.update({p.name: digest(p) for p in set_dir.iterdir()
+                        if p.name != "kmrp_derive.txt" and not p.name.startswith("m17mg_camera.")})   # the set is searched first
             want, chosen = reference(source, tools, assets, tmp / f"reference-{size}", width, height)
+            want.pop("kmrp_derive.txt", None)
             missing, extra = sorted(set(want) - set(got)), sorted(set(got) - set(want))
             different = sorted(n for n in want if n in got and want[n] != got[n])
             if missing or extra or different:
@@ -172,8 +189,14 @@ def main() -> int:
             # 2. A second run leaves the set as it is.
             before = {p.name: p.stat().st_mtime_ns for p in set_dir.iterdir()}
             again = prepare(width, height)
-            if again and {p.name: p.stat().st_mtime_ns for p in Path(again["set"]).iterdir()} != before:
+            if again and {p.name: p.stat().st_mtime_ns for p in set_dir.iterdir()} != before:
                 failures.append(f"{size}: a second run rewrote the set")
+            # Live Adaptive Layout: its screens in the view are the size's own, not links to the set.
+            viewed = Path(again["set"]) if again else view
+            live = [p for p in viewed.iterdir() if p.suffix == ".gui" and not p.samefile(set_dir / p.name)] \
+                if (set_dir / "optionsmain.gui").exists() else []
+            if len(live) < 60:
+                failures.append(f"{size}: {len(live)} screens laid out at run time")
             print(f"     {size}: {len(got)} files, as the installer made them (set from {chosen})")
 
         # 3. The player's override comes first (2026-10-12, as Windows' 1.5.1): a file there is
@@ -220,10 +243,63 @@ def main() -> int:
             for name in (same, other_kind, own, layout, font_texture):
                 (assets / "override" / name).unlink()
 
+        # 5. A file taken out of a finished set is made again: the marker counts the set's files
+        #    (handoff item 139).
+        width, height = SIZES[0]
+        made = prepare(width, height)
+        if not made:
+            for failure in failures:
+                print(f"  {failure}")
+            print("FAIL the part could not prepare a set")
+            return 1
+        whole = Path(made["set"]).parent / "sets" / f"{width}x{height}"
+        taken = next(p for p in sorted(whole.iterdir()) if p.suffix == ".gui")
+        taken.unlink()
+        prepare(width, height)
+        if not taken.exists():
+            failures.append(f"a file taken out of the set was not made again: {taken.name}")
+        else:
+            print(f"     {taken.name}, taken out of the set, made again")
+
+        # 6. An art helper that fails with the game's files there leaves the set unsealed for two
+        #    starts and seals it at the third (handoff item 140).
+        pack = assets / "TexturePacks/swpc_tex_gui.erf"
+        pack.unlink()
+        pack.write_bytes(b"not an erf")
+        states = []
+        for _ in range(3):
+            prepare(width, height)
+            tries = whole.with_name(whole.name + ".tries")
+            states.append((tries.stat().st_size if tries.exists() else 0, whole.with_name(whole.name + ".complete").exists()))
+        if states != [(1, False), (2, False), (0, True)]:
+            failures.append(f"a failed helper: tries and seal {states}, expected two tries, then sealed")
+        else:
+            print("     a failed art helper tried again at two starts and sealed at the third")
+        pack.unlink()
+        pack.symlink_to(erf)
+
+        # 7. A mod's copy of a table KMRP changes is merged into the folder the game is shown, the
+        #    override file untouched (handoff item 126).
+        prepare(width, height)
+        ours = (whole / "tutorial.2da").read_bytes() if (whole / "tutorial.2da").exists() else None
+        if ours is None:
+            failures.append("the set has no tutorial.2da to merge")
+        else:
+            mod = assets / "override/tutorial.2da"
+            mod.write_bytes(ours)
+            merged = Path(prepare(width, height)["set"]) / "tutorial.2da"
+            if not merged.exists():
+                failures.append("the mod's tutorial.2da was not merged into the view")
+            elif mod.read_bytes() != ours:
+                failures.append("the merge changed the player's own file")
+            else:
+                print(f"     override's tutorial.2da merged, {merged.stat().st_size} bytes")
+            mod.unlink()
+
         # 4. Two load-time initialisers, the part's own constructors.
         check = tmp / "part.dylib"
         run("clang++", "-arch", "x86_64", "-std=c++17", "-O2", "-w", "-dynamiclib", "-undefined", "dynamic_lookup",
-            "-I", str(PART), *(str(p) for p in sorted(PART.glob("*.cpp"))), "-o", str(check))
+            "-I", str(PART), '-DKMRP_ASSET_BUILD="0"', *(str(p) for p in sorted(PART.glob("*.cpp"))), "-o", str(check))
         sections = subprocess.run(["otool", "-l", str(check)], capture_output=True, text=True).stdout
         count = 0
         for block in sections.split("Section")[1:]:

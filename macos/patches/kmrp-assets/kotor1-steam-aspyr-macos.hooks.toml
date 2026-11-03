@@ -218,6 +218,22 @@ original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x56]
 source = "rdi"
 type = "pointer"
 
+# The fonts finished before anything measures them (fonts.cpp, KmrpFontMetricsLoaded; Windows
+# 0x00422CC1). The TXI load (0x1001f866a) meets at 0x1001f8873 on every path; r14 is the texture
+# there. The widescreen patch has 0x1001f8883, the instruction after these, and 0x1001f8873 itself
+# is relative, so the hook is the two between:
+#   0x1001f887a  mov rax, [rax]; cmp rax, [rbp-0x28]     (the stack guard's check)
+#   0x1001f8881  jne 0x1001f8893
+# Replayed after the handler, so the jump reads their flags. No jump lands in them.
+[[hooks]]
+address = 0x1001f887a
+type = "detour"
+function = "KmrpFontMetricsLoaded"
+original_bytes = [0x48, 0x8b, 0x00, 0x48, 0x3b, 0x45, 0xd8]
+[[hooks.parameters]]
+source = "r14"
+type = "pointer"
+
 # The sizes the game's Screen Resolution list accepts (resolution.cpp): the game's whitelist
 # routine, at its entry. The stolen bytes are its prologue and its first comparison, cmp esi, 800,
 # which run again when the handler does not accept the size; an accepted size leaves through the

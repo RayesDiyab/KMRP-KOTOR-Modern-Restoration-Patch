@@ -1,7 +1,8 @@
 // KMRP for macOS, controller support: the GUI cues, the pad's button drawn beside a control
-// that has no button of its own to carry a badge: LT and RT on the in-game menu's tab strip, R3
-// on the four screens about a party member, X on Abilities' sub-tabs, X and Y beside the HUD's
-// combat buttons.
+// that has no button of its own to carry a badge: LT and RT on the in-game menu's tab strip, RB
+// on the four screens about a party member, X on Abilities' sub-tabs, B and Y beside the HUD's
+// combat buttons. Some tags keep their old letters: a tag names the control in the layout files,
+// and the art it is filled with by the build says RB (kmrprb_party) and B (kmrpb_cmbt).
 //
 // The Mac port of K1NativeJoystick.cpp's cues (K1_GUI_CUES, BindOneCueK1, ForgetGuiCuesK1,
 // UpdateGuiCuesK1), with the same rules. Each cue is a CSWGuiLabel that KMRP's resource build
@@ -23,6 +24,8 @@
 
 #include "engine.h"
 #include "pad.h"
+#include "remap.h"
+#include "pazaak.h"
 #include "xbox_hud.h"
 
 #include <mach/mach.h>
@@ -57,22 +60,25 @@ const std::uintptr_t kBasePanelVtable = 0x1005b3730UL;   // CSWGuiPanel
 const std::size_t kPanelGff = 0x40, kPanelControls = 0x30, kPanelControlCount = 0x38;
 const std::size_t kControlId = 0x74, kControlFlags = 0x68;
 const std::uint8_t kControlVisible = 0x02;
-// CSWGuiMainInterface: BTN_CLEARALL, which the X cue follows, and LBL_CMBTMODEMSG, which it
+// CSWGuiMainInterface: BTN_CLEARALL, which the B cue follows, and LBL_CMBTMODEMSG, which it
 // follows with the Xbox-style HUD (the HUD's constructor, 0x100232DA0, binds it at +0x9300).
 const std::size_t kHudClearAll = 0x8f28, kHudCombatMessage = 0x9300;
 
 // K1_GUI_CUES: which cue belongs on which panel, by class, and the control whose visibility it
 // copies (0 for a cue shown whenever the pad is in use).
 // `reference` is the control of the game's own layout the build placed the cue beside: the cue
-// is put where its layout file has it relative to that control, as the control is now.
+// is put where its layout file has it relative to that control, as the control is now. `action`
+// is the action whose button the cue shows (KmrpRemap::Button, named by its default button), for a
+// cue in the world, where buttons follow the remap; None for one in a menu.
 struct Binding {
     std::uintptr_t vtable;
     const char* tag;
     std::size_t follow;
     const char* reference;
+    int action = KmrpRemap::None;
 };
 const Binding kBindings[] = {
-    // R3 changes the party member these four are about.
+    // RB changes the party member these four are about.
     {0x1005a5f80UL, "LBL_KMRPR3", 0, "BTN_CHANGE1"},     // CSWGuiInGameAbilities
     {0x1005a5f80UL, "LBL_KMRPSWAP", 0, "BTN_EXIT"},   //   X cycles its Skills / Powers / Feats
     {0x1005ad790UL, "LBL_KMRPR3", 0, "BTN_CHANGE1"},     // CSWGuiInGameCharacter
@@ -81,10 +87,10 @@ const Binding kBindings[] = {
     // LT and RT move along the in-game menu's tab strip (top.gui).
     {0x1005ae6a0UL, "LBL_KMRPLT", 0, "BTN_EQU"},     // CSWGuiInGameMenu
     {0x1005ae6a0UL, "LBL_KMRPRT", 0, "BTN_OPT"},
-    // Y and X beside the HUD's combat buttons, each shown only while its button is:
+    // Y and B beside the HUD's combat buttons, each shown only while its button is:
     // BTN_CLEARONE (+0x8AA8) and BTN_CLEARALL (+0x8F28), hud.cpp's.
-    {0x1005a6220UL, "LBL_KMRPY", 0x8aa8, nullptr}, // CSWGuiMainInterface
-    {0x1005a6220UL, "LBL_KMRPX", 0x8f28, nullptr},
+    {0x1005a6220UL, "LBL_KMRPY", 0x8aa8, nullptr, KmrpRemap::Y}, // CSWGuiMainInterface
+    {0x1005a6220UL, "LBL_KMRPX", 0x8f28, nullptr, KmrpRemap::B},
 };
 
 struct Cue {
@@ -92,6 +98,7 @@ struct Cue {
     void* control;
     int id;
     std::size_t follow;
+    int action;
 };
 Cue g_cues[16] = {};
 
@@ -245,7 +252,7 @@ void Adjust(void* panel, void* cue, const char* tag, void* beside) {
 // BindOneCueK1: a label, bound by tag onto a panel that still has its .gui, hidden until the pad
 // is in use. A tag the .gui does not have leaves the label unreachable, and it is not freed: the
 // panel may hold it.
-void BindOne(void* panel, const char* tag, std::size_t follow, const char* reference) {
+void BindOne(void* panel, const char* tag, std::size_t follow, const char* reference, int action) {
     void* control = ::operator new(kLabelSize, std::nothrow);
     if (!control) return;
     std::memset(control, 0, kLabelSize);
@@ -267,7 +274,7 @@ void BindOne(void* panel, const char* tag, std::size_t follow, const char* refer
     for (int pass = 0; pass < 2; ++pass) {
         for (Cue& cue : g_cues) {
             if (pass == 0 ? cue.panel != nullptr : StillLive(cue)) continue;
-            cue = {panel, control, id, follow};
+            cue = {panel, control, id, follow, action};
             ++g_count.installed;
             return;
         }
@@ -303,10 +310,10 @@ void Install(void* panel) {
     for (const Binding& b : kBindings) {
         if (b.vtable != vtable) continue;
         std::size_t follow = b.follow;
-        // With the Xbox-style HUD the X cue is the button in the combat-mode message
+        // With the Xbox-style HUD the disengage cue is the button in the combat-mode message
         // (xbox_hud.cpp), so it is shown while that message is.
         if (follow == kHudClearAll && xboxhud::Enabled()) follow = kHudCombatMessage;
-        BindOne(panel, b.tag, follow, b.reference);
+        BindOne(panel, b.tag, follow, b.reference, b.action);
     }
 }
 
@@ -322,11 +329,25 @@ void MatchFamily(void* label) {
     ++g_count.recoloured;
 }
 
+// ShowActionCueK1: a cue in the world shows the button its action is on, in the pad's family, the
+// same art as the Controller Layout's rows.
+void ShowActionCue(void* label, int action) {
+    char* params = static_cast<char*>(label) + kLabelBorderParams;
+    char wanted[16];
+    remap::Glyph(action, prompts::FamilyLetter(), wanted);
+    char resref[32] = {};
+    std::strncpy(resref, wanted, sizeof wanted);
+    if (strncasecmp(params + kParamsFill, resref, sizeof wanted) == 0) return;
+    SetFillImage(params, resref, 1);
+    ++g_count.recoloured;
+}
+
 }  // namespace
 
 // UpdateGuiCuesK1: shown while the pad is in use, and a cue that follows a control only while
 // that control is drawn too.
 void Update() {
+    pazaak::Update();
     const bool visible = device::PadInUse();
     for (Cue& cue : g_cues) {
         if (!cue.panel) continue;
@@ -340,7 +361,10 @@ void Update() {
             flags = wanted;
             ++g_count.toggles;
         }
-        if (shown) MatchFamily(cue.control);
+        if (shown) {
+            if (cue.action != KmrpRemap::None) ShowActionCue(cue.control, cue.action);
+            else MatchFamily(cue.control);
+        }
     }
 }
 
@@ -369,7 +393,9 @@ extern "C" __attribute__((visibility("default"))) void KmrpPanelReleaseGff(void*
     if (!kmrp::cues::LooksLikePointer(panel)) return;
     kmrp::layout::ReleaseGff(panel);
     kmrp::xboxhud::Forget(panel);
+    kmrp::pazaak::Forget(panel);
     kmrp::cues::Forget(panel);
     kmrp::overlays::Forget(panel);
     kmrp::cues::Install(panel);
+    kmrp::pazaak::Install(panel);
 }

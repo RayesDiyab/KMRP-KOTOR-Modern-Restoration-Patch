@@ -12,5 +12,11 @@ void ReleaseGff(void* panel);
 // From the GUI's frame: opens the screen the entry asked for, and keeps the badges in step.
 void Frame(void* manager);
 
+// Takes a control off the pad's focus, or gives it back (KmrpPadFocusExcludeK1), and whether it
+// is off (ControlIsNavigableK1's test): for buttons the pad presses with a button of their own.
+// The mouse still clicks them.
+void PadFocusExclude(void* control, bool excluded);
+bool PadFocusExcluded(const void* control);
+
 }  // namespace layout
 }  // namespace kmrp

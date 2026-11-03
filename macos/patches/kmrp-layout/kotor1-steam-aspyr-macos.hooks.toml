@@ -158,14 +158,9 @@ type = "replace"
 original_bytes = [0xf3, 0xf, 0x58, 0x5, 0x2b, 0xbd, 0x37, 0x0]
 replacement_bytes = [0x50, 0x9c, 0x48, 0x83, 0xec, 0x10, 0xf3, 0xf, 0x7f, 0x14, 0x24, 0xf3, 0xf, 0x2c, 0xc0, 0xf3, 0xf, 0x2a, 0xd0, 0xf, 0x2e, 0xc2, 0x76, 0x2, 0xff, 0xc0, 0xf3, 0xf, 0x2a, 0xc0, 0xf3, 0xf, 0x6f, 0x14, 0x24, 0x48, 0x83, 0xc4, 0x10, 0x9d, 0x58]
 
-# FTD ScriptsEnterFix, bfc425fd6534a03dc7662c420cfff75068ad9fdd:
-# row Enter callback must not close the Scripts panel behind a tutorial modal.
-# Native ScriptSelect input handling and the Select button remain responsible for selection.
-[[hooks]]
-address = 0x1002d3e34
-type = "simple"
-original_bytes = [0x55]
-replacement_bytes = [0xc3]
+# FTD's Scripts Enter fix (0x1002d3e34) is not declared here since 2026-11-03: FTD's Stray Bug
+# Fixes, which KMRP requires, carries it, and its version of 2026-11-02 lets a mouse double-click
+# on a row still confirm (README.md, section 2, "KMRP on FTD's patches").
 
 # KMRP's work in the GUI's frame (status_summary.cpp, KmrpCoreGuiFrame): the resolution watched,
 # open panels laid out again after a change, the status summary laid out at the font's size.
@@ -181,4 +176,95 @@ function = "KmrpCoreGuiFrame"
 original_bytes = [0x41, 0x54, 0x53, 0x48, 0x83, 0xec, 0x10]
 [[hooks.parameters]]
 source = "rdi"
+type = "pointer"
+
+# Text fitted to its box (text_fit.cpp; Windows' six text hooks and its control destructor).
+# Each stolen run is whole instructions with no relative operand, and no jump lands inside one;
+# the prologues are reached by tail jumps, which go through the detour like calls do.
+#
+# CAurGUIStringInternal's constructor (0x1001bbd68), after it stores the scale at +0x58: rbx the
+# string. add rsp, 0x18; pop rbx; pop r12 (Windows 0x0045BAC0).
+[[hooks]]
+address = 0x1001bbe49
+type = "detour"
+function = "KmrpTextStringCreated"
+original_bytes = [0x48, 0x83, 0xc4, 0x18, 0x5b, 0x41, 0x5c]
+[[hooks.parameters]]
+source = "rbx"
+type = "pointer"
+
+# CAurGUIStringInternal's destructor, entry: rdi the string (Windows 0x0045BC70).
+[[hooks]]
+address = 0x1001bbea0
+type = "detour"
+function = "KmrpTextStringDestroyed"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+
+# CAurGUIStringInternal::GetIdealPixelHeight, entry: rdi the string (Windows 0x0045B7A0). The
+# rounding sites at 0x1001bc4a4 and after are further in.
+[[hooks]]
+address = 0x1001bc412
+type = "detour"
+function = "KmrpTextIdealHeight"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+
+# CAurGUIStringInternal::WrapStrings, entry: rdi the string (Windows 0x0045A2F0). The Stray Bug
+# Fixes' hooks in this routine begin at 0x1001bc71e.
+[[hooks]]
+address = 0x1001bc644
+type = "detour"
+function = "KmrpTextStringWrap"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+
+# CAurGUIStringInternal's draw (vtable +0x100), entry: rdi the string, xmm0 the alpha, which the
+# wrapper saves and restores (Windows 0x0045A857). The Stray Bug Fixes' here begin at 0x1001bcbef.
+[[hooks]]
+address = 0x1001bcb04
+type = "detour"
+function = "KmrpTextStringDraw"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+
+# CSWGuiListBox::Draw, entry: rdi the list (Windows 0x0041A3E0).
+[[hooks]]
+address = 0x1004a99d4
+type = "detour"
+function = "KmrpTextListDraw"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+
+# CSWGuiControl's destructor, entry, which every control's ends in: rdi the control (Windows'
+# KmrpControlDestroyedK1). push rbp; mov rbp, rsp; push rbx; push rax.
+[[hooks]]
+address = 0x1004a5510
+type = "detour"
+function = "KmrpTextControlDestroyed"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x53, 0x50]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+
+# CAurTextureBasic's build (0x1001f907c), just after its upload (call 0x1001f703e): rbx the
+# texture, whose letters are read if it is a font (caption_ink.cpp; Windows 0x004216F1).
+# movss xmm0, [rbx+0x2c]; the ucomiss after it is not taken.
+[[hooks]]
+address = 0x1001f90d9
+type = "detour"
+function = "KmrpTextureUploaded"
+original_bytes = [0xf3, 0x0f, 0x10, 0x43, 0x2c]
+[[hooks.parameters]]
+source = "rbx"
 type = "pointer"

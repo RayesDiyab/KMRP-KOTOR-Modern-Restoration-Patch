@@ -34,9 +34,19 @@ void Status();
 // replaces the fourth letter of the Xbox art's resrefs.
 char FamilyLetter();
 
+// Whether this control is one of its panel's pad hints (KmrpPadHintControlK1): a button whose
+// glyph is always shown, or shown while the focus is elsewhere, so its pad button works whatever
+// has the focus and the pad's focus never lands on it. A glyph that travels with the focus marks
+// what A presses, and its buttons stay reachable. Only reads memory.
+bool PadHintControl(void* panel, void* control);
+
 // The Controller Layout entry's A (layout.cpp), painted as the tables' badges are
 // (KmrpPaintLayoutEntryPromptK1).
 void PaintLayoutEntry(void* button, bool shown);
+
+// The A of KMRP's two entry buttons on Graphics Options, Advanced Options' badge
+// (KmrpPaintGraphicsEntryPromptK1, pages.cpp).
+void PaintGraphicsEntry(void* button, bool shown);
 
 }  // namespace prompts
 

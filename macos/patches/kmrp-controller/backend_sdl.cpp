@@ -9,9 +9,19 @@
 // XInput, so Xbox pads go through SDL too (its HIDAPI driver), where Windows keeps them on
 // XInput.
 //
-// SDL is initialised and polled on the game's input thread (the thread GetEvents runs on),
-// as on Windows. It creates no window and no event queue. If kmrp-sdl3.dylib is missing or
-// incomplete, SdlAvailable() is false and pad.mm falls back to Apple's GameController.
+// SDL is initialised and polled on the game's input thread (the thread GetEvents runs on). It
+// creates no window and no event queue. If kmrp-sdl3.dylib is missing or incomplete, SdlAvailable()
+// is false and pad.mm falls back to Apple's GameController.
+//
+// Windows moved SDL's start to the main thread (issue 71, dbbbefb): there a pad's return is a
+// window message, handled on the thread that started SDL, and that was the movie thread, which waits
+// between movies. The Mac has no such message: macOS reports devices through IOKit, and this SDL
+// imports IOHIDManagerScheduleWithRunLoop, CFRunLoopGetCurrent and CFRunLoopRunInMode and carries a
+// run-loop mode of its own, "SDLJoystick". As SDL's IOKit driver is known to work (its source is
+// not here; the calls were not traced), the notifications are scheduled on the thread that starts
+// SDL and that mode is run from the update on the thread that polls, which is this one, a thread
+// that never waits. So it stays here. Not tested on a Mac: a Bluetooth pad switched off and on
+// while the game runs; the log's "SDL lists" lines (below) show which side missed it.
 #include "backend_sdl.h"
 #include "pad.h"
 
@@ -200,9 +210,13 @@ double heldAt = 0.0;   // when the pad read was last held or moved; 0 before the
 
 }  // namespace
 
-// The pad was held within the last second and a half (ControllerHeldRecentlyK1): a pointer that
-// moves meanwhile is not a hand on the mouse (prompts.cpp, MouseIsBeingUsed).
-bool PadHeldRecently() { return heldAt != 0.0 && Now() - heldAt < 1.5; }
+// ControllerTypesByItselfK1: asked by prompts.cpp, for the pointer and for the keyboard's records.
+bool ControllerTypesByItself() {
+    if (!sdlReady || heldAt == 0.0 || Now() - heldAt >= 0.3) return false;
+    for (const Device& d : devices)
+        if (d.connected && d.pad && pSDL_GetGamepadVendor(d.pad) == 0x28de) return true;
+    return false;
+}
 
 bool SdlAvailable() {
     static bool once = (Load(), true);
@@ -222,6 +236,19 @@ bool ReadSdlPad(PadState* out, std::string* name) {
         nextScan = now + 1.0;
         int count = 0;
         SDL_JoystickID* ids = pSDL_GetGamepads(&count);
+        // What SDL lists, each time the list changes, so a pad that comes back and is not seen
+        // shows which side missed it (issue 54, a7f4224). Windows writes these at debug level 2;
+        // this log is written only with debug logs on already, and the lines are few.
+        {
+            static int lastCount = -1;
+            static SDL_JoystickID lastFirst = 0;
+            const SDL_JoystickID first = ids && count > 0 ? ids[0] : 0;
+            if (count != lastCount || first != lastFirst) {
+                lastCount = count;
+                lastFirst = first;
+                Log("SDL lists %d gamepad(s), first id %u", count, static_cast<unsigned>(first));
+            }
+        }
         for (int j = 0; ids && j < count; ++j) {
             int empty = -1;
             bool found = false;
@@ -232,6 +259,8 @@ bool ReadSdlPad(PadState* out, std::string* name) {
             if (!found && empty >= 0) {
                 devices[empty].pad = pSDL_OpenGamepad(ids[j]);
                 devices[empty].id = ids[j];
+                Log("SDL gamepad id %u opened in slot %d: %s", static_cast<unsigned>(ids[j]), empty,
+                    devices[empty].pad ? "yes" : "FAILED");
                 if (devices[empty].pad) {
                     const char* n = pSDL_GetGamepadName(devices[empty].pad);
                     Log("SDL3: opened %s (type %d, %04x:%04x)", n ? n : "?",

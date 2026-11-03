@@ -1,5 +1,5 @@
 /*
-  KMRP for macOS: the menu sets and artwork inside the module.
+  KMRP for macOS: the menu sets and artwork, from KMRP's art pack.
 
   Until 2026-10-04 KMRP Installer put the menu set for the chosen resolution, KMRP's artwork and
   what it makes from the player's game into the game's override folder, and KMRP-macOS.kpatch applied
@@ -8,6 +8,13 @@
   every resolution's set and the artwork (macos/tools/make_kmrp_assets.py), linked into the
   module as the section __KMRP,__assets, unpacked to a cache of KMRP's own and registered with the
   game's resource manager. Nothing is written to the game's override folder.
+
+  Since 2026-11-03 the art is not inside the module: it is the art pack Windows' has been since
+  2026-10-19, kmrp-assets.pack (tools/kmrp_pack.py documents it, macos/tools/make_kmrp_assets.py
+  writes it, src/controller-native/K1AssetPack.cpp decodes it), which the installer writes beside
+  the module, and the module holds it against the build it was made with. "The bank" below means
+  the pack. Without it the module makes nothing and says so: the patch alone is not the whole of
+  KMRP (the maintainer's choice for the smaller installer, 2026-10-19).
 
   The cache: ~/Library/Caches/KMRP/<build>/, <build> being the bank's identity, so a new build
   starts a new cache and the old ones are removed.
@@ -25,6 +32,12 @@
 
   Unlike Windows, which unpacks about 100 MB on every launch into a folder of that launch, the
   store and each set are unpacked once and kept: the Mac's artwork is 348 MB.
+
+  Since 2026-11-03 the installer makes the store and the set of every size the display offers
+  before the game first starts, as Windows' does (handoff item 73): kmrp-prepare
+  (macos/tools/kmrp-prepare.cpp) is this file and the helpers in a program of their own, given
+  the game's folder and the pack (SetPaths), making one size a process (PrepareStore,
+  PrepareSet). The game then finds each finished and makes only this run's links.
 
   The engine (KOTOR_Exe 1.4.0, C1FCB8D3...6D71; read with Ghidra, see
   docs/macos-standalone-kpatch-handoff.md, section 5a):
@@ -47,9 +60,12 @@
 #include "assets.h"
 
 #include "../kmrp-layout/options.h"
+#include "fonts.h"
 #include "widescreen.h"
+#include "../../../src/controller-native/K1AssetPack.h"
 
 #include <CommonCrypto/CommonDigest.h>
+#include <algorithm>
 #include <array>
 #include <cerrno>
 #include <cmath>
@@ -61,16 +77,18 @@
 #include <dirent.h>
 #include <dlfcn.h>
 #include <fcntl.h>
+#include <sys/file.h>
 #include <mach-o/dyld.h>
 #include <mach-o/getsect.h>
+#include <list>
 #include <map>
 #include <signal.h>
 #include <string>
 #include <strings.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <vector>
-#include <zlib.h>
 
 // macos/tools/kmrp-guiblend.c (KMRP_GUI_EMBEDDED), kmrp-abilityicons.c and kmrp-gameart.c
 // (KMRP_EMBEDDED): the installer's helpers, compiled into the module.
@@ -78,25 +96,50 @@ extern "C" int KmrpGuiBlend(const char* table, unsigned width, unsigned height, 
 extern "C" int KmrpGuiBlendCovers(const char* table, unsigned width, unsigned height);
 extern "C" int KmrpAbilityIcons(const char* erf, unsigned height, const char* outdir, const char* reserved);
 extern "C" int KmrpGameArt(const char* erf, const char* key, unsigned height, const char* outdir);
+extern "C" int KmrpDeriveImage(const char* source, int canvas, int picture, int left, int bottom, const char* filter,
+                               const char* out);
+// macos/tools/kmrp-swoophud.c, kmrp-guiadapt.c and kmrp-merge.c (KMRP_EMBEDDED), as Windows' module
+// links them (K1RuntimeAssets.cpp); kmrp-embedded.h has what each returns.
+extern "C" int KmrpSwoopHud(const char* key, const char* outdir, unsigned width, unsigned height);
+extern "C" int KmrpSwoopHudModel(const char* mdl, const char* mdx, const char* outdir, unsigned width, unsigned height);
+extern "C" int KmrpGalaxyMap(const char* key, const char* setGui, const char* outGui, const char* sourceGui);
+extern "C" int KmrpMainMenuBars(const char* setGui, const char* outGui);
+extern "C" int KmrpLiveLayoutSet(const char* key, const char* name, const char* sourceGui, int width, int height,
+                                 const char* outGui, const char* set);
+extern "C" int KmrpLiveLayoutCount(void);
+extern "C" const char* KmrpLiveLayoutName(int index);
+extern "C" const char* KmrpLiveLayoutNotes(void);
+extern "C" int KmrpHudCues(const char* sourceGui, const char* outGui);
+extern "C" const char* KmrpHudFileName(int index);
+extern "C" int KmrpReadKeyedResource(const char* key, const char* resref, int type, unsigned char** data, std::size_t* size);
+extern "C" int KmrpMerge2da(const char* name, const uint8_t* base, std::size_t baseSize, const uint8_t* ours,
+                            std::size_t oursSize, const uint8_t* theirs, std::size_t theirsSize, uint8_t** out,
+                            std::size_t* outSize, char** notes, int counts[4]);
+extern "C" void KmrpMergeFree(void* pointer);
 
 namespace kmrp {
 namespace assets {
 namespace {
 
-using Key = std::array<unsigned char, 32>;
-struct Object { const unsigned char* bytes; unsigned size, stored; };
-struct Entry { std::string name; Key key; };
-struct Group { unsigned width, height; std::vector<Entry> entries; };
+using Key = KmrpPack::Key;
+using Object = KmrpPack::Object;
+using Entry = KmrpPack::Entry;
+using Group = KmrpPack::Group;
 
-const char kMagic[] = "KMAST002";
-const std::size_t kArtGroups = 3;   // the groups before the sets
+const std::size_t kArtGroups = 4;   // the groups before the sets
 
 // One object made on first use, not globals: a global with a constructor is one more load-time
 // initialiser of the module, run in an order the hooks and the other parts cannot rely on.
 struct State {
     std::map<Key, Object> objects;
-    std::vector<Group> groups;   // [0] KMRP's artwork, [1] the bundled art, [2] the HD icon pack, then the sets
+    std::vector<KmrpPack::Block> blocks;
+    std::vector<Group> groups;   // [0] KMRP's artwork, [1] the bundled art, [2] the HD icon pack, [3] the fonts' sources, then the sets
     Key table{};
+    const unsigned char* pack = nullptr;   // the file, mapped for the run
+    // Blocks of several files, kept unpacked while their files are asked for one at a time (a
+    // size's set, the common files), newest first (Decode), let go when the work is done.
+    std::list<std::pair<std::uint32_t, std::vector<unsigned char>>> unpacked;
+    std::size_t unpackedBytes = 0;
     std::string build, root, store;
     bool loaded = false, registered = false, disabled = false;
     std::string art;                               // this run's artwork folder, once linked
@@ -108,17 +151,17 @@ struct State {
     // in lower case, and the names of its textures without their extension.
     bool overrideListed = false;
     std::map<std::string, bool> overrideNames, overrideTextures;
-    // The glyph height KMRP's own font of each name has at the size in use, for the fonts the
-    // player's override supplies in its place (lower-case names, without extension).
-    std::map<std::string, float> overrideFontHeights;
-    bool overrideFontsChanged = false;
     std::map<std::pair<int, int>, bool> covered;
+    // Given by kmrp-prepare (SetPaths); empty in the game, where they are found.
+    std::string givenAssets, givenPack;
+    bool outside = false;
 };
 State& TheState() {
     static State* state = new State;
     return *state;
 }
 #define g_objects (TheState().objects)
+#define g_blocks (TheState().blocks)
 #define g_groups (TheState().groups)
 #define g_table (TheState().table)
 #define g_build (TheState().build)
@@ -127,15 +170,12 @@ State& TheState() {
 #define g_loaded (TheState().loaded)
 #define g_registered (TheState().registered)
 
-void Log(const char* format, ...) __attribute__((format(printf, 1, 2)));
-void Log(const char* format, ...) {
-    char line[1024];
-    va_list args;
-    va_start(args, format);
-    vsnprintf(line, sizeof line, format, args);
-    va_end(args);
+// What was made is a note for the debug log; a failure is always written (Warn), as on Windows
+// since 2026-10-19 (K1RuntimeAssets.cpp): the installer's windows show nothing of it otherwise.
+void Write(const char* line, bool always) {
     fprintf(stderr, "[KMRP assets] %s\n", line);
-    if (!DebugLogs()) return;
+    // kmrp-prepare's processes run side by side, and the log is the game's.
+    if (TheState().outside || (!always && !DebugLogs())) return;
     static FILE* file = [] {
         const char* home = getenv("HOME");
         if (!home) return static_cast<FILE*>(nullptr);
@@ -147,24 +187,25 @@ void Log(const char* format, ...) {
     if (file) { fprintf(file, "%s\n", line); fflush(file); }
 }
 
-struct Reader {
-    const unsigned char* at;
-    const unsigned char* end;
-    bool bytes(void* out, std::size_t size) {
-        if (static_cast<std::size_t>(end - at) < size) return false;
-        memcpy(out, at, size);
-        at += size;
-        return true;
-    }
-    bool integer(unsigned& value) { return bytes(&value, 4); }
-    bool name(std::string& value) {
-        unsigned short size;
-        if (!bytes(&size, 2) || !size || size > 255 || end - at < size) return false;
-        value.assign(reinterpret_cast<const char*>(at), size);
-        at += size;
-        return value.find('/') == std::string::npos && value.find("..") == std::string::npos;
-    }
-};
+void Log(const char* format, ...) __attribute__((format(printf, 1, 2)));
+void Log(const char* format, ...) {
+    char line[1024];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(line, sizeof line, format, args);
+    va_end(args);
+    Write(line, false);
+}
+
+void Warn(const char* format, ...) __attribute__((format(printf, 1, 2)));
+void Warn(const char* format, ...) {
+    char line[1024];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(line, sizeof line, format, args);
+    va_end(args);
+    Write(line, true);
+}
 
 std::string Hex(const unsigned char* bytes, std::size_t count) {
     static const char digits[] = "0123456789abcdef";
@@ -217,73 +258,149 @@ bool WriteFile(const std::string& path, const unsigned char* data, std::size_t s
     return fclose(f) == 0 && ok;
 }
 
-// The bank, from this module's own image.
+bool ReadFile(const std::string& path, std::vector<unsigned char>& data) {
+    FILE* f = fopen(path.c_str(), "rb");
+    if (!f) return false;
+    data.clear();
+    unsigned char buffer[65536];
+    std::size_t n;
+    while ((n = fread(buffer, 1, sizeof buffer, f)) > 0) data.insert(data.end(), buffer, buffer + n);
+    const bool ok = !ferror(f);
+    fclose(f);
+    return ok;
+}
+
+// What a folder holds, its files and their bytes, which the marker records (Windows' Contents).
+std::string Contents(const std::string& directory) {
+    unsigned long long files = 0, bytes = 0;
+    for (const std::string& name : Names(directory)) {
+        struct stat info;
+        if (lstat((directory + "/" + name).c_str(), &info) != 0 || !S_ISREG(info.st_mode)) continue;
+        files++;
+        bytes += static_cast<unsigned long long>(info.st_size);
+    }
+    return std::to_string(files) + " " + std::to_string(bytes) + "\n";
+}
+
+// The folder of this module, as the game loads it: patches/ beside KOTOR_Exe, or the App Store
+// launcher's copy.
+std::string ModuleDirectory() {
+    Dl_info info;
+    if (!dladdr(reinterpret_cast<const void*>(&ModuleDirectory), &info) || !info.dli_fname) return std::string();
+    const std::string path = info.dli_fname;
+    const std::size_t slash = path.rfind('/');
+    return slash == std::string::npos ? std::string() : path.substr(0, slash);
+}
+
+// The art pack beside this module, where the installer writes it. Its index is read now and a
+// file's block when the file is needed (Decode). Mapped for the run: an installer may remove or
+// replace the file while a game runs, and this run keeps the file it opened. Tried once a run: a
+// pack that is missing or another build's stays so.
 bool Load() {
     if (g_loaded) return !g_groups.empty();
     g_loaded = true;
-    Dl_info info;
-    if (!dladdr(reinterpret_cast<const void*>(&Load), &info) || !info.dli_fbase) return false;
-    unsigned long size = 0;
-    const unsigned char* data = getsectiondata(static_cast<const mach_header_64*>(info.dli_fbase), "__KMRP", "__assets", &size);
-    if (!data || size < 8 + 32 + 8 + 32 || memcmp(data, kMagic, 8) != 0) {
-        Log("the module carries no menu sets (it was built without them)");
+    const std::string path = TheState().outside ? TheState().givenPack : ModuleDirectory() + "/kmrp-assets.pack";
+    const int file = open(path.c_str(), O_RDONLY);
+    if (file < 0) {
+        if (TheState().outside) Warn("the art pack cannot be opened: %s", path.c_str());
+        else Warn("kmrp-assets.pack is not beside the module (%s), so KMRP's interface cannot be made: install KMRP with its "
+                  "installer, which writes it", path.c_str());
         return false;
     }
-    Reader reader{data + 8, data + size};
-    unsigned char build[32];
-    unsigned groupCount, objectCount;
-    if (!reader.bytes(build, 32) || !reader.integer(groupCount) || groupCount < 4 || groupCount > 4096 ||
-        !reader.integer(objectCount) || objectCount > 200000 || !reader.bytes(g_table.data(), 32)) return false;
-    std::vector<Group> groups;
-    for (unsigned i = 0; i < groupCount; i++) {
-        Group group{};
-        unsigned count;
-        if (!reader.integer(group.width) || !reader.integer(group.height) || !reader.integer(count) || count > 4096) return false;
-        for (unsigned j = 0; j < count; j++) {
-            Entry entry;
-            if (!reader.name(entry.name) || !reader.bytes(entry.key.data(), 32)) return false;
-            group.entries.push_back(entry);
-        }
-        groups.push_back(std::move(group));
+    struct stat info;
+    void* mapped = fstat(file, &info) == 0 && static_cast<std::size_t>(info.st_size) >= KmrpPack::kHeaderSize
+        ? mmap(nullptr, static_cast<std::size_t>(info.st_size), PROT_READ, MAP_PRIVATE, file, 0) : MAP_FAILED;
+    close(file);
+    if (mapped == MAP_FAILED) { Warn("kmrp-assets.pack cannot be read"); return false; }
+    const auto* data = static_cast<const unsigned char*>(mapped);
+    const std::size_t size = static_cast<std::size_t>(info.st_size);
+    Key identity{};
+    std::uint32_t start = 0;
+    KmrpPack::Index parsed;
+    if (!KmrpPack::ReadHeader(data, size, identity, start) || start > size) {
+        munmap(mapped, size);
+        Warn("kmrp-assets.pack cannot be read");
+        return false;
     }
-    std::map<Key, Object> objects;
-    for (unsigned i = 0; i < objectCount; i++) {
-        Key key;
-        Object object{};
-        if (!reader.bytes(key.data(), 32) || !reader.integer(object.size) || !reader.integer(object.stored) ||
-            !object.size || object.size > (256u << 20) || static_cast<std::size_t>(reader.end - reader.at) < object.stored ||
-            objects.count(key)) return false;
-        object.bytes = reader.at;
-        reader.at += object.stored;
-        objects.emplace(key, object);
+    // The pack this module was built with, and no other: a module put in by hand beside an older
+    // pack would name files the pack does not have.
+    if (KmrpPack::IdentityText(identity) != KMRP_ASSET_BUILD) {
+        munmap(mapped, size);
+        Warn("kmrp-assets.pack is from another build of KMRP than this module: install KMRP again");
+        return false;
     }
-    if (reader.at != reader.end || !objects.count(g_table)) return false;
-    if (groups[0].width || groups[0].height || groups[1].width || groups[1].height != 1 ||
-        groups[2].width || groups[2].height != 2) return false;
-    // The artwork is all in the bank. A set's file may be one the module makes itself (BuildSet):
-    // its entry then names an object the bank does not hold.
-    for (std::size_t i = 0; i < kArtGroups; i++)
-        for (const Entry& entry : groups[i].entries)
-            if (!objects.count(entry.key)) return false;
+    bool ok = KmrpPack::ReadIndex(data, start, size, parsed) && parsed.groups.size() > kArtGroups;
+    if (ok) {
+        const std::vector<Group>& groups = parsed.groups;
+        ok = !groups[0].width && !groups[0].height && !groups[1].width && groups[1].height == 1 &&
+             !groups[2].width && groups[2].height == 2 && !groups[3].width && groups[3].height == 3 &&
+             parsed.objects.count(parsed.table) != 0;
+        // The artwork is all in the bank. A set's file may be one the module makes itself
+        // (BuildSet): its entry then names an object the bank does not hold.
+        for (std::size_t i = 0; ok && i < kArtGroups; i++)
+            for (const Entry& entry : groups[i].entries)
+                if (!parsed.objects.count(entry.key)) ok = false;
+    }
     const char* home = getenv("HOME");
-    if (!home || !*home) return false;
-    g_build = Hex(build, 8);
+    if (!ok || !home || !*home) {
+        munmap(mapped, size);
+        Warn("kmrp-assets.pack cannot be read");
+        return false;
+    }
+    g_build = Hex(identity.data(), 8);
     g_root = std::string(home) + "/Library/Caches/KMRP/" + g_build;
-    g_objects.swap(objects);
-    g_groups.swap(groups);
+    g_table = parsed.table;
+    TheState().pack = data;
+    g_objects.swap(parsed.objects);
+    g_blocks.swap(parsed.blocks);
+    g_groups.swap(parsed.groups);
     return true;
 }
+
+bool UnpackBlock(std::uint32_t number, std::vector<unsigned char>& out) {
+    const KmrpPack::Block& block = g_blocks[number];
+    out.resize(block.size);
+    return KmrpPack::Unpack(block, TheState().pack + block.offset, out.data());
+}
+
+const std::size_t kKeepUnpacked = 48u << 20;
 
 bool Decode(const Key& key, std::vector<unsigned char>& output) {
     const auto found = g_objects.find(key);
     if (found == g_objects.end()) return false;
     const Object& object = found->second;
-    output.resize(object.size);
-    uLongf size = object.size;
-    if (uncompress(output.data(), &size, object.bytes, object.stored) != Z_OK || size != object.size) return false;
+    const KmrpPack::Block& block = g_blocks[object.block];
+    State& state = TheState();
+    if (object.offset == 0 && object.size == block.size) {
+        // A file that is a block of its own is unpacked straight into the caller's buffer.
+        if (!UnpackBlock(object.block, output)) return false;
+    } else {
+        const auto kept = std::find_if(state.unpacked.begin(), state.unpacked.end(),
+            [&](const std::pair<std::uint32_t, std::vector<unsigned char>>& held) { return held.first == object.block; });
+        if (kept != state.unpacked.end()) {
+            state.unpacked.splice(state.unpacked.begin(), state.unpacked, kept);
+        } else {
+            std::vector<unsigned char> data;
+            if (!UnpackBlock(object.block, data)) return false;
+            state.unpackedBytes += data.size();
+            state.unpacked.emplace_front(object.block, std::move(data));
+            while (state.unpackedBytes > kKeepUnpacked && state.unpacked.size() > 1) {
+                state.unpackedBytes -= state.unpacked.back().second.size();
+                state.unpacked.pop_back();
+            }
+        }
+        const std::vector<unsigned char>& data = state.unpacked.front().second;
+        output.assign(data.begin() + object.offset, data.begin() + object.offset + object.size);
+    }
     Key measured;
+    if (!KmrpPack::Unfilter(object.filter, output.data(), output.size())) return false;
     CC_SHA256(output.data(), static_cast<CC_LONG>(output.size()), measured.data());
     return measured == key;
+}
+
+void ForgetUnpacked() {
+    TheState().unpacked.clear();
+    TheState().unpackedBytes = 0;
 }
 
 
@@ -302,19 +419,35 @@ bool Unpack(const Group& group, const std::string& directory, unsigned* left = n
 }
 
 // A folder is complete when the marker beside it (never inside: the game lists the folder as
-// resources) holds the text it was finished with. Built under another name and renamed, so a
-// launch that was cut short leaves nothing that looks finished.
+// resources) holds the text it was finished with and what it held then. Built under another name
+// and renamed, so a launch that was cut short leaves nothing that looks finished. The text alone
+// until 2026-11-03: a file taken out afterwards was never made again (Windows' 2026-11-01 fix).
 bool Complete(const std::string& directory, const std::string& stamp) {
-    FILE* f = fopen((directory + ".complete").c_str(), "r");
-    if (!f) return false;
-    char text[256] = "";
-    const std::size_t n = fread(text, 1, sizeof text - 1, f);
-    fclose(f);
-    return IsDirectory(directory) && std::string(text, n) == stamp;
+    std::vector<unsigned char> text;
+    return IsDirectory(directory) && ReadFile(directory + ".complete", text) &&
+           std::string(text.begin(), text.end()) == stamp + Contents(directory);
 }
 
+// `seal` false after the fill: the folder is used, but not marked finished.
+// The game and the installer's kmrp-prepare (macos/tools/kmrp-prepare.cpp) may make the same folder
+// at once: one start of the game while the installer is still making sizes. Each holds a lock beside
+// the folder while it checks, fills and renames, and checks again once it has it, so the second waits
+// and then finds the folder finished. Without it the second's rename failed and that run of the game
+// had no menus of KMRP's, or its check fell between the other's rename and marker and it emptied a
+// finished folder (the 2026-11-03 audit). Released when the process ends, whatever the end.
+struct FolderLock {
+    int fd = -1;
+    explicit FolderLock(const std::string& directory) {
+        fd = open((directory + ".lock").c_str(), O_CREAT | O_RDWR | O_CLOEXEC, 0644);
+        if (fd >= 0 && flock(fd, LOCK_EX) != 0) { close(fd); fd = -1; }
+    }
+    ~FolderLock() { if (fd >= 0) close(fd); }
+};
+
 template <typename Fill>
-bool Build(const std::string& directory, const std::string& stamp, Fill fill) {
+bool Build(const std::string& directory, const std::string& stamp, Fill fill, const bool* seal = nullptr) {
+    if (Complete(directory, stamp)) return true;
+    const FolderLock lock(directory);
     if (Complete(directory, stamp)) return true;
     const std::string work = directory + ".tmp" + std::to_string(getpid());
     unlink((directory + ".complete").c_str());
@@ -325,7 +458,9 @@ bool Build(const std::string& directory, const std::string& stamp, Fill fill) {
         RemoveFlat(work);
         return false;
     }
-    return WriteFile(directory + ".complete", reinterpret_cast<const unsigned char*>(stamp.data()), stamp.size());
+    if (seal && !*seal) return true;
+    const std::string marker = stamp + Contents(directory);
+    return WriteFile(directory + ".complete", reinterpret_cast<const unsigned char*>(marker.data()), marker.size());
 }
 
 // Caches of other builds, and the link folders of games that are no longer running.
@@ -356,10 +491,25 @@ void RemoveStale() {
         const int pid = atoi(name.c_str() + 4);
         if (pid > 0 && pid != getpid() && kill(pid, 0) != 0 && errno == ESRCH) RemoveFlat(g_root + "/" + name);
     }
+    // What a process cut short left while it made something: store.tmp<pid>, sets/<W>x<H>.tmp<pid>
+    // (about 170 MB each) and its .reserved.txt, gui-blend.bin.tmp<pid>, fonts' work files. Each name
+    // carries the pid that made it; it goes once that process is gone.
+    for (const std::string& folder : {g_root, g_root + "/sets", g_root + "/fonts"}) {
+        for (const std::string& name : Names(folder)) {
+            const std::size_t at = name.rfind(".tmp");
+            if (at == std::string::npos) continue;
+            const int pid = atoi(name.c_str() + at + 4);
+            if (pid <= 0 || pid == getpid() || kill(pid, 0) == 0 || errno != ESRCH) continue;
+            const std::string path = folder + "/" + name;
+            if (IsDirectory(path)) RemoveFlat(path);
+            else unlink(path.c_str());
+        }
+    }
 }
 
 // The game's folders, from the executable: <app>/Contents/MacOS/KOTOR_Exe, <app>/Contents/Assets.
 std::string AssetsDirectory() {
+    if (TheState().outside) return TheState().givenAssets;
     char path[4096];
     uint32_t size = sizeof path;
     if (_NSGetExecutablePath(path, &size) != 0) return std::string();
@@ -413,40 +563,6 @@ bool PlayerHas(const std::string& file) {
     return (kind == ".tga" || kind == ".tpc" || kind == ".txi") && state.overrideTextures.count(name.substr(0, dot)) != 0;
 }
 
-// `fontheight` out of a .txi's text, or 0 (FontHeightOf).
-float FontHeightOf(const std::string& path) {
-    FILE* f = fopen(path.c_str(), "rb");
-    if (!f) return 0.0f;
-    std::string text;
-    char buffer[4096];
-    std::size_t n;
-    while ((n = fread(buffer, 1, sizeof buffer, f)) > 0 && text.size() < (1u << 20)) text.append(buffer, n);
-    fclose(f);
-    static const char key[] = "fontheight";
-    for (std::size_t at = text.find(key); at != std::string::npos; at = text.find(key, at + 1)) {
-        if (at != 0 && text[at - 1] != '\n' && text[at - 1] != '\r') continue;
-        const double value = atof(text.c_str() + at + sizeof(key) - 1);
-        if (value > 0.0 && value < 100.0) return static_cast<float>(value);
-    }
-    return 0.0f;
-}
-
-// A file of KMRP's the player's override replaces. When it is the metrics of a font whose
-// texture the player supplies, what KMRP's own font measures here is kept, for
-// ScaleOverrideFonts.
-void NoteYielded(const std::string& path, const std::string& file) {
-    const std::string name = Lower(file);
-    const std::size_t dot = name.rfind('.');
-    if (dot == std::string::npos || name.compare(dot, std::string::npos, ".txi") != 0) return;
-    State& state = TheState();
-    if (!state.overrideTextures.count(name.substr(0, dot))) return;
-    const float height = FontHeightOf(path);
-    if (height > 0.0f) {
-        state.overrideFontHeights[name.substr(0, dot)] = height;
-        state.overrideFontsChanged = true;
-    }
-}
-
 bool Link(const std::string& from, const std::string& to) {
     if (link(from.c_str(), to.c_str()) == 0) return true;
     return symlink(from.c_str(), to.c_str()) == 0;
@@ -462,7 +578,7 @@ bool LinkArtwork(std::string& directory) {
     if (!MakeDirectories(directory)) return false;
     unsigned own = 0, ownYielded = 0;
     for (const Entry& entry : g_groups[0].entries) {
-        if (PlayerHas(entry.name)) { NoteYielded(g_store + "/" + entry.name, entry.name); ownYielded++; continue; }
+        if (PlayerHas(entry.name)) { ownYielded++; continue; }
         if (!Link(g_store + "/" + entry.name, directory + "/" + entry.name)) return false;
         own++;
     }
@@ -497,12 +613,215 @@ bool LinkSet(const std::string& set, int generation, std::string& view) {
     for (const std::string& name : Names(set)) {
         const std::string path = set + "/" + name;
         if (IsDirectory(path)) continue;
-        if (PlayerHas(name)) { NoteYielded(path, name); yielded++; continue; }
+        if (PlayerHas(name)) { yielded++; continue; }
         if (!Link(path, view + "/" + name)) return false;
         linked++;
     }
     Log("set %s: %u files, %u left to files in the game's override", view.c_str(), linked, yielded);
     return true;
+}
+
+// The notes of the helpers, one a line, as Windows' LogCompatibilityNotes.
+void LogNotes(const char* lead, const char* notes) {
+    if (!notes) return;
+    for (const char* at = notes; *at;) {
+        const char* end = strchr(at, '\n');
+        const std::size_t length = end ? static_cast<std::size_t>(end - at) : strlen(at);
+        if (length) Warn("compatibility: %s%.*s", lead, static_cast<int>(length), at);
+        at += length + (end ? 1 : 0);
+    }
+}
+
+std::string WorkName(const std::string& target) { return target + ".tmp" + std::to_string(getpid()); }
+
+// `view` holds links into the set, so a file is written beside its target and moved over it: the
+// link goes, and the set keeps its own file.
+bool MoveOver(const std::string& work, const std::string& target) {
+    if (rename(work.c_str(), target.c_str()) == 0) return true;
+    unlink(work.c_str());
+    return false;
+}
+
+// Live Adaptive Layout, Windows' AdaptLiveLayoutK1: the screens its table lists, laid out for the
+// size from the file the game would load, a mod's in the override folder or else the game's own
+// (through chitin.key). A mod's file laid out for another size is left to the game. Unlike
+// Windows' the set keeps its copy of each screen, which stands if a file cannot be laid out.
+void AdaptLiveLayout(const std::string& set, const std::string& view, const std::string& key,
+                     const std::string& overrideFolder, int width, int height) {
+    int written = 0, theirs = 0;
+    for (int i = 0; i < KmrpLiveLayoutCount(); i++) {
+        const char* const name = KmrpLiveLayoutName(i);
+        const bool mod = PlayerHas(name);
+        const std::string target = view + "/" + name, work = WorkName(target);
+        const std::string source = mod ? overrideFolder + "/" + name : std::string();
+        const int result = KmrpLiveLayoutSet(key.c_str(), name, mod ? source.c_str() : nullptr, width, height,
+                                             work.c_str(), set.c_str());
+        if (mod) LogNotes("the override folder's ", KmrpLiveLayoutNotes());
+        if (result != 0) {
+            unlink(work.c_str());
+            if (result == 3) Warn("compatibility: the override folder's %s: Live Adaptive Layout is off for this "
+                                  "screen; the mod's file is used as it is", name);
+            else Warn("live layout: %s could not be laid out (%d); the set's own is used", name, result);
+            continue;
+        }
+        if (!MoveOver(work, target)) continue;
+        written++;
+        if (mod) theirs++;
+    }
+    Log("live layout: %d screens laid out for %dx%d, %d of them from the override folder's files", written, width, height, theirs);
+    // A mod's mouse and keyboard HUD file, given the combat cues KMRP's own carry (item 119).
+    for (int i = 0; const char* const name = KmrpHudFileName(i); i++) {
+        if (!PlayerHas(name)) continue;
+        const std::string target = view + "/" + name, work = WorkName(target), source = overrideFolder + "/" + name;
+        const int result = KmrpHudCues(source.c_str(), work.c_str());
+        if (result != 0) {
+            unlink(work.c_str());
+            if (result != 3) Warn("HUD cues: the override folder's %s could not be given them (%d)", name, result);
+            continue;
+        }
+        if (MoveOver(work, target)) Log("HUD cues: the override folder's %s given the combat cues", name);
+    }
+}
+
+// Windows' AdaptGalaxyMapK1 (issue 67), on the file live layout wrote.
+void AdaptGalaxyMap(const std::string& view, const std::string& key, const std::string& overrideFolder) {
+    const std::string target = view + "/galaxymap.gui", work = WorkName(target);
+    if (!Exists(target)) return;
+    const bool theirs = PlayerHas("galaxymap.gui");
+    const std::string source = overrideFolder + "/galaxymap.gui";
+    const int result = KmrpGalaxyMap(key.c_str(), target.c_str(), work.c_str(), theirs ? source.c_str() : nullptr);
+    if (result != 0) {
+        unlink(work.c_str());
+        if (result == 3) Warn("galaxy map: the override folder's galaxymap.gui is not the game's 640x480 layout; it is left to the game");
+        else Warn("galaxy map: could not be placed (%d); the map is left as live layout made it", result);
+        return;
+    }
+    MoveOver(work, target);
+}
+
+// Windows' AdaptMainMenuK1: the main menu's buttons on the bars of their art. A layout the
+// player's override has keeps its own places.
+void AdaptMainMenu(const std::string& view) {
+    for (const char* name : {"mainmenu.gui", "mainmenu8x6.gui", "mainmenu10x7.gui", "mainmenu12x9.gui", "mainmenu16x12.gui"}) {
+        if (PlayerHas(name)) continue;
+        const std::string target = view + "/" + name, work = WorkName(target);
+        if (!Exists(target) || KmrpMainMenuBars(target.c_str(), work.c_str()) != 0) { unlink(work.c_str()); continue; }
+        MoveOver(work, target);
+    }
+}
+
+// Windows' DeriveFromOverrideK1 (issue 79): each file the set's kmrp_derive.txt lists whose source
+// the player's override has is made again from the mod's copy into `view`, the format choosing
+// how: a table merged three ways against the game's, a picture drawn as the game's was, the
+// swoop model changed only where it is still the game's. What cannot be made is logged and the
+// mod's file is used. kmrp-gameart.c, `derived`, has the record's format.
+void DeriveFromOverride(const std::string& set, const std::string& view, const std::string& key,
+                        const std::string& overrideFolder, int width, int height) {
+    std::vector<unsigned char> record;
+    if (!ReadFile(set + "/kmrp_derive.txt", record)) return;
+    const std::string text(record.begin(), record.end());
+    int made = 0;
+    for (std::size_t at = 0; at < text.size();) {
+        std::size_t end = text.find('\n', at);
+        if (end == std::string::npos) end = text.size();
+        std::string line = text.substr(at, end - at);
+        at = end + 1;
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        std::vector<std::string> field;
+        for (std::size_t from = 0;;) {
+            const std::size_t tab = line.find('\t', from);
+            field.push_back(line.substr(from, tab == std::string::npos ? std::string::npos : tab - from));
+            if (tab == std::string::npos) break;
+            from = tab + 1;
+        }
+        if (field.size() < 2 || field[0].size() < 5 || field[1].empty() || field[1].size() > 16) continue;
+        const std::string& output = field[0];
+        const std::string& source = field[1];
+        const std::string stem = output.substr(0, output.size() - 4), format = Lower(output.substr(output.size() - 4));
+        const std::string target = view + "/" + output, work = WorkName(target);
+        if (format == ".2da") {
+            if (!PlayerHas(source + ".2da")) continue;
+            std::vector<unsigned char> theirs, ours;
+            unsigned char* base = nullptr;
+            std::size_t baseSize = 0;
+            const std::string name = source + ".2da";
+            if (!ReadFile(overrideFolder + "/" + name, theirs) || !ReadFile(set + "/" + output, ours) ||
+                KmrpReadKeyedResource(key.c_str(), source.c_str(), 2017, &base, &baseSize) != 0) {
+                free(base);
+                Warn("compatibility: the override folder's %s: KMRP's changes to it are off (a copy could not be read); "
+                     "the mod's table is used as it is", name.c_str());
+                continue;
+            }
+            uint8_t* merged = nullptr;
+            std::size_t mergedSize = 0;
+            char* notes = nullptr;
+            int counts[4]{};
+            const int result = KmrpMerge2da(name.c_str(), base, baseSize, ours.data(), ours.size(), theirs.data(), theirs.size(),
+                                            &merged, &mergedSize, &notes, counts);
+            free(base);
+            LogNotes("the override folder's ", notes);
+            KmrpMergeFree(notes);
+            if (result == 0 && WriteFile(work, merged, mergedSize) && MoveOver(work, target)) {
+                made++;
+                Warn("compatibility: the override folder's %s merged with KMRP's: %d changes of KMRP's made, %d kept the "
+                     "mod's, %d lost", name.c_str(), counts[3], counts[0], counts[1]);
+            } else {
+                unlink(work.c_str());
+                Warn("compatibility: the override folder's %s: KMRP's changes to it are off; the mod's table is used as it is", name.c_str());
+            }
+            KmrpMergeFree(merged);
+        } else if (format == ".tga" || format == ".tpc") {
+            if (field.size() < 7 || !PlayerHas(source + ".tga")) continue;   // a .tga or a .tpc
+            const std::string tpc = overrideFolder + "/" + source + ".tpc", tga = overrideFolder + "/" + source + ".tga";
+            const std::string from = Exists(tpc) ? tpc : tga;
+            const std::string outName = view + "/" + stem + (Exists(overrideFolder + "/" + stem + ".tpc") ? ".tpc" : ".tga");
+            const std::string outWork = WorkName(outName);
+            const int result = KmrpDeriveImage(from.c_str(), atoi(field[2].c_str()), atoi(field[3].c_str()), atoi(field[4].c_str()),
+                                               atoi(field[5].c_str()), field[6].c_str(), outWork.c_str());
+            if (result == 0 && MoveOver(outWork, outName)) {
+                made++;
+                Log("compatibility: %s made from the override folder's %s", output.c_str(), source.c_str());
+            } else {
+                unlink(outWork.c_str());
+                Warn("compatibility: the override folder's %s: KMRP's copy of it (%s) is off, as the picture could not be "
+                     "read; the mod's picture is used as it is", source.c_str(), output.c_str());
+            }
+        } else if (format == ".mdl") {
+            if (!PlayerHas(source + ".mdl")) continue;
+            const std::string mdl = overrideFolder + "/" + source + ".mdl", mdx = overrideFolder + "/" + source + ".mdx";
+            // Made in a folder of its own and moved, as the model comes with its .mdx.
+            const std::string workFolder = view + "/model.tmp" + std::to_string(getpid());
+            mkdir(workFolder.c_str(), 0755);
+            const int result = Exists(mdx) ? KmrpSwoopHudModel(mdl.c_str(), mdx.c_str(), workFolder.c_str(),
+                                                               static_cast<unsigned>(width), static_cast<unsigned>(height)) : 1;
+            const std::string builtMdl = workFolder + "/" + stem + ".mdl", builtMdx = workFolder + "/" + stem + ".mdx";
+            if (result == 0 && MoveOver(builtMdl, view + "/" + stem + ".mdl") && MoveOver(builtMdx, view + "/" + stem + ".mdx")) {
+                made++;
+                Warn("compatibility: the override folder's %s.mdl given KMRP's change", source.c_str());
+            } else if (result != 3) {
+                Warn("compatibility: the override folder's %s.mdl: KMRP's change of it (%s) is off, as the part it changes "
+                     "is not the game's there; the mod's model is used as it is", source.c_str(), output.c_str());
+            }
+            RemoveFlat(workFolder);
+        } else if (PlayerHas(output)) {
+            Warn("compatibility: %s: no way to make a %s file again from a mod's copy; the mod's is used as it is",
+                 output.c_str(), format.c_str());
+        }
+    }
+    if (made) Log("compatibility: %d of KMRP's files made from the override folder's copies", made);
+}
+
+// In this order, as Windows' since 2026-10-30: live layout, then the galaxy map and the main menu
+// on what it wrote, then what is made from a mod's copies.
+void AdaptView(const std::string& set, const std::string& view, int width, int height) {
+    const std::string assets = AssetsDirectory();
+    if (assets.empty()) return;
+    const std::string key = assets + "/chitin.key", overrideFolder = assets + "/override";
+    if (!Exists(key)) { Warn("no chitin.key in %s: the set's layouts stand as they are", assets.c_str()); return; }
+    AdaptLiveLayout(set, view, key, overrideFolder, width, height);
+    AdaptGalaxyMap(view, key, overrideFolder);
+    AdaptMainMenu(view);
+    DeriveFromOverride(set, view, key, overrideFolder, width, height);
 }
 
 const Group* SetFor(int width, int height, bool& exact) {
@@ -541,11 +860,24 @@ bool BuildSet(int width, int height, std::string& directory) {
     // What is made from the player's game belongs to the texture pack it was made from.
     struct stat packInfo{};
     stat(pack.c_str(), &packInfo);
+    struct stat keyInfo{};
+    stat(key.c_str(), &keyInfo);
+    // "art 3" as Windows': sets before it have no kmrp_derive.txt, the record DeriveFromOverride
+    // makes a mod's copies from.
     const std::string stamp = std::to_string(width) + "x" + std::to_string(height) + " pack " +
-        std::to_string(static_cast<long long>(packInfo.st_size)) + " " + std::to_string(static_cast<long long>(packInfo.st_mtime)) + "\n";
+        std::to_string(static_cast<long long>(packInfo.st_size)) + " " + std::to_string(static_cast<long long>(packInfo.st_mtime)) +
+        " key " + std::to_string(static_cast<long long>(keyInfo.st_size)) + " " + std::to_string(static_cast<long long>(keyInfo.st_mtime)) +
+        " art 3\n";
     directory = g_root + "/sets/" + std::to_string(width) + "x" + std::to_string(height);
     if (!MakeDirectories(g_root + "/sets")) return false;
-    return Build(directory, stamp, [&](const std::string& work) {
+    // An art helper that failed with the game's files there: the set is used but not sealed, so
+    // the next two starts try again, and a third failure is the files themselves and is sealed,
+    // or every start would rebuild the set (Windows' BuildSet, audit GUI-5). The game's files
+    // absent is no failure.
+    const std::string triesPath = directory + ".tries";
+    const bool gameFiles = Exists(pack) && Exists(key);
+    bool seal = true;
+    const bool built = Build(directory, stamp, [&](const std::string& work) {
         // Since 2026-10-08 the bank leaves out what the helper writes exactly as the build's set
         // has it (make_kmrp_assets.py --helper, as Windows' bank since 2026-10-05: most layouts
         // and badges of most sizes), which halved the module. So, for a size with a set: the
@@ -599,14 +931,32 @@ bool BuildSet(int width, int height, std::string& directory) {
             fclose(list);
         }
         // Not fatal: a game without its texture pack keeps the game's own icons.
-        if (KmrpGameArt(pack.c_str(), key.c_str(), static_cast<unsigned>(height), work.c_str()) != 0)
-            Log("the row frames, tutorial icons and tutorial.2da could not be made; the game keeps its own");
-        if (KmrpAbilityIcons(pack.c_str(), static_cast<unsigned>(height), work.c_str(), reserved.c_str()) != 0)
-            Log("the feat, power and skill icons could not be enlarged; they stay their original size");
+        if (KmrpGameArt(pack.c_str(), key.c_str(), static_cast<unsigned>(height), work.c_str()) != 0) {
+            if (gameFiles) seal = false;
+            Warn("the row frames, tutorial icons and tutorial.2da could not be made; the game keeps its own");
+        }
+        if (KmrpAbilityIcons(pack.c_str(), static_cast<unsigned>(height), work.c_str(), reserved.c_str()) != 0) {
+            if (gameFiles) seal = false;
+            Warn("the feat, power and skill icons could not be enlarged; they stay their original size");
+        }
         unlink(reserved.c_str());
+        // The swoop race's chevron parked outside a wide screen's dashboard (handoff item 54).
+        const int swoop = KmrpSwoopHud(key.c_str(), work.c_str(), static_cast<unsigned>(width), static_cast<unsigned>(height));
+        if (swoop != 0 && swoop != 1 && swoop != 3) Warn("swoop HUD model: could not be written");
+        else Log("swoop HUD model: %s", swoop == 0 ? "the parked speed segment moved out of this screen's view"
+                                      : swoop == 1 ? "not the game's own, left as it is"
+                                                   : "the game's own is right for this screen");
         Log("set %dx%d: %s", width, height, exact ? "the bank's" : "blended from the nearest set");
+        if (seal) return true;
+        std::vector<unsigned char> tries;
+        const std::size_t count = ReadFile(triesPath, tries) ? tries.size() : 0;
+        if (count >= 2) { seal = true; unlink(triesPath.c_str()); return true; }
+        const std::vector<unsigned char> more(count + 1, '.');
+        WriteFile(triesPath, more.data(), more.size());
         return true;
-    });
+    }, &seal);
+    if (built && seal) unlink(triesPath.c_str());
+    return built;
 }
 
 bool BuildStore() {
@@ -642,6 +992,8 @@ bool AddAliasedDirectory(void* manager, const char* alias, const std::string& pa
 
 }  // namespace
 
+void ReleaseUnpacked() { ForgetUnpacked(); }
+
 bool Registered() { return g_registered; }
 void Disable() { TheState().disabled = true; }
 const std::string& NewestSetDirectory() { return TheState().newestDirectory; }
@@ -652,50 +1004,12 @@ std::string OverrideDirectory() {
     return assets.empty() ? assets : assets + "/override";
 }
 
-// A font from the player's override is drawn at the size KMRP's own font of that name has
-// (2026-10-12, as Windows since 1.5.1: K1RuntimeAssets.cpp, KmrpScaleOverrideFontsK1).
-//
-// A font is a texture and its metrics, and the player's replaces KMRP's whole. A translation's
-// fonts are made for the game's own interface: its dialogfont16x16 is 16 pixels high where
-// KMRP's at 1440 lines is 32, so its letters were right and half the size the layouts are made
-// for. The engine draws a glyph (its width in the texture x texturewidth + spacingR) x 100 pixels
-// wide and fontheight x 100 high, from the font information the TXI parser fills (the object at
-// texture+0x48: fontheight +0x04, baselineheight +0x08, texturewidth +0x0C, spacingR +0x10,
-// spacingB +0x14; the glyphs' places in the texture are fractions and stay). Those five are
-// multiplied by KMRP's height over the font's own: the same letters, enlarged, as sharp as the
-// texture is. A font in the override under a name KMRP has no font for is left as it is.
-//
-// A texture's metrics are parsed when it is made and when KMRP reads them again after a change
-// of size (resolution.cpp, ReloadFontMetrics), so this is asked at every GUI frame, as each
-// panel starts loading and after that reload, and walks the textures (the array at 0x100635b58,
-// 0x100635b60 of them, names at +0xbc) only when their number has changed or `again` says the
-// metrics were just read. The first text laid out with a font in the moment it is made is
-// measured small, as on Windows.
-void ScaleOverrideFonts(bool again) {
-    static int walked = -1;
-    State& state = TheState();
-    if (state.overrideFontHeights.empty()) return;
-    void** const textures = *reinterpret_cast<void***>(0x100635b58);
-    const int count = *reinterpret_cast<const int*>(0x100635b60);
-    if (!textures || count <= 0 || count > 0x100000) return;
-    if (!again && !state.overrideFontsChanged && count == walked) return;
-    walked = count;
-    state.overrideFontsChanged = false;
-    for (int i = 0; i < count; i++) {
-        char* const texture = static_cast<char*>(textures[i]);
-        float* const info = texture ? *reinterpret_cast<float**>(texture + 0x48) : nullptr;
-        if (!info) continue;
-        const std::string name = Lower(std::string(texture + 0xbc, strnlen(texture + 0xbc, 16)));
-        const auto found = state.overrideFontHeights.find(name);
-        if (found == state.overrideFontHeights.end()) continue;
-        const float own = info[1];
-        if (!(own > 0.001f) || !(own < 100.0f)) continue;
-        const float factor = found->second / own;
-        if (factor > 0.99f && factor < 1.01f) continue;
-        if (!(factor > 0.1f) || !(factor < 16.0f)) continue;
-        for (int field = 1; field <= 5; field++) info[field] *= factor;
-        Log("the override's font %s drawn %.2f times its size, as KMRP's own is here", name.c_str(), factor);
-    }
+// A font's source from the bank, by its private name (fonts.cpp).
+bool FontSource(const std::string& name, std::vector<unsigned char>& bytes) {
+    if (!Load() || g_groups.size() <= 3) return false;
+    for (const Entry& entry : g_groups[3].entries)
+        if (entry.name == name) return Decode(entry.key, bytes);
+    return false;
 }
 
 bool Covers(int width, int height) {
@@ -726,10 +1040,45 @@ bool Prepare(int width, int height, std::string* art, std::string* set) {
     std::string whole;
     if (!BuildStore() || !BuildSet(width, height, whole) || !LinkArtwork(*art) ||
         !LinkSet(whole, TheState().generation + 1, *set)) {
-        Log("the cache in %s could not be written: the game keeps its own files", g_root.c_str());
+        Warn("the cache in %s could not be written: the game keeps its own files", g_root.c_str());
         return false;
     }
+    AdaptView(whole, *set, width, height);
+    kmrp::fonts::Prepare(whole, *set, height);   // the style's fonts at the sizes in use
+    ForgetUnpacked();
     return true;
+}
+
+// kmrp-prepare, at install: the same cache the game would make on its first start at each size,
+// so it starts without making anything (handoff item 73, as Windows' installer does with
+// KmrpPrepareAssets). Nothing here reaches the engine: Load, RemoveStale, BuildStore, BuildSet
+// and Covers read the pack and the game's files and write the cache, with the helpers.
+void SetPaths(const std::string& assets, const std::string& pack) {
+    State& state = TheState();
+    state.outside = true;
+    state.givenAssets = assets;
+    state.givenPack = pack;
+}
+
+bool PrepareStore() {
+    if (!Load()) return false;
+    RemoveStale();
+    const bool ok = BuildStore();
+    ForgetUnpacked();
+    if (!ok) Warn("the cache in %s could not be written", g_root.c_str());
+    return ok;
+}
+
+bool PrepareSet(int width, int height) {
+    if (!Covers(width, height)) {
+        if (!g_groups.empty()) Warn("no menu set for %dx%d", width, height);
+        return false;
+    }
+    std::string whole;
+    const bool ok = BuildSet(width, height, whole);
+    ForgetUnpacked();
+    if (!ok) Warn("the set for %dx%d could not be written in %s", width, height, g_root.c_str());
+    return ok;
 }
 
 bool Register(void* manager, int width, int height) {

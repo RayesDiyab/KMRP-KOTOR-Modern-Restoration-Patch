@@ -17,3 +17,34 @@ original_bytes = [0x83, 0xBB, 0xF4, 0x02, 0x00, 0x00, 0x00]
 [[hooks.parameters]]
 source = "rbx"
 type = "pointer"
+
+# K1 Marked Empty Containers (marked_empty.cpp): UpdateNameLabel's call to SetNameLabel. A relative
+# call, so the handler makes it and always consumes; the routine does not read its result.
+#   0x100230e8e  call 0x1002309c6     rdi the menu, rsi the name
+#   0x100230e93  mov dword ptr [r15 + 0x1d1c], 0x3f800000
+[[hooks]]
+address = 0x100230e8e
+type = "detour"
+function = "KmrpHoverName"
+original_bytes = [0xe8, 0x33, 0xfb, 0xff, 0xff]
+skip_original_bytes = true
+consumed_exit_address = 0x100230e93
+exclude_from_restore = ["eax"]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+[[hooks.parameters]]
+source = "rsi"
+type = "pointer"
+
+# The hovered object, as UpdateNameLabel starts (marked_empty.cpp says why it is taken here).
+#   0x100230cc1  mov rbx, rsi
+#   0x100230cc4  mov r15, rdi
+[[hooks]]
+address = 0x100230cc1
+type = "detour"
+function = "KmrpHoverObject"
+original_bytes = [0x48, 0x89, 0xf3, 0x49, 0x89, 0xff]
+[[hooks.parameters]]
+source = "rsi"
+type = "pointer"

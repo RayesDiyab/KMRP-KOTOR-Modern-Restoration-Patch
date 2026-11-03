@@ -14,6 +14,9 @@ on the Mac. A row is **done** only when the Mac behaves the same in play, and sa
 that was checked. The other direction -- what the Mac did first and Windows still needs --
 is [`docs/windows-changes-from-macos.md`](../docs/windows-changes-from-macos.md).
 
+**1.6 (2026-11-03):** the port of everything from 1.5 to 1.6, item by item with what was seen in play,
+is [`PORT-1.6.md`](PORT-1.6.md). Rows below added for 1.6 say the same in short.
+
 ## How the Mac build gets there
 
 **Who does what changed after this section was written** (state on 2026-10-08;
@@ -21,10 +24,12 @@ is [`docs/windows-changes-from-macos.md`](../docs/windows-changes-from-macos.md)
 further down name the code that first ported each Windows site, and what was seen with it.
 Since 2026-10-04:
 
-- the menu set, fonts and artwork are inside KMRP's module, which registers them with the
-  game when it starts and blends a set for a size without one; the installer writes nothing
-  into the game's override folder, and "the installer" and "at install" below describe the
-  builds before that day;
+- the menu set, fonts and artwork are KMRP's module's to give the game, which registers them
+  with the game when it starts and blends a set for a size without one; the installer writes
+  nothing into the game's override folder, and "the installer" and "at install" below describe
+  the builds before that day. They were inside the module until 2026-11-03, and are in the art
+  pack `patches/kmrp-assets.pack` beside it since, as Windows' since 2026-10-19; the installer
+  writes the pack and makes every size the display offers ahead (`PORT-1.6.md`, items 72 and 73);
 - the resolution is chosen in the game, and the sites that depend on it are written again
   when it changes;
 - the sites listed as `kmrp-layout`'s (`resolution_sizes.cpp`, `listbox_padding.cpp`,
@@ -38,8 +43,10 @@ Since 2026-10-04:
   Patch for that mode through an entry point.
 
 And since 2026-10-07 the controller is a patch of its own (`README.md`, section 7a).
-FTD's two patches are built unchanged from the KotOR Patch Manager tree given to `build.sh`;
-the entry points KMRP uses are upstream since 2026-10-05 (LaneDibello/Kotor-Patch-Manager#319,
+FTD's two patches were built unchanged from the KotOR Patch Manager tree given to `build.sh`
+until 2026-11-03, and since then from the copy in `macos/third_party/kpm-patches` by default
+(`--kpm` builds from another tree; its `SOURCE.md` names the commits and says why); the entry
+points KMRP uses are upstream since 2026-10-05 (LaneDibello/Kotor-Patch-Manager#319,
 merge commit `7546ae5`). The submodule named below is the pin of 2026-09-30 and is no longer
 what the build takes them from (`README.md`, section 9).
 
@@ -150,9 +157,13 @@ States: **done** (behaves as on Windows, checked as stated), **to port**, **n/a*
 | --- | --- | --- |
 | `.kfs` font floats, `0x0045A850`, `0x004A1770` | removed on Windows too, 2026-11-01. Runtime font scaling (inert since the atlases carry the size) | **done** as "off": with `UseGuiFileLayouts=1` the widescreen patch scales no font; KMRP's atlases carry the size |
 | `0x006A74D4` … `0x006A8E1D` (8 runs, `font.md`) | dialogue letterbox bars `H/6` and the reply box (`.klb` trampolines) | **done**: K7, the same `H/6` bar through the `2H/3` aspect float in the widescreen patch, and `LB_REPLIES` stretched to the reply panel (by KMRP's layout patch since 2026-09-30, `dialogue_replies.cpp`, when the widescreen patch dropped its hook). *Corrected 2026-09-29:* listed here as "text placement inside controls" and marked **check**; `font.md` places these runs under the letterbox, not text placement |
+| `KmrpTextStringCreatedK1` and its five kin, `kotor1-native-runtime.hooks.toml` | text fitted to its box, rows growing with it (`K1TextLayout.cpp`, `K1TextRows.cpp`) | **seen in play 2026-11-03** at 50% and 100% text through all eight in-game screens, at 3024x1964 and 1024x768: the fit, rows, stack counts, charts, pause notice, conversation panel, granted popup and the Container widened for its captions; a figure such as "944/ 1056" breaks only at its space (`PORT-1.6.md`, items 57, 68, 70). `kmrp-layout/text_fit.cpp`, `text_rows.cpp`, same hooks at the Mac's addresses (README, section 6). The Container's run-time widening is not ported (item 133). *Corrected 2026-11-03:* this row said "done in code, not yet seen in play" until the playtest |
+| `KmrpFontMetricsLoadedK1`, `0x00422CC1` | fonts finished at the TXI loader's return | **done in code**: `0x1001f887a`, `kmrp-assets/fonts.cpp`; the instructions before FTD's `0x1001f8883`. Not seen with a translation installed (`PORT-1.6.md`, item 55) |
+| `K1TextOptions.cpp`, `K1RuntimeAssets.cpp` (fonts) | Text Size and Font page, HD Font's atlases fitted at run time, Icon Size | **seen in play 2026-11-03**: the page, its sliders, Link, Save, the unsaved-changes box; 36 fitted fonts in the cache. The Original Font seen at a start with it saved (`FontStyle=2`); switching on the page while the game runs not seen; Icon Size not seen at another size (`PORT-1.6.md`, items 56, 64, 129, 130). `kmrp-assets/text_options.cpp`, `fonts.cpp`, `kmrp-layout/text_settings.cpp`; the art pack's group (0, 3). *Corrected 2026-11-03:* "not yet seen in play" until the playtest |
+| `KmrpTextureUploadedK1`, `0x004216F1`; `CentreLetters`, `ArtCaptions` | letters on their box's or art's middle | **seen in play 2026-11-03** at 1024x768: letters centred, captions on their art, the controller's badges on the letters' middle (`PORT-1.6.md`, item 104). `0x1001f90d9`, `kmrp-layout/caption_ink.cpp`, `text_fit.cpp`. *Corrected 2026-11-03:* "not yet seen in play" until the playtest |
 | `0x00415E0D`, `.ktn` | leading newline | **done**: K3 |
 | `0x0045A5E0`, `.kwl`, `0x0045A3B7`, `0x0045A3DC` | word-wrap progress, short-string guards | **done**: K1 |
-| `0x006B5336`, `.ksc`, install `0x006B5332` | stack-count label, 19s / 21s / 37s | **done in code, not yet seen in play** (no stack in the test save's first rows): `kmrp-layout` rewrites the label block `0x1002be4a0` (50 bytes) with 32-bit operands, as `.ksc` does. The store row's label follows its icon (`0x1002bfbc0`); Windows leaves the store's label at vanilla size |
+| `0x006B5336`, `.ksc`, install `0x006B5332` | stack-count label, 19s / 21s / 37s | **done in code**; not seen in play until 2026-11-03 (no stack in the test save's first rows); stack counts **seen in play 2026-11-03** with 1.6's text sizes at 50% and 100% (`PORT-1.6.md`, items 57, 68, 70): `kmrp-layout` rewrites the label block `0x1002be4a0` (50 bytes) with 32-bit operands, as `.ksc` does. The store row's label follows its icon (`0x1002bfbc0`); Windows leaves the store's label at vanilla size |
 
 ### Lists and rows
 
@@ -211,6 +222,10 @@ did nothing in play, and Aspyr lists controllers for KOTOR II on the Mac only.
 | the same, prompts and GUI cues | button prompts in the pad's family, hidden on mouse and keyboard use; the parked cursor; the cues | **done**: PlayStation art in play; the other three families not yet seen. The cursor is not confined to the window (macOS has no equivalent of `ClipCursor`) |
 | `K1Rumble.cpp` | one mixer for BioWare's patterns, the cut ones and KMRP's | **done** for the saber (read in `rumble.log`); combat events and a real pad's motors **not yet tested** |
 | `K1ControllerLayout.cpp` | the Controller Layout screen and its Gameplay entry; the confirm and dialogue A; the status summary's layout and A (the layout without the controller too: `kmrp-layout/status_summary.cpp`, `StatusSummaryFrameK1`'s counterpart, 2026-10-02) | the screen and the confirm A **done** (played 2026-09-29); the status summary's layout seen in play with the controller (2026-10-01); the dialogue A, its A and the layout without the controller **not yet seen in play** |
+| `K1ControllerLayout.cpp`, remapping (handoff 60, 79, 80) | the view's Default and Remap, the table, the prompts, the Unsaved Changes and Default Layout boxes | `kmrp-controller/layout.cpp`, **seen in play 2026-11-03**: the drawing, the table, listening, the Default box, Save refused while an action has no button, RB given to Undo or flourish (`PORT-1.6.md`, items 60, 79, 80; "compiles, not yet run" until then); every call read against the Mac's functions; the footer stays off the pad's focus through `layout::PadFocusExcluded`, which `gui.cpp`'s `Navigable` asks |
+| `K1ButtonRemap.cpp` | the layout in the controller's settings file, `[Controller Remap]`; the translation in the world | `kmrp-controller/remap.cpp`: the file's read and write and the translator run in a harness (2026-11-03), then a remap **seen in play 2026-11-03**, RB given to Undo or flourish (`PORT-1.6.md`, items 60, 79, 80; "not yet run in the game" until then). The file is `KMRP/controller.ini` in the game's settings folder, as Windows' `KMRP\controller.ini` (item 77); the HUD's cues do not follow the remap yet |
+| `K1GuiModelPreload.h` (handoff 113) | the 3D previews rendered once, unseen, before their first visible draw | `kmrp-controller/preload.cpp`, **seen in play 2026-11-03** in the log, seven views primed; the models lit on the first frame (`PORT-1.6.md`, item 113; "compiles, not yet run" until then) |
+| `K1ControllerPreload.cpp` (handoff 112) | GUI files and pictures read on a thread during movies, then handed to the engine two a frame | `kmrp-controller/preload.cpp` with the shared readers linked in (make_kmrp_patch.py): the readers run against the Mac game's files in a harness (2026-11-03), then **seen in play 2026-11-03** in Steam's and the App Store's game: "33 files read during the movie, 27 textures referenced" (`PORT-1.6.md`, item 112; "compiles and links, not yet run in the game" until then). The worker only reads files; the textures are referenced two a GUI frame with a GL context. The Mac carries its pictures made, so nothing is drawn on the thread; only the pad's family is warmed |
 
 ### Windows only
 

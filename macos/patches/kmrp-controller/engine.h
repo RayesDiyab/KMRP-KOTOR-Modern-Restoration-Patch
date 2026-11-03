@@ -30,6 +30,7 @@ inline void* ClientInternal() {
 // CClientExoAppInternal.
 const std::size_t kInternalModule = 0x30;       // CSWCModule*, the camera's owner; Windows +0x18
 const std::size_t kInternalGuiInGame = 0x80;    // CGuiInGame*; Windows +0x40
+const std::size_t kGuiInGameScreen = 0x50;      // the screen last shown, 0..7; Windows +0x2C
 const std::size_t kInternalInputClass = 0x128;  // SetInputClass (0x1002fb622) writes it; Windows +0x9C
 const std::size_t kInternalGuiManager = 0x390;  // CSWGuiManager*
 const std::size_t kInternalTarget = 0x408;      // the target, a 64-bit object id; Windows +0x2B4
@@ -72,14 +73,22 @@ inline float FrameSeconds() { return *reinterpret_cast<const float*>(0x1005ca818
 using TurnCameraFn = void (*)(float turn, void* module);
 inline TurnCameraFn AcclTurnCamera() { return reinterpret_cast<TurnCameraFn>(0x1002915faUL); }
 
+// CSWCModule's free-look pitch (0x100291266; Windows 0x0063FDB0): (rate, module). With the camera
+// in mode 5 it writes the rate, negated, to the free-look camera's +0x38 (behaviour 0x106E,
+// Windows +0x24), which CSWCameraFreeLook::Control (0x1002B2908) adds to its pitch and clears, so
+// it is given on every frame it should last. ProcessInput calls it the same way (0x1002F8226) when the camera mode, options +0x5B, is 5.
+inline TurnCameraFn PitchCamera() { return reinterpret_cast<TurnCameraFn>(0x100291266UL); }
+
 // Vector::Normalize (0x10036f38e; Windows 0x004AB130).
 using NormalizeFn = void (*)(void* vector);
 inline NormalizeFn VectorNormalize() { return reinterpret_cast<NormalizeFn>(0x10036f38eUL); }
 
 // Router events, K1NativeJoystick.cpp's.
 const int kEventFreeLookExit = 0x06;    // also SelectPrev: the handler decides by camera mode
-const int kEventMenuMap = 0xD7;         // the in-game menu's Map tab (0xD1 + 6)
+const int kEventMenuMap = 0xD7;         // the in-game menu's Map screen (0xD1 + 6)
 const int kEventDefaultAction = 0xEF;   // the default action on the target
+const int kEventMenuFirst = 0xD1;       // the in-game menu's screens: 0xD1 + the screen, 0..7
+const int kScreenCount = 8;
 
 }  // namespace engine
 }  // namespace kmrp

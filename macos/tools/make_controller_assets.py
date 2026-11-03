@@ -110,6 +110,15 @@ def main() -> int:
             args.files.mkdir(parents=True)
             for name, path in files.items():
                 shutil.copyfile(path, args.files / name)
+            # What build.sh's check of the badge shapes reads beside the files
+            # (build_controller_assets.badge_shapes): the box of each badge, and the pictures in
+            # "made", where Windows' build leaves what it does not carry. The Mac carries them all.
+            made = args.files.parent / "made"
+            if made.is_symlink():
+                made.unlink()
+            shutil.rmtree(made, ignore_errors=True)
+            made.symlink_to(args.files.name)
+            shutil.copy2(shared.OUT / shared.BADGE_BOXES_NAME, args.files.parent / shared.BADGE_BOXES_NAME)
     kinds: dict[str, int] = {}
     for name in files:
         kinds[name.rsplit(".", 1)[-1]] = kinds.get(name.rsplit(".", 1)[-1], 0) + 1

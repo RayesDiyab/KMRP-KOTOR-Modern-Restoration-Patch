@@ -27,8 +27,10 @@ bool IsTabBar(void* panel);
 // one move on the press, then a repeat while held.
 void RequestNavigation(int dx, int dy, bool edge, bool fromDpad);
 
-// The left stick's menu direction, latched with hysteresis (UpdateStickNavigationK1).
+// The left stick's menu direction, latched with hysteresis (UpdateStickNavigationK1), and that
+// latch let go, when the real D-pad has asked for something.
 void StickNavigation(float x, float y, int* dx, int* dy, bool* edge);
+void ResetStickNavigation();
 
 // One log line on what the menus did.
 void Status();

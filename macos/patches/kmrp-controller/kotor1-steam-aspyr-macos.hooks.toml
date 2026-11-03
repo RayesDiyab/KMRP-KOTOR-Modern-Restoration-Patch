@@ -68,7 +68,8 @@ type = "pointer"
 
 # MainLoop's call to UpdateCamera (Windows: MainLoop after UpdateCamera, 0x006039CF), made in
 # play and in free look only. The handler makes the call, adds the right stick's turn, and
-# runs the world's bridges (L3's flourish, Start's Map, A on the target, R3 out of free look).
+# runs the world's bridges (L3's and Y's flourish, Start's last menu screen, A and X on the target,
+# R3 out of free look).
 # A relative call again, so it always consumes. rdi is CClientExoAppInternal.
 [[hooks]]
 address = 0x100268424
@@ -98,6 +99,34 @@ original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57, 0x41, 0x56]
 [[hooks.parameters]]
 source = "rdi"
 type = "pointer"
+
+# A pad button's release goes where its press went (gui.cpp, KmrpGuiReleaseTarget;
+# K1NativeJoystick.cpp's GuardReleaseTargetK1, a hook on CSWGuiManager::HandleInputEvent's entry,
+# Windows 0x0040C8E0, which rewrites the event on the stack). On x86_64 the event is a register a
+# detour cannot change, so this one sits just past the prologue, at the store of the event in
+# +0xA0, where the manager is in r12, the event in r14d and the value still in edx, and the
+# stolen store runs whatever the handler says. A 1 skips the hand-off to the panels: the consumed
+# exit is the block that follows it, which sets r13 and goes on to remove the panels that closed
+# and to the function's own epilogue, and uses neither the event nor the value.
+#   10049f0ad  mov dword ptr [r12+0xa0], r14d
+#   10049f0b5  test edx, edx                    <- the fall-through
+#   10049f207  lea r13, [r12+0xe0]              <- the consumed exit
+[[hooks]]
+address = 0x10049f0ad
+type = "detour"
+function = "KmrpGuiReleaseTarget"
+original_bytes = [0x45, 0x89, 0xb4, 0x24, 0xa0, 0x00, 0x00, 0x00]
+consumed_exit_address = 0x10049f207
+exclude_from_restore = ["eax"]
+[[hooks.parameters]]
+source = "r12"
+type = "pointer"
+[[hooks.parameters]]
+source = "r14d"
+type = "int"
+[[hooks.parameters]]
+source = "edx"
+type = "int"
 
 # The HUD (hud.cpp), K1NativeJoystick.cpp's NativeActionBarK1.
 #
@@ -191,16 +220,21 @@ exclude_from_restore = ["eax"]
 source = "r13"
 type = "pointer"
 
-# CClientExoAppInternal::PlayRumblePattern (0x10027A0FC; Windows 0x005FB49F), after its prologue:
-#   10027a106  mov ebx, esi / xor eax, eax / test ebx, ebx   <- here; the stolen bytes
+# CClientExoAppInternal::PlayRumblePattern (0x10027A0FC; Windows 0x005FB49F), at its entry:
+#   10027a0fc  push rbp / mov rbp, rsp / push r15 / push r14 / push rbx / push rax   <- the stolen bytes
+#   10027a106  mov ebx, esi / xor eax, eax / test ebx, ebx / js 10027a185 ...
 #   10027a185  add rsp, 8 / pop rbx / pop r14 / pop r15 / pop rbp / ret
 # The handler plays the index and returns 1, and the consumed exit is the function's own
-# epilogue, which returns that 1 (Windows' returns 0; only the script command reads it).
+# epilogue, which returns that 1 (Windows' returns 0; only the script command reads it). The
+# stolen prologue makes the frame that epilogue unwinds; a 0 resumes at 0x10027a106 untouched.
+# Until 2026-11-03 the hook was at 0x10027a106 with those three instructions stolen: KotOR Patch
+# Manager runs stolen bytes before its consumed-exit test, so their xor eax, eax cleared the 1,
+# the exit was never taken and the engine's queue code ran after every rumble (the 2026-11-03 audit).
 [[hooks]]
-address = 0x10027a106
+address = 0x10027a0fc
 type = "detour"
 function = "KmrpRumblePlay"
-original_bytes = [0x89, 0xf3, 0x31, 0xc0, 0x85, 0xdb]
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57, 0x41, 0x56, 0x53, 0x50]
 skip_original_bytes = false
 consumed_exit_address = 0x10027a185
 exclude_from_restore = ["eax"]
@@ -391,4 +425,48 @@ function = "KmrpXboxHudPauseReasonDone"
 original_bytes = [0x48, 0x83, 0xc4, 0x40, 0x5b, 0x41, 0x5c]
 [[hooks.parameters]]
 source = "rbx"
+type = "pointer"
+
+# CSWGuiTargetActionMenu::PopulateMenus (xbox_hud.cpp, KmrpXboxHudLists; Windows 0x0068947A,
+# KmrpXboxHudListsK1): the row's lists as the Xbox manual's six places, after the loop that fills
+# the target's lists and before any slot is shown. r14 is the menu (reloaded at 0x100231173). No
+# jump lands in the stolen bytes, and they hold nothing position-dependent.
+#   100231179  xor ebx, ebx ; mov r15d, 0x3f800000
+[[hooks]]
+address = 0x100231179
+type = "detour"
+function = "KmrpXboxHudLists"
+original_bytes = [0x31, 0xdb, 0x41, 0xbf, 0x00, 0x00, 0x80, 0x3f]
+[[hooks.parameters]]
+source = "r14"
+type = "pointer"
+
+# Swoop racing and the gun turret (minigame.cpp, KmrpMiniGameAxis; Windows NativeMiniGameAxisK1 at
+# CSWMiniGame::UpdateAxis's entry, 0x00670FB0). The Mac has a third call of UpdateAxis, Aspyr's, for
+# its own stick layer, so these are the two calls the keys' vectors go to, just before each. The
+# frame time is loaded by the stolen bytes, after the handler. No jump lands in either.
+#   1002f98dd  mov rsi, r12 ; movss xmm0, [rbp-0x48]         the turret: rdi the game, r12 the vector
+[[hooks]]
+address = 0x1002f98dd
+type = "detour"
+function = "KmrpMiniGameAxis"
+original_bytes = [0x4c, 0x89, 0xe6, 0xf3, 0x0f, 0x10, 0x45, 0xb8]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+[[hooks.parameters]]
+source = "r12"
+type = "pointer"
+
+#   1002f9ade  mov rdi, r14 ; movss xmm0, [rbp-0x48]         the swoop: r14 the game, rsi the vector
+[[hooks]]
+address = 0x1002f9ade
+type = "detour"
+function = "KmrpMiniGameAxis"
+original_bytes = [0x4c, 0x89, 0xf7, 0xf3, 0x0f, 0x10, 0x45, 0xb8]
+[[hooks.parameters]]
+source = "r14"
+type = "pointer"
+[[hooks.parameters]]
+source = "rsi"
 type = "pointer"

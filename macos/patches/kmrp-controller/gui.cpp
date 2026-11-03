@@ -35,6 +35,7 @@
 #include "hud.h"
 #include "layout.h"
 #include "pad.h"
+#include "pazaak.h"
 #include "prompts.h"
 #include "state.h"
 #include "../kmrp-layout/options.h"
@@ -57,12 +58,12 @@ using engine::At;
 
 // ------------------------------------------------------------------------ layout
 
-const std::size_t kMgrPanels = 0xd8, kMgrPanelCount = 0xe0;
+const std::size_t kMgrPanels = 0xd8, kMgrPanelCount = 0xe0, kMgrModals = 0xe8, kMgrModalCount = 0xf0;
 const std::size_t kPanelManager = 0x20, kPanelActive = 0x28, kPanelControls = 0x30, kPanelControlCount = 0x38;
 const std::size_t kPanelFlags = 0x5c;
 const std::uint16_t kPanelFlagSkip = 0x600;   // CSWGuiManager's "not in front" bits, as on Windows
 const std::size_t kCtlX = 0x08, kCtlY = 0x0c, kCtlW = 0x10, kCtlH = 0x14;
-const std::size_t kCtlEvents = 0x58, kCtlEventCount = 0x60, kCtlFlags = 0x68;
+const std::size_t kCtlPanel = 0x50, kCtlEvents = 0x58, kCtlEventCount = 0x60, kCtlFlags = 0x68;
 const std::uint8_t kCtlVisible = 0x02, kCtlSelectable = 0x08, kCtlDisabled = 0x20;
 const std::size_t kEntryBytes = 0x20, kEntryReceiver = 0x00, kEntryHandler = 0x08, kEntryAdjust = 0x10,
                   kEntryEvent = 0x18;
@@ -91,16 +92,19 @@ const std::uintptr_t kPowers = 0x1002c36baUL, kWager = 0x10021e566UL, kStatusSum
 const std::uintptr_t kCharacter = 0x1002e9612UL, kSkillInfo = 0x10028ea9aUL, kEquip = 0x1002bd2a8UL;
 const std::uintptr_t kInventory = 0x10024be8aUL, kAttributesChargen = 0x100349572UL;
 const std::uintptr_t kSkillsChargen = 0x100250a12UL, kPortraitChargen = 0x10033fccaUL;
-const std::uintptr_t kNameChargen = 0x1002aa9f4UL, kResolution = 0x1002cdb5aUL, kJournal = 0x10032e7e6UL;
-const std::uintptr_t kSoloModeQuery = 0x1002c826aUL;
+const std::uintptr_t kNameChargen = 0x1002aa9f4UL, kResolution = 0x1002cdb5aUL;
+const std::uintptr_t kSoloModeQuery = 0x1002c826aUL, kGalaxyMap = 0x1002b7208UL;
+const std::uintptr_t kPazaakGame = 0x100222b9cUL;
+// CSWGuiButtonToggle, a check box (vtable 0x1005B3DA8; Windows 0x0041ADB0).
+const std::uintptr_t kToggleHandle = 0x1004a6354UL;
 
 // GUI events.
-const int kEventA = 0x27, kEventB = 0x28, kEventX = 0x29, kEventY = 0x2A, kEventBlack = 0x2B;
+const int kEventA = 0x27, kEventB = 0x28, kEventX = 0x29, kEventY = 0x2A;
 const int kEventConfirmAlias = 0x2D;
 const int kEventLeft = 0x2F, kEventRight = 0x30, kEventUp = 0x31, kEventDown = 0x32;
 const int kEventPrevScreen = 0x35, kEventNextScreen = 0x36, kEventDescUp = 0x39, kEventDescDown = 0x3A;
 const int kEventChangeChar = 0xCE;   // a screen's "next party member" (0x09 is the world's)
-const int kSlotA = 0x74, kSlotX = 0x76, kSlotY = 0x77;
+const int kSlotA = 0x74, kSlotX = 0x76, kSlotY = 0x77, kSlotLB = 0x78;
 
 // Timing, K1NativeJoystick.cpp's.
 const std::uint64_t kNavHoldDelayMs = 400, kNavRepeatMs = 120;
@@ -175,7 +179,8 @@ const std::uintptr_t kPartySwitchPanels[] = {kAbilities, kCharacter, kEquip, kIn
 
 // Screens whose A is resolved by their own guard (K1_OWN_CONFIRM_DISPATCHERS).
 const std::uintptr_t kOwnConfirmPanels[] = {kAttributesChargen, kSkillsChargen, kFeats, kPowers,
-                                            kPortraitChargen, kNameChargen, kResolution};
+                                            kPortraitChargen, kNameChargen, kResolution,
+                                            kGalaxyMap};   // A is Travel whatever holds focus
 
 // The description pane of each screen (FindK1DescriptionListbox): the focus layer never
 // focuses it, and the right stick scrolls it. By class; the Mac has no Advanced Sound screen.
@@ -215,6 +220,21 @@ const Offset kDefaultButtons[] = {
     {0x1005a72d0UL, 0x228},    // CSWGuiInGameOptKeyMappings BTN_Default
 };
 
+// X is OK on Advanced Graphics, pressed as Default is, wherever the focus is (K1_OK_BUTTONS,
+// Windows 2026-10-28): A toggles the focused box there, so with OK on A as well the pad could not
+// both choose and confirm from the box. The Mac has no Advanced Sound screen. The button is
+// called BTN_BACK, as on Windows.
+const Offset kOkButtons[] = {
+    {0x1005ac2b0UL, 0x2598},   // CSWGuiOptionsGraphicsAdvanced
+};
+
+// X is Cancel on character creation's two step lists (K1_CANCEL_BUTTONS, Windows 2026-10-28),
+// pressed wherever the focus is; its badge says X and the D-pad never lands on it.
+const Offset kCancelButtons[] = {
+    {0x1005a6960UL, 0x2838},   // CSWGuiCustomPanel BTN_CANCEL
+    {0x1005adb30UL, 0x1650},   // CSWGuiQuickPanel BTN_CANCEL
+};
+
 // Settings rows stepped by a - and a + either side of their value (K1_CYCLE_ROWS). Left and
 // Right press the arrows and the focus stays on the value. The Mac's Graphics screen steps its
 // resolution in place (Windows opens a box), so that row is here as well.
@@ -232,7 +252,8 @@ const CycleRow kCycleRows[] = {
 
 // Character creation's points screens, Attributes and Skills (K1_POINTS_SCREENS): the rows
 // are their value buttons (*_POINTS_BTN) top to bottom as drawn, the strip Recommended, OK,
-// Cancel. lower and raise are what each dispatcher calls on Left and Right (0x100349754 and
+// Cancel, which is only recognised, to take the focus back from it: it is never focused. lower
+// and raise are what each dispatcher calls on Left and Right (0x100349754 and
 // 0x100349968 on Attributes, the latter named OnAcceptButton in KPM's Mac database; 0x100250c56
 // and 0x100250e1e on Skills).
 struct PointsScreen {
@@ -271,6 +292,21 @@ const RaiseThunk kRaiseThunks[] = {
 
 // Solo Mode's query (a message box) and the resolution box: their Cancel buttons.
 const std::size_t kMessageBoxCancel = 0x610, kResolutionCancel = 0x7f8;
+// CSWGuiOptionsResolution::OnResolutionChosen (Windows 0x006DF690).
+const std::uintptr_t kOnResolutionChosen = 0x1002cd6f8UL;
+
+// The galaxy map (CSWGuiInGameGalaxyMap, dispatcher 0x1002B7208; Windows 0x00695980): 16 planet
+// buttons from +0x80, 0x240 apart, indexed by planet (its OnPanelAdded, 0x1002B75A6). What the
+// game's own previous and next (0x1002B73E0, 0x1002B74C4) use: the party table, which is the
+// server application's +8 plus 0x1B818 (0x10043BFFA), with the planet selected at +0x108 (Windows
+// +0xE0) and its three calls; DisplayPlanet (panel, planet, 1); the button's SetSelected at vtable
+// +0x88 (Windows +0x40).
+const std::size_t kGalaxyPlanets = 0x80, kGalaxyPlanetStride = 0x240;
+const int kGalaxyPlanetCount = 16;
+const std::size_t kPartySelectedPlanet = 0x108, kVtSetSelected = 0x88;
+const std::uintptr_t kGetPartyTable = 0x10043bffaUL, kGalaxyDisplayPlanet = 0x1002b7692UL;
+const std::uintptr_t kPlanetSelectable = 0x1003e2118UL, kPlanetAvailable = 0x1003e2142UL;
+const std::uintptr_t kSetSelectedPlanet = 0x1003e2158UL;
 
 // Feats (CSWGuiFeatsCharGen): its dispatcher answers A with "add the highlighted feat" and X
 // with OK, the reverse of every other screen; KMRP swaps them. OnAccept is what its X calls
@@ -292,9 +328,12 @@ struct State {
     void* pointsPanel = nullptr;
     int pointsRow = -1;
     struct { bool active; int reentries; } chargenPress = {false, 0};
+    void* pazaakPanel = nullptr;
+    int pazaakSlot = 0;                 // the hand slot the pad is on, empty ones included
     // counters
     unsigned long navMoves = 0, navDeclined = 0, dispatched = 0, descScrolls = 0, remaps = 0;
     unsigned long partySwitches = 0, echoesStopped = 0, focusedPresses = 0, confirmGuards = 0;
+    unsigned long releasesStopped = 0;
 } g;
 
 // ------------------------------------------------------------------------ the panel stack
@@ -354,8 +393,14 @@ struct Rect {
 // (ControlIsNavigableK1). A control with no events is decoration (the main menu's full-screen
 // background passes every other test), unless it is a list, edit box or slider on a tab's
 // content, which answer through their own class.
+//
+// And not a pad hint: a button that says which pad button does it ("X Scripts", "B Close") works
+// whatever has the focus, so the D-pad never lands on it, on every screen with a glyph table
+// (Windows 2026-10-22, the maintainer: "They should be visual hints"; prompts.cpp, PadHintControl).
 bool Navigable(void* control, Rect& rect) {
-    if (!LooksLikePointer(control)) return false;
+    if (!LooksLikePointer(control) || layout::PadFocusExcluded(control)) return false;
+    void* const owner = At<void*>(control, kCtlPanel);
+    if (LooksLikePointer(owner) && prompts::PadHintControl(owner, control)) return false;
     const std::uint8_t flags = At<std::uint8_t>(control, kCtlFlags);
     if (!(flags & kCtlVisible) || (flags & kCtlDisabled) || !(flags & kCtlSelectable)) return false;
     void* events = At<void*>(control, kCtlEvents);
@@ -509,8 +554,10 @@ void StepCycleRow(void* panel, void* active, const CycleRow& row, int dx) {
     Handle(arrow, kEventA, 1);
 }
 
-// Attributes and Skills (NavigatePointsScreenK1): Up/Down walk the rows and reach OK from the
-// last, Left/Right change the row's value on a row and walk the strip on the strip.
+// Attributes and Skills (NavigatePointsScreenK1): Up and Down go round the rows, Left and Right
+// change the row's value. The bottom row is never focused: its pad buttons press it wherever the
+// focus is, A falling through a row to OK (GuardChargen), Y and B by their badges. Focus left
+// there by the mouse goes back to the rows at the next move.
 bool NavigatePointsScreen(void* panel, void* active, const PointsScreen& s, int dx, int dy) {
     auto control = [panel](std::size_t offset) { return static_cast<void*>(static_cast<char*>(panel) + offset); };
     if (g.pointsPanel != panel) { g.pointsPanel = panel; g.pointsRow = -1; }
@@ -526,14 +573,9 @@ bool NavigatePointsScreen(void* panel, void* active, const PointsScreen& s, int 
     }
     if (row >= 0) g.pointsRow = row;
     if (strip >= 0) {
-        if (dx != 0) {
-            const int next = strip + (dx < 0 ? -1 : 1);
-            if (next >= 0 && next < 3) SetFocus(panel, control(s.strip[next]));
-        } else if (dy < 0) {
-            const int back = g.pointsRow >= 0 ? g.pointsRow : s.rowCount - 1;
-            SetFocus(panel, control(s.rows[back]));
-            g.pointsRow = back;
-        }
+        const int back = g.pointsRow >= 0 ? g.pointsRow : s.rowCount - 1;
+        SetFocus(panel, control(s.rows[back]));
+        g.pointsRow = back;
         return true;
     }
     if (row < 0) {
@@ -543,13 +585,9 @@ bool NavigatePointsScreen(void* panel, void* active, const PointsScreen& s, int 
         return true;
     }
     if (dy != 0) {
-        const int next = row + (dy < 0 ? -1 : 1);
-        if (next >= s.rowCount) {
-            SetFocus(panel, control(s.strip[1]));   // OK, directly below
-        } else if (next >= 0) {
-            SetFocus(panel, control(s.rows[next]));
-            g.pointsRow = next;
-        }
+        const int next = (row + (dy < 0 ? s.rowCount - 1 : 1)) % s.rowCount;
+        SetFocus(panel, control(s.rows[next]));
+        g.pointsRow = next;
         return true;
     }
     if (active != control(s.rows[row])) SetFocus(panel, control(s.rows[row]));
@@ -557,6 +595,77 @@ bool NavigatePointsScreen(void* panel, void* active, const PointsScreen& s, int 
     reinterpret_cast<PanelFn>(dx < 0 ? s.lower : s.raise)(panel);
     return true;
 }
+
+// The galaxy map (NavigateGalaxyMapK1, Windows 2026-10-28): its own dispatcher takes Left and Up
+// for the previous planet and Right and Down for the next, in planets.2da's order, which jumps
+// about the map, and the panel's base handler moved the focus over the planets and onto Travel and
+// Cancel as well. KMRP owns the directions here instead: Left and Right go to the next planet
+// across the screen, Up and Down to the next one up or down, round at the ends, among the planets
+// the game lets the player pick, and the focus stays on the selected planet, so one is lit. The
+// selection is made as the game's own two do. Travel and Cancel are A and B whatever holds focus,
+// hints, never focused (prompts.cpp).
+bool NavigateGalaxyMap(void* panel, int dx, int dy) {
+    void* const appManager = *reinterpret_cast<void**>(0x100677cf0UL);
+    void* const server = LooksLikePointer(appManager) ? At<void*>(appManager, 0x10) : nullptr;
+    if (!LooksLikePointer(server)) return false;
+    using TableFn = char* (*)(void*);
+    using PlanetFn = int (*)(void*, int);
+    char* const table = reinterpret_cast<TableFn>(kGetPartyTable)(server);
+    if (!table) return false;
+    const auto button = [panel](int planet) {
+        return static_cast<void*>(static_cast<char*>(panel) + kGalaxyPlanets + planet * kGalaxyPlanetStride);
+    };
+    // Twice a button's middle, along the axis or across it.
+    const auto centre = [&](int planet, bool across) {
+        void* const b = button(planet);
+        return across ? At<int>(b, kCtlX) * 2 + At<int>(b, kCtlW) : At<int>(b, kCtlY) * 2 + At<int>(b, kCtlH);
+    };
+    const int current = At<int>(table, kPartySelectedPlanet);
+    if (current < 0 || current >= kGalaxyPlanetCount) return true;
+    // Along the axis pressed, the planets in order of their middles (the other axis breaking
+    // ties), and the next one in the direction pressed, round at the ends.
+    const bool across = dx != 0;
+    const int step = across ? (dx < 0 ? -1 : 1) : (dy < 0 ? -1 : 1);
+    const auto before = [&](int a, int b) {
+        const int ka = centre(a, across), kb = centre(b, across);
+        if (ka != kb) return ka < kb;
+        const int la = centre(a, !across), lb = centre(b, !across);
+        return la != lb ? la < lb : a < b;
+    };
+    int next = -1;
+    bool nextAhead = false;
+    for (int i = 0; i < kGalaxyPlanetCount; ++i) {
+        if (i == current || !reinterpret_cast<PlanetFn>(kPlanetAvailable)(table, i) ||
+            !reinterpret_cast<PlanetFn>(kPlanetSelectable)(table, i))
+            continue;
+        const bool ahead = step > 0 ? before(current, i) : before(i, current);
+        // The nearest ahead; with none ahead, the farthest behind (round the end).
+        const bool better = next < 0 || (ahead && !nextAhead) ||
+                            (ahead == nextAhead && (step > 0 ? before(i, next) : before(next, i)));
+        if (better) {
+            next = i;
+            nextAhead = ahead;
+        }
+    }
+    if (next < 0) {
+        SetFocus(panel, button(current));
+        return true;
+    }
+    Sound(panel, 1);   // as the game's own two
+    const auto select = [&](int planet, int on) {
+        void* const b = button(planet);
+        reinterpret_cast<void (*)(void*, int)>(*reinterpret_cast<std::uintptr_t*>(VtableOf(b) + kVtSetSelected))(b, on);
+    };
+    select(current, 0);
+    reinterpret_cast<void (*)(void*, int)>(kSetSelectedPlanet)(table, next);
+    const int now = At<int>(table, kPartySelectedPlanet);
+    select(now, 1);
+    reinterpret_cast<void (*)(void*, int, int)>(kGalaxyDisplayPlanet)(panel, now, 1);
+    SetFocus(panel, button(now));
+    return true;
+}
+
+bool NavigatePazaakHand(void* panel, int dx);
 
 int DirectionEvent(int dx, int dy) {
     if (dy < 0) return kEventUp;
@@ -566,6 +675,8 @@ int DirectionEvent(int dx, int dy) {
 
 // One navigation step (NavigateFocusK1). True when something happened.
 bool NavigateFocus(int dx, int dy) {
+    void* const top = TopPanel();
+    if (top && Dispatcher(top) == kPazaakGame) return NavigatePazaakHand(top, dx);
     if (engine::CurrentInputClass() != engine::kClassPCGUI) return false;
     void* tabBar = nullptr;
     void* panel = NavigationPanel(&tabBar);
@@ -578,6 +689,7 @@ bool NavigateFocus(int dx, int dy) {
     const std::uintptr_t dispatcher = Dispatcher(panel);
 
     if (const PointsScreen* points = PointsScreenFor(dispatcher)) return NavigatePointsScreen(panel, active, *points, dx, dy);
+    if (!tabBar && dispatcher == kGalaxyMap) return NavigateGalaxyMap(panel, dx, dy);
     if (InList(dispatcher, kNoPadFocusPanels)) { ++g.navDeclined; return false; }
     if (!tabBar && dispatcher == kWager) { ++g.navDeclined; return false; }
 
@@ -694,6 +806,24 @@ void PressDefault(void* panel) {
     Handle(button, kEventA, 1);
 }
 
+// `panel`'s button among `entries` (by its class), or null, and that button pressed as a click is,
+// with the click's sound, and nothing where it is hidden or disabled.
+template <std::size_t N> void* ListedButton(void* panel, const Offset (&entries)[N]) {
+    const std::uintptr_t vtable = VtableOf(panel);
+    for (const Offset& entry : entries)
+        if (entry.vtable == vtable) return static_cast<char*>(panel) + entry.offset;
+    return nullptr;
+}
+void PressListedButton(void* panel, void* button) {
+    if (!Clickable(button)) return;
+    Sound(panel, 0);
+    Handle(button, kEventA, 1);
+}
+bool HasOkButton(void* panel) { return ListedButton(panel, kOkButtons) != nullptr; }
+void PressOk(void* panel) { PressListedButton(panel, ListedButton(panel, kOkButtons)); }
+bool HasCancelButton(void* panel) { return ListedButton(panel, kCancelButtons) != nullptr; }
+void PressCancel(void* panel) { PressListedButton(panel, ListedButton(panel, kCancelButtons)); }
+
 bool HasFocusedRaiseButton(void*) { return FocusedRaiseButton() != nullptr; }
 void PressFocusedRaiseButton(void*) {
     if (void* button = FocusedRaiseButton()) {
@@ -727,39 +857,113 @@ void FeatsAdd(void* panel) {
     reinterpret_cast<FeatPickedFn>(kFeatsOnFeatPicked)(panel, feat);
 }
 
-// Pazaak: A plays the focused hand card (2026-10-12, as Windows since 1.5.1, issue 42:
-// K1NativeJoystick.cpp, PazaakPlayFocusedCardK1). Reported from play with a pad: A on a card
-// ended the turn and played nothing. The table is CSWGuiPazaakGame (constructor 0x1002204A6,
-// vtable 0x1005A5B80, HandleInputEvent 0x100222B9C); its four hand cards are CSWGuiPazaakCards
-// from +0x3A40, 0x3F0 apart (SetHandEnabled, 0x100222AC4). The constructor gives each card four
-// handlers (0x100220F4E on): for A (0x27) 0x100221B7C, which plays the card only in a "choose a
-// card" mode ([panel+0xAB30] == 1, set by 0x100221E7C) that nothing here enters; for the
-// drag's drop (0x17FEB) 0x100221BD6; and for 0x1F9 0x100221C5A, which plays the card whenever
-// it is the player's turn ([panel+0xAB20] == 3, through 0x100223572). With the focus on a card
-// and no such mode, A is that last one and the engine's own A is not sent. The offsets are read
-// from the executable; the table was not reached in play on the Mac (no save has one).
-const std::uintptr_t kPazaakGame = 0x100222b9cUL, kPazaakClickCard = 0x100221c5aUL;
-const std::size_t kPazaakHandCards = 0x3a40, kPazaakHandStride = 0x3f0, kPazaakCardMode = 0xab30;
+// Pazaak's table, the Xbox game's "(X) Play Hand Card, (White) Flip Hand Card, (A) End Turn, (Y)
+// Stand" (Windows 2026-10-19, issue 49; K1NativeJoystick.cpp's table section). White is LB. Each
+// acts only while its button can be pressed, and all four are taken whenever the table is in
+// front, so the engine's own A never reaches a hand card: its handler plays nothing outside a "choose
+// a card" mode that nothing on the PC enters, and leaves that mode, which ended the turn (issue 42).
+//
+// The table is CSWGuiPazaakGame (constructor 0x1002204A6, vtable 0x1005A5B80, HandleInputEvent
+// 0x100222B9C); its four hand cards are CSWGuiPazaakCards from +0x3A40, 0x3F0 apart, each with its
+// value at +0x3D8 (Windows +0x304; SetHandEnabled, 0x100222AC4). The constructor gives each card
+// four handlers (0x100220F4E on): for A (0x27) 0x100221B7C, the mode's; for the drag's drop
+// (0x17FEB) 0x100221BD6; for the mouse's click (0x1F9) 0x100221C5A, Windows 0x0067EF80, which
+// plays the card on the player's turn ([panel+0xAB20] == 3); and for the right click (0x44)
+// 0x100221C78, Windows 0x0067DD80, which flips it. End Turn and Stand are BTN_XTEXT at +0x8960
+// and BTN_YTEXT at +0x8BB0, whose A is 0x100221CD4 and 0x100221DA4 (Windows HandleContinue
+// 0x0067EC20, HandleStand 0x0067ED00). Those two decline a control whose press value, +0x70, is
+// 0, which only a real click sets, and use it for nothing else, so they are called with no
+// control, as the game's own code may.
+//
+// Read from the executable, not played on the Mac: no save reaches a table. Item 110's four boxes
+// are not here.
+const std::uintptr_t kPazaakClickCard = 0x100221c5aUL, kPazaakFlipCard = 0x100221c78UL;
+const std::uintptr_t kPazaakEndTurnClick = 0x100221cd4UL, kPazaakStandClick = 0x100221da4UL;
+const std::size_t kPazaakHandCards = 0x3a40, kPazaakHandStride = 0x3f0, kPazaakCardValue = 0x3d8;
+const std::size_t kPazaakEndTurn = 0x8960, kPazaakStand = 0x8bb0;
+const std::size_t kPazaakTurn = 0xab20, kPazaakCardMode = 0xab30;
+
+using PazaakClickFn = void (*)(void* panel, void* control);
+
+void* PazaakCard(void* panel, int slot) {
+    return static_cast<char*>(panel) + kPazaakHandCards + static_cast<std::size_t>(slot) * kPazaakHandStride;
+}
 
 void* PazaakFocusedHandCard(void* panel) {
     if (!panel || Dispatcher(panel) != kPazaakGame || At<int>(panel, kPazaakCardMode) != 0) return nullptr;
     void* const focused = At<void*>(panel, kPanelActive);
-    for (std::size_t i = 0; i < 4; ++i) {
-        if (focused != static_cast<char*>(panel) + kPazaakHandCards + i * kPazaakHandStride) continue;
+    for (int i = 0; i < 4; ++i) {
+        if (focused != PazaakCard(panel, i)) continue;
         const std::uint8_t flags = At<std::uint8_t>(focused, kCtlFlags);
         return (flags & kCtlVisible) && !(flags & kCtlDisabled) ? focused : nullptr;
     }
     return nullptr;
 }
 
-bool PazaakHandCardFocused(void* panel) { return PazaakFocusedHandCard(panel) != nullptr; }
+// The pad's place in the hand, empty slots included: the game focuses End Turn and links only
+// occupied cards. A modal's or the mouse's focus is left alone (RememberPazaakHandSlotK1).
+void RememberPazaakSlot(void* panel, int slot) {
+    g.pazaakPanel = panel;
+    g.pazaakSlot = slot;
+    void* const card = PazaakCard(panel, slot);
+    if (device::PadInUse() && TopPanel() == panel && At<int>(panel, kPazaakCardMode) == 0 &&
+        At<void*>(panel, kPanelActive) != card)
+        SetActiveControl()(panel, card, 0);
+}
+
+// EnsurePazaakHandFocusK1: with the pad in use the focus is on the hand.
+void EnsurePazaakHandFocus(void* panel) {
+    if (g.pazaakPanel != panel) g.pazaakSlot = 0;
+    void* const focused = At<void*>(panel, kPanelActive);
+    int slot = g.pazaakSlot;
+    for (int i = 0; i < 4; ++i)
+        if (focused == PazaakCard(panel, i)) slot = i;
+    RememberPazaakSlot(panel, slot);
+}
+
+// Left and Right go round the four slots (NavigatePazaakHandK1); Up and Down do nothing there.
+bool NavigatePazaakHand(void* panel, int dx) {
+    EnsurePazaakHandFocus(panel);
+    if (!device::PadInUse() || TopPanel() != panel || At<int>(panel, kPazaakCardMode) != 0) return false;
+    if (dx != 0) RememberPazaakSlot(panel, (g.pazaakSlot + (dx < 0 ? 3 : 1)) % 4);
+    return true;
+}
+
+bool PazaakTableInFront(void* panel) { return panel != nullptr && Dispatcher(panel) == kPazaakGame; }
 
 void PazaakPlayFocusedCard(void* panel) {
     void* const card = PazaakFocusedHandCard(panel);
-    if (!card) return;
-    Log("menus: A plays the focused Pazaak card");
-    reinterpret_cast<void (*)(void*, void*)>(kPazaakClickCard)(panel, card);
+    if (!card || At<int>(panel, kPazaakTurn) != 3 || At<int>(card, kPazaakCardValue) < 0) return;
+    Log("menus: X plays the focused Pazaak card");
+    reinterpret_cast<PazaakClickFn>(kPazaakClickCard)(panel, card);
+    pazaak::ActionFlash(panel, false);
 }
+
+// One of the table's buttons, as a click on it, only while it is on screen and enabled.
+void PressPazaakButton(void* panel, std::size_t member, std::uintptr_t click) {
+    if (Clickable(static_cast<char*>(panel) + member)) reinterpret_cast<PazaakClickFn>(click)(panel, nullptr);
+}
+void PazaakEndTurn(void* panel) { PressPazaakButton(panel, kPazaakEndTurn, kPazaakEndTurnClick); }
+void PazaakStand(void* panel) { PressPazaakButton(panel, kPazaakStand, kPazaakStandClick); }
+
+// LB, the Xbox's White: the card's own right-click handler, for a +/- card (values 12 to 17).
+void PazaakFlipFocusedCard(void* panel) {
+    void* const card = PazaakFocusedHandCard(panel);
+    if (!card) return;
+    const int value = At<int>(card, kPazaakCardValue);
+    if (value < 12 || value >= 18) return;
+    const int before = At<int>(card, kPazaakCardValue + 4);     // the card's flip, +0x3DC (SetCard)
+    reinterpret_cast<PazaakClickFn>(kPazaakFlipCard)(panel, card);
+    if (At<int>(card, kPazaakCardValue + 4) != before) pazaak::ActionFlash(panel, true);
+}
+
+// The side deck screen (CSWGuiPazaakStart, vtable 0x1005A5A90): A is Play, as on the Xbox; its
+// dispatcher has no A of its own. Play is BTN_ATEXT, +0x8F58.
+const std::uintptr_t kPazaakSetup = 0x10021fe98UL, kPazaakSetupVtable = 0x1005a5a90UL;
+const std::size_t kPazaakSetupPlay = 0x8f58;
+
+bool PazaakSetupInFront(void* panel) { return VtableOf(panel) == kPazaakSetupVtable; }
+void PazaakSetupPlay(void* panel) { PressListedButton(panel, static_cast<char*>(panel) + kPazaakSetupPlay); }
 
 struct Remap {
     std::uintptr_t panel;   // the dispatcher it applies to, when accepts is null
@@ -769,14 +973,20 @@ struct Remap {
     void (*action)(void* panel);
     bool (*accepts)(void* panel);
 };
+// The Journal is the game's own since 2026-10-19 (Windows): X quest items, Y active or completed,
+// RB the sort. Until then KMRP moved the two others to A and Y.
 const Remap kRemaps[] = {
-    {kPazaakGame, kSlotA, kEventA, "A: play the card (Pazaak)", PazaakPlayFocusedCard, PazaakHandCardFocused},
-    {kJournal, kSlotA, kEventY, "A: Active/Completed", nullptr, nullptr},
-    {kJournal, kSlotY, kEventBlack, "Y: sort order", nullptr, nullptr},
+    {kPazaakGame, kSlotX, kEventX, "X: play the card (Pazaak)", PazaakPlayFocusedCard, PazaakTableInFront},
+    {kPazaakGame, kSlotA, kEventA, "A: End Turn (Pazaak)", PazaakEndTurn, PazaakTableInFront},
+    {kPazaakGame, kSlotY, kEventY, "Y: Stand (Pazaak)", PazaakStand, PazaakTableInFront},
+    {kPazaakGame, kSlotLB, kEventDescUp, "LB: flip the card (Pazaak)", PazaakFlipFocusedCard, PazaakTableInFront},
+    {kPazaakSetup, kSlotA, kEventA, "A: Play (Pazaak side deck)", PazaakSetupPlay, PazaakSetupInFront},
     {kFeats, kSlotA, kEventX, "A: OK (Feats)", FeatsConfirm, nullptr},
     {kFeats, kSlotX, kEventA, "X: Add Feat (Feats)", FeatsAdd, nullptr},
     {0, kSlotY, kEventY, "Y: Default (settings)", PressDefault, HasDefaultButton},
-    // Last, so the Journal's and Feats' own A come first.
+    {0, kSlotX, kEventX, "X: OK (Advanced Graphics)", PressOk, HasOkButton},
+    {0, kSlotX, kEventX, "X: Cancel (character creation)", PressCancel, HasCancelButton},
+    // Last, so Pazaak's and Feats' own A come first.
     {0, kSlotA, kEventA, "A: the focused button", PressFocusedRaiseButton, HasFocusedRaiseButton},
 };
 
@@ -784,11 +994,12 @@ bool RemapApplies(const Remap& r, void* panel) {
     return r.accepts ? r.accepts(panel) : Dispatcher(panel) == r.panel;
 }
 
-// The remaps are the menus'. Which input class the Pazaak table runs in was not measured (nor on
-// Windows), so its row is asked about in the menu class and the mini-game class.
+// The remaps are the menus'. Which input class Pazaak's two screens run in was not measured (nor
+// on Windows), so their rows are asked about in the menu class and the mini-game class.
 bool RemapClass(const Remap& r) {
     const int inputClass = engine::CurrentInputClass();
-    return inputClass == engine::kClassPCGUI || (inputClass == engine::kClassMiniGame && r.panel == kPazaakGame);
+    return inputClass == engine::kClassPCGUI ||
+           (inputClass == engine::kClassMiniGame && (r.panel == kPazaakGame || r.panel == kPazaakSetup));
 }
 
 // ------------------------------------------------------------------------ frame work
@@ -825,6 +1036,12 @@ void PerformPartySwitch() {
             return;
         }
     }
+}
+
+void UpdatePazaakTable() {
+    void* const top = TopPanel();
+    if (top && Dispatcher(top) == kPazaakGame && device::PadInUse() && At<int>(top, kPazaakCardMode) == 0)
+        EnsurePazaakHandFocus(top);
 }
 
 void PerformRemap() {
@@ -888,15 +1105,29 @@ KMRP_CHARGEN_GUARD(GuardSkills, kSkillsChargen)
 KMRP_CHARGEN_GUARD(GuardFeats, kFeats)
 KMRP_CHARGEN_GUARD(GuardPowers, kPowers)
 KMRP_CHARGEN_GUARD(GuardPortrait, kPortraitChargen)
-KMRP_CHARGEN_GUARD(GuardName, kNameChargen)
 #undef KMRP_CHARGEN_GUARD
 
 void GuardSoloMode(void* panel, int event, int value) {
     ResolveCancelFocus(panel, event, value, kMessageBoxCancel, true);
     reinterpret_cast<HandleFn>(kSoloModeQuery)(panel, event, value);
 }
+// A on OK or on a resolution, confirmed here, once (ResolveResolutionConfirmK1, Windows
+// 2026-10-28). The panel's own 0x27 plays the sound and calls OnResolutionChosen, which sets the
+// mode and pops the top modal panel, this one; then it passes the same 0x27 on to its focused
+// control, and every row and OK has OnResolutionChosen as its own 0x27 handler, with +0x70 set
+// from the press so that its guard lets it through. So it ran twice, and the second pop took
+// Graphics Options off the modal stack without the flags its own Close sets. Read in the Mac's
+// HandleInputEvent (0x1002CDB5A) and OnResolutionChosen (0x1002CD6F8), which are Windows' line for
+// line, and BTN_RESOLUTION's A opens the box here too (0x1002CACF0); not run. A click on OK
+// reaches only the button, once, and is unchanged.
 void GuardResolution(void* panel, int event, int value) {
     ResolveCancelFocus(panel, event, value, kResolutionCancel, false);
+    if (value != 0 && event == kEventA) {
+        ++g.confirmGuards;
+        Sound(panel, 0);
+        reinterpret_cast<void (*)(void*, void*)>(kOnResolutionChosen)(panel, nullptr);
+        return;
+    }
     reinterpret_cast<HandleFn>(kResolution)(panel, event, value);
 }
 
@@ -906,7 +1137,6 @@ Guarded g_guarded[] = {
     {"Feats", 0x1005adc40UL, kFeats, reinterpret_cast<void*>(&GuardFeats), false},
     {"Powers", 0x1005abb40UL, kPowers, reinterpret_cast<void*>(&GuardPowers), false},
     {"Portrait", 0x1005afea0UL, kPortraitChargen, reinterpret_cast<void*>(&GuardPortrait), false},
-    {"Name", 0x1005aac10UL, kNameChargen, reinterpret_cast<void*>(&GuardName), false},
     {"Solo Mode", 0x1005abea0UL, kSoloModeQuery, reinterpret_cast<void*>(&GuardSoloMode), false},
     {"Resolution", 0x1005ac3a0UL, kResolution, reinterpret_cast<void*>(&GuardResolution), false},
 };
@@ -943,15 +1173,73 @@ bool WriteProtected(std::uintptr_t address, const void* value, std::size_t size)
 
 // CSWGuiPanel::HandleInputEvent (0x10049dc72), replaced whole: it hands the event to the
 // focused control, unless that control would only press the same event back on this panel,
-// which has already acted on it: the echo (GuardPanelEchoK1).
+// which has already acted on it: the echo (GuardPanelEchoK1). Two more it does not hand on:
+//   - a check box's A release. The box ticks on the press only but runs its handlers on both, and
+//     Advanced Graphics' V-Sync and Frame Buffer handlers flip their setting on every call, so the
+//     box showed ticked and the setting was flipped back (Windows 2026-10-28).
+//   - the release of a control that presses ANOTHER event on its panel, as Party Selection's
+//     Cancel answers A with the panel's B. Such a press is the button's click and goes on, but the
+//     raise presses with value 1 whatever it was given, so the release would click it a second
+//     time, and when the press went to a message box that it closed, the release is the only one of
+//     the two this panel gets (Windows 2026-10-13, 6d93283: A on a box over Party Selection closed
+//     the box and clicked Cancel behind it).
 extern "C" __attribute__((visibility("default"))) void KmrpPanelHandleInputEvent(void* panel, int event, int value) {
     void* focused = At<void*>(panel, kPanelActive);
     if (!focused) return;
-    if (RaisedOnPanel(focused, panel, event, false) == event) {
+    if (event == kEventA && value == 0 && Dispatcher(focused) == kToggleHandle) {
+        ++g.echoesStopped;
+        return;
+    }
+    const int raised = RaisedOnPanel(focused, panel, event, false);
+    if (raised == event || (raised != 0 && value == 0)) {
         ++g.echoesStopped;
         return;
     }
     Handle(focused, event, value);
+}
+
+// A release goes where its press went, as the mouse's does (GuardReleaseTargetK1, Windows
+// 2026-10-28). A mouse-up goes to the control that took the capture, and a screen opening or
+// closing in between clears it. The pad's buttons have no capture: the manager hands a press and,
+// later, its release each to whatever is in front at that moment, so when a press opened a screen,
+// its release reached the new one: the release of the A on Save confirmed the save name popup at
+// once with the name still empty (its HandleInputEvent acts on A without looking at the value).
+// So the screen in front when a press comes in is kept for that event, and its release goes
+// nowhere when another screen is in front by then. The engine's own button state is below this
+// and is not touched: the release still clears it, so the next press is a press.
+//
+// Windows rewrites the event on the stack. Here the event is a register, which a detour cannot
+// change, so the hook sits in CSWGuiManager::HandleInputEvent (0x10049F096) just after it has kept
+// the event, and a 1 from here takes the function past its hand-off to the panels, to the removal
+// of the panels that closed, which it always ends with (hooks file).
+extern "C" __attribute__((visibility("default"))) int KmrpGuiReleaseTarget(void* manager, int event, int value) {
+    struct PressTarget { int event; void* screen; };
+    static PressTarget targets[16] = {};
+    PressTarget* known = nullptr;
+    for (PressTarget& t : targets) {
+        if (t.screen && t.event == event) { known = &t; break; }
+    }
+    void* screen = nullptr;
+    const int modalCount = At<int>(manager, kMgrModalCount);
+    void** const modals = At<void**>(manager, kMgrModals);
+    const int count = At<int>(manager, kMgrPanelCount);
+    void** const panels = At<void**>(manager, kMgrPanels);
+    if (modalCount > 0) screen = LooksLikePointer(modals) ? modals[modalCount - 1] : nullptr;
+    else if (count > 0) screen = LooksLikePointer(panels) ? panels[count - 1] : nullptr;
+    if (value != 0) {
+        if (!known) {
+            for (PressTarget& t : targets) {
+                if (!t.screen) { known = &t; break; }
+            }
+        }
+        if (known) *known = {event, screen};
+        return 0;
+    }
+    if (!known) return 0;
+    const bool elsewhere = known->screen != screen;
+    *known = {};
+    if (elsewhere) ++g.releasesStopped;
+    return elsewhere ? 1 : 0;
 }
 
 // CSWGuiManager::Update, entry (0x10049f636; Windows 0x0040CE70, NativeGuiFrameK1): the GUI's
@@ -978,6 +1266,7 @@ extern "C" __attribute__((visibility("default"))) void KmrpGuiFrame(void* manage
     PerformPartySwitch();
     UpdateDescriptionScroll();
     PerformRemap();
+    UpdatePazaakTable();
     const int dx = g.navPendingX, dy = g.navPendingY;
     if (dx != 0 || dy != 0) {
         g.navPendingX = g.navPendingY = 0;
@@ -998,6 +1287,7 @@ bool OwnsDirections(bool vertical) {
     if (!panel) return false;
     if (tabBar && panel != tabBar) return true;
     if (PointsScreenFor(Dispatcher(panel))) return true;
+    if (Dispatcher(panel) == kGalaxyMap) return true;   // NavigateGalaxyMap
     return !NavigatesItself(panel, At<void*>(panel, kPanelActive), true, vertical ? Axis::Vertical : Axis::Horizontal);
 }
 
@@ -1046,6 +1336,8 @@ void RequestNavigation(int dx, int dy, bool edge, bool fromDpad) {
     if (fromDpad && engine::CurrentInputClass() == engine::kClassPC) hud::RequestMove(dx, dy);
 }
 
+void ResetStickNavigation() { g.stickNavX = g.stickNavY = 0; }
+
 void StickNavigation(float x, float y, int* dx, int* dy, bool* edge) {
     // y is up positive here; the focus layer's dy grows downward.
     const float ax = std::fabs(x), ay = std::fabs(y);
@@ -1070,9 +1362,10 @@ void StickNavigation(float x, float y, int* dx, int* dy, bool* edge) {
 
 void Status() {
     Log("menus: %lu focus moves (%lu declined), %lu handed to a screen or control, %lu description scrolls, "
-        "%lu remaps, %lu party switches, %lu echoes stopped, %lu focused presses, %lu confirm guards",
+        "%lu remaps, %lu party switches, %lu echoes stopped, %lu focused presses, %lu confirm guards, "
+        "%lu releases stopped",
         g.navMoves, g.navDeclined, g.dispatched, g.descScrolls, g.remaps, g.partySwitches, g.echoesStopped,
-        g.focusedPresses, g.confirmGuards);
+        g.focusedPresses, g.confirmGuards, g.releasesStopped);
 }
 
 void Install() {
