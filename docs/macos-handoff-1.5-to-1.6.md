@@ -1825,6 +1825,7 @@ Reported from SteamOS with a DualSense through Steam Input: A, B and Y turned th
 | A failed preparation stops, not repeating on every resource lookup (THR-2) | 4ef6081 | The Mac's `Register` runs at the override call and on a real change of size, not per lookup. Judged from the commit message and the files named, the diff was not read |
 | Worker exceptions caught, 32-bit pointer range, `wcscat` replacements, applier fixes (THR-3, MEM-01 to 05, GFX-02) | 75c1ed6 | The Mac is 64-bit with no picture worker thread, and its `g_hud` is checked against the manager's list |
 | The offscreen frame's log names Wine or Proton as the reason it is not used | 346b059 | Log text under Wine and Proton: the Mac has no offscreen frame |
+| The Linux installer makes the art ahead under Proton (`kmrp-prepare.exe`, `ProtonArt.cs`) | 2026-11-03 | the Linux installer; the Mac's installer makes its own art |
 | The version raised to 1.6.0 | e763bab | Windows and Linux, as asked. The Mac's three `manifest.toml` files still say 1.5.1 |
 
 ## Working on Live Adaptive Layout (from the Codex handoff of 2026-10-29)

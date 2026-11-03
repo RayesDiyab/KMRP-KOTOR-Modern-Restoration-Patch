@@ -117,6 +117,19 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Changed: the Linux installer makes KMRP's interface ahead, as Windows does** (2026-11-03, reported
+  from SteamOS: "on linux its instant but it takes longer to launch the game"). The Windows installer
+  makes every display size's art at install; the Linux installer skipped that step, as it cannot load
+  the 32-bit `kmrp.dll`, so the game made it at its first start. It now runs `kmrp-prepare.exe`, a small
+  32-bit Windows program carried inside the AppImage, with the Proton the game last ran with
+  (`proton run`, from `compatdata/32370/config_info`), in the game's own prefix, where the game reads
+  the cache. Anything missing, the prefix, that Proton or Steam's folder, leaves the art to the game as
+  before, and the installer says why. **Checked:** the worker on Windows made 19 sizes in 17 s with four
+  workers into a scratch cache (546 MB); in WSL a real install against a stand-in `proton` script found
+  the Proton, passed the module and game as Wine paths with six workers, and read the progress.
+  **Not run:** under a real Proton, SteamOS, Gamescope or a Steam Deck. Under Gamescope the sizes the
+  prefix reports at install may not be the game's; a size not made then is made when first used.
+
 - **Fixed: the mouse no longer turns the camera while the pad is in use** (2026-11-03, reported from
   SteamOS with a DualSense through Steam Input). Under Proton A, B and Y turned the camera a little at
   each press, and so did leaving a menu with Start; LB did not. The right stick stayed under its

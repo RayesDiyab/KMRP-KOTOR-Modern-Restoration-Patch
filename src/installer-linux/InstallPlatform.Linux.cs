@@ -4,11 +4,11 @@ using System.IO;
 namespace Kmrp
 {
     // The Linux installer's half of InstallPlatform (src/patcher/InstallPlatform.cs). Windows' DPI
-    // value, K1DC's Windows 7 check (Proton's Wine has every function its module needs), the NVIDIA setting and the art prebuild through kmrp.dll have no Linux
-    // counterpart and stay unimplemented: their calls compile away, and the game makes each size's
-    // art the first time it is used. What Linux does answer is where KPM, running under Proton,
-    // keeps its settings, how its Windows paths map to Linux folders, whether the game is
-    // running, and where that art is to remove it.
+    // value, K1DC's Windows 7 check (Proton's Wine has every function its module needs) and the
+    // NVIDIA setting have no Linux counterpart and stay unimplemented: their calls compile away.
+    // What Linux does answer is where KPM, running under Proton, keeps its settings, how its
+    // Windows paths map to Linux folders, whether the game is running, the art made ahead under
+    // Proton (ProtonArt.cs, since 2026-11-03), and where that art is to remove it.
     internal static partial class InstallPlatform
     {
         /// <summary>The game folder the command works on, set before the core is called.</summary>
@@ -57,6 +57,27 @@ namespace Kmrp
                 return;
             Directory.Delete(cache, true);
             report?.Invoke("Removed KMRP's art cache from the game's Proton prefix.");
+        }
+
+        // The art made ahead under Proton, as the Windows installer makes it (ProtonArt.cs). The
+        // time it takes is Windows' measure for an SSD, a first guess under Proton.
+        static partial void OnArtPlan(ref int workers, ref int sizes, ref double secondsPerSize)
+        {
+            workers = ProtonArt.Workers();
+            int covered = 0;
+            foreach (int[] size in LinuxDisplay.Sizes())
+                if (ResolutionCatalog.Covers(size[0], size[1]))
+                    ++covered;
+            sizes = covered > 0 ? covered : 12;
+            secondsPerSize = 80.0 / 19 / workers * 1.5;
+        }
+
+        static partial void OnPrepareArt(string folder, string kpatchResource, string moduleEntry, Action<string> report,
+            Action<int, string> progress, InstallClock timing, int from, int to)
+        {
+            if (timing != null)
+                timing.ArtBegun();
+            ProtonArt.Run(folder, report, progress, from, to);
         }
 
         static partial void OnMoveOver(string from, string to, ref bool moved)

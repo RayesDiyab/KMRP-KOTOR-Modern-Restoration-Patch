@@ -45,8 +45,8 @@ Checked:
   KPM's settings are read from the game's Proton prefix
   (`steamapps/compatdata/32370/pfx/.../AppData/Roaming/KPatchLauncher`), and Wine's
   `Z:` and `C:` paths in them are turned into Linux folders. The DPI value, K1DC, the
-  NVIDIA cleanup and the art prebuild do nothing on Linux: the game makes each size's art
-  the first time it is used. Restore Original empties that art cache in the prefix, and any
+  NVIDIA cleanup do nothing on Linux. **The art prebuild runs under Proton since
+  2026-11-03** (`ProtonArt.cs`, `prepare/kmrp-prepare.c`): see section 6. Restore Original empties that art cache in the prefix, and any
   process named `swkotor.exe` stops an install or restore (both 2026-11-01, compiled, not
   yet run on Linux).
 - **Tested in WSL's Ubuntu 26.04,** on a game folder on its own case-sensitive disk
@@ -178,7 +178,7 @@ for WinForms, the registry, P/Invoke, NvAPI and process control
 | Install and restore core | `KpmEditionOperations` (`Install`, `Restore`, `Inspect`, `CanRestore`, `PatchConfigSection`), `PatchOperations`, `IniOperations`, `KmrpFolder`, `FileGuard`, `OverrideOperations`, `OverrideRecord`, `InstallClock`, `BuildStamp` | portable: files, TOML, JSON, INI |
 | Game facts | `GameExecutable`, `PeCompatibility`, `GoldPatch`, `ResolutionChoice`, `ResolutionCatalog`, `ResolutionPatch`, `ResolutionSelection`, `GuiBlend` | portable (PE reading and tables) |
 | Art made at install | `GameArtGenerator`, `AbilityIconGenerator` | portable; `ControllerPromptGenerator` draws with GDI+ |
-| Art prebuilt by the module | `ArtPreparation` (loads `kmrp.dll` with `LoadLibraryEx` and runs `KmrpRuntimeAssetsPrepare` for every display size) | **Windows only**: an x86 Windows DLL |
+| Art prebuilt by the module | `ArtPreparation` (loads `kmrp.dll` with `LoadLibraryEx` and runs `KmrpRuntimeAssetsPrepare` for every display size) | **Windows only**: an x86 Windows DLL. Linux runs the same export under Proton through `kmrp-prepare.exe` (`ProtonArt.cs`, 2026-11-03) |
 | Driver checks | `DriverCompatOperations` (asks Windows for the functions K1DC's module imports) | **Windows only**; under Proton the `.kpatch` is always the route (since 2026-10-31) |
 | Windows settings | `DpiCompatibilityOperations` (AppCompat registry flags), `NvDrsSession`, `NvidiaPresentOperations` (NvAPI) | **Windows only**, and not meaningful under Proton |
 | Finding the game | `GameFolders` (Steam and GOG from the registry) | **Windows only** |
@@ -243,9 +243,17 @@ src/installer-linux/     .NET 8 + Avalonia app: Linux UI, Steam discovery,
 
 ## 6. Open questions
 
-* Prebuilt art on Linux: skipping it is simplest; running the preparer under
-  Proton (`proton run`) once after install would match Windows. Decide after
-  measuring a first visit's delay.
+* Prebuilt art on Linux: **decided 2026-11-03, built.** The maintainer saw the first launch
+  take longer than on Windows and macOS, as the game made its art itself. The installer now
+  runs `kmrp-prepare.exe` (`src/installer-linux/prepare`, a 32-bit C program, no .NET, compiled
+  by `tools/build_linux_installer.ps1` and embedded) with `proton run`, in the game's prefix:
+  `STEAM_COMPAT_DATA_PATH` the game's `compatdata/32370`, `STEAM_COMPAT_CLIENT_INSTALL_PATH`
+  the first of `~/.steam/steam`, `~/.local/share/Steam`, the Flatpak's and `~/.steam/root`, and the
+  Proton the one `config_info` names. It loads the installed `patches/kmrp.dll` with
+  `KMRP_PREPARE` set and calls `KmrpPrepareAssets`, in up to six processes. Checked on Windows
+  (19 sizes, 17 s, 546 MB) and in WSL with a stand-in `proton`; not yet run under a real Proton.
+  Open: whether a game never started from Steam (no prefix yet) should be told to start once and
+  install again, which is what the log says now.
 * Issue 72's runtime half: the module may still need to read Gamescope's size at
   run time; the installer alone cannot fix a size chosen in the game.
 * Whether the Avalonia app should also become the Windows installer later (one UI)

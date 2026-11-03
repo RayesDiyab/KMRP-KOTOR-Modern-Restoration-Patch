@@ -38,6 +38,7 @@
     <Compile Include="InstallPlatform.Linux.cs" />
     <Compile Include="SteamLibraries.cs" />
     <Compile Include="LinuxDisplay.cs" />
+    <Compile Include="ProtonArt.cs" />
     <Compile Include="MainWindow.cs" />
   </ItemGroup>
   <!-- The window (MainWindow.cs): Avalonia, MIT licensed, from nuget.org. Its fonts are carried
