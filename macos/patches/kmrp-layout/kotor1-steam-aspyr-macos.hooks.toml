@@ -182,3 +182,94 @@ original_bytes = [0x41, 0x54, 0x53, 0x48, 0x83, 0xec, 0x10]
 [[hooks.parameters]]
 source = "rdi"
 type = "pointer"
+
+# Text fitted to its box (text_fit.cpp; Windows' six text hooks and its control destructor).
+# Each stolen run is whole instructions with no relative operand, and no jump lands inside one;
+# the prologues are reached by tail jumps, which go through the detour like calls do.
+#
+# CAurGUIStringInternal's constructor (0x1001bbd68), after it stores the scale at +0x58: rbx the
+# string. add rsp, 0x18; pop rbx; pop r12 (Windows 0x0045BAC0).
+[[hooks]]
+address = 0x1001bbe49
+type = "detour"
+function = "KmrpTextStringCreated"
+original_bytes = [0x48, 0x83, 0xc4, 0x18, 0x5b, 0x41, 0x5c]
+[[hooks.parameters]]
+source = "rbx"
+type = "pointer"
+
+# CAurGUIStringInternal's destructor, entry: rdi the string (Windows 0x0045BC70).
+[[hooks]]
+address = 0x1001bbea0
+type = "detour"
+function = "KmrpTextStringDestroyed"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+
+# CAurGUIStringInternal::GetIdealPixelHeight, entry: rdi the string (Windows 0x0045B7A0). The
+# rounding sites at 0x1001bc4a4 and after are further in.
+[[hooks]]
+address = 0x1001bc412
+type = "detour"
+function = "KmrpTextIdealHeight"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+
+# CAurGUIStringInternal::WrapStrings, entry: rdi the string (Windows 0x0045A2F0). The Stray Bug
+# Fixes' hooks in this routine begin at 0x1001bc71e.
+[[hooks]]
+address = 0x1001bc644
+type = "detour"
+function = "KmrpTextStringWrap"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+
+# CAurGUIStringInternal's draw (vtable +0x100), entry: rdi the string, xmm0 the alpha, which the
+# wrapper saves and restores (Windows 0x0045A857). The Stray Bug Fixes' here begin at 0x1001bcbef.
+[[hooks]]
+address = 0x1001bcb04
+type = "detour"
+function = "KmrpTextStringDraw"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+
+# CSWGuiListBox::Draw, entry: rdi the list (Windows 0x0041A3E0).
+[[hooks]]
+address = 0x1004a99d4
+type = "detour"
+function = "KmrpTextListDraw"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x41, 0x57]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+
+# CSWGuiControl's destructor, entry, which every control's ends in: rdi the control (Windows'
+# KmrpControlDestroyedK1). push rbp; mov rbp, rsp; push rbx; push rax.
+[[hooks]]
+address = 0x1004a5510
+type = "detour"
+function = "KmrpTextControlDestroyed"
+original_bytes = [0x55, 0x48, 0x89, 0xe5, 0x53, 0x50]
+[[hooks.parameters]]
+source = "rdi"
+type = "pointer"
+
+# CAurTextureBasic's build (0x1001f907c), just after its upload (call 0x1001f703e): rbx the
+# texture, whose letters are read if it is a font (caption_ink.cpp; Windows 0x004216F1).
+# movss xmm0, [rbx+0x2c]; the ucomiss after it is not taken.
+[[hooks]]
+address = 0x1001f90d9
+type = "detour"
+function = "KmrpTextureUploaded"
+original_bytes = [0xf3, 0x0f, 0x10, 0x43, 0x2c]
+[[hooks.parameters]]
+source = "rbx"
+type = "pointer"

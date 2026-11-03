@@ -203,8 +203,8 @@ def list_sites(resolutions: list[tuple[int, int]]) -> dict[tuple[int, int], list
             "    }\n}\n")
         exe = tmp / "driver"
         # x86_64, as the game: the stubs are x86 code (the driver runs under Rosetta on arm64).
-        subprocess.run(["clang++", "-arch", "x86_64", "-std=c++17", "-O2", "-w", "-o", str(exe), str(driver),
-                        *map(str, SOURCES)], check=True)
+        subprocess.run(["clang++", "-arch", "x86_64", "-std=c++17", "-O2", "-w", "-framework", "OpenGL", "-Wl,-undefined,dynamic_lookup",
+                        "-o", str(exe), str(driver), *map(str, SOURCES)], check=True)
         # The patch's constructor reads $HOME's swkotor.ini; an empty HOME keeps it inert.
         env = dict(os.environ, HOME=str(tmp))
         args = [str(v) for resolution in resolutions for v in resolution]
@@ -234,7 +234,7 @@ def initialiser_count() -> int:
     with tempfile.TemporaryDirectory(prefix="kmrp-resolution-module-") as tmp:
         module = Path(tmp) / "module.dylib"
         subprocess.run(["clang++", "-arch", "x86_64", "-std=c++17", "-O2", "-mmacosx-version-min=10.9",
-                        "-dynamiclib", "-w", "-o", str(module), *map(str, SOURCES)], check=True)
+                        "-dynamiclib", "-w", "-framework", "OpenGL", "-undefined", "dynamic_lookup", "-o", str(module), *map(str, SOURCES)], check=True)
         load_commands = subprocess.run(["otool", "-l", str(module)], check=True, capture_output=True,
                                        text=True).stdout.splitlines()
     count = 0

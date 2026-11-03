@@ -19,9 +19,9 @@ std::uint64_t NowMs();
 struct Requests {
     std::uint64_t flourish = 0;       // L3 in the world
     std::uint64_t freeLookExit = 0;   // R3 in free look
-    std::uint64_t mapOpen = 0;        // Start in the world
+    std::uint64_t menuOpen = 0;       // Start in the world: the menu screen used last
     std::uint64_t interact = 0;       // A in the world: the default action on the target
-    std::uint64_t partySwitch = 0;    // R3 on a screen about a party member
+    std::uint64_t partySwitch = 0;    // RB on a screen about a party member
 };
 const std::uint64_t kRequestWindowMs = 250;
 extern Requests g_requests;
@@ -37,11 +37,18 @@ extern std::uint32_t g_padButtons;       // the pad's buttons at the last poll (
 extern float g_analogMagnitude;
 // The left stick as the buffer sends it (after the radial deadzone), -1..1, Y growing downward.
 extern float g_leftX, g_leftY;
+// The pad's buttons as the buffer last saw them: triggers folded in (kPadLT, kPadRT) and what a movie
+// left down taken out until it is let go (K1PadCarry.h), before the remap. Windows' lastButtons.
+extern std::uint32_t g_padSeen;
+extern float g_leftTrigger, g_rightTrigger;   // 0..1, at the last poll (minigame.cpp)
 extern std::uint64_t g_lastBufferMs;
 
 // gameplay.cpp: whether the left stick drives the character this frame, and one log line on
 // what the world's bridges did.
 bool AnalogDriving();
 void GameplayStatus();
+
+// native.cpp, from the movie hook: a frame of a movie, which no input poll sees (K1PadCarry.h).
+void NoteMovieFrame();
 
 }  // namespace kmrp

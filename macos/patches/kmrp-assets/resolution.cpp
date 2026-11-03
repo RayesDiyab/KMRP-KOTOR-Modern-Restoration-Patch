@@ -238,7 +238,6 @@ int KmrpModeSwitch(int width, int height, int depth, int windowed, int flag) {
         // switch of a run can come before.
         if (changed && kmrp::assets::Registered() && kmrp::assets::Register(*kResourceManager, width, height)) {
             ReloadFontMetrics();
-            kmrp::assets::ScaleOverrideFonts(true);   // the reload put the override's fonts back at their own size
         }
     }
     ApplyAntiAliasRule(width, height);

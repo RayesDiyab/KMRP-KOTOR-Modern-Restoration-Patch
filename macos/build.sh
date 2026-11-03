@@ -8,10 +8,11 @@
 #                  [--kpm <Kotor-Patch-Manager checkout>] [--widescreen <K1WidescreenPatch dir>]
 #                  [--appstore-exe <the Mac App Store game's KOTOR_Exe> | --no-appstore]
 #
-# KPM, the widescreen patch and the Stray Bug Fixes patch come from the submodule
-# third_party/Kotor-Patch-Manager (git submodule update --init): the kmrp branch of
-# RayesDiyab/Kotor-Patch-Manager, FTD's widescreen-patch branch as KMRP takes it. --kpm and
-# --widescreen build from other checkouts instead.
+# KPM's runtime and KPatchCore come from the submodule third_party/Kotor-Patch-Manager (git
+# submodule update --init), at the commit Windows builds with. FTD's widescreen patch and Stray Bug
+# Fixes come from macos/third_party/kpm-patches, which says why (the submodule's widescreen patch
+# has no entry points for KMRP). --kpm builds all of it from another KotOR Patch Manager tree, its
+# own two patches included; --widescreen takes the widescreen patch from another folder.
 #
 # Needs: Xcode command line tools (clang, codesign), .NET 8 SDK (KPM's KPatchCore writes
 # patch_config.toml), and a Python with requirements.txt installed (the resource build).
@@ -25,7 +26,8 @@ HERE=${0:A:h}
 ROOT=${HERE:h}
 VERSION=$(cat "$HERE/VERSION")
 KPM="$ROOT/third_party/Kotor-Patch-Manager"
-WIDESCREEN=""   # default: $KPM/Patches/K1WidescreenPatch
+WIDESCREEN=""   # default: macos/third_party/kpm-patches/K1WidescreenPatch, or with --kpm that tree's
+FTD_PATCHES_DIR="$HERE/third_party/kpm-patches"
 GAME="$HOME/Library/Application Support/Steam/steamapps/common/swkotor/Knights of the Old Republic.app"
 PYTHON=${KMRP_PYTHON:-python3}
 REUSE=0
@@ -37,7 +39,7 @@ APPSTORE_EXE="/Applications/Knights of the Old Republic.app/Contents/MacOS/KOTOR
 APPSTORE_EXE_SHA="d03315aace822908d6b7ca936d47c644ffe6ebf79822c8c62225bfaaf79ad7ca"
 while (( $# )); do
     case "$1" in
-        --kpm) KPM=${2:A}; shift ;;
+        --kpm) KPM=${2:A}; FTD_PATCHES_DIR="$KPM/Patches"; shift ;;
         --widescreen) WIDESCREEN=${2:A}; shift ;;
         --game) GAME=${2:A}; shift ;;
         --exe) CLEAN_EXE=${2:A}; shift ;;
@@ -49,7 +51,7 @@ while (( $# )); do
     esac
     shift
 done
-WIDESCREEN=${WIDESCREEN:-"$KPM/Patches/K1WidescreenPatch"}
+WIDESCREEN=${WIDESCREEN:-"$FTD_PATCHES_DIR/K1WidescreenPatch"}
 [[ "$PYTHON" == */* ]] && PYTHON=${PYTHON:a}   # a path, made absolute (not resolved: a venv's python is a link) for steps run elsewhere
 [[ -f "$KPM/src/KotorPatcher/Makefile" ]] || { print -u2 "no KotOR Patch Manager at $KPM: run git submodule update --init, or pass --kpm"; exit 2; }
 [[ -f "$WIDESCREEN/manifest.toml" ]] || { print -u2 "--widescreen must point at Patches/K1WidescreenPatch"; exit 2; }
@@ -145,7 +147,9 @@ fi
 # The Mac's controller is KMRP's own and paints its buttons with the sets' badges, which
 # the Windows build no longer makes (its controller patch draws its own, 2026-10-27).
 # Sets reused from a Windows build would give a package with no badges, so stop.
-if ! unzip -l "$RESOURCES/gui-1920x1080.zip" | grep -q " kmrpa_"; then
+# Listed to a string first: with pipefail, grep -q leaving early kills unzip, and the check fails.
+SET_FILES=$(unzip -l "$RESOURCES/gui-1920x1080.zip")
+if [[ "$SET_FILES" != *" kmrpa_"* ]]; then
     print -u2 "error: $RESOURCES has no controller badges (made by build_kmrp.ps1?);"
     print -u2 "       build without --reuse-resources so they are made with --controller-art."
     exit 1
@@ -184,10 +188,38 @@ step "List rows: the committed offsets are what these sets and this artwork meas
 "$PYTHON" "$HERE/tools/measure_list_rows.py" "$ASRC/layouts.zip" "$ASRC/override" --check 2>/dev/null || {
     print -u2 "run: $PYTHON macos/tools/measure_list_rows.py $ASRC/layouts.zip $ASRC/override"; exit 1; }
 
-step "The bank: artwork, every menu set and the blend table, for KMRP's module"
-BANK="$BUILD/assets/kmrp-assets.bin"
-"$PYTHON" "$HERE/tools/make_kmrp_assets.py" --package "$ASRC" --out "$BANK" --helper "$PKG/bin/kmrp-guiblend" \
+step "The art pack: artwork, every menu set and the blend table, written beside KMRP's module"
+BANK="$BUILD/assets/kmrp-assets.pack"
+"$PYTHON" "$HERE/tools/make_kmrp_assets.py" --package "$ASRC" --out "$BANK" --helper "$PKG/bin/kmrp-guiblend" --texture-pack "$ERF" \
     --hd-icons "$ROOT/third_party/Included/KOTOR1 HD ICON PACK ver1.0 1.0.0 by JackInTheBox/Override"
+
+step "kmrp-prepare (kmrp-mac.sh makes the cache of every size the display offers at install)"
+# The module's own code for the cache (patches/kmrp-assets/assets.cpp) with the helpers and the
+# pack's decoder it links, compiled with the module's flags and the helper list
+# make_kmrp_patch.py holds (HELPERS), and the identity of this pack, which it refuses another
+# of. x86_64 alone, as the module, so the helpers' image arithmetic is the module's.
+PREP="$BUILD/kmrp-prepare"
+rm -rf "$PREP"; mkdir -p "$PREP"
+patch_list() {   # patch_list <expression>: a list of make_kmrp_patch.py's, one item a line
+    "$PYTHON" -c 'import sys; sys.path.insert(0, sys.argv[1]); import make_kmrp_patch as m; print("\n".join(eval(sys.argv[2], vars(m))))' \
+        "$HERE/tools" "$1"
+}
+HELPER_FLAGS=(${(f)"$(patch_list HELPER_FLAGS)"})
+CXX_FLAGS=(${(f)"$(patch_list LAYOUT_FLAGS)"})
+PREP_HELPERS=(${(f)"$(patch_list '[x for pair in HELPERS for x in pair]')"})
+(( ${#HELPER_FLAGS} && ${#CXX_FLAGS} && ${#PREP_HELPERS} )) || { print -u2 "make_kmrp_patch.py's flags could not be read"; exit 1; }
+for n d in $PREP_HELPERS; do
+    clang $HELPER_FLAGS "$d" -c "$HERE/tools/$n" -o "$PREP/${n%.c}.o"
+done
+clang $HELPER_FLAGS -c "$ROOT/third_party/lzma-sdk/LzmaDec.c" -o "$PREP/LzmaDec.o"
+PACK_ID=$("$PYTHON" -c 'import sys; h = open(sys.argv[1], "rb").read(40); assert h[:8] == b"KMRPAK01"; print(h[8:40].hex())' "$BANK")
+clang++ $CXX_FLAGS -I "$HERE/patches/kmrp-assets" -I "$ROOT/third_party/lzma-sdk" "-DKMRP_ASSET_BUILD=\"$PACK_ID\"" \
+    "$HERE/tools/kmrp-prepare.cpp" "$HERE/patches/kmrp-assets/assets.cpp" "$HERE/patches/kmrp-assets/widescreen.cpp" \
+    "$HERE/patches/kmrp-layout/options.cpp" "$ROOT/src/controller-native/K1AssetPack.cpp" "$PREP"/*.o \
+    -framework ApplicationServices -o "$PKG/bin/kmrp-prepare"
+lipo "$PKG/bin/kmrp-prepare" -verify_arch x86_64
+codesign --force --sign - "$PKG/bin/kmrp-prepare" 2>/dev/null
+"$PKG/bin/kmrp-prepare" --check || { print -u2 "kmrp-prepare does not run (Rosetta?)"; exit 1; }
 
 step "The controller patch's own files (tools/build_controller_assets.py's steps, on this game's layouts)"
 # The controller patch works on a game without KMRP, so it carries its own files: the game's
@@ -244,7 +276,7 @@ step "The patches: FTD's Widescreen Patch and Stray Bug Fixes, KMRP's own on top
 # with it and without. Each is staged by KPM's own KPatchCore, whose overlap check runs across
 # all the patches of a list. The controller patch is also staged alone, as a player who adds it
 # to an unpatched game in KotOR Patch Manager gets it.
-STRAY="$KPM/Patches/K1StrayBugFixes"
+STRAY="$FTD_PATCHES_DIR/K1StrayBugFixes"
 [[ -f "$STRAY/manifest.toml" ]] || { print -u2 "no Patches/K1StrayBugFixes in $KPM"; exit 2; }
 grep -q K1Widescreen_UseGuiFileLayouts "$WIDESCREEN/mac_widescreen.cpp" || {
     print -u2 "the Widescreen Patch in $WIDESCREEN has no entry points for KMRP (K1Widescreen_UseGuiFileLayouts): KMRP needs FTD's patch with its 2026-10-04 adjustment. Pass --kpm with a KotOR Patch Manager tree that has it."
@@ -253,8 +285,9 @@ grep -q K1Widescreen_UseGuiFileLayouts "$WIDESCREEN/mac_widescreen.cpp" || {
 dotnet build "$HERE/tools/kpm-cli" -c Release -p:KpmRoot="$KPM" -o "$BUILD/kpm-cli" >/dev/null
 KPMCLI=(dotnet "$BUILD/kpm-cli/kpm-cli.dll")
 mkdir -p "$PKG/engine" "$BUILD/kpatch/ftd" "$BUILD/kpatch/kmrp"
-for patch in K1StrayBugFixes K1WidescreenPatch; do
-    (cd "$KPM/Patches/$patch" && "$PYTHON" ../create-patch.py -o "$BUILD/kpatch/ftd" >"$BUILD/kpatch/ftd/$patch.log" 2>&1) ||
+for source in "$STRAY" "$WIDESCREEN"; do
+    patch=${source:t}
+    (cd "$source" && "$PYTHON" "$KPM/Patches/create-patch.py" -o "$BUILD/kpatch/ftd" >"$BUILD/kpatch/ftd/$patch.log" 2>&1) ||
         { cat "$BUILD/kpatch/ftd/$patch.log" >&2; print -u2 "$patch does not build"; exit 1; }
     [[ -f "$BUILD/kpatch/ftd/$patch.kpatch" ]] || { print -u2 "create-patch.py made no $patch.kpatch"; exit 1; }
     $KPMCLI validate "$BUILD/kpatch/ftd/$patch.kpatch" "$EXE" | { grep -v DEBUG || true; }
@@ -321,8 +354,8 @@ for name, order in expected.items():
     lists[name] = hooks
 if kmrp["requires"] != ftd or pad["requires"] or "kmrp" in pad["conflicts"] or "kmrp-controller" in kmrp["conflicts"]:
     sys.exit(f"kmrp requires {kmrp['requires']}; the controller patch requires {pad['requires']}, conflicts {pad['conflicts']}")
-if [o["id"] for o in kmrp["options"]] != ["map-notes", "hd-icons", "debug-logs"] or any("when" in h for h in kmrp_hooks + pad_hooks):
-    sys.exit("KMRP-macOS.kpatch: its options are not map-notes, hd-icons and debug-logs, or a hook carries a condition")
+if [o["id"] for o in kmrp["options"]] != ["map-notes", "hd-icons", "marked-empty", "debug-logs"] or any("when" in h for h in kmrp_hooks + pad_hooks):
+    sys.exit("KMRP-macOS.kpatch: its options are not map-notes, hd-icons, marked-empty and debug-logs, or a hook carries a condition")
 for name in expected:
     if "kmrp" in lists[name] and lists[name]["kmrp"] != [h["address"] for h in kmrp_hooks]:
         sys.exit(f"{name}: KMRP's staged hook list is not the patch's")
@@ -351,7 +384,7 @@ cp "$BUILD/engine/kmrp.controller-off.high-fps/patch_config.toml" "$PKG/engine/p
 # Manager's patch folder, as the Windows installer does with its .kpatch files, so KPM lists them.
 cp "$BUILD/kpatch/kmrp/KMRP-macOS.kpatch" "$BUILD/kpatch/kmrp/KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch" \
     "$BUILD/kpatch/ftd/K1WidescreenPatch.kpatch" "$BUILD/kpatch/ftd/K1StrayBugFixes.kpatch" "$BUILD/kpatch/kmrp/$HFPS.kpatch" "$PKG/engine/"
-cp "$BUILD/KotorPatcher.dylib" "$PKG/engine/"
+cp "$BUILD/KotorPatcher.dylib" "$BANK" "$PKG/engine/"
 cp "$SDL_DIR/LICENSE.txt" "$PKG/licenses/SDL3-LICENSE.txt"
 cp "$ROOT/third_party/Included/HighFpsFixes-1.0.1 by D3M0/LICENSE" "$PKG/licenses/High-FPS-Fixes-D3M0-LICENSE.txt"
 
@@ -371,6 +404,7 @@ if [[ -n "$APPSTORE_EXE" && -f "$APPSTORE_EXE" && "$(shasum -a 256 "$APPSTORE_EX
     # KMRP's sources at the depth they have in the repository, beside what they include from it
     # by relative path (src/controller-native's shared tables, which hold no address of the Mac's).
     ln -s "$ROOT/src" "$AS/src/src"
+    ln -s "$HERE/tools" "$AS/src/macos/tools"
     ln -s "$AS/src/macos/patches" "$AS/src/kmrp"
     "$PYTHON" "$ASTOOLS/translate.py" "$EXE" "$APPSTORE_EXE" "$AS/map.json"
     for pair in "${WIDESCREEN}:ftd/K1WidescreenPatch" "${STRAY}:ftd/K1StrayBugFixes" \
@@ -473,7 +507,10 @@ step "Archive"
 # archive held 785 of them. Archive Utility folds them back in, but `unzip` writes them out
 # as files, and the installer would have copied ._*.tga and ._*.tpc into the game's override.
 (cd "$ROOT/dist/macos" && ditto -c -k --norsrc --noextattr --noacl --keepParent "$NAME" "$NAME.zip")
-if unzip -Z1 "$ROOT/dist/macos/$NAME.zip" | grep -q '/\._'; then
+# Listed to a string first, as the badge check above: with pipefail, grep -q leaving at the first
+# match kills unzip, and the pipeline's failure would have let an archive with them pass.
+ZIP_ENTRIES=$(unzip -Z1 "$ROOT/dist/macos/$NAME.zip")
+if [[ "$ZIP_ENTRIES" == *"/._"* ]]; then
     print -u2 "the archive holds AppleDouble (._) entries"; exit 1
 fi
 ls -la "$ROOT/dist/macos/$NAME.zip"

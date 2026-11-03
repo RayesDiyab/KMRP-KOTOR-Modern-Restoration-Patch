@@ -27,9 +27,11 @@
 #include "hud.h"
 #include "pad.h"
 #include "prompts.h"
+#include "remap.h"
 #include "rumble.h"
 #include "state.h"
 #include "../kmrp-layout/options.h"
+#include "../../../src/controller-native/K1PadCarry.h"
 
 #include <mach/mach.h>
 #include <time.h>
@@ -118,7 +120,9 @@ const int kEventLeft = 0x2F, kEventRight = 0x30, kEventUp = 0x31, kEventDown = 0
 const int kEventPrevScreen = 0x35, kEventNextScreen = 0x36;
 const int kEventDescUp = 0x39, kEventDescDown = 0x3A;
 const int kEventFreeLookEnter = 0x01, kEventFreeLookExit = 0x06;   // 0x06 is also SelectPrev
+const int kEventSelectPrev = kEventFreeLookExit;
 const int kEventPause = 0x02, kEventSelectNext = 0x05, kEventChangeChar = 0x09, kEventPartyActive = 0x0A;
+const int kEventNone = 0;
 
 struct Binding {
     int slot;
@@ -127,26 +131,33 @@ struct Binding {
 };
 
 // K1_BUTTONS and K1_TRIGGERS: menus (ICPCGUI) and, unless a gameplay verb owns the slot,
-// the world (ICPC).
+// the world (ICPC). The Xbox game's layout (issue 49, Windows 2026-10-19): White and Black are LB
+// and RB, so RB is Black in menus, the Journal's sort, the one panel that implements 0x2B; LB
+// carries the description scroll up, which only conversations register (computer terminals), and
+// RB's scroll down is registered there separately (Register). Back carries no menu event.
 const Binding kButtons[] = {
     {0x74, kEventA, "A"}, {0x75, kEventB, "B"}, {0x76, kEventX, "X"}, {0x77, kEventY, "Y"},
-    {0x78, kEventDescUp, "LB"}, {0x79, kEventDescDown, "RB"}, {0x7A, kEventBlack, "Back"},
+    {0x78, kEventDescUp, "LB"}, {0x79, kEventBlack, "RB"}, {0x7A, kEventNone, "Back"},
     {0x7B, kEventPrevScreen, "LT"}, {0x7D, kEventNextScreen, "RT"},
 };
 // K1_DPAD: menus and the world.
 const Binding kDpad[] = {
     {0x7F, kEventUp, "Up"}, {0x81, kEventDown, "Down"}, {0x80, kEventLeft, "Left"}, {0x82, kEventRight, "Right"},
 };
-// K1_GAMEPLAY_ACTIONS: the world only. The bool is whether the slot keeps its menu event.
+// K1_GAMEPLAY_ACTIONS: the world only. The bool is whether the slot keeps its menu event. The
+// verbs are the original Xbox game's: White (LB) pauses, Black (RB) switches the party leader, the
+// triggers cycle targets and Back asks for Solo mode.
 const struct { int slot; int event; bool guiInMenus; const char* name; } kVerbs[] = {
-    {0x78, kEventFreeLookExit, false, "LB"},   // SelectPrev; its description is free look's exit
-    {0x79, kEventSelectNext, false, "RB"},
-    {0x7A, kEventPartyActive, true, "Back"},
-    {0x7B, kEventChangeChar, true, "LT"},
-    {0x7D, kEventPause, true, "RT"},
+    {0x78, kEventPause, false, "LB"},          // LB's menu event is the right stick's job in menus
+    {0x79, kEventChangeChar, true, "RB"},
+    {0x7A, kEventPartyActive, false, "Back"},
+    {0x7B, kEventSelectPrev, true, "LT"},      // its description is free look's exit
+    {0x7D, kEventSelectNext, true, "RT"},
 };
 const int kSlotStart = 0x7C;   // the game's own event 0x0B, registered by the game
 const int kSlotR3 = 0x7E;      // free look
+const int kSlotRB = 0x79;      // Black
+const int kSlotSelectPrev = 0x7B;   // LT, where target cycling backwards is, and free look's exit
 const int kSlotDpadUp = 0x7F, kSlotDpadDown = 0x81, kSlotDpadRight = 0x82;   // Left is 0x80
 
 bool VerbOwnsSlot(int slot) {
@@ -166,6 +177,7 @@ kmrp::PadState g_pad;            // read once per tick
 bool g_padPresent = false;
 std::uint32_t g_heldDigital = 0; // per-slot pressed state last read, bit (slot - 0x74)
 int g_sentAs[15] = {};           // per slot: the slot whose code its press went out as, or 0
+KmrpPadCarry g_padCarry;         // what was down when a movie ended, held back until let go
 std::uint32_t g_dpadRepeatMask = 0;
 std::uint64_t g_dpadRepeatDeadline = 0;
 std::uint32_t g_navButtons = 0;  // the pad's buttons at the last navigation read
@@ -245,6 +257,7 @@ void EnsurePadState(void* input) {
 void Register(void* input) {
     g_bound = 0;
     for (const auto& b : kButtons) {
+        if (b.event == kEventNone) continue;   // Back: its slot carries a gameplay verb only
         if (!Create(input, b.event, b.slot)) { Log("%s: event 0x%x could not be created", b.name, b.event); continue; }
         if (GuiEventWanted(b.slot)) AddEvent(input, b.event, kClassPCGUI);
         if (!VerbOwnsSlot(b.slot)) AddEvent(input, b.event, kClassPC);
@@ -256,17 +269,22 @@ void Register(void* input) {
         AddEvent(input, b.event, kClassPC);
         ++g_bound;
     }
-    // Conversations: only the events the dialogue dispatchers implement.
+    // Conversations: only the events the dialogue dispatchers implement. RB's menu event is
+    // Black, so the terminal's scroll down it carries here needs a description of its own on RB's
+    // slot; LB's scroll up is its menu event's.
+    Create(input, kEventDescDown, kSlotRB);
     for (int e : {kEventA, kEventUp, kEventDown, kEventDescUp, kEventDescDown}) AddEvent(input, e, kClassDialog);
     // Pazaak, swoop and the turret: B, Y and the two screen changes, the events the minigame
     // dispatchers implement (K1NativeJoystick.cpp, "ICMiniGame"). Not A: neither implements it.
     for (int e : {kEventB, kEventY, kEventPrevScreen, kEventNextScreen}) AddEvent(input, e, kClassMiniGame);
-    // Free look: entered with R3 in the world, left with LB in free look.
+    // Free look: entered with R3 in the world, left with LT in free look (and with R3, through
+    // the router: Route). Its exit is target cycling backwards, one event that the handler tells
+    // apart by camera mode, so it sits on the slot that verb is on.
     if (Create(input, kEventFreeLookEnter, kSlotR3)) { AddEvent(input, kEventFreeLookEnter, kClassPC); ++g_bound; }
-    if (Create(input, kEventFreeLookExit, 0x78)) { AddEvent(input, kEventFreeLookExit, kClassFreeLook); ++g_bound; }
+    if (Create(input, kEventFreeLookExit, kSlotSelectPrev)) { AddEvent(input, kEventFreeLookExit, kClassFreeLook); ++g_bound; }
     // The gameplay verbs, in the world only.
     for (const auto& v : kVerbs) {
-        if (v.event != kEventFreeLookExit && !Create(input, v.event, v.slot)) continue;
+        if (v.event != kEventSelectPrev && !Create(input, v.event, v.slot)) continue;
         AddEvent(input, v.event, kClassPC);
         ++g_bound;
     }
@@ -294,16 +312,19 @@ void Announce(void* input) {
 // remap takes it and nothing goes out. Its release follows the same route, so a press and its
 // release always go to the same place, and only ever one place.
 //
-//   Start, in the world: the Map (issue #18), through the router's own Map hotkey, instead of
-//     the game's 0x0B, which opens Options. With the in-game menu open: B, the close that
-//     works from every tab. Anywhere else the game's own Start.
+//   Start, in the world: the menu screen used last (as Start did on the Xbox), through that
+//     screen's own hotkey, instead of the game's 0x0B, which opens Options. With the in-game menu
+//     open: B, the close that works from every tab. Anywhere else the game's own Start.
 //   R3, in free look: the router's exit, because free look's enter event is registered in the
-//     world's class only. In a menu: the next party member, on the four screens about one. In
-//     the world, free look's own enter event.
-//   A, in the world: its native event still goes out (nothing in the world answers it), and it
-//     also asks for the focused action-bar slot's action or, with none focused, the default
-//     action on the target. B lets go of the action bar; X and Y press the HUD's Disengage and
-//     remove-last-action buttons in combat. Their native events still go out too.
+//     world's class only. In a menu: nothing. In the world, free look's own enter event.
+//   RB, in a menu: its native event (Black, the Journal's sort) and also the next party member,
+//     on the four screens about one, as the Xbox Character screen's "(Black) Change Character".
+//   A and X, in the world: their native events still go out (nothing in the world answers them),
+//     and they also ask for the focused action-bar slot's action or, with none focused, the
+//     default action on the target: on the Xbox X adds the action to the queue and A acts at
+//     once, and on the PC every action is queued, so the two are one here. B lets go of the action
+//     bar, or with no slot to let go of disengages; Y removes the last queued action, or with
+//     nothing to remove flourishes. Their native events still go out too.
 //   The D-pad, where KMRP's focus layer owns the direction (and in the world, where the action
 //     bar does): nothing, the layer moves the focus.
 //   A button a screen redefines (the Journal, Feats, Default, a focused button): nothing, the
@@ -312,13 +333,13 @@ int Route(int slot, int inputClass, std::uint64_t now) {
     namespace gui = kmrp::gui;
     kmrp::g_lastPadPressMs = now;
     if (slot == kSlotStart) {
-        if (inputClass == kClassPC) { kmrp::g_requests.mapOpen = now; return 0; }
+        if (inputClass == kClassPC) { kmrp::g_requests.menuOpen = now; return 0; }
         if (inputClass == kClassPCGUI && gui::TabBarOpen()) return kSlotButton1;
         return slot;
     }
     if (slot == kSlotR3) {
         if (inputClass == kClassFreeLook) { kmrp::g_requests.freeLookExit = now; return 0; }
-        if (inputClass == kClassPCGUI) { kmrp::g_requests.partySwitch = now; return 0; }
+        if (inputClass == kClassPCGUI) return 0;
         return slot;
     }
     if (slot >= kSlotDpadUp && slot <= kSlotDpadRight) {
@@ -329,15 +350,16 @@ int Route(int slot, int inputClass, std::uint64_t now) {
         gui::RequestRemap(slot);
         return 0;
     }
+    if (slot == kSlotRB && inputClass == kClassPCGUI) kmrp::g_requests.partySwitch = now;
     if (inputClass == kClassPC) {
         namespace hud = kmrp::hud;
         switch (slot) {
             case kSlotButton0:
+            case kSlotButton0 + 2:   // X
                 kmrp::g_requests.interact = now;
                 hud::RequestActivate();
                 break;
             case kSlotButton1: hud::RequestRelease(); break;
-            case kSlotButton0 + 2: hud::RequestDisengage(); break;   // X
             case kSlotButton0 + 3: hud::RequestClearOne(); break;    // Y
         }
     }
@@ -360,7 +382,9 @@ const int kMaxRecords = kBufferBytes / static_cast<int>(sizeof(Record));
 
 // A stick axis as DirectInput reports it: -32768..32767, Y growing downward. A radial
 // deadzone replaces the engine's per-axis one, and what is left is rescaled across the full
-// range so the first movement past it starts from a standstill. Returns that drive, 0..1.
+// range so the first movement past it starts from a standstill. Returns that drive, 0..1. The
+// vector is the stick's unit vector times the drive, so a square gate's corner, up to 1.41 long,
+// stays on the unit circle (Windows' fix of 2026-10-15; this was always so here).
 const float kStickDeadzone = 0.15f;   // K1_STICK_DEADZONE
 float StickToAxes(float x, float y, int* ax, int* ay) {
     const float m = std::sqrt(x * x + y * y);
@@ -371,29 +395,35 @@ float StickToAxes(float x, float y, int* ax, int* ay) {
     return drive;
 }
 
-bool SlotPressed(int slot, const kmrp::PadState& p) {
+// `buttons` is the word the buffer settled on: the pad's, the triggers folded in, with the press
+// a movie left down taken out, remapped, and with the stick folded into the D-pad.
+bool SlotPressed(int slot, std::uint32_t buttons) {
     using namespace kmrp;
     switch (slot) {
-        case 0x74: return p.buttons & kPadA;
-        case 0x75: return p.buttons & kPadB;
-        case 0x76: return p.buttons & kPadX;
-        case 0x77: return p.buttons & kPadY;
-        case 0x78: return p.buttons & kPadLB;
-        case 0x79: return p.buttons & kPadRB;
-        case 0x7A: return p.buttons & kPadBack;
-        case 0x7B: return p.lt > 0.25f;   // K1_TRIGGER_THRESHOLD, 60 of 255
-        case kSlotStart: return p.buttons & kPadStart;
-        case 0x7D: return p.rt > 0.25f;
-        case 0x7E: return p.buttons & kPadR3;
-        case 0x7F: return p.buttons & kPadUp;
-        case 0x80: return p.buttons & kPadLeft;
-        case 0x81: return p.buttons & kPadDown;
-        case 0x82: return p.buttons & kPadRight;
+        case 0x74: return buttons & kPadA;
+        case 0x75: return buttons & kPadB;
+        case 0x76: return buttons & kPadX;
+        case 0x77: return buttons & kPadY;
+        case 0x78: return buttons & kPadLB;
+        case 0x79: return buttons & kPadRB;
+        case 0x7A: return buttons & kPadBack;
+        case 0x7B: return buttons & kPadLT;
+        case kSlotStart: return buttons & kPadStart;
+        case 0x7D: return buttons & kPadRT;
+        case 0x7E: return buttons & kPadR3;
+        case 0x7F: return buttons & kPadUp;
+        case 0x80: return buttons & kPadLeft;
+        case 0x81: return buttons & kPadDown;
+        case 0x82: return buttons & kPadRight;
     }
     return false;
 }
 
+const float kTriggerPulled = 0.25f;   // K1_TRIGGER_THRESHOLD, 60 of 255
+
 }  // namespace
+
+void kmrp::NoteMovieFrame() { g_padCarry.MovieFrame(); }
 
 // The detour at CExoInputInternal::GetEvents' entry (0x100356276), once per input poll.
 extern "C" __attribute__((visibility("default"))) void KmrpControllerTick(void* input) {
@@ -401,8 +431,11 @@ extern "C" __attribute__((visibility("default"))) void KmrpControllerTick(void* 
     if (input != g_input) {
         g_input = input;
         g_announced = false;
-        g_heldDigital = 0;
-        std::memset(g_sentAs, 0, sizeof g_sentAs);
+        // What is held stays: it is the pad, not the object (audit PAD-6). Cleared, a button held
+        // through the rebuild after a movie or Options read as a new press on the new object. The
+        // D-pad's "went out" goes, as Windows' dpadEmitted, so its repeat sends no press to an
+        // object that never had the first; its release is then not sent either.
+        for (int slot = kSlotDpadUp; slot <= kSlotDpadRight; ++slot) g_sentAs[slot - 0x74] = 0;
     }
     if (!g_announced) {
         g_announced = true;
@@ -443,6 +476,7 @@ extern "C" __attribute__((visibility("default"))) void KmrpControllerTick(void* 
     const bool present = kmrp::ReadPad(&g_pad);
     kmrp::device::NotePad(present, g_pad);
     kmrp::g_padButtons = present ? g_pad.buttons : 0;
+    kmrp::g_leftTrigger = present ? g_pad.lt : 0.0f, kmrp::g_rightTrigger = present ? g_pad.rt : 0.0f;
     if (present != g_padPresent) {
         g_padPresent = present;
         if (present) Log("pad connected: %s", kmrp::PadName());
@@ -480,6 +514,7 @@ extern "C" __attribute__((visibility("default"))) std::uint64_t KmrpGetJoystickB
     if (index != 0 || !g_input) return 0;
 
     const kmrp::PadState pad = g_padPresent ? g_pad : kmrp::PadState();
+    const std::uint32_t kDpad = kmrp::kPadUp | kmrp::kPadDown | kmrp::kPadLeft | kmrp::kPadRight;
     auto emit = [&](int slot, int value) {
         if (count >= kMaxRecords) return;
         Record& r = records[count++];
@@ -491,15 +526,51 @@ extern "C" __attribute__((visibility("default"))) std::uint64_t KmrpGetJoystickB
     };
     const int inputClass = kmrp::engine::CurrentInputClass();
     const std::uint64_t now = kmrp::NowMs();
+
+    // The pad's buttons as the rest of this function sees them. The triggers are folded into the
+    // word, pulled or not, which is all that is read of them. What a movie left down is taken out
+    // until it is let go (K1PadCarry.h). Then the remap: in the world each button is seen as the
+    // default button of the action it carries, so the slots, the HUD's requests and the stick
+    // clicks below act on the action; menus, conversations and minigames keep every button where
+    // it is. A press keeps the meaning it had when it went down (remap.cpp).
+    std::uint16_t word = static_cast<std::uint16_t>(pad.buttons);
+    if (pad.lt > kTriggerPulled) word |= kmrp::kPadLT;
+    if (pad.rt > kTriggerPulled) word |= kmrp::kPadRT;
+    const bool world = inputClass == kClassPC || inputClass == kClassFreeLook;
+    const std::uint16_t seen = g_padCarry.Filter(word);
+    kmrp::g_padSeen = seen;   // the mini-games read this, so what a movie left down does not fire there
+    std::uint32_t buttons = kmrp::remap::Apply(seen, world);
+
+    // In a conversation and in the menus the left stick is the D-pad (Windows 2026-10-15 and 16).
+    // A screen the engine navigates itself, a conversation's replies, the lists that keep their
+    // own direction keys, answers only the direction codes, and the focus layer the stick
+    // otherwise drives stands down there, so the stick did nothing while the D-pad worked. Its
+    // latched direction is folded into the word before the slots are read, so it gets the D-pad's
+    // press, release and repeat and the same choice, per axis, between the engine's codes and the
+    // focus layer. The real D-pad wins while held. A conversation answers up and down only.
+    const std::uint32_t padButtons = buttons;
+    if ((inputClass == kClassDialog || inputClass == kClassPCGUI) && (buttons & kDpad) == 0) {
+        int sx = 0, sy = 0;
+        bool latched = false;
+        kmrp::gui::StickNavigation(pad.lx, pad.ly, &sx, &sy, &latched);
+        if (sy < 0) buttons |= kmrp::kPadUp;
+        else if (sy > 0) buttons |= kmrp::kPadDown;
+        else if (inputClass == kClassPCGUI && sx < 0) buttons |= kmrp::kPadLeft;
+        else if (inputClass == kClassPCGUI && sx > 0) buttons |= kmrp::kPadRight;
+    }
+
     for (int slot = 0x74; slot <= 0x82; ++slot) {
         const int i = slot - 0x74;
         const std::uint32_t bit = 1u << i;
-        const bool pressed = SlotPressed(slot, pad);
+        const bool pressed = SlotPressed(slot, buttons);
         if (pressed == ((g_heldDigital & bit) != 0)) continue;
         g_heldDigital = pressed ? (g_heldDigital | bit) : (g_heldDigital & ~bit);
         if (pressed) {
             g_sentAs[i] = Route(slot, inputClass, now);
             if (g_sentAs[i]) emit(g_sentAs[i], 1);
+            // Debug logs: one press and its class, for telling one press from two in a trial
+            // (Windows' LogPadEdgeK1).
+            kmrp::LogPress(slot, inputClass, g_sentAs[i]);
         } else if (g_sentAs[i]) {
             emit(g_sentAs[i], 0);
             g_sentAs[i] = 0;
@@ -535,18 +606,21 @@ extern "C" __attribute__((visibility("default"))) std::uint64_t KmrpGetJoystickB
         int dx = 0, dy = 0;
         bool edge = false, fromDpad = false;
         for (const auto& d : kDirs) {
-            if (!(pad.buttons & d.bit)) continue;
+            if (!(buttons & d.bit)) continue;
             dx = d.dx;
             dy = d.dy;
-            fromDpad = true;
+            // A folded stick direction is not the D-pad to the HUD: there the left stick means
+            // walking, and character creation has no HUD to take the request.
+            fromDpad = (padButtons & d.bit) != 0;
             if (!(g_navButtons & d.bit)) edge = true;
         }
-        if (!fromDpad) kmrp::gui::StickNavigation(pad.lx, pad.ly, &dx, &dy, &edge);
+        if (dx == 0 && dy == 0) kmrp::gui::StickNavigation(pad.lx, pad.ly, &dx, &dy, &edge);
+        else if (padButtons & kDpad) kmrp::gui::ResetStickNavigation();
         kmrp::gui::RequestNavigation(dx, dy, edge, fromDpad);
-        g_navButtons = pad.buttons;
+        g_navButtons = buttons;
     }
     // L3 has no slot: its flourish is a bridge, asked for here and made on the world's frame.
-    const bool l3 = (pad.buttons & kmrp::kPadL3) != 0;
+    const bool l3 = (buttons & kmrp::kPadL3) != 0;
     if (l3 && !g_l3Held) kmrp::g_requests.flourish = now;
     g_l3Held = l3;
 

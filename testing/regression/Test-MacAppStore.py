@@ -153,10 +153,10 @@ def main() -> int:
                 if not module.is_file() or sha(module) != want:
                     failures.append(f"{label}: {patch}.dylib is not the App Store module")
             others = {p.name for p in (kmrp / "patches").iterdir()} - {f"{i}.dylib" for i in ids}
-            if others != ({"kmrp-sdl3.dylib"} if controller else set()):
+            if others != ({"kmrp-assets.pack", "kmrp-sdl3.dylib"} if controller else {"kmrp-assets.pack"}):
                 failures.append(f"{label}: beside the modules: {sorted(others)}")
             options = (kmrp / "configs/kmrp.ini").read_bytes()
-            if options != b"[Patch Options]\r\nmap-notes=1\r\nhd-icons=1\r\ndebug-logs=0\r\n":
+            if options != b"[Patch Options]\r\nmap-notes=1\r\nhd-icons=1\r\nmarked-empty=1\r\ndebug-logs=0\r\n":
                 failures.append(f"{label}: configs/kmrp.ini is {options!r}")
             if (kmrp / "configs/kmrp-controller.ini").is_file() != bool(controller):
                 failures.append(f"{label}: configs/kmrp-controller.ini does not follow the choice")

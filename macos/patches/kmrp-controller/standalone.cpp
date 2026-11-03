@@ -311,8 +311,9 @@ void WriteDefaultSettings() {
     const char* home = getenv("HOME");
     if (!home || !*home) return;
     const std::string folder = std::string(home) + "/Library/Application Support/Knights of the Old Republic";
-    const std::string path = folder + "/kmrp-controller.ini";
-    if (Exists(path) || !Exists(folder)) return;   // the game's own settings folder, made by the game
+    if (!Exists(folder)) return;   // the game's own settings folder, made by the game
+    const std::string path = SettingsPath();
+    if (path.empty() || Exists(path)) return;
     if (FILE* f = fopen(path.c_str(), "wx")) {
         fwrite(kDefaultSettings, 1, sizeof kDefaultSettings - 1, f);
         fclose(f);
@@ -326,11 +327,24 @@ __attribute__((constructor)) void UseOwnFiles() { g_sdlPath = SdlPath; }
 
 bool BesideKmrp() { return g_beside; }
 
+std::string SettingsPath() {
+    const char* home = getenv("HOME");
+    if (!home || !*home) return std::string();
+    const std::string game = std::string(home) + "/Library/Application Support/Knights of the Old Republic";
+    if (!Exists(game)) return std::string();
+    const std::string path = game + "/KMRP/controller.ini", old = game + "/kmrp-controller.ini";
+    mkdir((game + "/KMRP").c_str(), 0755);
+    if (!Exists(path) && Exists(old)) rename(old.c_str(), path.c_str());
+    return path;
+}
+
 const char* FilesDirectory() {
     static std::string* files = nullptr;
     if (!files && Unpack()) files = new std::string(*g_root + "/files");
     return files ? files->c_str() : nullptr;
 }
+
+const char* RunDirectory() { return g_run ? g_run->c_str() : nullptr; }
 
 void RegisterAgain() {
     if (g_generation && *kResourceManager) Register(*kResourceManager);

@@ -117,6 +117,29 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **macOS: KMRP 1.6 ported to the Mac** (2026-11-03, issue 81; uncommitted). Every item of
+  `docs/macos-handoff-1.5-to-1.6.md`, with its state and how it was seen, is in
+  [`macos/PORT-1.6.md`](macos/PORT-1.6.md). In short: the art pack, `kmrp-assets.pack`, beside the
+  module (measured: pack 64.6 MB, `KMRP-macOS.kpatch` 100.5 to 0.35 MB, the disk image 114.8 to
+  76.2 MB), with every size the display offers made at install by `bin/kmrp-prepare` (23 sizes in 7 to
+  8 s on a 14" MacBook Pro (M5), a 3.9 GB cache; the first frame then at 4.7 s after launch, 7.5 s with
+  an empty cache; not for the Mac App Store's game, whose cache is in its container); Live Adaptive
+  Layout and the shared asset fixes in the module, the Text Size and Font and HUD Size pages, text
+  fitted to its box, the original Xbox controls, the Controller Layout with remapping, the Xbox HUD's
+  six places, Pazaak with the pad, K1 Marked Empty Containers, and the controller's settings in
+  `KMRP/controller.ini`. FTD's two patches are built from a copy in `macos/third_party/kpm-patches`
+  (its `SOURCE.md` says from which commits and why), so the package builds from the repository alone;
+  until now it needed `--kpm` and a KotOR Patch Manager clone beside the repository. Three reviewers
+  audited the change against the Mac executable, its decompile and Windows' code; eleven findings, one
+  high (the map-note correction hook had lost its `rbx` parameter), were fixed the same day, and two
+  low ones were left as found. **Playtested** (2026-11-03) from the final package installed as a
+  player gets it: a new game through Trask's conversation, and a save on Manaan through every in-game
+  screen at 50% and 100% text, the option pages, a remap, a change of resolution, the galaxy map and a
+  hand of Pazaak (both opened by a test-only trigger), and a footlocker marked empty, with a scripted
+  pad and the keyboard in the Steam game, and a save loaded in the Mac App Store's game. No run
+  crashed. Not with a physical pad (rumble, a pad switched off and on, SDL's device list unseen); a
+  fight, the swoop race and the turret were not reached.
+
 - **Fixed: the mouse no longer turns the camera while the pad is in use** (2026-11-03, reported from
   SteamOS with a DualSense through Steam Input). Under Proton A, B and Y turned the camera a little at
   each press, and so did leaving a menu with Start; LB did not. The right stick stayed under its

@@ -42,6 +42,13 @@ section of the patch's own, which install and uninstall keep byte for byte.
    and KMRP-macOS.kpatch in the patch folder KPM's settings name; and once KPM's Apply has rewritten
    the runtime, uninstall removes KPM's runtime as well when KMRP is its only patch, leaving the
    untouched game, and leaves the runtime, load command and records to KPM beside another patch.
+7. KMRP's art made at install (2026-11-03, handoff item 73): the first round lets the install
+   make it, for the size installed alone (KMRP_DISPLAY_SIZES empty: no display's list, so the
+   same on any Mac), and finds the common files and that size's set finished in the cache
+   (their .complete markers), the progress line said, and the cache gone after uninstall.
+   Every other install passes --no-prepare.
+8. The controller's settings file of before 2026-10-20 (kmrp-controller.ini beside swkotor.ini):
+   moved into the KMRP folder byte for byte, and kept there at uninstall.
 
     python testing/regression/Test-MacInstaller.py PACKAGE_KMRP_DIR CLEAN_KOTOR_EXE SWPC_TEX_GUI_ERF
 
@@ -104,14 +111,18 @@ def main() -> int:
         exe_size = exe.stat().st_size
         # The display the installer is told it runs on: a 14" MacBook Pro's, so that a round is
         # the same on any Mac; the first round's is a 4K television's (anti-aliasing).
-        env = dict(os.environ, HOME=str(home), KMRP_DISPLAY_GEOMETRY="1512 982 3024 1964")
+        env = dict(os.environ, HOME=str(home), KMRP_DISPLAY_GEOMETRY="1512 982 3024 1964", KMRP_DISPLAY_SIZES="")
         script = package / "kmrp-mac.sh"
+        cache = home / "Library/Caches/KMRP"
 
-        def run(*args: str) -> subprocess.CompletedProcess:
+        def run(*args: str, prepare: bool = False) -> subprocess.CompletedProcess:
             # High FPS Fix follows the display unless it is said: off here, so that a round is
             # the same on any Mac, and on where a round asks for it.
             if args[0] == "install" and "--high-fps" not in args:
                 args += ("--no-high-fps",)
+            # KMRP's art is made by one install only (7.); a set takes seconds.
+            if args[0] == "install" and not prepare:
+                args += ("--no-prepare",)
             return subprocess.run([str(script), *args, "--game", str(game)], env=env, text=True,
                                   capture_output=True)
 
@@ -124,7 +135,7 @@ def main() -> int:
                     return line.split("=", 1)[1].strip()
             return None
 
-        settings = ini.parent / "kmrp-controller.ini"
+        settings = ini.parent / "KMRP/controller.ini"
         player_settings = b""
         # KotOR Patch Manager's settings, naming its patch folder, where the install puts
         # KMRP-macOS.kpatch (KPatchLauncher's AppSettings under .NET's ApplicationData, ~/.config).
@@ -151,7 +162,7 @@ def main() -> int:
                     settings.write_bytes(player_settings[:cut].rstrip(b"\n") + b"\n")
                     player_settings = settings.read_bytes()
             # High FPS Fix on in the first round and in the last, with and without the controller.
-            options = {"off": ["--no-controller", "--no-map-notes", "--no-hd-icons", "--high-fps"],
+            options = {"off": ["--no-controller", "--no-map-notes", "--no-hd-icons", "--no-marked-empty", "--high-fps"],
                        "fresh": ["--high-fps"], "edit": ["--debug-logs"]}.get(mode, [])
             high_fps = "--high-fps" in options
             # A list of resolutions left beside KOTOR_Exe by an install of 2026-10-07, whose
@@ -165,7 +176,20 @@ def main() -> int:
                 options_ini.parent.mkdir()
                 options_ini.write_bytes(own_section)
             env["KMRP_DISPLAY_GEOMETRY"] = "1920 1080 3840 2160" if mode == "fresh" else "1512 982 3024 1964"
-            result = run("install", "--size", size, "--yes", *options)
+            result = run("install", "--size", size, "--yes", *options, prepare=mode == "fresh")
+            # 7. KMRP's art made at install, for the size installed (the display's list is empty).
+            if mode == "fresh" and result.returncode == 0:
+                builds = [p for p in cache.iterdir() if p.is_dir()] if cache.is_dir() else []
+                made = len(builds) == 1 and (builds[0] / "store.complete").is_file() and \
+                    (builds[0] / f"sets/{size}.complete").is_file() and (builds[0] / f"sets/{size}").is_dir()
+                if not made or "1 of 1 resolutions ready..." not in result.stdout:
+                    failures.append(f"{size}: the install did not make KMRP's art in the cache: {result.stdout[-300:]!r} "
+                                    f"{result.stderr[-300:]!r}")
+                else:
+                    print(f"     {size}: KMRP's art made at install, "
+                          f"{len(list((builds[0] / f'sets/{size}').iterdir()))} files in the set")
+            elif result.returncode == 0 and cache.exists():
+                failures.append(f"{size}: --no-prepare made KMRP's art all the same")
             # Anti-aliasing: off on a display of 3840x2160 or more, left alone on any other;
             # uninstall's check below (the file as it was) covers putting it back.
             want_aa = "0" if mode == "fresh" else "2"
@@ -185,7 +209,7 @@ def main() -> int:
                         or not now.rstrip().endswith(b"Style=Xbox") or now.count(b"[Hud]") != 1:
                     failures.append(f"{size}: the player's kmrp-controller.ini was not kept with the [Hud] section added")
                 player_settings = now
-                if "Kept your kmrp-controller.ini" not in result.stdout:
+                if "Kept your controller.ini" not in result.stdout:
                     failures.append(f"{size}: install did not say it kept kmrp-controller.ini")
             else:
                 text = settings.read_text() if settings.is_file() else ""
@@ -208,7 +232,7 @@ def main() -> int:
             # configs/k1widescreenpatch.ini (since 2026-10-24): the widescreen patch's GUI mode
             # as KMRP runs it, for KPM to show.
             want = ["KOTOR_Exe", "KotorPatcher.dylib", "kpm_install_state.json", "patch_config.toml",
-                    "configs/kmrp.ini", "configs/k1widescreenpatch.ini"] + [f"patches/{patch_id}.dylib" for _, patch_id in installed]
+                    "configs/kmrp.ini", "configs/k1widescreenpatch.ini", "patches/kmrp-assets.pack"] + [f"patches/{patch_id}.dylib" for _, patch_id in installed]
             if mode != "off":
                 want.append("configs/kmrp-controller.ini")
             if (macos_dir / "kmrp-resolutions.txt").exists():
@@ -242,7 +266,7 @@ def main() -> int:
                 failures.append(f"{size}: High FPS Fixes was delivered with High FPS Fix off")
             chosen = (0, 0) if mode == "off" else (1, 1 if mode == "edit" else 0)
             # hd-icons (since 2026-10-08) is on unless --no-hd-icons, which the "off" round passes.
-            section = "[Patch Options]\r\nmap-notes=%d\r\nhd-icons=%d\r\ndebug-logs=%d\r\n" % (chosen[0], chosen[0], chosen[1])
+            section = "[Patch Options]\r\nmap-notes=%d\r\nhd-icons=%d\r\nmarked-empty=%d\r\ndebug-logs=%d\r\n" % (chosen[0], chosen[0], chosen[0], chosen[1])
             controller_ini = macos_dir / "configs/kmrp-controller.ini"
             want_controller = ("[Patch Options]\r\ndebug-logs=%d\r\n" % chosen[1]).encode()
             if mode != "off" and (not controller_ini.is_file() or controller_ini.read_bytes() != want_controller):
@@ -294,7 +318,7 @@ def main() -> int:
             if "0 changed or missing" not in status.stdout:
                 failures.append(f"{size}: status: {status.stdout.strip()[-200:]}")
             want = {"fresh": "the defaults KMRP wrote", "edit": "edited by you"}.get(mode)
-            if want and f"kmrp-controller.ini: {want}" not in status.stdout:
+            if want and f"controller.ini: {want}" not in status.stdout:
                 failures.append(f"{size}: status does not say the settings are {want}")
             if "resolutions=" in status.stdout:
                 failures.append(f"{size}: status still has a line for chosen resolutions")
@@ -307,7 +331,7 @@ def main() -> int:
             if mode == "fresh" and settings.exists():
                 failures.append(f"{size}: uninstall left the unchanged default kmrp-controller.ini")
             if mode == "edit" and ("Strength=40" not in (settings.read_text() if settings.is_file() else "")
-                                   or "Kept your edited kmrp-controller.ini" not in result.stdout):
+                                   or "Kept your edited controller.ini" not in result.stdout):
                 failures.append(f"{size}: uninstall did not keep the edited kmrp-controller.ini")
             if mode in ("kept", "off") and (not settings.is_file() or settings.read_bytes() != player_settings):
                 failures.append(f"{size}: uninstall touched the player's kmrp-controller.ini")
@@ -326,11 +350,41 @@ def main() -> int:
                 failures.append(f"{size}: swkotor.ini is not as it was: {ini.read_bytes()!r}")
             if (home / "Library/Application Support/KMRP").exists():
                 failures.append(f"{size}: the install state was left behind")
+            if cache.exists():
+                failures.append(f"{size}: uninstall left KMRP's cache, {cache}")
             for name, _ in PATCHES:
                 if (kpm_folder / name).exists():
                     failures.append(f"{size}: uninstall left {name} in KPM's patch folder")
             print(f"     {size}: {'a listed size' if listed else 'a size the module blends'}; "
                   f"{'controller and map notes off' if mode == 'off' else f'controller settings {mode}'}")
+
+        # 8. The controller's settings file of before 2026-10-20, kmrp-controller.ini beside
+        #    swkotor.ini: install moves it into the KMRP folder as it is (it has a [Hud] section,
+        #    so nothing is added), and uninstall keeps it there, the player's and not KMRP's.
+        old_settings = ini.parent / "kmrp-controller.ini"
+        shutil.rmtree(settings.parent, ignore_errors=True)
+        seeded = b"[Rumble]\r\nMode=Original\r\nStrength=55\r\n\r\n[Hud]\r\nStyle=PC\r\n"
+        old_settings.write_bytes(seeded)
+        ini.write_bytes(INI_BEFORE.encode())
+        result = run("install", "--size", "1512x982", "--yes")
+        if result.returncode != 0:
+            failures.append(f"old settings: install failed: {result.stderr.strip()[-300:]}")
+        else:
+            if old_settings.exists() or not settings.is_file() or settings.read_bytes() != seeded:
+                failures.append("old settings: kmrp-controller.ini was not moved to KMRP/controller.ini as it was")
+            if "Moved your kmrp-controller.ini" not in result.stdout:
+                failures.append("old settings: install did not say it moved kmrp-controller.ini")
+            result = run("uninstall", "--yes")
+            if result.returncode != 0:
+                failures.append(f"old settings: uninstall failed: {result.stderr.strip()[-300:]}")
+            elif not settings.is_file() or settings.read_bytes() != seeded or old_settings.exists():
+                failures.append("old settings: uninstall did not keep the player's file in KMRP/controller.ini")
+            elif sha(exe) != vanilla or (home / "Library/Application Support/KMRP").exists():
+                failures.append("old settings: uninstall did not finish")
+            else:
+                print("     kmrp-controller.ini beside swkotor.ini: moved to KMRP/controller.ini as it was, and kept "
+                      "there at uninstall")
+        shutil.rmtree(settings.parent, ignore_errors=True)
 
         # 5. FTD's widescreen patch installed through KotOR Patch Manager, laid out as KPM lays
         #    it out on the Mac (KPatchCore: the patcher named in KOTOR_Exe's load commands, the
@@ -410,6 +464,10 @@ def main() -> int:
             failures.append(f"KPM: install for KPM failed: {result.stderr.strip()[-300:]}")
         else:
             now = snapshot()
+            # KMRP's art beside the modules, which KPM's Apply leaves as it is.
+            if "patches/kmrp-assets.pack" not in now:
+                failures.append("KPM: the install for KPM left out the art pack")
+            now.pop("patches/kmrp-assets.pack", None)
             if now != before:
                 failures.append("KPM: the install for KPM changed KOTOR_Exe or KPM's files, or added to them")
             if (game / "Contents/Assets/override").exists():

@@ -1,6 +1,6 @@
 // KMRP for macOS, controller support: the world. Analog movement, the right-stick camera, and
-// the engine bridges a press in the world asks for (L3's flourish, Start's Map, A on the
-// target, R3 out of free look).
+// the engine bridges a press in the world asks for (L3's and Y's flourish, Start's last menu
+// screen, A and X on the target, R3 out of free look).
 //
 // The Mac port of K1NativeJoystick.cpp's gameplay half: NativeJoystickMovementK1 and
 // NativeJoystickSkipNormalizeK1, FeedNativeCameraK1, and the PerformPending* bridges, with
@@ -16,6 +16,7 @@
 #include "engine.h"
 #include "hud.h"
 #include "pad.h"
+#include "preload.h"
 #include "prompts.h"
 #include "state.h"
 
@@ -52,11 +53,13 @@ using namespace engine;
 // K1NativeJoystick.cpp's camera constants.
 const float kCameraSpeed = 1.0f;
 const float kCameraDeadzone = 0.12f;
+// The stick's up is +1 here; the engine's joystick Y runs the other way (K1_FREELOOK_PITCH_SIGN).
+const float kFreeLookPitchSign = -1.0f;
 
 bool g_analogOverride = false;   // set by the movement heartbeat, read at the Normalize call
 
 struct Counters {
-    unsigned long flourishes = 0, flourishesDeclined = 0, mapOpens = 0, freeLookExits = 0;
+    unsigned long flourishes = 0, flourishesDeclined = 0, menuOpens = 0, freeLookExits = 0;
     unsigned long interacts = 0, interactsDeclined = 0, cameraTurns = 0;
     unsigned long normalizeSkipped = 0, normalizeRun = 0;
 } g_count;
@@ -76,18 +79,29 @@ void PerformFreeLookExit(void* internal) {
     Log("R3: left free look");
 }
 
-// PerformPendingMapOpenK1: Start in the world opens the Map through the engine's own Map
-// hotkey, with every guard it applies (a dead player, no party, a modal already up).
-void PerformMapOpen(void* internal) {
-    if (!TakeRequest(g_requests.mapOpen)) return;
+// PerformPendingMenuOpenK1: Start in the world opens the screen the in-game menu last showed, as
+// Start did on the Xbox, through that screen's own hotkey event, with every guard it applies (a
+// dead player, no party, a modal already up); the Map when the field holds no screen. The field
+// is CGuiInGame+0x50 (Windows +0x2C): ShowSWInGameGui (0x10025F1BE) writes it with the screen it
+// opens, HideSWInGameGui leaves it, and the router's handler for 0xD1..0xD8 compares it with its
+// own screen. So it is still the last screen once the menu is closed.
+void PerformMenuOpen(void* internal) {
+    if (!TakeRequest(g_requests.menuOpen)) return;
     if (At<int>(internal, kInternalInputClass) != kClassPC) return;
-    HandleInputEvent()(internal, kEventMenuMap, 1);
-    ++g_count.mapOpens;
-    Log("Start: opened the Map");
+    int event = kEventMenuMap;
+    void* const guiInGame = At<void*>(internal, kInternalGuiInGame);
+    if (guiInGame) {
+        const int screen = At<int>(guiInGame, kGuiInGameScreen);
+        if (screen >= 0 && screen < kScreenCount) event = kEventMenuFirst + screen;
+    }
+    HandleInputEvent()(internal, event, 1);
+    ++g_count.menuOpens;
+    Log("Start: asked for menu screen 0x%x", event);
 }
 
-// PerformPendingStickActionsK1: L3's flourish, in the world only, with a player, and not in
-// free look, where the stick drives the camera rather than the character.
+// PerformPendingStickActionsK1: L3's flourish, and Y's with nothing to undo (hud.cpp), in the
+// world only, with a player, and not in free look, where the stick drives the camera rather than
+// the character.
 void PerformFlourish(void* internal) {
     if (!TakeRequest(g_requests.flourish)) return;
     void* app = ClientApp();
@@ -101,9 +115,9 @@ void PerformFlourish(void* internal) {
     Log("L3: flourish");
 }
 
-// PerformPendingInteractionK1: A in the world does the default action on the target, through
+// PerformPendingInteractionK1: A and X in the world do the default action on the target, through
 // the router's 0xEF, and nothing at all without a target, or while a slot of the HUD's action
-// bar has the focus, when A is that slot's (hud.cpp).
+// bar has the focus, when the press is that slot's (hud.cpp).
 void PerformInteraction(void* internal) {
     if (!TakeRequest(g_requests.interact)) return;
     if (At<int>(internal, kInternalInputClass) != kClassPC || !HasTarget(internal) || hud::ActionBarFocused()) {
@@ -119,6 +133,20 @@ void PerformInteraction(void* internal) {
 // negated, as on Windows: the keyboard's axis runs opposite to the stick, and UpdateCamera's
 // negation is for that axis. In play and in free look only; UpdateCamera is not called in
 // menus, which is also when this does not run.
+//
+// In free look its vertical deflection looks up and down (issue 45, Windows 2026-10-21). The
+// engine has one pitch input and it is for free look: ProcessInput, with the camera in mode 5,
+// polls the joystick's Y or the keys and calls CSWCModule's pitch, and the camera adds that rate
+// to its pitch and clears it every frame, so it is given again on each frame the stick is held.
+// This runs after ProcessInput, so the right stick wins over the left.
+//
+// Windows gives the camera back from the mouse here (7afa0f2, RotateCamera(0, 0) with the stick
+// at rest: a cursor resting at a screen edge turned it at each face button). The Mac has no such
+// turn with the pad in use: UpdateCamera's edge turn (AcclTurnCamera with -1 or 1)
+// tests the GUI manager's own pointer, which the frame hook holds parked in the middle of the
+// screen (prompts.cpp, UpdateCursor) and which the engine moves only while its cursor is shown;
+// and its mouse turn, AcclTurnCamera's neighbour 0x1002912E0, is given 0 unless the mouse-look
+// button is held or the camera is in free look, with the mouse's own movement as the turn.
 void FeedCamera(void* internal) {
     const int inputClass = At<int>(internal, kInternalInputClass);
     if (inputClass != kClassPC && inputClass != kClassFreeLook) return;
@@ -130,6 +158,8 @@ void FeedCamera(void* internal) {
     float scaled = (magnitude - kCameraDeadzone) / (1.0f - kCameraDeadzone);
     if (scaled > 1.0f) scaled = 1.0f;
     AcclTurnCamera()(nx * (scaled / magnitude) * kCameraSpeed, module);
+    if (inputClass == kClassFreeLook)
+        PitchCamera()(kFreeLookPitchSign * ny * (scaled / magnitude) * kCameraSpeed, module);
     ++g_count.cameraTurns;
 }
 
@@ -144,9 +174,9 @@ bool AnalogDriving() {
 }
 
 void GameplayStatus() {
-    Log("world: %lu flourishes (%lu declined), %lu Map opens, %lu free-look exits, %lu interactions (%lu "
+    Log("world: %lu flourishes (%lu declined), %lu menu opens, %lu free-look exits, %lu interactions (%lu "
         "declined), camera turned on %lu frames, movement normalised %lu times and left analog %lu times",
-        g_count.flourishes, g_count.flourishesDeclined, g_count.mapOpens, g_count.freeLookExits, g_count.interacts,
+        g_count.flourishes, g_count.flourishesDeclined, g_count.menuOpens, g_count.freeLookExits, g_count.interacts,
         g_count.interactsDeclined, g_count.cameraTurns, g_count.normalizeRun, g_count.normalizeSkipped);
 }
 
@@ -177,10 +207,23 @@ extern "C" __attribute__((visibility("default"))) int KmrpSkipNormalize(void* ve
         // axes through. While the stick drives, the vector is the stick's own, in Control's
         // convention (-LeftRight, UpDown), UpDown growing downward as the buffer sends it: the
         // direction and the deflection as sent, as on Windows.
+        //
+        // Never longer than 1 (issue 46, Windows 2026-10-21). The engine turns the character at
+        // turnMin + (turnMax - turnMin) * (1 - r), r being speed over maximum, which is negative
+        // past r = 1.11: a longer vector turns the character away from the stick and keeps it
+        // turning. The buffer's own scaling keeps the stick inside the circle (StickToAxes,
+        // native.cpp) and only the rounding of its integers could pass 1; this is the second
+        // guard, at the engine.
         if (vector) {
             float* v = static_cast<float*>(vector);
-            v[0] = -g_leftX;
-            v[1] = g_leftY;
+            float x = -g_leftX, y = g_leftY;
+            const float length = std::sqrt(x * x + y * y);
+            if (length > 1.0f) {
+                x /= length;
+                y /= length;
+            }
+            v[0] = x;
+            v[1] = y;
         }
         ++g_count.normalizeSkipped;
     }
@@ -199,7 +242,7 @@ extern "C" __attribute__((visibility("default"))) int KmrpCameraFrame(void* inte
     if (!internal) return 1;
     FeedCamera(internal);
     PerformFreeLookExit(internal);
-    PerformMapOpen(internal);
+    PerformMenuOpen(internal);
     PerformFlourish(internal);
     PerformInteraction(internal);
     return 1;
@@ -214,12 +257,19 @@ extern "C" __attribute__((visibility("default"))) int KmrpCameraFrame(void* inte
 // only when pressed during the movie: a press held from before it (the Start that began a new
 // game) does not count until it has been let go. The hook passes the loop's frame pointer; the
 // block is at rbp-0x4b0.
+//
+// What is still down when the movie ends is held back from the first polls after it (K1PadCarry.h,
+// audit PAD-9): the press that skipped the last start-up movie otherwise went out as a fresh
+// press on the main menu, whose first entry has the focus. The same on the Mac: the movie loop
+// owns the game loop here too, and the buffer's last state of a button stays what it was.
 extern "C" __attribute__((visibility("default"))) void KmrpMovieFrame(std::uint8_t* frame) {
     std::uint8_t* state = frame ? frame - 0x4b0 : nullptr;
     static std::uint8_t* movie = nullptr;
     static bool armed = false;
     static unsigned long skips = 0;
     if (!state) return;
+    NoteMovieFrame();
+    preload::MovieFrame();   // the controller's screens read while the movie plays (preload.cpp, item 112)
     PadState pad;
     const bool present = ReadPad(&pad);
     device::NotePad(present, pad);

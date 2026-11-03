@@ -1,5 +1,5 @@
-// KMRP for macOS, controller support: the gameplay HUD. The action bar on the D-pad, A and B
-// on it, X and Y on the combat buttons.
+// KMRP for macOS, controller support: the gameplay HUD. The action bar on the D-pad, A, X and B
+// on it, Y and B on the combat buttons.
 //
 // The Mac port of NativeActionBarK1 and the action-bar logic it drives (Saul0097's
 // MoveFocus / CycleAction / activate in src/controller-native/K1XboxControls.cpp, and
@@ -33,6 +33,7 @@ using engine::At;
 
 const std::uintptr_t kHudVtable = 0x1005a6220UL;    // CSWGuiMainInterface
 const std::uintptr_t kFadeVtable = 0x1005a90e0UL;   // CSWGuiFade, which sits over it in play
+const std::uintptr_t kBarkVtable = 0x1005ad420UL;   // CSWGuiBarkBubble (constructor 0x1002DD950)
 const std::size_t kPanelManager = 0x20, kPanelActive = 0x28, kPanelFlags = 0x5c;
 const std::uint16_t kPanelIgnored = 0x600;
 const std::size_t kMgrPanels = 0xd8, kMgrPanelCount = 0xe0, kMgrModals = 0xe8, kMgrModalCount = 0xf0;
@@ -56,7 +57,7 @@ SetActiveControlFn SetActiveControl() { return reinterpret_cast<SetActiveControl
 // 2026-09-29: a D-pad Right in the options moved the bar's focus to Heal on leaving the menu).
 struct Pending {
     int dx = 0, dy = 0;
-    bool activate = false, release = false, clearOne = false, disengage = false;
+    bool activate = false, release = false, clearOne = false;
     std::uint64_t madeMs = 0;
 } g_pending;
 
@@ -84,7 +85,10 @@ void* Slot(void* hud, int i) {
 }
 
 // Whether the HUD is the screen the player is on (IsGameplayHudActive): no modal up, and
-// nothing in front of it but the fade.
+// nothing in front of it but the fade or a bark bubble, a line of speech the game shows above the
+// HUD without taking input (audit PAD-4, Windows 2026-11-01; its dispatcher is the base panel's
+// and the input class stays the player's). While one showed, the D-pad was dropped and A and B
+// went to the world.
 bool HudActive(void* hud) {
     void* manager = At<void*>(hud, kPanelManager);
     if (!LooksLikePointer(manager)) return false;
@@ -98,7 +102,8 @@ bool HudActive(void* hud) {
         void* panel = panels[i];
         if (!LooksLikePointer(panel) || Ignored(panel)) continue;
         if (panel == hud) return true;
-        if (VtableOf(panel) != kFadeVtable) return false;
+        const std::uintptr_t vtable = VtableOf(panel);
+        if (vtable != kFadeVtable && vtable != kBarkVtable) return false;
     }
     return false;
 }
@@ -142,7 +147,7 @@ void MoveFocus(void* hud, int active, int direction) {
     // place, and the one not shown is not selectable. The first place is the default action and
     // has no slot: it is "no slot has the focus", -1 here, and reaching it lets the focus go.
     if (xboxhud::Enabled()) {
-        static const int order[8] = {-1, 0, 3, 1, 2, 6, 4, 5};
+        static const int order[8] = {-1, 0, 5, 1, 2, 6, 3, 4};   // the six places (item 58)
         int at = 0;
         for (int i = 0; i < 8; ++i)
             if (order[i] == active) at = i;
@@ -179,7 +184,7 @@ void Press(void* control) {
     reinterpret_cast<HandleFn>(*reinterpret_cast<std::uintptr_t*>(vtable + kVtHandleInput))(control, kEventA, 1);
 }
 
-// Y and X in combat press the HUD's own buttons, only while they are drawn (PressHudButtonK1).
+// Y and B press the HUD's own combat buttons, only while they are drawn (PressHudButtonK1).
 bool PressIfShown(void* hud, std::size_t member) {
     void* button = static_cast<char*>(hud) + member;
     if (!(At<std::uint8_t>(button, kCtlFlags) & kCtlVisible)) return false;
@@ -197,7 +202,6 @@ void RequestMove(int dx, int dy) {
 void RequestActivate() { g_pending.activate = true; g_pending.madeMs = NowMs(); }
 void RequestRelease() { g_pending.release = true; g_pending.madeMs = NowMs(); }
 void RequestClearOne() { g_pending.clearOne = true; g_pending.madeMs = NowMs(); }
-void RequestDisengage() { g_pending.disengage = true; g_pending.madeMs = NowMs(); }
 
 // A slot has the focus and can still act. The focus outlives what made it useful: a target slot
 // keeps it after the target changes to one with no actions in that slot (a door, which has
@@ -229,11 +233,16 @@ extern "C" __attribute__((visibility("default"))) void KmrpHudFrame(void* hud) {
     if (pending.madeMs == 0 || NowMs() - pending.madeMs > kRequestWindowMs) return;
     if (engine::CurrentInputClass() != engine::kClassPC || !HudActive(hud)) return;
     int active = FocusedIndex(hud);
-    // Y, then X: remove the last queued action, then disengage altogether.
-    // With the Xbox-style HUD, B with no slot to let go of disengages, as B does on the Xbox
-    // ("COMBAT MODE engaged. (B) to disengage."). X still does.
-    const bool disengage = pending.disengage || (pending.release && active < 0 && xboxhud::Enabled());
-    if (pending.clearOne && PressIfShown(hud, kClearOne)) ++g_count.clearOnes;
+    // Y, then B: remove the last queued action, then disengage altogether. B with no slot to let
+    // go of disengages on both HUDs, as B does on the Xbox ("COMBAT MODE engaged. (B) to
+    // disengage."; until 2026-10-19 on Windows that was X's, and B's only with the Xbox-style
+    // HUD). Y with nothing to remove flourishes the weapons, the Xbox game's Y outside combat:
+    // the request L3 makes, performed on the world's frame (gameplay.cpp).
+    const bool disengage = pending.release && active < 0;
+    if (pending.clearOne) {
+        if (PressIfShown(hud, kClearOne)) ++g_count.clearOnes;
+        else g_requests.flourish = NowMs();
+    }
     if (disengage && PressIfShown(hud, kClearAll)) ++g_count.disengages;
     if (pending.release && active >= 0) {   // B: let go of the bar, and nothing else
         SetActiveControl()(hud, nullptr, 1);

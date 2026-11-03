@@ -12,12 +12,15 @@
   the target), the slot with the focus drawn large, the action box as tall as its text, the
   combat-mode strip and line, the pause notice as one line, and the party's bars drawn curved.
 
-  Two hooks, as on Windows. KmrpXboxHud is at the entry of the HUD's map drawing (0x100237848;
+  Hooks, as on Windows. KmrpXboxHud is at the entry of the HUD's map drawing (0x100237848;
   Windows CSWGuiMainInterface::DrawMap, 0x0068AB10), which CSWGuiMainInterface::Draw
   (0x100235E44) calls after its own updating (the portraits at 0x1002361B8, UpdateIndicator, the
   six personal slots' 0x10022FCC2) and immediately before CSWGuiPanel::Draw. KmrpXboxHudBars is
   at the entry of the target menu's Draw (0x100230EEE; Windows 0x00685ED0), the call right after
   CSWGuiPanel::Draw. Both sites were read from the decompiled Draw on 2026-10-07.
+  KmrpXboxHudLists (0x100231179) is inside CSWGuiTargetActionMenu::PopulateMenus, where the row's
+  lists are made; KmrpXboxHudPauseReason and KmrpXboxHudPauseReasonDone are at the two ends of
+  CSWGuiInGamePause::SetPauseReason. Each says below what it does.
 
   Every offset and address below was read from the Mac executable (KOTOR_Exe 1.4.0) on
   2026-10-07, in the decompiled functions named beside it. Run in the game the same day beside
@@ -44,10 +47,16 @@
       in the instructions right after their own call, and the routine empties and refills the
       list every time, so a call from here between two of theirs changes nothing they read.
 
+  What came from Windows' 1.6 (handoff items 52, 58, 65, 66, 69, 85, 112 and 136), read against
+  the Mac executable and K1XboxHud.cpp on 2026-11-03 and compiled, not yet seen in the game: the
+  six places of the Xbox manual with Stealth, the action box as tall as the tallest action, the
+  name bar that grows with a long name, the focus let go of on an empty slot, the pause notice
+  in two lines where one has no room, and the parts' sizes from KMRP's HUD Size page.
+
   The option. Enabled() is KOTOR Patch Manager's `xbox-hud` when the manager recorded one
   (configs/kmrp-controller.ini beside the executable, [Patch Options]); otherwise [Hud] Style in
-  the settings file, ~/Library/Application Support/Knights of the Old Republic/
-  kmrp-controller.ini: on unless it says `PC`, compared without case, and on without the line.
+  the settings file (standalone::SettingsPath, KMRP/controller.ini in the game's settings
+  folder): on unless it says `PC`, compared without case, and on without the line.
   On the Mac the Xbox-style HUD is the controller's standard since 2026-10-07, at the
   maintainer's word; on Windows it is off unless chosen. The environment variable
   KMRP_XBOX_HUD=1 turns it on whatever either says, for automated tests. Decided once.
@@ -68,13 +77,28 @@
 #include "hud.h"
 #include "pad.h"
 #include "prompts.h"
+#include "remap.h"
+#include "standalone.h"
+#include "state.h"
 
+// The rules of the HUD Size page, shared with Windows. Its rectangle's helper is Windows' calling
+// convention, which this file does not use.
+#define __thiscall
+#include "../../../src/controller-native/K1HudOptionsPolicy.h"
+#undef __thiscall
+
+#include <dlfcn.h>
+#include <sys/stat.h>
+
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <initializer_list>
+#include <map>
 #include <string>
 #include <strings.h>
 
@@ -141,6 +165,7 @@ const std::size_t kHudMessageBack = 0x9498;        // LBL_CMBTMSGBG
 const std::size_t kHudMessageNumber = 0x97d8;      // 64 bits (0x100231C78 keeps the strref there)
 const std::size_t kHudPersonalActions = 0x97e0;    // CSWGuiMainInterfaceAction[]
 const std::size_t kHudDescription = 0xce40;        // LBL_ACTIONDESC
+const std::size_t kHudDescriptionBack = 0xcfd8;    // LBL_ACTIONDESCBG, which SetActionDescription sizes with it
 const std::size_t kHudDescriptionBottom = 0xd170;  // the edge the description grows up from (0x1002355E6)
 const std::size_t kHudSpareButton = 0xe918;        // BTN_MSG
 const std::size_t kHudSpareLabel = 0xf218;         // LBL_MENUBG
@@ -170,6 +195,10 @@ const std::size_t kHudNameFrame = kHudTargetMenu + kMenuNameBackground;   // LBL
 // A list's entry (CSWGuiInterfaceAction, 0x48 bytes): its name first, its id at +0x10, its
 // icon at +0x30 (GetDefaultActions writes 0x404 and "i_noaction" there and steps by 0x48).
 const std::size_t kEntrySize = 0x48, kEntryId = 0x10, kEntryIcon = 0x30;
+// And the rest (CSWGuiInterfaceAction::Clear, 0x10033AFF0, writes each): a member pointer's routine
+// and its adjustment, the 64-bit id of the object acted on, a flags byte (bit 0 "can be used") and
+// a count.
+const std::size_t kEntryRoutine = 0x18, kEntryObject = 0x28, kEntryFlags = 0x40, kEntryCount = 0x44;
 const std::size_t kDefaultActions = 0x6b8;         // GetDefaultActions' list, in CClientExoAppInternal
 const int kMostEntries = 256;
 
@@ -193,6 +222,7 @@ const auto StringDestroy = reinterpret_cast<void (*)(String* string)>(0x10034cdf
 // 0x1002355E6 sets LBL_ACTIONDESC's text and ends it at +0xD170; 0x100230CB4 reads the named
 // slot at +0x223B and ends in SetNameLabel.
 const auto SetDescription = reinterpret_cast<void (*)(void* hud, void* string)>(0x1002355e6UL);
+const auto SetActiveControl = reinterpret_cast<void (*)(void* panel, void* control, int sound)>(0x10049de24UL);
 const auto UpdateNameLabel = reinterpret_cast<void (*)(void* menu, void* object)>(0x100230cb4UL);
 const auto GetDefaultActions = reinterpret_cast<void (*)(void* internal)>(0x1002fbd42UL);
 const auto SetBarValue = reinterpret_cast<void (*)(void* bar, int value)>(0x1004a7104UL);
@@ -225,6 +255,12 @@ const std::size_t kVtAsSWCObject = 0x20;           // the game object's AsSWCObj
 // they stand in for.
 const char kFrameFriendly[kResRefBytes] = "kmrx_miindic01f";
 const char kFrameHostile[kResRefBytes] = "kmrx_miindic01e";
+// The same frames in three slices, friendly then hostile: the top to row 32 of the 64, a plain
+// middle that stretches, the bottom from row 32 (tools/build_xbox_hud_art.py, target_bar_slice),
+// for a name taller than its row.
+const char kFrameSlices[2][3][kResRefBytes] = {{"kmrx_miindic1ft", "kmrx_miindic1fm", "kmrx_miindic1fb"},
+                                               {"kmrx_miindic1et", "kmrx_miindic1em", "kmrx_miindic1eb"}};
+const int kFrameSplit = 32;
 const char kSlotHostile[kResRefBytes] = "lbl_miscroll_h";
 const char kSlotEnginePrefix[] = "lbl_miscroll";       // CSWGuiTargetActionMenu::SetFriend (0x100230B4A) names both
 const char kSlotFrame[kResRefBytes] = "kmrx_mibox01";
@@ -239,7 +275,6 @@ const char kNoActionIcon[kResRefBytes] = "i_noaction";
 const char kMapFrame[kResRefBytes] = "kmrx_minimap";
 const char kStripFill[kResRefBytes] = "blackfill";
 const char kLineFill[kResRefBytes] = "whitefill";
-const char kPauseGlyph[kResRefBytes] = "kmrprt_pause";    // tools/build_xbox_hud.py, PAUSE_FILL
 
 // The numbers K1XboxHud.cpp explains: the action box above its text, the small and the large
 // slot (frame, icon, arrow), the six places of the seven slots, the name bar's parts from
@@ -249,12 +284,19 @@ const int kBoxAboveText = 6, kBoxEmptyLine = 16;
 const int kSlots = 7, kTargetSlots = 3;
 const int kSmall[3][2] = {{41, 41}, {21, 21}, {11, 41}};
 const int kLarge[3][2] = {{64, 64}, {32, 32}, {14, 56}};
-const int kPlace[kSlots] = {1, 2, 3, 1, 4, 5, 3};
+// The Xbox manual's six places (K1XboxHud.cpp says how they were found, issues #55 and #50): the
+// default action, the feats and skills, offensive Force powers, grenades or mines, the
+// character's own Force powers, and the medical and other usable items together. The feats and
+// the skills share a place, the grenades and the mines another.
+const int kPlace[kSlots] = {1, 2, 3, 4, 5, 1, 3};
 const int kSharedTarget = 2;       // the grenade slot, of the seven
 const int kSharedPersonal = 6;     // the mines' slot
 const int kFeatsSlot = 0;          // the target's first slot
-const int kSkillsSlot = 3;         // the first personal slot
-const int kFirstPersonalPlace = 1, kForcePlace = 2;
+const int kSkillsSlot = 5;         // the third personal slot, holding the skills (KmrpXboxHudLists)
+const int kRowPlaces = 5;          // the places after the first, which this file draws
+// Where xbox_hud_layout.inc puts the first two personal slots (BTN_ACTION0, 1): the row's
+// geometry is read from them (ReadRow), whatever kPlace shows there now.
+const int kTablePlaces[2] = {1, 4};
 const int kParked = -4000;
 const int kNameHeight = 26;                            // LBL_NAME
 const int kNameFrame[4] = {-10, -14, 271, 64};         // LBL_INDICATE, from LBL_NAME's corner
@@ -268,6 +310,7 @@ const double kMapFrameLine = 4.0;                      // kmrx_minimap's line en
 // (GetDefaultActions); 42475 and 48384 are the Windows file's.
 const std::uint64_t kEngagedString = 48208, kEngagedPadString = 42475, kNoActionString = 32236;
 const std::uint64_t kPausePressString = 48384;         // "PRESS THE PAUSE BUTTON TO CONTINUE"
+const std::uint64_t kStealthName = 325;                // "Stealth"
 // What the Windows engine makes of "<bbutton>" in 42475. Not verified on the Mac: when the
 // character is not in the string the line is not split and the game's own message stays.
 const char kButtonCharacter = 0x11;
@@ -486,11 +529,22 @@ void CombatMessage(void* hud, void* client, int width) {
 
 // The first place, as the first hook decided it and the second draws it.
 struct FirstPlace {
-    bool draw = false, selected = false, dimForce = false;
+    bool draw = false, selected = false;
     char icon[kResRefBytes] = {};
-    Extent frame{}, picture{}, force{};
+    Extent frame{}, picture{};
+    int empties = 0;
+    Extent empty[kRowPlaces]{};        // the places with no slot shown: a dim frame each
     int width = 0, height = 0;
 } g_first;
+
+// The name frame's three slices, for a name taller than its row, as the first hook placed them
+// and the second draws them (K1XboxHud.cpp, NameSlices).
+struct NameSlices {
+    bool draw = false;
+    int hostile = 0;
+    Extent top{}, middle{}, bottom{};
+    int width = 0, height = 0;
+} g_nameSlices;
 
 // ---- The layout, applied to the live controls.
 //
@@ -558,6 +612,107 @@ void ClampBoundTexture() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 }
 
+// ---- The sizes of this HUD's parts, from the HUD Size page in KMRP's Graphics Options (handoff
+// items 59 and 66): the action menu, the party, the minimap, the target's bar at the top left and
+// the Disengage button, each made larger or smaller about its corner of the screen, 50% being
+// the HUD as it was, 100% twice that. The page is KMRP's and this patch works without KMRP
+// (handoff item 112). Only while KMRP's module is loaded beside this one does it read the page's
+// section of swkotor.ini: once, and again whenever the file has been written since (looked at
+// twice a second at most, which costs a file's attributes), so a slider moved on the page shows
+// on the HUD when the game is back. Without KMRP every part stays at the standard 50%, even when
+// that section remains from an earlier install. Windows' Sizes.
+namespace sizes = KmrpHudOptions;
+using sizes::ElementCount;
+using HudSizes = std::array<int, ElementCount>;
+
+std::string Trimmed(const std::string& s);
+
+const HudSizes& Sizes() {
+    static HudSizes held = [] { HudSizes all; all.fill(sizes::Default); return all; }();
+    if (!standalone::BesideKmrp()) {
+        held.fill(sizes::Default);
+        return held;
+    }
+    static std::uint64_t looked = 0;
+    static timespec written{};
+    static bool once = false;
+    const std::uint64_t now = NowMs();
+    if (once && now - looked < 500) return held;
+    once = true;
+    looked = now;
+    const char* home = std::getenv("HOME");
+    if (!home || !*home) return held;
+    const std::string path = std::string(home) + "/Library/Application Support/Knights of the Old Republic/swkotor.ini";
+    struct stat about;
+    if (stat(path.c_str(), &about) != 0) return held;
+    if (about.st_mtimespec.tv_sec == written.tv_sec && about.st_mtimespec.tv_nsec == written.tv_nsec) return held;
+    written = about.st_mtimespec;
+    FILE* f = std::fopen(path.c_str(), "r");
+    if (!f) return held;
+    HudSizes read = held;
+    for (int e = sizes::XboxActions; e < ElementCount; ++e) read[e] = sizes::Default;
+    bool ours = false;
+    char buffer[1024];
+    while (std::fgets(buffer, sizeof buffer, f)) {
+        const std::string line = Trimmed(buffer);
+        if (line.empty() || line[0] == ';' || line[0] == '#') continue;
+        if (line[0] == '[') {
+            const std::size_t close = line.find(']');
+            ours = close != std::string::npos && strcasecmp(Trimmed(line.substr(1, close - 1)).c_str(), "KMRP HUD Size") == 0;
+            continue;
+        }
+        const std::size_t eq = line.find('=');
+        if (!ours || eq == std::string::npos) continue;
+        const std::string key = Trimmed(line.substr(0, eq));
+        for (int e = sizes::XboxActions; e < ElementCount; ++e) {
+            std::string wanted;
+            for (const wchar_t* k = sizes::IniKeys[e]; *k; ++k) wanted += static_cast<char>(*k);
+            if (strcasecmp(key.c_str(), wanted.c_str()) == 0) read[e] = sizes::Percent(std::atoi(line.c_str() + eq + 1));
+        }
+    }
+    std::fclose(f);
+    held = read;
+    return held;
+}
+
+// Each part's box as the table places it on this screen, before its size, and the size it was
+// placed at: what Sized and SizedHeight work from (ApplyXbox sets them).
+sizes::Rect g_parts[ElementCount]{};
+HudSizes g_placedSizes{};
+
+sizes::Rect AsRect(const Extent& e) { return {e.left, e.top, e.width, e.height}; }
+Extent AsExtent(const sizes::Rect& r) { return {r.left, r.top, r.width, r.height}; }
+// A rectangle of a part, at the part's size, about the part's corner.
+Extent Sized(int element, const Extent& at) {
+    return AsExtent(sizes::ScaleAbout(AsRect(at), g_parts[element], sizes::CornerOf(element), g_placedSizes[element]));
+}
+// The screen height a part's lengths are drawn for: the screen's, at the part's size.
+// Scale(value, SizedHeight(part, height)) is a length of that part at its size.
+int SizedHeight(int element, int height) { return sizes::Round(height * sizes::Factor(g_placedSizes[element])); }
+
+// The size the mouse and keyboard HUD's minimap is shown at by KMRP (Windows K1PcHud.cpp), or 50
+// without KMRP: the minimap here is the game's own HUD's size (ApplyXbox), and that is taken as
+// it would be at 50% so that each HUD's slider sizes only its own. KMRP's export is found through
+// its module's handle, beside this one's: a patch's module is loaded local, so a search of every
+// image finds nothing (audit MAC-5). A module without it is taken for 50%.
+int PcMinimapSize() {
+    if (!standalone::BesideKmrp()) return sizes::Default;
+    using Applied = int (*)(int);
+    static Applied applied = nullptr;
+    if (!applied) {
+        Dl_info self;
+        if (dladdr(reinterpret_cast<const void*>(&PcMinimapSize), &self) && self.dli_fname) {
+            std::string path(self.dli_fname);
+            path = path.substr(0, path.rfind('/') + 1) + "kmrp.dylib";
+            if (void* const kmrp = dlopen(path.c_str(), RTLD_NOLOAD | RTLD_LAZY)) {
+                applied = reinterpret_cast<Applied>(dlsym(kmrp, "KmrpHudAppliedSizeK1"));
+                dlclose(kmrp);
+            }
+        }
+    }
+    return applied ? sizes::Percent(applied(sizes::PcMinimap)) : sizes::Default;
+}
+
 struct Kept { Extent extent; char art[3][kResRefBytes]; char font[kResRefBytes]; };
 struct Layout {
     void* hud = nullptr;
@@ -570,9 +725,11 @@ struct Layout {
     bool cues = false;
     int bubble[3]{};
     bool bubbleKept = false;
+    int bubbleTop = 0;                 // the speech box's top in the Xbox layout, under the name bar
     Extent arrowMargin{};      // LBL_ARROW_MARGIN's rectangle as the layout has it
     bool arrowMarginKept = false;
     float spareAlpha = 1.0f;           // of LBL_MENUBG's fill, which the hooks draw with
+    HudSizes sizes{};                  // the parts' sizes the Xbox layout was applied at
 } g_layout;
 
 const char* Piece::* const kArt[3] = {&Piece::fill, &Piece::hilight, &Piece::progress};
@@ -678,11 +835,61 @@ void FramePortraits(void* hud) {
     }
 }
 
+// The part of the HUD a piece belongs to, or -1 (K1HudOptionsPolicy.h's XboxElementOf, whose
+// offsets are Windows'): the combat strip across the top keeps its size, and anything else at the
+// bottom left is the action menu.
+int ElementOf(const Piece& piece) {
+    if (piece.flags & kHide) return -1;
+    if (piece.flags & kParty) return sizes::XboxParty;
+    if (piece.flags & kRow) return -1;
+    switch (piece.offset) {
+        case 0x7640: case 0x7b20: return sizes::XboxMinimap;                               // LBL_MAPBORDER, BTN_MINIMAP
+        case 0x1cb8: case 0x1e50: case 0x1fe8: case 0x2180: return sizes::XboxTargetBar;   // LBL_NAME(BG), LBL_HEALTHBG, PB_HEALTH
+        // The disengage button and its queue: LBL_COMBATBG1, LBL_QUEUE0..3, BTN_CLEARONE(2).
+        case 0x83c0: case 0x7d60: case 0x7ef8: case 0x8090: case 0x8228: case 0x8aa8: case 0x8ce8:
+            return sizes::XboxDisengage;
+    }
+    return piece.side == kLeft && piece.edge == kBottom ? sizes::XboxActions : -1;
+}
+
 void ApplyXbox(void* hud, int width, int height) {
+    // Each piece where the table puts it, then at its part's size about the part's corner. A
+    // part's box is all its pieces on the screen; the portraits' combat-effect arrows, which the
+    // engine keeps relative to their portrait, are sized from their own origin.
+    HudSizes partSizes = Sizes();
+    Extent placed[kPieceCount];
+    bool seen[ElementCount] = {};
+    for (int i = 0; i < kPieceCount; ++i) {
+        const Piece& piece = kPieces[i];
+        placed[i] = Placed(piece, g_layout.kept[i], width, height);
+        const int element = ElementOf(piece);
+        if (element < 0 || piece.side == kRelative) continue;
+        const sizes::Rect r = AsRect(placed[i]);
+        if (!seen[element]) { g_parts[element] = r; seen[element] = true; continue; }
+        sizes::Rect& box = g_parts[element];
+        const int right = std::max(box.left + box.width, r.left + r.width), bottom = std::max(box.top + box.height, r.top + r.height);
+        box.left = std::min(box.left, r.left);
+        box.top = std::min(box.top, r.top);
+        box.width = right - box.left;
+        box.height = bottom - box.top;
+    }
+    // Each part at its size, or as large as the screen holds it (FittingSize).
+    for (int e = sizes::XboxActions; e < ElementCount; ++e)
+        if (seen[e]) partSizes[e] = sizes::FittingSize(g_parts[e], sizes::CornerOf(e), partSizes[e], width, height);
+    g_placedSizes = partSizes;
     for (int i = 0; i < kPieceCount; ++i) {
         const Piece& piece = kPieces[i];
         void* control = Part(hud, piece.offset);
-        SetExtent(control, Placed(piece, g_layout.kept[i], width, height));
+        const int element = ElementOf(piece);
+        Extent at = placed[i];
+        if (element >= 0 && piece.side == kRelative) {
+            const double f = sizes::Factor(partSizes[element]);
+            at = {sizes::Round(at.left * f), sizes::Round(at.top * f), std::max(1, sizes::Round(at.width * f)),
+                  std::max(1, sizes::Round(at.height * f))};
+        } else if (element >= 0) {
+            at = Sized(element, at);
+        }
+        SetExtent(control, at);
         for (int which = 0; which < 3; ++which) {
             const char* name = piece.*kArt[which];
             void* params = Dress(control, piece.kind, which);
@@ -698,10 +905,16 @@ void ApplyXbox(void* hud, int width, int height) {
         box.height = At<Extent>(Part(upper, 2 * kLabelSize), kControlExtent).top + kSeamOverlap - box.top;
         SetExtent(upper, box);
     }
-    At<int>(hud, kHudDescriptionBottom) = height - Scale(kLayoutHeight - kDescriptionBottom - kOutY, height);
+    // The action description's bottom edge, which the box grows up from, with the action menu at
+    // its size.
+    {
+        const int bottom = height - Scale(kLayoutHeight - kDescriptionBottom - kOutY, height);
+        At<int>(hud, kHudDescriptionBottom) = Sized(sizes::XboxActions, {0, bottom, 1, 1}).top;
+    }
     // The minimap is the size the game's own HUD has it. Its frame is fitted around the map
     // (the art's line ends 4 of its 64 in) and keeps the Xbox frame's top right corner; the
-    // button and the rectangle the map is drawn in keep their places inside the frame.
+    // button and the rectangle the map is drawn in keep their places inside the frame. The game's
+    // own HUD's map, as at 50% on KMRP's page, then at this HUD's minimap size, its button with it.
     {
         void* border = Part(hud, kHudMapBorder);
         void* button = Part(hud, kHudMapButton);
@@ -709,7 +922,9 @@ void ApplyXbox(void* hud, int width, int height) {
         for (int i = 0; i < kPieceCount; ++i)
             if (kPieces[i].offset == kHudMapButton) wasButton = g_layout.kept[i].extent;
         const Extent xbox = At<Extent>(border, kControlExtent);
-        const int mapWidth = g_layout.mapWindow[2], mapHeight = g_layout.mapWindow[3];
+        const double mapScale = sizes::Factor(partSizes[sizes::XboxMinimap]) / sizes::Factor(PcMinimapSize());
+        const int mapWidth = std::max(1, sizes::Round(g_layout.mapWindow[2] * mapScale));
+        const int mapHeight = std::max(1, sizes::Round(g_layout.mapWindow[3] * mapScale));
         Extent frame{};
         frame.width = static_cast<int>(mapWidth * 64.0 / (64.0 - 2 * kMapFrameLine) + 0.5);
         frame.height = static_cast<int>(mapHeight * 64.0 / (64.0 - 2 * kMapFrameLine) + 0.5);
@@ -717,8 +932,10 @@ void ApplyXbox(void* hud, int width, int height) {
         frame.top = xbox.top;
         const int mapLeft = frame.left + (frame.width - mapWidth) / 2, mapTop = frame.top + (frame.height - mapHeight) / 2;
         SetExtent(border, frame);
-        SetExtent(button, {mapLeft + wasButton.left - g_layout.mapWindow[0], mapTop + wasButton.top - g_layout.mapWindow[1],
-                           wasButton.width, wasButton.height});
+        SetExtent(button, {mapLeft + sizes::Round((wasButton.left - g_layout.mapWindow[0]) * mapScale),
+                           mapTop + sizes::Round((wasButton.top - g_layout.mapWindow[1]) * mapScale),
+                           std::max(1, sizes::Round(wasButton.width * mapScale)),
+                           std::max(1, sizes::Round(wasButton.height * mapScale))});
         int* map = &At<int>(hud, kHudMapWindow);
         map[0] = mapLeft;
         map[1] = mapTop;
@@ -737,9 +954,10 @@ void ApplyXbox(void* hud, int width, int height) {
             std::memcpy(g_layout.cueFill, &At<char>(messageCue, kLabelBorderParams + kParamsFill), kResRefBytes);
     }
     if (queueCue)
-        SetExtent(queueCue, {width / 2 - Scale(kLayoutWidth / 2 - kQueueCue[0], height),
-                             height - Scale(kLayoutHeight - kQueueCue[1] - kOutY, height),
-                             Scale(kQueueCue[2], height), Scale(kQueueCue[3], height)});
+        SetExtent(queueCue, Sized(sizes::XboxDisengage,
+                                  {width / 2 - Scale(kLayoutWidth / 2 - kQueueCue[0], height),
+                                   height - Scale(kLayoutHeight - kQueueCue[1] - kOutY, height),
+                                   Scale(kQueueCue[2], height), Scale(kQueueCue[3], height)}));
     if (messageCue) SetFillName(Part(messageCue, kLabelBorderParams), kDisengageFill);
     // The speech box: from just left of the target's bar, right under it. (The Mac's Draw
     // takes the screen's width less the safe margins in place of the kept width while
@@ -749,13 +967,18 @@ void ApplyXbox(void* hud, int width, int height) {
             g_layout.bubbleKept = true;
             std::memcpy(g_layout.bubble, bubble, sizeof g_layout.bubble);
         }
-        bubble[0] = Scale(kBark[0] - kOutX, height);
-        bubble[1] = Scale(kBark[1], height);
-        bubble[2] = Scale(kBark[2], height);
+        // With the target's bar at its size: the box stays under it.
+        const Extent box = Sized(sizes::XboxTargetBar, {Scale(kBark[0] - kOutX, height), Scale(kBark[1], height),
+                                                        Scale(kBark[2], height), 1});
+        bubble[0] = box.left;
+        bubble[1] = box.top;
+        bubble[2] = box.width;
+        g_layout.bubbleTop = box.top;  // Frame moves it down with the name bar
     }
     g_layout.xbox = true;
     g_layout.width = width;
     g_layout.height = height;
+    g_layout.sizes = Sizes();          // as asked, to see a change; g_placedSizes holds them as drawn
     ReadRow(hud, height);
 }
 
@@ -777,16 +1000,17 @@ void ReadRow(void* hud, int height) {
     void* first = Part(hud, kHudPersonalActions);
     void* second = Part(first, kActionSize);
     for (int p = 0; p < 4; ++p) g_row.part[p] = At<Extent>(Part(first, kActionParts[p]), kControlExtent);
-    // The first two personal slots are kPlace[3] and kPlace[4]: three places apart.
-    g_row.pitch = (At<Extent>(second, kControlExtent).left - g_row.part[0].left) / (kPlace[4] - kPlace[3]);
+    // The table puts the first two personal slots three places apart (kTablePlaces).
+    g_row.pitch = (At<Extent>(second, kControlExtent).left - g_row.part[0].left) / (kTablePlaces[1] - kTablePlaces[0]);
     g_row.nameTop = At<Extent>(Part(Part(hud, kHudTargetMenu), kMenuNameLabel), kControlExtent).top;
     g_row.mapBorderTop = At<Extent>(Part(hud, kHudMapBorder), kControlExtent).top;
     g_row.mapButtonTop = At<Extent>(Part(hud, kHudMapButton), kControlExtent).top;
     g_row.mapWindowTop = At<int>(hud, kHudMapWindowTop);
     // The Xbox layout has the frame at its scaled 41 px and a positive pitch. Anything else is
     // not that layout: leave it be.
-    g_row.usable = g_row.pitch > 0 && g_row.part[0].width == Scale(kSmall[0][0], height) && g_row.part[0].left >= 0 &&
-                   g_row.part[0].top >= 0;
+    const int frame = Scale(kSmall[0][0], SizedHeight(sizes::XboxActions, height));
+    g_row.usable = g_row.pitch > 0 && g_row.part[0].width >= frame - 1 && g_row.part[0].width <= frame + 1 &&
+                   g_row.part[0].left >= 0 && g_row.part[0].top >= 0;
 }
 
 // The minimap's frame beside another patch that moves LBL_MAPBORDER inside the map's drawing,
@@ -801,7 +1025,21 @@ bool g_mapBorderForeign = false;
 // which slots it parked, the frames the engine last gave the target's slots, and the arrows it
 // hid.
 bool g_parked[kSlots] = {};
-bool g_shownWhenParked[kSlots] = {};   // the slot's button, when it was parked
+// Since this file draws a dim frame in every place with no slot shown (issue #55), an empty slot
+// is never visible: a slot is shown exactly while its list has entries. What the PC HUD had is
+// kept for RestorePc alone: whether a slot was visible when this layout hid it, so the mouse and
+// keyboard HUD gets its empty frames back as the engine left them (K1XboxHud.cpp, g_pcShown).
+// Until 2026-11-03 the Mac kept a parked slot's visibility and gave it back here too, which also
+// brought back as visible a slot whose list had emptied meanwhile.
+bool g_pcShown[kSlots] = {};
+bool g_hidden[kSlots] = {};
+void HideSlot(int slot, void* action) {
+    if (!g_hidden[slot]) {
+        g_pcShown[slot] = Visible(action);
+        g_hidden[slot] = true;
+    }
+    Hide(action);
+}
 char g_engineFrame[kTargetSlots][2][kResRefBytes] = {};
 bool g_arrowsHidden = false;
 
@@ -852,7 +1090,13 @@ void RestorePc(void* hud, void* seen) {
             if (g_engineFrame[slot][1][0]) SetFill(Part(action, kButtonHilightParams), g_engineFrame[slot][1]);
         }
         const int count = SlotCount(hud, slot);
-        if (g_parked[slot] && (g_shownWhenParked[slot] || count > 0)) Show(action);
+        // A slot this layout hid comes back as the PC HUD had it: shown if its list has entries,
+        // and an empty one as the engine left it (some it shows empty).
+        if (g_hidden[slot]) {
+            if (count > 0 || g_pcShown[slot]) Show(action);
+            else Hide(action);
+            g_hidden[slot] = false;
+        }
         g_parked[slot] = false;
         if (slot == 0 && g_arrowsHidden && count > 1) {
             Show(Part(action, kActionParts[2]));
@@ -867,6 +1111,7 @@ void RestorePc(void* hud, void* seen) {
     // The engine stacks the health bar and the slots under the name again.
     if (seen) UpdateNameLabel(menu, seen);
     g_first = FirstPlace{};
+    g_nameSlices = NameSlices{};
     for (auto& member : g_bars)
         for (Bar& held : member) held = Bar{};
     g_layout.xbox = false;
@@ -896,11 +1141,8 @@ std::string Trimmed(const std::string& s) {
 // rumble.cpp's IniValue reads [Rumble] (section and key without regard to case, the first of a
 // key, `;` and `#` lines skipped).
 std::string HudStyle() {
-    const char* home = std::getenv("HOME");
-    if (!home || !*home) return std::string();
-    const std::string path =
-        std::string(home) + "/Library/Application Support/Knights of the Old Republic/kmrp-controller.ini";
-    FILE* f = std::fopen(path.c_str(), "r");
+    const std::string path = standalone::SettingsPath();
+    FILE* f = path.empty() ? nullptr : std::fopen(path.c_str(), "r");
     if (!f) return std::string();
     std::string style;
     bool ours = false;
@@ -933,7 +1175,7 @@ std::string HudStyle() {
 // label two pixels under it and as tall as its own text (or hidden), the panel ending five
 // pixels under the last label, the button on the reason's rectangle with the panel's height.
 // With this HUD the notice stands left of the minimap and is one line, "PAUSED. PRESS [the
-// right trigger] TO CONTINUE", the trigger drawn on the panel's own button; the words are
+// button that pauses] TO CONTINUE", that button drawn on the panel's own button; the words are
 // English and are used only where the game's own line is the English one.
 //
 // Two things are kept to give the box back (K1XboxHud.cpp says what went wrong with less): the
@@ -959,12 +1201,18 @@ bool g_pauseButtonKept[2] = {};
 float g_pauseButtonColour[2][3] = {};
 std::uint8_t g_pauseButtonFlags[2] = {};
 
-// Whether the box carries this file's line: its button has the trigger's picture, whichever
-// family's (the fourth letter of the name).
+// Whether the box carries this file's line: its button has one of the pictures PauseNotice puts
+// there, whichever family's (the fourth letter of the name): the button Pause is on (kmr?rm<code>,
+// remap::Glyph). Any button, not only the one Pause is on now: a layout saved while the box is up
+// leaves the old picture in it until PauseNotice sets the new one, and that box is still this
+// file's. The right trigger's picture, kmrprt_pause until 1.6, is no longer shown.
 bool PauseCarriesOurs(void* pause) {
     char fill[kResRefBytes + 1] = {};
-    std::memcpy(fill, &At<char>(Part(Part(pause, kPauseButton), kButtonBorderParams), kParamsFill), kResRefBytes);
-    return strncasecmp(fill, kPauseGlyph, 3) == 0 && strcasecmp(fill + 4, kPauseGlyph + 4) == 0;
+    std::memcpy(fill, &At<char>(Part(Part(pause, kPauseButton), kButtonBorderParams), kParamsFill), 16);
+    if (strncasecmp(fill, "kmr", 3) != 0 || !fill[3] || strncasecmp(fill + 4, "rm", 2) != 0) return false;
+    for (const char* code : KmrpRemap::GlyphCodes)
+        if (strcasecmp(fill + 6, code) == 0) return true;
+    return false;
 }
 
 // The box as the game has it; true when there was something of this file's to undo.
@@ -1023,13 +1271,21 @@ bool RestorePauseNotice(void* pause) {
     return true;
 }
 
+// The target's name frame as drawn, with the rows a long name adds: the frame's label, not
+// LBL_NAMEBG of the HUD beneath it, which is narrower and ends inside the frame.
+Extent g_nameFrameDrawn{};
+
 // The pause notice as one line, made the way the combat-mode message is: the words before the
 // picture in one label, the words after it in the other, the picture between them, each
 // label's rectangle as wide as its words. Called before every draw while the Xbox layout is
 // up: the game writes the reason and gives the three controls their rectangles anew every
 // time it pauses, so everything set here is compared with what is there and set again when
 // anything differs.
-void PauseNotice(void* pause, void* client) {
+//
+// `room` is what the screen leaves for the one line left of the minimap and `frameWidth` the
+// target's name frame. True when the line did not fit there, so the box is laid out in two lines,
+// frameWidth wide, for PlacePause to put under that frame (handoff item 136).
+bool PauseNotice(void* pause, void* client, int room, int frameWidth) {
     static bool tried = false, english = false;
     if (!tried && client) {
         tried = true;
@@ -1039,13 +1295,13 @@ void PauseNotice(void* pause, void* client) {
         english = words && strcasecmp(words, "PRESS THE PAUSE BUTTON TO CONTINUE") == 0;
         StringDestroy(&line);
     }
-    if (!english) return;
+    if (!english) return false;
     void* reason = Part(pause, kPauseReason);
     void* press = Part(pause, kPausePress);
     void* button = Part(pause, kPauseButton);
     const char* const reasonNow = TextOf(At<String>(reason, kLabelTextParams));
     const char* const pressNow = TextOf(At<String>(press, kLabelTextParams));
-    if (!reasonNow) return;
+    if (!reasonNow) return false;
     // The layout's own, while the box has nothing of this file's in it (PauseOwn).
     if (!PauseCarriesOurs(pause) && !g_pauseStripped) {
         const Extent r = At<Extent>(reason, kControlExtent), p = At<Extent>(press, kControlExtent);
@@ -1062,16 +1318,21 @@ void PauseNotice(void* pause, void* client) {
     static char first[160] = {};                    // the words before the picture, as last set
     static const char second[] = "TO CONTINUE";
     static Extent set[4]{};                         // reason, press, button, panel, as last set
-    static char familyShown = 0;
+    static char familyShown[16] = {};               // the picture as last set
+    static int roomShown = 0, frameShown = 0;       // what it was laid out for
+    static bool stacked = false;                    // in two lines, as last set
     if (g_pauseForget) {
         g_pauseForget = false;
         first[0] = 0;
-        familyShown = 0;
+        familyShown[0] = 0;
+        roomShown = frameShown = 0;
         for (Extent& one : set) one = Extent{};
     }
+    // The button that pauses: LB, or the button Pause was moved to (remap.h).
+    char pauses[16] = {};
+    remap::Glyph(KmrpRemap::LB, prompts::FamilyLetter(), pauses);
     char family[kResRefBytes] = {};
-    std::memcpy(family, kPauseGlyph, sizeof kPauseGlyph);
-    family[3] = prompts::FamilyLetter();
+    std::memcpy(family, pauses, sizeof pauses);
     const auto same = [](const Extent& x, const Extent& y) {
         return x.left == y.left && x.top == y.top && x.width == y.width && x.height == y.height;
     };
@@ -1079,8 +1340,9 @@ void PauseNotice(void* pause, void* client) {
     if (first[0] && std::strcmp(reasonNow, first) == 0 && pressNow && std::strcmp(pressNow, second) == 0 &&
         same(At<Extent>(reason, kControlExtent), set[0]) && same(At<Extent>(press, kControlExtent), set[1]) &&
         same(At<Extent>(button, kControlExtent), set[2]) && panelNow.width == set[3].width &&
-        panelNow.height == set[3].height && Visible(press) && familyShown == family[3])
-        return;
+        panelNow.height == set[3].height && Visible(press) && std::memcmp(familyShown, pauses, sizeof pauses) == 0 && room == roomShown &&
+        frameWidth == frameShown && !g_pauseStripped)
+        return stacked;
 
     // A reason that is not this file's line is the game's, just written, and with it whether
     // the second label is shown (PauseKept).
@@ -1092,9 +1354,9 @@ void PauseNotice(void* pause, void* client) {
 
     // The font's measures, from the first label's string as it is drawn.
     Measures measures;
-    if (!MeasuresOf(reason, measures)) return;
+    if (!MeasuresOf(reason, measures)) return false;
     const int lineHeight = measures.lineHeight;
-    if (lineHeight <= 0) return;
+    if (lineHeight <= 0) return false;
 
     // The words before the picture: the reason's first line (the PC puts "Press the Pause key
     // ..." on a second line for an enemy or a mine sighted), a full stop unless it ends in a
@@ -1136,12 +1398,27 @@ void PauseNotice(void* pause, void* client) {
     set[0] = {end - slack, top, firstWide + 2 * slack, lineHeight};
     set[2] = {end + firstWide + gap, edge, glyph, glyph};
     set[1] = {set[2].left + glyph + gap - slack, top, secondWide + 2 * slack, lineHeight};
-    SetExtent(reason, set[0]);
-    SetExtent(press, set[1]);
-    SetExtent(button, set[2]);
     Extent box = panelNow;
     box.width = set[1].left + slack + secondWide + end;
     box.height = glyph + 2 * edge;
+    // Too wide for its place beside the name frame (800x600: over the frame, the maintainer saw
+    // it on Windows, 2026-11-02): as wide as the frame, words above, picture and words below,
+    // each centred.
+    stacked = frameWidth > 0 && box.width > room;
+    if (stacked) {
+        const int below = edge + lineHeight + edge;
+        const int across = (frameWidth - (glyph + gap + secondWide)) / 2;
+        set[0] = {(frameWidth - firstWide) / 2 - slack, edge, firstWide + 2 * slack, lineHeight};
+        set[2] = {across, below, glyph, glyph};
+        set[1] = {across + glyph + gap - slack, below + (glyph - lineHeight) / 2, secondWide + 2 * slack, lineHeight};
+        box.width = frameWidth;
+        box.height = below + glyph + edge;
+    }
+    roomShown = room;
+    frameShown = frameWidth;
+    SetExtent(reason, set[0]);
+    SetExtent(press, set[1]);
+    SetExtent(button, set[2]);
     SetExtent(pause, box);
     set[3] = box;
 
@@ -1165,21 +1442,129 @@ void PauseNotice(void* pause, void* client) {
     }
     g_pauseStripped = false;
     Show(button);
-    familyShown = family[3];
+    std::memcpy(familyShown, pauses, sizeof pauses);
+    return stacked;
 }
 
 // The pause notice as this HUD has it and where: left of the minimap, level with the minimap's
 // frame and as far from it as the frame is from the screen's edge.
 void PlacePause(void* hud, void* pause, void* client, int width) {
-    PauseNotice(pause, client);
     const Extent map = At<Extent>(Part(hud, kHudMapBorder), kControlExtent);
+    // The frame's art has a clear edge, a 44th of its width on each side (measured on Windows at
+    // 800x600 and 1280x720, 2026-11-02): the box takes the width that is drawn.
+    Extent name = g_nameFrameDrawn;
+    const int clear = name.width / 44;
+    name.left += clear;
+    name.width -= 2 * clear;
+    const int margin = std::max(0, width - (map.left + map.width));
+    const int room = map.left - margin - (name.left + name.width) - margin;
+    const bool stacked = PauseNotice(pause, client, room, name.width);
     Extent& at = At<Extent>(pause, kControlExtent);
-    if (map.width > 0 && at.width > 0) {
-        const int margin = width - (map.left + map.width);
-        const int left = map.left - (margin > 0 ? margin : 0) - at.width;
+    if (stacked) {
+        at.left = name.left;
+        at.top = name.top + name.height + margin / 2;
+    } else if (map.width > 0 && at.width > 0) {
+        const int left = map.left - margin - at.width;
         at.left = left > 0 ? left : 0;
         at.top = map.top;
     }
+}
+
+// "No Action" (dialog.tlk 32236), which the box names when there is nothing to do; fetched once
+// and kept.
+String* NoActionName(void* client) {
+    static String name;
+    static bool fetched = false;
+    if (!fetched && client) {
+        GetGuiString(&name, client, kNoActionString);
+        fetched = true;
+    }
+    return fetched ? &name : nullptr;
+}
+
+const int kListLimit = 1024;
+
+int ListCount(void* list) {
+    const int count = At<int>(list, kListCount);
+    return count >= 0 && count <= kListLimit && LooksLikePointer(At<char*>(list, 0)) ? count : 0;
+}
+
+// The height of the tallest description of every action seen this session (K1XboxHud.cpp,
+// TallestDescription; handoff item 65): each entry of the target's three lists and of the four
+// personal lists the row shows, the default action and "No Action", remembered from draw to draw.
+// The action box is that tall whichever is shown, so it keeps one height while the pad moves
+// through them and never gets smaller during a session. A name is measured once, the way
+// SetActionDescription measures the one it shows: set as the description label's text, the
+// label's ideal height at its width. When the label's width or its font's measures change, every
+// name seen is measured again. The label's own text is put back after measuring. The names are
+// copied: the lists are made anew for every draw.
+int TallestDescription(void* hud, void* menu, const char* usualEntry, String* none) {
+    struct Measure {
+        const void* info = nullptr;
+        int lineHeight = 0;
+        float texels = 0.0f, scale = 0.0f;
+        int width = 0;
+        bool operator==(const Measure& o) const {
+            return info == o.info && lineHeight == o.lineHeight && texels == o.texels && scale == o.scale && width == o.width;
+        }
+    };
+    static Measure measuredWith;
+    static std::map<std::string, int> heights;      // every name seen; -1 while unmeasured
+    static int tallest = 0;
+    static bool unmeasured = false;
+    void* label = Part(hud, kHudDescription);
+    char* const object = At<char*>(Part(label, text::kLabelText), text::kTextObject);
+    text::Font font{};
+    if (!Readable(object, 0x60) || !text::FontOf(object, font)) return tallest;
+    Measure now;
+    now.info = font.upperLeft;
+    now.lineHeight = font.lineHeight;
+    now.texels = font.texels;
+    now.scale = At<float>(object, text::kObjScale);
+    now.width = At<Extent>(label, kControlExtent).width;
+    if (!(now == measuredWith)) {
+        for (auto& item : heights) item.second = -1;
+        tallest = 0;
+        unmeasured = !heights.empty();
+        measuredWith = now;
+    }
+
+    // The names in the row now, remembered.
+    auto remember = [&](const String* name) {
+        const char* const words = name ? TextOf(*name) : nullptr;
+        if (!words || !*words) return;
+        const std::string text(words, strnlen(words, 1024));
+        if (heights.find(text) == heights.end()) {
+            heights.emplace(text, -1);
+            unmeasured = true;
+        }
+    };
+    auto rememberList = [&](void* list) {
+        char* entries = At<char*>(list, 0);
+        for (int i = 0, n = ListCount(list); i < n; ++i) remember(reinterpret_cast<const String*>(entries + i * kEntrySize));
+    };
+    for (int slot = 0; slot < kTargetSlots; ++slot) rememberList(Part(menu, kMenuActionLists + slot * kListStride));
+    for (int slot = kTargetSlots; slot < kSlots; ++slot)
+        rememberList(Part(hud, kHudPersonalLists + (slot - kTargetSlots) * kListStride));
+    if (usualEntry) remember(reinterpret_cast<const String*>(usualEntry));
+    remember(none);
+    if (!unmeasured) return tallest;
+
+    // Those not yet measured at this size.
+    std::string shown;
+    if (const char* was = TextOf(At<String>(label, kLabelTextParams))) shown.assign(was, strnlen(was, 4096));
+    for (auto& item : heights) {
+        if (item.second >= 0) continue;
+        String copy{const_cast<char*>(item.first.c_str()), static_cast<std::uint32_t>(item.first.size())};  // SetText copies it
+        SetText(label, &copy);
+        const int measured = TextHeight(Part(label, text::kLabelText));
+        item.second = measured > 0 ? measured : 0;
+        tallest = std::max(tallest, item.second);
+    }
+    unmeasured = false;
+    String back{shown.empty() ? nullptr : &shown[0], static_cast<std::uint32_t>(shown.size())};
+    SetText(label, &back);
+    return tallest;
 }
 
 // The first hook's work (K1XboxHud.cpp, KmrpXboxHudK1), before every draw of the HUD.
@@ -1223,7 +1608,12 @@ void Frame(void* hud) {
         }
         return;
     }
-    if (!g_layout.xbox || g_layout.width != width || g_layout.height != height) ApplyXbox(hud, width, height);
+    // The game's own HUD is kept anew each time this layout takes it, not only at its first
+    // sight: KMRP places that HUD itself and places it again when its sizes change, so what was
+    // kept at first sight could be out of date by the time this layout gave it back.
+    if (!g_layout.xbox) Keep(hud);
+    if (!g_layout.xbox || g_layout.width != width || g_layout.height != height || g_layout.sizes != Sizes())
+        ApplyXbox(hud, width, height);
     // Where the target's circle may stand. UpdateIndicator draws the marker as an arrow on the
     // edge of LBL_ARROW_MARGIN's rectangle when the target's point is outside it, and the
     // layout's rectangle is made for the PC HUD's bars; with this HUD it is the screen between
@@ -1331,7 +1721,32 @@ void Frame(void* hud) {
 
     // The texts. The Xbox names the selected action in the box and keeps the target's name in
     // the name bar; the PC puts a target slot's action in the name bar and nothing in the box.
-    const int focused = hud::FocusedSlot(hud);
+    // The slot the HUD holds as its active control, even while another screen has the input: the
+    // one lit place (issue 56, handoff item 85).
+    int focused = hud::FocusedSlot(hud);
+    // A slot the game still holds after its list has emptied: after a cutscene, or as combat ends,
+    // the game leaves its focus on a target slot with nothing in it. This layout hides an empty
+    // slot (HideSlot), so the selection was nowhere to be seen, the first place was not lit
+    // because a slot held the focus, and left and right started from the hidden slot's place at
+    // the row's far end. The focus is let go of: the first place is the selection then, as
+    // whenever no slot holds it, through the panel's own SetActiveControl, with no sound.
+    if (focused >= 0 && SlotCount(hud, focused) <= 0) {
+        SetActiveControl(hud, nullptr, 0);
+        focused = -1;
+    }
+    // debug-logs=2: the row's state each time it changes (issue 56).
+    static const bool rowLog = PatchOption("debug-logs", 0) >= 2;
+    if (rowLog) {
+        static char lastLine[160];
+        char line[160];
+        std::snprintf(line, sizeof line, "xbox row: focused %d, kind %d, target %d, first list %d, default at %d, feats %d, chosen %d",
+                      focused, kind, target ? 1 : 0, firstCount, usual, feats ? 1 : 0,
+                      kind >= 0 && kind < 4 ? At<int>(menu, kMenuChosen + kind * 3 * 4) : -1);
+        if (std::strcmp(line, lastLine) != 0) {
+            std::strcpy(lastLine, line);
+            Log("%s", line);
+        }
+    }
     if (target && focused >= 0 && focused < kTargetSlots && kind >= 0 && kind < 4) {
         char* list = At<char*>(menu, kMenuActionLists + focused * kListStride);
         const int count = At<int>(menu, kMenuActionLists + focused * kListStride + kListCount);
@@ -1352,14 +1767,8 @@ void Frame(void* hud) {
     } else if (focused < 0) {
         if (usualEntry) {
             SetDescription(hud, usualEntry);
-        } else if (client) {
-            static String noAction;         // fetched once and kept
-            static bool fetched = false;
-            if (!fetched) {
-                GetGuiString(&noAction, client, kNoActionString);
-                fetched = true;
-            }
-            SetDescription(hud, &noAction);
+        } else if (String* none = NoActionName(client)) {
+            SetDescription(hud, none);
         }
     }
 
@@ -1368,6 +1777,7 @@ void Frame(void* hud) {
     // target's name bar and the minimap stand lower while it is there. It is there while the
     // engine shows the combat-mode message's label, and is drawn at once, before the panel,
     // with the spare label in two plain textures of the game's.
+    const int actionHeight = SizedHeight(sizes::XboxActions, height);   // the action menu's lengths at its size
     const bool strip = Visible(Part(hud, kHudMessage));
     const int lower = strip ? Scale(kStripShift, height) : 0;
     if (strip) {
@@ -1413,16 +1823,17 @@ void Frame(void* hud) {
     // a fixed row for each. A name too long for one row keeps the height the engine gave it.
     void* nameLabel = Part(menu, kMenuNameLabel);
     Extent name = At<Extent>(nameLabel, kControlExtent);
-    if (name.height < Scale(kNameHeight, height) || name.top != g_row.nameTop + lower) {
-        if (name.height < Scale(kNameHeight, height)) name.height = Scale(kNameHeight, height);
+    const int barHeight = SizedHeight(sizes::XboxTargetBar, height);
+    const int nameRow = Scale(kNameHeight, barHeight);
+    if (name.height < nameRow || name.top != g_row.nameTop + lower) {
+        if (name.height < nameRow) name.height = nameRow;
         name.top = g_row.nameTop + lower;
         SetExtent(nameLabel, name);
     }
     auto fromName = [&](const int box[4]) {
-        return Extent{name.left + Scale(box[0], height), name.top + Scale(box[1], height), Scale(box[2], height),
-                      Scale(box[3], height)};
+        return Extent{name.left + Scale(box[0], barHeight), name.top + Scale(box[1], barHeight), Scale(box[2], barHeight),
+                      Scale(box[3], barHeight)};
     };
-    SetExtent(Part(menu, kMenuNameBackground), fromName(kNameFrame));
     // Red around a hostile target's name. The engine's frame on the first target slot is the
     // sign; once the Xbox frame has replaced it, the last sign seen stands until the engine
     // writes another.
@@ -1431,32 +1842,65 @@ void Frame(void* hud) {
         const char* frame = &At<char>(Part(menu, kMenuActions), kButtonBorderParams + kParamsFill);
         if (strncasecmp(frame, kSlotEnginePrefix, sizeof kSlotEnginePrefix - 1) == 0) hostile = SameName(frame, kSlotHostile);
     }
-    SetFill(Part(Part(menu, kMenuNameBackground), kLabelBorderParams), hostile ? kFrameHostile : kFrameFriendly);
-    SetExtent(Part(menu, kMenuHealthBar), fromName(kHealthBar));
-    SetExtent(Part(menu, kMenuHealthBackground), fromName(kHealthBar));
+    // A name taller than its row, on two lines or one at a large text size: the frame grows by
+    // the difference and the health bar moves down by it (handoff item 69). The frame is then
+    // drawn in three slices, so that only its plain middle stretches and its lines and ends stay
+    // as they are: the second hook draws all three under the menu's controls, and the frame
+    // label, covering them, has no art. A name that fits its row keeps the whole frame on the
+    // label, as before.
+    const int extra = name.height - nameRow;
+    const Extent frame = fromName(kNameFrame);
+    g_nameFrameDrawn = {frame.left, frame.top, frame.width, frame.height + std::max(0, extra)};
+    void* frameLabel = Part(menu, kMenuNameBackground);
+    g_nameSlices = NameSlices{};
+    if (extra > 0) {
+        const int split = name.top + Scale(kNameFrame[1] + kFrameSplit, barHeight);
+        SetExtent(frameLabel, {frame.left, frame.top, frame.width, frame.height + extra});
+        SetFillName(Part(frameLabel, kLabelBorderParams), "");
+        g_nameSlices.draw = true;
+        g_nameSlices.hostile = hostile ? 1 : 0;
+        g_nameSlices.top = {frame.left, frame.top, frame.width, split - frame.top};
+        g_nameSlices.middle = {frame.left, split, frame.width, extra};
+        g_nameSlices.bottom = {frame.left, split + extra, frame.width, frame.top + frame.height - split};
+        g_nameSlices.width = width;
+        g_nameSlices.height = height;
+    } else {
+        SetExtent(frameLabel, frame);
+        SetFill(Part(frameLabel, kLabelBorderParams), hostile ? kFrameHostile : kFrameFriendly);
+    }
+    Extent health = fromName(kHealthBar);
+    health.top += std::max(0, extra);
+    SetExtent(Part(menu, kMenuHealthBar), health);
+    SetExtent(Part(menu, kMenuHealthBackground), health);
+    // The speech box stays under the name bar: down with the combat strip and with a taller frame.
+    if (int* bubble = BarkBubble())
+        if (g_layout.bubbleKept) bubble[1] = g_layout.bubbleTop + lower + std::max(0, extra);
 
     // Its height: the whole screen. The engine ends the viewport at the health bar for a
     // target with no action, which hides the three slots.
     At<int>(menu, kMenuHeight) = height;
     const bool grenades = target && At<int>(menu, kMenuActionLists + kSharedTarget * kListStride + kListCount) != 0;
 
-    // The action box, as tall as the description needs: 6 above its text, and one line when
-    // there is no text. Windows takes 16 units for that line, the height of the game's own
-    // font. Here the font is whatever the interface in use gives the description: beside KMRP
-    // at 1512x982 a line was shorter than 16 units, and the box stood taller over an empty
-    // slot than over a named one (the maintainer, 2026-10-07). So the empty line is the
-    // shortest the description has had text in at this screen height, and Windows' 16 units
-    // only until it has had any.
+    // The action box, as tall as the tallest description of every action seen this session at the
+    // text size in use (TallestDescription), whichever is shown, with the description in the middle
+    // of that height. The engine sets the description, and its background, to its own text's
+    // height on the edge it grows up from (SetActionDescription); it is moved only while it is
+    // there, so it is moved once per text. kBoxEmptyLine is for a row with no action to measure.
     {
+        const int tallest = TallestDescription(hud, menu, usualEntry, NoActionName(client));
         void* box = Part(hud, kHudMouldings);
-        const Extent words = At<Extent>(Part(hud, kHudDescription), kControlExtent);
+        void* label = Part(hud, kHudDescription);
+        Extent words = At<Extent>(label, kControlExtent);
+        const int edge = At<int>(hud, kHudDescriptionBottom);
+        const int band = std::max({tallest, words.height, tallest > 0 ? 0 : Scale(kBoxEmptyLine, actionHeight)});
+        if (words.height > 0 && words.height < band && words.top + words.height == edge) {
+            words.top = edge - band + (band - words.height) / 2;
+            SetExtent(label, words);
+            SetExtent(Part(hud, kHudDescriptionBack), words);
+        }
         Extent wanted = At<Extent>(box, kControlExtent);
         const int bottom = wanted.top + wanted.height;
-        static int lineAt = 0, line = 0;
-        if (lineAt != height) { lineAt = height; line = 0; }
-        if (words.height > 0 && (!line || words.height < line)) line = words.height;
-        const int textTop = words.height > 0 ? words.top : words.top - (line ? line : Scale(kBoxEmptyLine, height));
-        wanted.top = textTop - Scale(kBoxAboveText, height);
+        wanted.top = edge - band - Scale(kBoxAboveText, actionHeight);
         wanted.height = bottom - wanted.top;
         if (wanted.height > 0 && wanted.top >= 0) SetExtent(box, wanted);
     }
@@ -1483,28 +1927,29 @@ void Frame(void* hud) {
     g_first = FirstPlace{};
     g_first.draw = true;
     g_first.selected = focused < 0;
-    g_first.dimForce = !target;
     g_first.width = width;
     g_first.height = height;
     std::memcpy(g_first.icon, usualEntry ? usualEntry + kEntryIcon : kNoActionIcon, kResRefBytes);
     g_first.frame = g_row.part[0];
     g_first.picture = g_row.part[1];
-    g_first.force = g_row.part[0];
-    g_first.frame.left -= kFirstPersonalPlace * g_row.pitch;
-    g_first.picture.left -= kFirstPersonalPlace * g_row.pitch;
-    g_first.force.left += (kForcePlace - kFirstPersonalPlace) * g_row.pitch;
+    g_first.frame.left -= kTablePlaces[0] * g_row.pitch;
+    g_first.picture.left -= kTablePlaces[0] * g_row.pitch;
     if (g_first.selected) {
-        const Extent frame = g_first.frame;
-        g_first.frame = Centred(frame, Scale(kLarge[0][0], height), Scale(kLarge[0][1], height));
-        g_first.picture = OnBox(g_first.frame, Scale(kLarge[1][0], height), Scale(kLarge[1][1], height));
+        const Extent place = g_first.frame;
+        g_first.frame = Centred(place, Scale(kLarge[0][0], actionHeight), Scale(kLarge[0][1], actionHeight));
+        g_first.picture = OnBox(g_first.frame, Scale(kLarge[1][0], actionHeight), Scale(kLarge[1][1], actionHeight));
     } else {
         g_first.picture = OnBox(g_first.frame, g_first.picture.width, g_first.picture.height);
     }
 
-    // The slots: each at its place in the row, the focused one large.
+    // The slots: each at its place in the row, the focused one large. Two pairs share a place
+    // (kPlace): the grenades and the mines (grenades while the target offers any), and the
+    // target's feats and the character's skills (the feats, with the skills joined to their end,
+    // while the target has any; the skills alone otherwise).
+    bool occupied[kRowPlaces + 1] = {};
     for (int slot = 0; slot < kSlots; ++slot) {
         void* action = SlotAction(hud, slot);
-        const int shift = (kPlace[slot] - kFirstPersonalPlace) * g_row.pitch;
+        const int shift = (kPlace[slot] - kTablePlaces[0]) * g_row.pitch;
         Extent part[4];
         for (int p = 0; p < 4; ++p) {
             part[p] = g_row.part[p];
@@ -1518,26 +1963,27 @@ void Frame(void* hud) {
                 part[p].left = part[p].top = kParked;
                 SetExtent(Part(action, kActionParts[p]), part[p]);
             }
-            if (!g_parked[slot]) g_shownWhenParked[slot] = At<std::uint8_t>(action, kControlFlags) & kControlVisible;
-            Hide(action);
+            HideSlot(slot, action);
             g_parked[slot] = true;
             continue;
         }
-        if (g_parked[slot]) {
-            // Back, as it was when it was parked, or able to take the focus if it has gained
-            // something to offer since. Windows shows it only for a list that is not empty
-            // ("the engine leaves an empty slot's button invisible"). Here an empty personal
-            // slot is drawn, as an empty frame, and one that had been parked stayed away: the
-            // row had a hole in its second place with no target (the maintainer's screenshot,
-            // 2026-10-07).
-            if (g_shownWhenParked[slot] || SlotCount(hud, slot) > 0) Show(action);
-            g_parked[slot] = false;
+        // Shown exactly while its list has entries, whether it was parked or not (g_pcShown): the
+        // pad cannot choose an empty slot, and its place gets the dim frame below.
+        if (SlotCount(hud, slot) <= 0) {
+            HideSlot(slot, action);
+        } else if (g_hidden[slot]) {
+            Show(action);
+            g_hidden[slot] = false;
         }
+        g_parked[slot] = false;
+        // The engine hides a slot whose list is empty.
+        if (Visible(action)) occupied[kPlace[slot]] = true;
         const Extent frame = part[0];
         const int (*size)[2] = slot == focused ? kLarge : kSmall;
         if (slot == focused) {
-            part[0] = Centred(frame, Scale(size[0][0], height), Scale(size[0][1], height));
-            for (int p = 1; p < 3; ++p) part[p] = OnBox(part[0], Scale(size[p][0], height), Scale(size[p][1], height));
+            part[0] = Centred(frame, Scale(size[0][0], actionHeight), Scale(size[0][1], actionHeight));
+            for (int p = 1; p < 3; ++p)
+                part[p] = OnBox(part[0], Scale(size[p][0], actionHeight), Scale(size[p][1], actionHeight));
             part[3] = {part[2].left, part[2].top + part[2].height / 2, part[2].width, part[2].height - part[2].height / 2};
         } else {
             part[1] = OnBox(frame, part[1].width, part[1].height);     // a small slot's picture, in its box's middle too
@@ -1567,6 +2013,14 @@ void Frame(void* hud) {
             Hide(Part(action, kActionParts[3]));
         }
     }
+    // Every place with no slot shown: a dim frame, which the second hook draws.
+    g_first.empties = 0;
+    for (int place = 1; place <= kRowPlaces; ++place) {
+        if (occupied[place]) continue;
+        Extent dim = g_row.part[0];
+        dim.left += (place - kTablePlaces[0]) * g_row.pitch;
+        g_first.empty[g_first.empties++] = dim;
+    }
 }
 
 // The second hook's work (K1XboxHud.cpp, KmrpXboxHudBarsK1), right after the panel is drawn:
@@ -1576,8 +2030,44 @@ void Frame(void* hud) {
 // bar is drawn here whole, through a viewport that is the filled part's rectangle, the way the
 // engine itself clips the target menu.
 void Bars(void* menu) {
-    // The first place, and without a target the dim frame of the target's Force place, which
-    // the engine draws only with a target.
+    // The name frame's three slices (a name taller than its row), drawn before the menu draws the
+    // name and the health bar over them, and only while it shows the frame, with LBL_MENUBG in
+    // the frame label's colour and strength. Each slice's texture is told to clamp right after it
+    // is drawn, as the party bars' are: the engine samples with wrap, and a dark line crossed the
+    // frame's sides at both joins on Windows (the maintainer's capture, 2026-10-19).
+    if (g_nameSlices.draw) {
+        const NameSlices slices = g_nameSlices;
+        g_nameSlices.draw = false;
+        void* hud = At<void*>(menu, kMenuInterface);
+        void* own = Part(menu, kMenuNameBackground);
+        if (VtableOf(hud) == kHudVtable && hud == g_layout.hud && Visible(own)) {
+            void* label = Part(hud, kHudSpareLabel);
+            void* fill = Part(label, kLabelBorderParams);
+            void* ownFill = Part(own, kLabelBorderParams);
+            const Extent was = At<Extent>(label, kControlExtent);
+            float* colour = &At<float>(fill, kParamsColour);
+            const float colourWas[3] = {colour[0], colour[1], colour[2]};
+            const float alphaWas = At<float>(fill, kParamsAlpha);
+            std::memcpy(colour, &At<float>(ownFill, kParamsColour), sizeof colourWas);
+            At<float>(fill, kParamsAlpha) = At<float>(ownFill, kParamsAlpha);
+            StartLayer();
+            if (SetupViewport(1.0f, 0, 0, slices.width, slices.height, kNoColouring, 0)) {
+                const Extent* const where[3] = {&slices.top, &slices.middle, &slices.bottom};
+                for (int i = 0; i < 3; ++i) {
+                    SetFill(fill, kFrameSlices[slices.hostile][i]);
+                    SetExtent(label, *where[i]);
+                    LabelDraw(label, 0.0f);
+                    ClampBoundTexture();
+                }
+                CloseViewport();
+            }
+            StopLayer();
+            std::memcpy(colour, colourWas, sizeof colourWas);
+            At<float>(fill, kParamsAlpha) = alphaWas;
+            SetExtent(label, was);
+        }
+    }
+    // The first place of the action row, and the dim frame of every place with no slot shown.
     if (g_first.draw) {
         const FirstPlace first = g_first;
         g_first.draw = false;
@@ -1611,11 +2101,13 @@ void Bars(void* menu) {
                     SetExtent(label, mapFrame);
                     LabelDraw(label, 0.0f);
                 }
-                if (first.dimForce) {
+                if (first.empties > 0) {
                     SetFill(frame, kSlotFrame);
                     At<float>(frame, kParamsAlpha) = 0.5f;
-                    SetExtent(label, first.force);
-                    LabelDraw(label, 0.0f);
+                    for (int i = 0; i < first.empties && i < kRowPlaces; ++i) {
+                        SetExtent(label, first.empty[i]);
+                        LabelDraw(label, 0.0f);
+                    }
                     At<float>(frame, kParamsAlpha) = 1.0f;
                 }
                 SetFill(frame, first.selected ? kSlotFrameSelected : kSlotFrame);
@@ -1666,6 +2158,137 @@ void Bars(void* menu) {
     }
 }
 
+// ---- The row's lists, shaped as the Xbox's six places (kPlace; issues #55, #50; handoff items 52
+// and 58, the second replacing the first's hook).
+//
+// The lists are the engine's, made anew for every draw: CSWGuiMainInterface::PopulateMenus
+// (0x10023725E) empties the six personal lists, fills each from CSWCCreature::GetPersonalActions
+// (0x1002A54E8: the character's own Force powers, then the usable items of kinds 1, 4 and 2), and
+// calls CSWGuiTargetActionMenu::PopulateMenus (0x1002310E6), which fills the target's three lists
+// and then shows the target's slots by them; the personal slots are shown after it returns. This
+// is hooked in that routine after its loop has filled the target's lists and before it shows any
+// slot (KmrpXboxHudLists). Only while the Xbox layout is the one shown: with mouse or keyboard
+// every list is the game's own.
+//
+//   - the other usable items (the third personal list) are joined to the end of the medical items
+//     (the second): the Xbox has one place for defensive items;
+//   - the third personal list, so emptied, holds the skills: Stealth, while it can be used. With
+//     no target it is the second place;
+//   - with a target, Stealth is joined to the end of the target's first list as well, whose other
+//     entries are the feats: the second place is "your feats and skills".
+//
+// An entry carries its own routine, and the game calls it the same way from any list:
+// DoPersonalAction (0x100238EBA) and DoTargetAction (0x100231938) find the object the entry names
+// (+0x28, through CClientExoApp::GetGameObject and its AsSWCObject), add the member pointer's
+// adjustment (+0x20) and call [entry+0x18] with that, the entry's id in esi and the character in
+// rdx. So a copied entry is used as from its own slot. An entry whose id the list already has is
+// left out, so a chosen id names one entry.
+//
+// Stealth: condition and action are TB_STEALTH's own, the routine its press calls (0x10023558E):
+// CSWCCreature::IsStealthCapable (0x1002A6042) and PartyMenuStealth (0x1002A38AE). The Windows
+// routine takes two words off the stack, which ended the game on a first build there (handoff
+// item 52); the Mac's is System V, reads only rdi and returns plainly, and the toggle passes it
+// two zeros in esi and edx, as here. Name and icon are the skill's: dialog.tlk 325 and isk_stealth.
+const auto GetParty = reinterpret_cast<void* (*)(void* app)>(0x10028bf42UL);                  // CClientExoApp::GetSWParty
+const auto GetPlayerCharacter = reinterpret_cast<void* (*)(void* party)>(0x1002a70aeUL);      // CSWParty::GetPlayerCharacter
+const auto IsStealthCapable = reinterpret_cast<int (*)(void* creature)>(0x1002a6042UL);
+const auto PartyMenuStealth = reinterpret_cast<void (*)(void* creature, int, int)>(0x1002a38aeUL);
+// CExoArrayList<CSWGuiInterfaceAction>::Allocate(int): the list's array remade with that capacity
+// (+0x0C), its entries kept and the count left alone (GetDefaultActions, 0x1002FBD42, calls it).
+const auto ActionsAllocate = reinterpret_cast<void (*)(void* list, int capacity)>(0x1002875b4UL);
+const auto ActionClear = reinterpret_cast<void (*)(void* entry)>(0x10033aff0UL);              // CSWGuiInterfaceAction::Clear
+const auto StringAssign = reinterpret_cast<void* (*)(void* to, const void* from)>(0x10034ce1eUL);  // CExoString::operator=
+const auto ResRefAssign = reinterpret_cast<void (*)(void* resref, const char* name)>(0x100367afcUL);
+const std::size_t kListCapacity = 0x0c;
+const std::size_t kObjectId = 0x08;                // a client object's 64-bit id
+const char kStealthIcon[] = "isk_stealth";
+const int kStealthId = 0x10000002;                 // skill 2; a Force power's id is its number | 0x20000000
+
+bool StealthCapable(void* creature) { return LooksLikePointer(creature) && IsStealthCapable(creature) != 0; }
+
+// The entry's routine, called as a member of the character with the id and the character. Aligned
+// because the low bit of a member pointer's routine marks a virtual one.
+__attribute__((aligned(16))) void StealthChosen(void*, int, void* creature) {
+    if (StealthCapable(creature)) PartyMenuStealth(creature, 0, 0);
+}
+
+bool ListHasId(void* list, int id) {
+    char* entries = At<char*>(list, 0);
+    for (int i = 0, count = ListCount(list); i < count; ++i)
+        if (At<int>(entries + i * kEntrySize, kEntryId) == id) return true;
+    return false;
+}
+
+// `count` more entries at a list's end, through the engine's own Allocate where its array is too
+// small; the first of them, or null. Entries past the count are as the engine's array has them:
+// constructed, and cleared by the engine before it emptied the list.
+char* GrowList(void* list, int count) {
+    const int had = At<int>(list, kListCount);
+    if (had < 0 || had + count > kListLimit || count <= 0) return nullptr;
+    if (!LooksLikePointer(At<char*>(list, 0)) || At<int>(list, kListCapacity) < had + count) ActionsAllocate(list, had + count);
+    char* entries = At<char*>(list, 0);
+    if (!LooksLikePointer(entries)) return nullptr;
+    At<int>(list, kListCount) = had + count;
+    return entries + had * kEntrySize;
+}
+
+// Every entry of `from` whose id `to` lacks, copied to the end of `to`: the name (a CExoString) by
+// the engine's own assignment, the rest (id, routine, object, icon, flags, count) as plain data.
+void JoinList(void* to, void* from) {
+    char* source = At<char*>(from, 0);
+    const int count = ListCount(from);
+    int take[kListLimit], taking = 0;
+    for (int i = 0; i < count; ++i)
+        if (!ListHasId(to, At<int>(source + i * kEntrySize, kEntryId))) take[taking++] = i;
+    char* entry = GrowList(to, taking);
+    for (int k = 0; entry && k < taking; ++k, entry += kEntrySize) {
+        const char* copied = source + take[k] * kEntrySize;
+        StringAssign(entry, copied);
+        std::memcpy(entry + kEntryId, copied + kEntryId, kEntrySize - kEntryId);
+    }
+}
+
+// A list emptied as PopulateMenus empties one: each entry cleared, the count 0.
+void EmptyList(void* list) {
+    char* entries = At<char*>(list, 0);
+    for (int i = 0, count = ListCount(list); i < count; ++i) ActionClear(entries + i * kEntrySize);
+    At<int>(list, kListCount) = 0;
+}
+
+void AddStealth(void* list, void* creature, void* client) {
+    if (ListHasId(list, kStealthId)) return;
+    char* entry = GrowList(list, 1);
+    if (!entry) return;
+    String name;
+    GetGuiString(&name, client, kStealthName);
+    StringAssign(entry, &name);
+    StringDestroy(&name);
+    At<int>(entry, kEntryId) = kStealthId;
+    void (*const routine)(void*, int, void*) = StealthChosen;
+    std::memset(Part(entry, kEntryRoutine), 0, 16);
+    std::memcpy(Part(entry, kEntryRoutine), &routine, sizeof routine);
+    At<std::uint64_t>(entry, kEntryObject) = At<std::uint64_t>(creature, kObjectId);
+    ResRefAssign(Part(entry, kEntryIcon), kStealthIcon);
+    At<std::uint8_t>(entry, kEntryFlags) = static_cast<std::uint8_t>((At<std::uint8_t>(entry, kEntryFlags) & 0xe0) | 1);
+    At<int>(entry, kEntryCount) = 1;
+}
+
+void ShapeLists(void* menu) {
+    void* hud = At<void*>(menu, kMenuInterface);
+    void* client = Client();
+    if (VtableOf(hud) != kHudVtable || !client) return;
+    void* medical = Part(hud, kHudPersonalLists + 1 * kListStride);
+    void* skills = Part(hud, kHudPersonalLists + 2 * kListStride);     // the other usable items, until joined
+    JoinList(medical, skills);
+    EmptyList(skills);
+    void* party = GetParty(client);
+    void* creature = LooksLikePointer(party) ? GetPlayerCharacter(party) : nullptr;
+    if (!StealthCapable(creature)) return;
+    AddStealth(skills, creature, client);
+    void* feats = Part(menu, kMenuActionLists + kFeatsSlot * kListStride);
+    if (ListCount(feats) > 0) AddStealth(feats, creature, client);
+}
+
 }  // namespace
 
 bool Enabled() {
@@ -1698,9 +2321,11 @@ void Forget(void* panel) {
     g_layout = Layout{};
     g_row = Row{};
     g_first = FirstPlace{};
+    g_nameSlices = NameSlices{};
     for (auto& member : g_bars)
         for (Bar& held : member) held = Bar{};
     for (bool& parked : g_parked) parked = false;
+    for (bool& hidden : g_hidden) hidden = false;
     g_mapBorderForeign = false;
     std::memset(g_engineFrame, 0, sizeof g_engineFrame);
     g_arrowsHidden = false;
@@ -1708,6 +2333,23 @@ void Forget(void* panel) {
 
 }  // namespace xboxhud
 }  // namespace kmrp
+
+// Whether this layout has the HUD, or takes it at its next draw (KmrpXboxHudOwnsK1): KMRP's module,
+// which places the game's own HUD, leaves the HUD alone while it does. Asked for by name from
+// the other module (dlsym), so this one has the Windows name too.
+extern "C" __attribute__((visibility("default"))) int KmrpXboxHudOwnsK1() {
+    using namespace kmrp::xboxhud;
+    return Enabled() && (g_layout.xbox || kmrp::device::PadInUse()) ? 1 : 0;
+}
+
+// CSWGuiTargetActionMenu::PopulateMenus, after its loop has filled the target's three lists and
+// before it shows any slot (0x100231179; Windows 0x0068947A, KmrpXboxHudListsK1). r14 is the menu
+// from 0x100231173 on. Only while the Xbox layout is shown.
+extern "C" __attribute__((visibility("default"))) void KmrpXboxHudLists(void* menu) {
+    using namespace kmrp::xboxhud;
+    if (!Enabled() || !g_layout.xbox || !kmrp::device::PadInUse() || !Readable(menu, kMenuFlags + 1)) return;
+    ShapeLists(menu);
+}
 
 // The HUD's map drawing, entry (0x100237848; Windows CSWGuiMainInterface::DrawMap, 0x0068AB10,
 // KmrpXboxHudK1): after everything that moves or re-dresses a control and before anything is

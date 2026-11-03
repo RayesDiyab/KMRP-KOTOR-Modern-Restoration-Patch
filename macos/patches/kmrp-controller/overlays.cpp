@@ -51,6 +51,8 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <dlfcn.h>
+#include <string>
 #include <new>
 
 namespace kmrp {
@@ -61,10 +63,62 @@ using engine::At;
 using text::LooksLikePointer;
 using text::Readable;
 
-struct BadgeShape { const char* resref; short width, height, glyph, glyphWidth; };
+// The last five are the glyph and its box (issue 68), which Windows' run-time drawing reads; the Mac
+// carries its textures (handoff item 101) and uses the first five.
+struct BadgeShape {
+    const char* resref; short width, height, glyph, glyphWidth;
+    const char* glyphName; int boxLeft, boxTop, boxWidth, boxHeight;
+};
 #include "../../../src/controller-native/K1ControllerBadgeShapes.inc"
 
 struct Rect { int left, top, width, height; };
+
+// Where a caption's letters stand in its line, from the font's own picture: KMRP's module reads it
+// (kmrp-layout/text_fit.cpp, KmrpCaptionLetters) as the text fit there needs it too, and this module
+// finds it by name, through the module's handle, as a patch's module is loaded local (audit MAC-5).
+// Without KMRP there is no such reading, and a badge stands on the caption's line.
+using CaptionLetters = int (*)(void* string, double* middle, int* line);
+CaptionLetters FindCaptionLetters() {
+    static CaptionLetters letters = nullptr;
+    if (letters) return letters;
+    Dl_info self;
+    if (!dladdr(reinterpret_cast<const void*>(&FindCaptionLetters), &self) || !self.dli_fname) return nullptr;
+    std::string path(self.dli_fname);
+    path = path.substr(0, path.rfind('/') + 1) + "kmrp.dylib";
+    if (void* const module = dlopen(path.c_str(), RTLD_NOLOAD | RTLD_LAZY)) {
+        letters = reinterpret_cast<CaptionLetters>(dlsym(module, "KmrpCaptionLetters"));
+        dlclose(module);
+    }
+    return letters;
+}
+
+// The scale KMRP's text fit is asked to draw a string at (kmrp-layout/text_fit.cpp,
+// KmrpTextRequestedScale). The string's own scale is that request only between a native wrap and
+// the next draw, and the fit's result after it: a caption read from the string itself came and went
+// by the fit's factor from one frame to the next. Without KMRP the string's own scale is the drawn one.
+using RequestedScale = float (*)(void* string);
+RequestedScale FindRequestedScale() {
+    static RequestedScale requested = nullptr;
+    if (requested) return requested;
+    Dl_info self;
+    if (!dladdr(reinterpret_cast<const void*>(&FindRequestedScale), &self) || !self.dli_fname) return nullptr;
+    std::string path(self.dli_fname);
+    path = path.substr(0, path.rfind('/') + 1) + "kmrp.dylib";
+    if (void* const module = dlopen(path.c_str(), RTLD_NOLOAD | RTLD_LAZY)) {
+        requested = reinterpret_cast<RequestedScale>(dlsym(module, "KmrpTextRequestedScale"));
+        dlclose(module);
+    }
+    return requested;
+}
+float ScaleOf(void* object) {
+    const RequestedScale requested = FindRequestedScale();
+    float scale = requested ? requested(object) : At<float>(object, text::kObjScale);
+    return scale > 0.01f && scale < 100.0f ? scale : 1.0f;
+}
+
+// CSWGuiText's string, and in it what Draw places a line by: its top, height, line count and
+// alignment (Windows +0x08, +0x10, +0x38, +0x46).
+const std::size_t kTextString = 0x18, kStringTop = 0x0c, kStringHeight = 0x14, kStringLines = 0x50, kStringAlign = 0x5e;
 
 const std::size_t kCtlExtent = 0x08, kCtlPanel = 0x50, kCtlFlags = 0x68, kCtlId = 0x74;
 const std::uint8_t kCtlVisible = 0x02;
@@ -100,6 +154,8 @@ struct Overlay {
     int lines;
 };
 Overlay g_overlays[256] = {};     // 96 until every badge went on a label (2026-10-08)
+// The buttons whose glyph and caption are centred together on them (Centre): the Pazaak screens'.
+void* g_centred[12] = {};
 unsigned g_made = 0, g_refused = 0, g_freed = 0;
 
 std::uintptr_t VtableOf(void* object) { return LooksLikePointer(object) ? At<std::uintptr_t>(object, 0) : 0; }
@@ -174,9 +230,10 @@ const BadgeShape* ShapeOf(const char* resref) {
     return nullptr;
 }
 
-// A button's caption as drawn: its width in pixels, the widest of its lines, and its line's
-// height. The sum Draw makes: for each character its texture width plus the font's spacingR,
-// times the string's scale. 0 when the caption or its font cannot be read.
+// A button's caption at the size it is asked for: its width in pixels, the widest of its lines,
+// and its line's height. The sum Draw makes: for each character its texture width plus the font's
+// spacingR, times the requested scale (ScaleOf); KMRP's fit draws it smaller only where its box is
+// narrower. 0 when the caption or its font cannot be read.
 int MeasureCaption(void* button, int& lineHeight) {
     lineHeight = 0;
     char* const object = At<char*>(static_cast<char*>(button) + kButtonText, text::kTextObject);
@@ -185,8 +242,7 @@ int MeasureCaption(void* button, int& lineHeight) {
     if (!Readable(string, 1)) return 0;
     text::Font font{};
     if (!text::FontOf(object, font)) return 0;
-    float scale = At<float>(object, text::kObjScale);
-    if (!(scale > 0.01f && scale < 100.0f)) scale = 1.0f;
+    const float scale = ScaleOf(object);
     const auto advance = [&font](unsigned char c) { return text::GlyphWidth(font, c) + font.spacing; };
     const int lines = At<int>(object, text::kObjLineCount);
     const int* const lengths = At<const int*>(object, text::kObjLineLengths);
@@ -227,8 +283,7 @@ int MeasureWrapped(void* button, int lines) {
     if (!Readable(string, 1)) return 0;
     text::Font font{};
     if (!text::FontOf(object, font)) return 0;
-    float scale = At<float>(object, text::kObjScale);
-    if (!(scale > 0.01f && scale < 100.0f)) scale = 1.0f;
+    const float scale = ScaleOf(object);
     const auto advance = [&font](unsigned char c) { return text::GlyphWidth(font, c) + font.spacing; };
     float words[32];
     int count = 0;
@@ -278,6 +333,12 @@ int CaptionLines(void* button) {
     return lines < 1 ? 1 : lines > 4 ? 4 : lines;
 }
 
+bool IsCentred(void* button) {
+    for (void* const b : g_centred)
+        if (b && b == button) return true;
+    return false;
+}
+
 Overlay* Find(void* button) {
     for (Overlay& entry : g_overlays)
         if (entry.label && entry.button == button) return &entry;
@@ -315,6 +376,30 @@ Overlay* Make(void* panel, void* button) {
 }
 
 }  // namespace
+
+void Centre(void* button, bool centred) {
+    for (void*& b : g_centred)
+        if (b == button) {
+            if (!centred) b = nullptr;
+            return;
+        }
+    if (!centred) return;
+    for (void*& b : g_centred)
+        if (!b) {
+            b = button;
+            return;
+        }
+}
+
+void Dim(void* button, bool dim) {
+    Overlay* const entry = Find(button);
+    if (!entry) return;
+    const float shade = dim ? 0.4f : 1.0f;
+    float* const colour = reinterpret_cast<float*>(static_cast<char*>(entry->label) + kLabelBorder + kBorderParams + 0x10);
+    colour[0] = colour[1] = colour[2] = shade;
+}
+
+int CaptionLineWidth(void* button) { return MeasureWrapped(button, 1); }
 
 void Hide(void* button) {
     Overlay* const entry = Find(button);
@@ -399,26 +484,70 @@ bool Show(void* panel, void* button, const char* resref) {
         // is not the button's.
         const int buttonMiddle = at.top + at.height / 2;
         const bool offMiddle = (alignment & 16) == 0 || std::abs(text.top + text.height / 2 - buttonMiddle) > 1;
-        if (line > 0 && offMiddle && text.height > 0 && line < at.height) {
-            const Rect centredLine = {text.left, at.top + (at.height - line) / 2, text.width, line};
-            const Rect& now = At<Rect>(caption, kTextExtent);
-            if (now.left != centredLine.left || now.top != centredLine.top || now.width != centredLine.width ||
-                now.height != centredLine.height) {
-                if (!entry->textMoved) { entry->textWas = now; entry->textMoved = true; }
-                TextSetExtent(caption, &centredLine);
-            }
-            text = centredLine;
-        }
-        wanted.top = buttonMiddle - wanted.height / 2;
-        const int middle = text.width > 0 ? text.left + text.width / 2 : at.left + at.width / 2;
         const int gap = height / 4, air = height / 8;
         const int glyphLeft = wanted.width * (shape->glyph - shape->glyphWidth / 2) / 1000;
         const int glyphRight = wanted.width * (shape->glyph + shape->glyphWidth / 2) / 1000;
+        Rect placed = text;
+        if (line > 0 && offMiddle && text.height > 0 && line < at.height)
+            placed = {text.left, at.top + (at.height - line) / 2, text.width, line};
+        // A button marked so (Centre) has glyph and caption centred together on it, the caption
+        // moved over by half the glyph and its gap (K1XboxControls.cpp, KmrpBadgeCentreK1), from
+        // the caption's own place, so placing again moves it no further.
+        if (IsCentred(button) && text.width > 0) {
+            const int lead = glyphRight - glyphLeft + gap;
+            placed.left = text.left + (shape->glyph < 500 ? (lead + 1) / 2 : -(lead + 1) / 2);
+        }
+        // Beside the caption, kept inside the button: where the caption is too wide for that, the
+        // glyph is pushed back in and stood on the caption (the S of Inventory's "Show New Items" and
+        // the C of the Journal's "Completed Quests" at 100% text, 1024x768, the coordinator's run of
+        // 2026-11-03). The caption then takes the rest of the button beside the glyph, its gap
+        // kept, and KMRP's fit draws it at the largest size that fits there. Windows' rule keeps
+        // the glyph inside and lets the two meet; the maintainer asked for the gap.
+        const int first = at.left + inset, last = first + width;
+        const int middle = placed.width > 0 ? placed.left + placed.width / 2 : at.left + at.width / 2;
         int left = shape->glyph < 500 ? middle - captionWidth / 2 - gap - glyphRight
                                       : middle + (captionWidth + 1) / 2 + gap - glyphLeft;
-        const int first = at.left + inset, last = first + width;
-        if (left + glyphRight > last - air) left = last - air - glyphRight;
-        if (left + glyphLeft < first + air) left = first + air - glyphLeft;
+        // Kept inside the button, except where glyph and word are centred together (Centre): a pair
+        // wider than its button stands out of it evenly. Pushed back in, the glyph stood on the
+        // word: the R of the side deck's "Remove card" at 3024x1964, the game run of 2026-11-03.
+        if (!IsCentred(button)) {
+            const int unclamped = left;
+            if (left + glyphRight > last - air) left = last - air - glyphRight;
+            if (left + glyphLeft < first + air) left = first + air - glyphLeft;
+            if (left != unclamped && placed.width > 0) {
+                const int from = shape->glyph < 500 ? left + glyphRight + gap : first + air;
+                const int until = shape->glyph < 500 ? last - air : left + glyphLeft - gap;
+                if (until - from > line) placed = {from, placed.top, until - from, placed.height};
+            }
+        }
+        const Rect& now = At<Rect>(caption, kTextExtent);
+        if (placed.left != text.left || placed.top != text.top || placed.width != text.width || placed.height != text.height ||
+            entry->textMoved) {
+            if (now.left != placed.left || now.top != placed.top || now.width != placed.width || now.height != placed.height) {
+                if (!entry->textMoved) { entry->textWas = now; entry->textMoved = true; }
+                TextSetExtent(caption, &placed);
+            }
+        }
+        text = placed;
+        wanted.top = buttonMiddle - wanted.height / 2;
+        // On the middle of the caption's letters, not of its line (Windows, 2026-10-28, on the Map
+        // screen's two rows: "make the glyphs be centered to the vertical middle of the button
+        // text"). KMRP's draw moves a centred caption's letters onto its box, so without this the
+        // two part as the text grows. Not kept inside the button, which would undo the move.
+        double letters = 0.0;
+        int fontLine = 0;
+        void* const string = At<void*>(caption, kTextString);
+        const CaptionLetters read = FindCaptionLetters();
+        if (read && string && read(string, &letters, &fontLine) && fontLine <= at.height) {
+            const int stringLines = At<int>(string, kStringLines);
+            const int lines = stringLines > 1 ? stringLines : 1;
+            const int all = lines * fontLine;
+            const unsigned vertical = At<std::uint8_t>(string, kStringAlign) & 0x38u;
+            int blockTop = At<int>(string, kStringTop);
+            if (vertical == 0x10u) blockTop += (At<int>(string, kStringHeight) - all) / 2;
+            else if (vertical == 0x20u) blockTop += At<int>(string, kStringHeight) - all;
+            wanted.top = static_cast<int>(blockTop + (lines - 1) * fontLine / 2.0 + letters * fontLine + 0.5) - wanted.height / 2;
+        }
         wanted.left = left;
     }
 
@@ -635,6 +764,7 @@ void Forget(void* panel) {
     if (VtableOf(panel) != kBasePanelVtable || At<void*>(panel, kPanelGff) != nullptr) return;
     for (Overlay& entry : g_overlays) {
         if (!entry.label || entry.panel != panel) continue;
+        Centre(entry.button, false);
         void** const array = At<void**>(panel, kPanelControls);
         const int count = At<int>(panel, kPanelControlCount);
         // Only while the panel still holds it at its id: a leak is safer than a double free.

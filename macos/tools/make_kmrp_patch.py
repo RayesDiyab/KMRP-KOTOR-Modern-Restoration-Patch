@@ -88,8 +88,14 @@ CONTROLLER_FLAGS = ["-arch", "x86_64", "-std=c++17", "-O2", "-mmacosx-version-mi
                     "-Wno-#warnings", "-fobjc-arc"]
 # The installer's helpers as the module compiles them in (their embedded entry points).
 HELPERS = [("kmrp-guiblend.c", "-DKMRP_GUI_EMBEDDED"), ("kmrp-abilityicons.c", "-DKMRP_EMBEDDED"),
-           ("kmrp-gameart.c", "-DKMRP_EMBEDDED")]
+           ("kmrp-gameart.c", "-DKMRP_EMBEDDED"), ("kmrp-guiadapt.c", "-DKMRP_EMBEDDED"),
+           ("kmrp-swoophud.c", "-DKMRP_EMBEDDED"), ("kmrp-merge.c", "-DKMRP_EMBEDDED")]
 HELPER_FLAGS = ["-arch", "x86_64", "-std=c11", "-O2", "-mmacosx-version-min=10.9", "-w"]
+# The art pack's decoder, Windows' own (src/controller-native/K1AssetPack.cpp, plain C++, and the
+# LZMA SDK's), compiled with the assets part.
+ROOT = Path(__file__).resolve().parents[2]
+PACK_DECODER = ROOT / "src/controller-native/K1AssetPack.cpp"
+LZMA_DECODER = ROOT / "third_party/lzma-sdk/LzmaDec.c"
 LINK_FLAGS = ["-arch", "x86_64", "-dynamiclib", "-mmacosx-version-min=10.13", "-framework", "OpenGL",
               "-Wl,-dead_strip_dylibs", "-install_name", "@executable_path/macos_x86_64.dylib"]
 CONTROLLER_LINK = ["-fobjc-arc", "-fobjc-link-runtime", "-framework", "Foundation", "-framework", "AppKit",
@@ -108,6 +114,9 @@ OPTIONS = [
     # of what it gives the game when this is off (kmrp-assets/assets.cpp, LinkArtwork).
     ("hd-icons", "HD icons", True,
      "Uses JackInTheBox's HD Icon Pack for the item icons. Off: the game's own item icons."),
+    # ShaeMyName's K1 Marked Empty Containers (issue 43), on by default as on Windows.
+    ("marked-empty", "Marked empty containers", True,
+     "Marks a container or corpse with nothing left in it as empty, in its name on screen."),
     ("debug-logs", "Debug logs", False,
      "Writes a diagnostic log file. Leave off unless you are reporting a problem."),
 ]
@@ -234,6 +243,11 @@ def merge_hooks(parts: list[tuple[str, Path, str | None]], off: set[str] | None 
             if hook.address in seen:
                 if seen[hook.address].key != hook.key:
                     fail(f"{seen[hook.address].part} and {part} hook {hook.address:#x} differently")
+                # One part declaring an address twice is a slip in its file, not a shared hook: on
+                # 2026-11-03 a second copy of a hook hid that the hook before it had lost its
+                # parameter, and the two merged here without a word.
+                if seen[hook.address].part == part:
+                    fail(f"{part} declares hook {hook.address:#x} twice")
                 duplicates += 1
                 continue
             seen[hook.address] = hook
@@ -302,6 +316,11 @@ def controller_patch(args) -> int:
         objects = compile_part(files, [*CONTROLLER_FLAGS, define, "-F", str(args.sdl)], tmp / "objects", "kmrp-controller")
         objects += compile_part([args.layout / "text.cpp", args.layout / "options.cpp"], [*LAYOUT_FLAGS, define],
                                 tmp / "objects", "shared")
+        # The shared file-only readers of the movie preload (preload.cpp, item 112): KmrpReadPreloadGui
+        # and KmrpReadPreloadTexture. They hold no address of the game's, so the App Store's build
+        # takes them from here too; hidden, so this module exports none of the tools' names.
+        objects += compile_part([ROOT / "macos/tools/kmrp-guiadapt.c", ROOT / "macos/tools/kmrp-gameart.c"],
+                                [*HELPER_FLAGS, "-DKMRP_EMBEDDED", "-fvisibility=hidden"], tmp / "objects", "helper")
         module = tmp / "binaries" / "macos_x86_64.dylib"
         link = ["clang++", *LINK_FLAGS, *CONTROLLER_LINK, "-F", str(args.sdl), "-lz",
                 f"-Wl,-sectcreate,__KMRPC,__assets,{args.controller_bank}", "-o", str(module), *map(str, objects)]
@@ -367,7 +386,7 @@ def main() -> int:
     parser.add_argument("--no-map-notes", action="store_true")
     parser.add_argument("--options", action="store_true",
                         help="the optional parts as patch options instead of build flags")
-    parser.add_argument("--assets", type=Path, help="patches/kmrp-assets: the menu sets inside the module")
+    parser.add_argument("--assets", type=Path, help="patches/kmrp-assets: the menu sets, from the art pack")
     parser.add_argument("--assets-bank", type=Path, help="the bank make_kmrp_assets.py packed")
     parser.add_argument("--tools", type=Path, help="macos/tools, for the helpers the assets part calls")
     parser.add_argument("--without-option", action="append", default=[], metavar="ID",
@@ -393,16 +412,24 @@ def main() -> int:
     # The assets part first: its constructor has to run before the widescreen patch's.
     # ... and its Retina mode scale under another name: kmrp-assets/resolution.cpp has the hook's
     # function, which lists the display's pixel modes whatever size the game starts at.
+    # The pack this module is built with, which it holds the file beside it against (assets.cpp).
+    pack_flags = []
+    if with_assets:
+        with open(args.assets_bank, "rb") as pack:
+            head = pack.read(40)
+        if head[:8] != b"KMRPAK01":
+            fail(f"{args.assets_bank} is not an art pack")
+        pack_flags = [f'-DKMRP_ASSET_BUILD="{head[8:40].hex()}"']
     widescreen_flags = ([*FTD_FLAGS, "-Dfopen=kmrp_ini_fopen", "-DKMRP_DisplayModeScale=KMRP_DisplayModeScale_widescreen"]
                         if with_assets else FTD_FLAGS)
     if args.split:
         # KMRP's own code only. FTD's two patches are patches of their own, which this one
         # requires; the assets part asks the widescreen patch for its .gui mode by its entry
         # points (kmrp-assets/widescreen.cpp).
-        parts = [("kmrp-assets", args.assets, LAYOUT_FLAGS, ("*.cpp",)),
+        parts = [("kmrp-assets", args.assets, [*LAYOUT_FLAGS, *pack_flags], ("*.cpp",)),
                  ("kmrp-layout", args.layout, LAYOUT_FLAGS, ("*.cpp",))]
     else:
-        parts = ([("kmrp-assets", args.assets, [*LAYOUT_FLAGS, "-DKMRP_BUNDLED_WIDESCREEN"], ("*.cpp",))] if with_assets else []) + [
+        parts = ([("kmrp-assets", args.assets, [*LAYOUT_FLAGS, *pack_flags, "-DKMRP_BUNDLED_WIDESCREEN"], ("*.cpp",))] if with_assets else []) + [
              ("K1WidescreenPatch", args.widescreen, widescreen_flags, ("*.cpp",)),
              ("K1StrayBugFixes", args.stray, FTD_FLAGS, ("*.cpp",)),
              ("kmrp-layout", args.layout, LAYOUT_FLAGS, ("*.cpp",))]
@@ -423,7 +450,8 @@ def main() -> int:
         if with_assets:
             for name, define in HELPERS:
                 objects += compile_part([args.tools / name], [*HELPER_FLAGS, define], tmp / "objects", "helper")
-            assets_link = ["-lz", f"-Wl,-sectcreate,__KMRP,__assets,{args.assets_bank}"]
+            objects += compile_part([PACK_DECODER], [*LAYOUT_FLAGS, "-I", str(LZMA_DECODER.parent)], tmp / "objects", "pack")
+            objects += compile_part([LZMA_DECODER], HELPER_FLAGS, tmp / "objects", "pack")
         module = tmp / "binaries" / "macos_x86_64.dylib"
         link = ["clang++", *LINK_FLAGS, *assets_link, "-o", str(module), *map(str, objects)]
         result = subprocess.run(link, capture_output=True, text=True)

@@ -2,6 +2,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 namespace kmrp {
 namespace assets {
@@ -31,10 +32,10 @@ const std::string& ArtworkDirectory();
 // found.
 std::string OverrideDirectory();
 
-// Gives the fonts the player's override supplies the size KMRP's own fonts of those names have.
-// Asked every GUI frame and as a panel starts loading; `again` after the fonts' metrics were
-// read again. Does nothing when the override has no font of KMRP's.
-void ScaleOverrideFonts(bool again);
+// A font's source from the bank, by its private name (fonts.cpp).
+bool FontSource(const std::string& name, std::vector<unsigned char>& bytes);
+// The pack's blocks kept unpacked while files are read one at a time, let go.
+void ReleaseUnpacked();
 
 // KMRP's menus are not to be used this run: Covers answers no from then on, so nothing is
 // registered and the resolution list stays the game's.
@@ -42,6 +43,21 @@ void Disable();
 
 // True once the artwork folder is registered with the game.
 bool Registered();
+
+// For kmrp-prepare (macos/tools/kmrp-prepare.cpp) only, which makes the cache at install, outside
+// the game: the game's Assets folder and the art pack, which the module otherwise finds from the
+// game's executable and beside itself. Called before anything else; the module never calls it.
+// What is written is then said on stderr only, not in the game's log.
+void SetPaths(const std::string& assets, const std::string& pack);
+
+// The cache's common files (store/), and the caches of other builds removed: what Prepare makes
+// first, without linking a view for a run.
+bool PrepareStore();
+
+// One size's set whole in the cache (sets/<W>x<H>/ and its marker), as Prepare makes it, without
+// linking a view or registering anything. It does not need the store, so a size can be made in
+// a process of its own beside the one making the store.
+bool PrepareSet(int width, int height);
 
 }  // namespace assets
 }  // namespace kmrp

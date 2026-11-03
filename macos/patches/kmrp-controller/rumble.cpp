@@ -21,13 +21,14 @@
 //     visual effect's id at +0x104; the server creature's hit points are vtable +0x140 (current)
 //     and +0x138 (maximum); an attack record has the attacker at +0x08, the result at +0x14, the
 //     target at +0x20 and the skip flag at +0x30.
-//   - the settings file is kmrp-controller.ini in the game's settings folder, beside
-//     swkotor.ini (~/Library/Application Support/Knights of the Old Republic); the debug log is
+//   - the settings file is KMRP/controller.ini in the game's settings folder
+//     (~/Library/Application Support/Knights of the Old Republic); the debug log is
 //     ~/Library/Logs/KMRP/rumble.log.
 #include "rumble.h"
 
 #include "engine.h"
 #include "pad.h"
+#include "standalone.h"
 #include "state.h"
 
 #include <mach/mach.h>
@@ -348,11 +349,7 @@ struct Settings {
 
 void Log(const char* format, ...) __attribute__((format(printf, 1, 2)));
 
-std::string SettingsPath() {
-    const char* home = std::getenv("HOME");
-    return home ? std::string(home) + "/Library/Application Support/Knights of the Old Republic/kmrp-controller.ini"
-                : std::string();
-}
+std::string SettingsPath() { return standalone::SettingsPath(); }
 
 // GetPrivateProfileString's part: the value of `key` in [section], or empty.
 std::string IniValue(const std::string& text, const char* section, const char* key) {
@@ -445,10 +442,10 @@ void LoadSettings() {
     g_settings.loaded = true;
     kmrp::Log("rumble: mode %s, strength %d%%, saber hum %d%% (pulse %d ms every %d-%d ms), debug %d, from %s",
               MODE_NAME[g_settings.mode], strength, hum, pulse, periodMin, periodMax, g_settings.debug ? 1 : 0,
-              exists ? "kmrp-controller.ini" : "defaults");
+              exists ? "controller.ini" : "defaults");
     Log("settings mode=%s strength=%d%% saberHum=%d%% pulse=%dms every %d-%dms debug=%d from=%s",
         MODE_NAME[g_settings.mode], strength, hum, pulse, periodMin, periodMax, g_settings.debug ? 1 : 0,
-        exists ? "kmrp-controller.ini" : "defaults");
+        exists ? "controller.ini" : "defaults");
 }
 
 bool Enhanced() { return g_settings.mode == MODE_ENHANCED; }
