@@ -1084,17 +1084,19 @@ namespace Kmrp
             return IconArt.TryGetValue(glyph, out art) ? art : null;
         }
 
-        /// <summary>Draws a supplied icon tinted to `color`, or returns false if there is
-        /// none for this step.</summary>
+        /// <summary>Draws a step's icon tinted to `color`: its vectors when the installer
+        /// carries them, else the supplied picture; false if there is neither.</summary>
         internal static bool DrawIconArt(Graphics g, Glyph glyph, Rectangle circle, Color color)
         {
+            int side = (int)Math.Round(circle.Width * 0.563F);
+            Rectangle box = new Rectangle(circle.X + (circle.Width - side) / 2,
+                                          circle.Y + (circle.Height - side) / 2, side, side);
+            if (DrawVectorIcon(g, glyph.ToString().ToLowerInvariant(), box, color))
+                return true;
             Image art = IconFor(glyph);
             if (art == null)
                 return false;
 
-            int side = (int)Math.Round(circle.Width * 0.563F);
-            Rectangle box = new Rectangle(circle.X + (circle.Width - side) / 2,
-                                          circle.Y + (circle.Height - side) / 2, side, side);
             using (ImageAttributes tint = new ImageAttributes())
             {
                 ColorMatrix matrix = new ColorMatrix(new float[][] {
@@ -1108,6 +1110,246 @@ namespace Kmrp
                 g.DrawImage(art, box, 0, 0, art.Width, art.Height, GraphicsUnit.Pixel, tint);
             }
             return true;
+        }
+
+        // One path of a vector icon: its commands in the SVG's own units and how it is painted.
+        private sealed class VectorPath
+        {
+            internal readonly List<char> Ops = new List<char>();
+            internal readonly List<PointF[]> Points = new List<PointF[]>();
+            internal float Stroke;
+            internal bool Filled, EvenOdd;
+            internal LineCap Cap = LineCap.Flat;
+        }
+
+        private sealed class VectorArt
+        {
+            internal RectangleF Ink;
+            internal readonly List<VectorPath> Paths = new List<VectorPath>();
+        }
+
+        private static readonly Dictionary<string, VectorArt> Vectors = new Dictionary<string, VectorArt>();
+
+        /// <summary>The step icon NAME as vectors (Kmrp.vector.NAME, src/patcher/icons/NAME.svg),
+        /// or null when there is none. Reads what those files hold and nothing more, as the Linux
+        /// installer's reader does (Ui.Vectors, src/installer-linux/MainWindow.cs): paths of
+        /// absolute M, L, C and Z, with fill, stroke, stroke-width, stroke-linecap and fill-rule on
+        /// the path or a group around it. With regular expressions, as this build has no XML
+        /// library referenced.</summary>
+        private static VectorArt VectorFor(string name)
+        {
+            VectorArt art;
+            if (Vectors.TryGetValue(name, out art))
+                return art;
+            art = null;
+            try
+            {
+                using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Kmrp.vector." + name))
+                using (StreamReader reader = stream == null ? null : new StreamReader(stream))
+                {
+                    if (reader != null)
+                    {
+                        string text = Regex.Replace(reader.ReadToEnd(), "<!--.*?-->", "", RegexOptions.Singleline);
+                        art = new VectorArt();
+                        List<Dictionary<string, string>> groups = new List<Dictionary<string, string>>();
+                        foreach (Match tag in Regex.Matches(text, "<(/?)(g|path)\\b([^>]*?)(/?)>"))
+                        {
+                            if (tag.Groups[1].Value == "/")
+                            {
+                                if (tag.Groups[2].Value == "g" && groups.Count > 0)
+                                    groups.RemoveAt(groups.Count - 1);
+                                continue;
+                            }
+                            Dictionary<string, string> own = new Dictionary<string, string>();
+                            foreach (Match attribute in Regex.Matches(tag.Groups[3].Value, "([a-z\\-]+)=\"([^\"]*)\""))
+                                own[attribute.Groups[1].Value] = attribute.Groups[2].Value;
+                            if (tag.Groups[2].Value == "g")
+                            {
+                                if (tag.Groups[4].Value != "/")
+                                    groups.Add(own);
+                                continue;
+                            }
+                            art.Paths.Add(ParseVectorPath(own, groups));
+                        }
+                        if (art.Paths.Count == 0)
+                            art = null;
+                        else
+                            art.Ink = VectorInk(art);
+                    }
+                }
+            }
+            catch { art = null; }
+            Vectors[name] = art;
+            return art;
+        }
+
+        private static VectorPath ParseVectorPath(Dictionary<string, string> own, List<Dictionary<string, string>> groups)
+        {
+            Func<string, string> inherited = delegate(string attribute)
+            {
+                string value;
+                if (own.TryGetValue(attribute, out value))
+                    return value;
+                for (int i = groups.Count - 1; i >= 0; i--)
+                    if (groups[i].TryGetValue(attribute, out value))
+                        return value;
+                return null;
+            };
+            VectorPath path = new VectorPath();
+            string stroke = inherited("stroke");
+            if (stroke != null && stroke != "none")
+                path.Stroke = float.Parse(inherited("stroke-width") ?? "1", CultureInfo.InvariantCulture);
+            path.Filled = (inherited("fill") ?? "#000") != "none";
+            path.EvenOdd = inherited("fill-rule") == "evenodd";
+            string cap = inherited("stroke-linecap");
+            path.Cap = cap == "round" ? LineCap.Round : cap == "square" ? LineCap.Square : LineCap.Flat;
+            char op = ' ';
+            List<float> numbers = new List<float>();
+            Action flush = delegate
+            {
+                int need = op == 'C' ? 6 : op == 'Z' ? 0 : 2;
+                if (op == 'Z')
+                {
+                    path.Ops.Add('Z');
+                    path.Points.Add(new PointF[0]);
+                }
+                for (int i = 0; need > 0 && i + need <= numbers.Count; i += need)
+                {
+                    PointF[] points = new PointF[need / 2];
+                    for (int p = 0; p < points.Length; p++)
+                        points[p] = new PointF(numbers[i + 2 * p], numbers[i + 2 * p + 1]);
+                    path.Ops.Add(op == 'M' && i > 0 ? 'L' : op);
+                    path.Points.Add(points);
+                }
+                numbers.Clear();
+            };
+            string d;
+            own.TryGetValue("d", out d);
+            foreach (Match token in Regex.Matches(d ?? "", "[MLCZ]|-?[0-9]+(\\.[0-9]+)?"))
+            {
+                if (char.IsLetter(token.Value[0]))
+                {
+                    flush();
+                    op = token.Value[0];
+                }
+                else
+                    numbers.Add(float.Parse(token.Value, CultureInfo.InvariantCulture));
+            }
+            flush();
+            return path;
+        }
+
+        // What the art covers in its own units: every point, widened by half its path's line.
+        private static RectangleF VectorInk(VectorArt art)
+        {
+            float left = float.MaxValue, up = float.MaxValue, right = float.MinValue, down = float.MinValue;
+            foreach (VectorPath path in art.Paths)
+                foreach (PointF[] points in path.Points)
+                    foreach (PointF p in points)
+                    {
+                        left = Math.Min(left, p.X - path.Stroke / 2);
+                        up = Math.Min(up, p.Y - path.Stroke / 2);
+                        right = Math.Max(right, p.X + path.Stroke / 2);
+                        down = Math.Max(down, p.Y + path.Stroke / 2);
+                    }
+            return new RectangleF(left, up, right - left, down - up);
+        }
+
+        /// <summary>Draws NAME's vectors in BOX, or returns false when it has none. The same
+        /// drawing as the Linux installer's (Ui.Vector), since 2026-11-04 the standard for the
+        /// step icons ("should be standard now on windows and linux and mac"): the art's own
+        /// extent fills the box, each line's width is rounded to whole pixels, at least one,
+        /// and its centre put on a pixel's centre (odd widths) or edge (even widths), so the
+        /// straight lines cover whole pixels; the curves' ends move with them. A WinForms
+        /// Graphics is in screen pixels already, so no window scale enters here.</summary>
+        internal static bool DrawVectorIcon(Graphics g, string name, Rectangle box, Color color)
+        {
+            VectorArt art = VectorFor(name);
+            if (art == null || box.Width <= 0 || box.Height <= 0 || art.Ink.Width <= 0 || art.Ink.Height <= 0)
+                return false;
+            float fit = Math.Min(box.Width / art.Ink.Width, box.Height / art.Ink.Height);
+            float originX = box.X + (box.Width - art.Ink.Width * fit) / 2 - art.Ink.X * fit;
+            float originY = box.Y + (box.Height - art.Ink.Height * fit) / 2 - art.Ink.Y * fit;
+            SmoothingMode smoothing = g.SmoothingMode;
+            PixelOffsetMode offset = g.PixelOffsetMode;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            // Pixel centres at .5, as in the Linux installer's renderer, so the same rounding
+            // puts a line on the same pixels.
+            g.PixelOffsetMode = PixelOffsetMode.Half;
+            using (SolidBrush ink = new SolidBrush(color))
+            {
+                foreach (VectorPath path in art.Paths)
+                {
+                    float width = path.Stroke > 0 ? Math.Max(1, (float)Math.Round(path.Stroke * fit)) : 0;
+                    float phase = width % 2 == 1 ? 0.5F : 0;
+                    using (GraphicsPath shape = new GraphicsPath(path.EvenOdd ? FillMode.Alternate : FillMode.Winding))
+                    {
+                        PointF last = PointF.Empty, lastShift = PointF.Empty;
+                        bool open = false;
+                        for (int i = 0; i < path.Ops.Count; i++)
+                        {
+                            PointF[] p = path.Points[i];
+                            PointF end, exact, shift;
+                            switch (path.Ops[i])
+                            {
+                                case 'M':
+                                    shape.StartFigure();
+                                    exact = new PointF(originX + p[0].X * fit, originY + p[0].Y * fit);
+                                    last = Snap(exact, width, phase);
+                                    lastShift = new PointF(last.X - exact.X, last.Y - exact.Y);
+                                    open = true;
+                                    break;
+                                case 'L':
+                                    exact = new PointF(originX + p[0].X * fit, originY + p[0].Y * fit);
+                                    end = Snap(exact, width, phase);
+                                    shape.AddLine(last, end);
+                                    last = end;
+                                    lastShift = new PointF(end.X - exact.X, end.Y - exact.Y);
+                                    break;
+                                case 'C':
+                                    exact = new PointF(originX + p[2].X * fit, originY + p[2].Y * fit);
+                                    end = Snap(exact, width, phase);
+                                    shift = new PointF(end.X - exact.X, end.Y - exact.Y);
+                                    // Each control point moves with the end it belongs to.
+                                    shape.AddBezier(last,
+                                        new PointF(originX + p[0].X * fit + lastShift.X, originY + p[0].Y * fit + lastShift.Y),
+                                        new PointF(originX + p[1].X * fit + shift.X, originY + p[1].Y * fit + shift.Y), end);
+                                    last = end;
+                                    lastShift = shift;
+                                    break;
+                                case 'Z':
+                                    if (open)
+                                        shape.CloseFigure();
+                                    open = false;
+                                    break;
+                            }
+                        }
+                        if (width > 0)
+                        {
+                            using (Pen pen = new Pen(color, width))
+                            {
+                                pen.StartCap = pen.EndCap = path.Cap;
+                                pen.LineJoin = LineJoin.Round;
+                                g.DrawPath(pen, shape);
+                            }
+                        }
+                        else if (path.Filled)
+                            g.FillPath(ink, shape);
+                    }
+                }
+            }
+            g.SmoothingMode = smoothing;
+            g.PixelOffsetMode = offset;
+            return true;
+        }
+
+        // A point of a line of WIDTH whole pixels on the pixel grid: odd widths on a pixel's
+        // centre, even ones on its edge. A filled outline (WIDTH 0) is drawn where it falls.
+        private static PointF Snap(PointF p, float width, float phase)
+        {
+            if (width == 0)
+                return p;
+            return new PointF((float)Math.Floor(p.X - phase + 0.5) + phase, (float)Math.Floor(p.Y - phase + 0.5) + phase);
         }
 
         /// <summary>Draw the supplied verified-status badge, tinted with the semantic

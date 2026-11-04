@@ -51,8 +51,9 @@
     <AvaloniaResource Include="fonts/*.ttf" />
   </ItemGroup>
   <!-- The four step icons as vectors (src/patcher/icons/*.svg, MainWindow.cs: Ui.Vector), drawn
-       on whole screen pixels; the PNGs beside them stay the Windows installer's. -->
-  <ItemGroup>
+       on whole screen pixels. Since 2026-11-04 the Windows installer embeds them too, so a build
+       from its list below gets them from there; this is for a build without that list. -->
+  <ItemGroup Condition="'$(KmrpResources)' == ''">
     <EmbeddedResource Include="..\patcher\icons\*.svg" LogicalName="Kmrp.vector.%(Filename)" />
   </ItemGroup>
   <!-- The Windows installer's resources under the same names, from the list build_kmrp.ps1

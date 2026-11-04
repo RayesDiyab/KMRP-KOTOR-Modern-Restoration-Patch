@@ -193,6 +193,15 @@ proxy, and it applies the executable changes above as well.
   half-lit neighbours on the straight lines; the gear and badge are whole. **Not checked:** a
   published AppImage, a display scale above 1. Windows and the Mac are unchanged (they draw the
   PNGs).
+
+  **Windows draws them the same way since 2026-11-04** (the maintainer: "should be standard now on
+  windows and linux and mac"). `build_kmrp.ps1` embeds the four SVGs as `Kmrp.vector.*`, and
+  `UiTheme.DrawIconArt` draws them through `UiTheme.DrawVectorIcon` (`src/patcher/KmrpPatcher.cs`),
+  the Linux reader and pixel rules in GDI+, with the PNGs left as the fallback. The SVGs are read
+  with regular expressions, as the Windows build references no XML library. **Checked:** the
+  installer's window captured at 1633x923 on the maintainer's PC: the four icons fill their circles
+  as on Linux, with straight lines on whole pixels. **The Mac** still draws the PNGs; what it needs
+  is in `docs/macos-handoff-1.5-to-1.6.md`.
 - **Fixed: a worker of the art step could give up its share on a new build's first install**
   (2026-11-03, Windows and Linux). Every worker made the build's cache folder if it was not there,
   and gave up when making it failed; started together, one could find the folder missing, lose the

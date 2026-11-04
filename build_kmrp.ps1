@@ -405,6 +405,14 @@ foreach ($iconName in $iconNames) {
     }
 }
 Write-Detail ("embedding {0} of {1} UI icons" -f $iconCount, $iconNames.Count)
+# The four step icons as vectors (UiTheme.DrawVectorIcon), as the Linux installer draws them
+# since 2026-11-04; the PNGs above stay as their fallback.
+foreach ($vectorName in @("folder", "shield", "monitor", "tools")) {
+    $vectorPath = Join-Path $projectRoot "src\patcher\icons\$vectorName.svg"
+    if (Test-Path -LiteralPath $vectorPath) {
+        $compilerArgs += "/resource:$vectorPath,Kmrp.vector.$vectorName"
+    }
+}
 
 # Every resolution's layout, from the pool built in step 4. The installer reads
 # it through GuiPool (src/patcher/KmrpPatcher.cs). Until 2026-09-25 each of the
