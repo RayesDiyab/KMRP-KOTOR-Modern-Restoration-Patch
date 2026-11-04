@@ -109,6 +109,28 @@ stack every 2 s while frozen. With function names from KOTOR Patch Manager's add
 and between those drew `CSWGuiLoadScreen::Draw`: the game was running, waiting on a load that
 could not finish, not hung in a driver.
 
+*The offscreen frame under Proton* (issue 93), the same day with the build of
+2026-11-04T12:44:51+02:00 (`patches\kmrp.dll` `201708E9FD2C23FA…`), K1DC 2.0.1, anti-aliasing 0,
+brightness 57 and `debug-logs=2`, about a minute of play including a loaded save:
+
+| `kmrp-kpm.log` | Value | As on Windows with `import-slots=1`? |
+| --- | --- | --- |
+| The route | `under Wine or Proton: opengl32 is reached at the import slots` | yes |
+| Slots taken | 12 in 6 modules at the start, 8 in 8 at the first `wglMakeCurrent` | yes, the same counts |
+| The frame | `on, 3440x1440, 0 samples` | yes (0 samples: anti-aliasing 0) |
+| Binds of the window redirected | 0 in the first 600 swaps, then about three a swap: 9541 in 4200 | yes, it works the same way |
+| Reads resolved | 0 | yes: nothing to resolve without anti-aliasing |
+| `GL error` lines | 32 at one second, 13 s after the frame came on, none after | **no**: Windows had only K1DC's two at start-up |
+
+The picture was right throughout: the menu, the save, the brightness, nothing black or
+flickering (the maintainer). The 32 errors are 4 `State(s) are invalid: vertex program` and 28
+`Calling glActiveTexture from the current immediate mode state is invalid`. **Their caller is not
+known:** under Proton the debug callback runs with only Wine's frames on its stack
+(`ntdll.dll+48319`), so it cannot name the module, and the naming runs only while the frame is on,
+so a run without the frame cannot show whether they come anyway. What the game was doing at that
+second was not noted. **Not tested under Proton:** anti-aliasing 4 or 8, a movie, Alt-Tab, a change
+of resolution.
+
 **Correction to how this was reported:** the freeze was first taken for a KMRP or Proton
 regression ("it worked on older commits", "only on Linux"). It was neither: the same save files
 fail with no KMRP at all, and load once complete.

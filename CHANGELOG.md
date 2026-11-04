@@ -139,7 +139,21 @@ proxy, and it applies the executable changes above as well.
   samples, 2533 binds of the window redirected and 3096 reads resolved in 1200 swaps, which are
   K1DC's, reaching KMRP through the new path; with anti-aliasing 0 the same, nothing to resolve. The
   menu and a save on the Ebon Hawk were whole and bright, and the GL error log held only K1DC's own
-  two startup errors, as without the switch. **Not seen under Proton.**
+  two startup errors, as without the switch. **Seen under Proton** (2026-11-04, SteamOS, Proton
+  11.0-100, RTX 3080, 3440x1440 at 120 Hz, K1DC 2.0.1, brightness 57, anti-aliasing 0, the build of
+  2026-11-04T12:44:51+02:00, `patches\kmrp.dll` `201708E9…`, `debug-logs=2`; this entry said "Not
+  seen under Proton" until then): `under Wine or Proton: opengl32 is reached at the import slots`; 12
+  slots in 6 modules at the start and 8 in 8 at the first `wglMakeCurrent`, the counts of the Windows
+  run; the frame on at 3440x1440 with 0 samples; in 4200 swaps (about a minute) 9541 binds of the
+  window redirected, none in the first 600, then about three a swap, and 0 reads resolved, as there
+  is nothing to resolve without anti-aliasing. The menu, a loaded save and the brightness were right,
+  with nothing black or flickering (the maintainer). **Not as on Windows:** one burst of 32 `GL error
+  0x502` at a single second, 13 s after the frame came on, then none: 4 `State(s) are invalid: vertex
+  program`, 28 `Calling glActiveTexture from the current immediate mode state is invalid`. Their
+  caller is not known: under Proton the debug callback's stack holds only Wine's own frames
+  (`ntdll.dll+48319`), and the naming runs only while the frame is on, so whether they come without
+  it is not known either. **Not seen under Proton:** anti-aliasing 4 or 8 (the resolve), a movie,
+  Alt-Tab, a change of resolution, a Steam Deck.
 
 - **Changed: the Linux installer makes KMRP's interface ahead, as Windows does** (2026-11-03, reported
   from SteamOS: "on linux its instant but it takes longer to launch the game"). The Windows installer
