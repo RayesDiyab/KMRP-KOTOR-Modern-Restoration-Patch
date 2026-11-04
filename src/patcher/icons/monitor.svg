@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 2000" width="2000" height="2000">
+  <!-- The monitor of step 3. Drawn over assets/branding/ui-icons/Monitor-button.png, in its 2000 x 2000 pixels, by
+       measuring it: the centre of each line and its width, so a line can be put on whole screen pixels. The Linux installer draws this file (src/installer-linux/MainWindow.cs,
+       Ui.Vector); every path is absolute M, L, C and Z only, which is all it reads. -->
+  <g fill="none" stroke="#000" stroke-width="44" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 405.5 578 L 1556.5 578 L 1556.5 1318 L 405.5 1318 Z"/>
+    <path stroke-linecap="butt" d="M 862.5 1318 L 862.5 1468"/>
+    <path stroke-linecap="butt" d="M 1099.5 1318 L 1099.5 1468"/>
+    <path stroke-width="36" d="M 623 1468 L 1339 1468"/>
+  </g>
+</svg>

@@ -50,6 +50,11 @@
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.1" />
     <AvaloniaResource Include="fonts/*.ttf" />
   </ItemGroup>
+  <!-- The four step icons as vectors (src/patcher/icons/*.svg, MainWindow.cs: Ui.Vector), drawn
+       on whole screen pixels; the PNGs beside them stay the Windows installer's. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\patcher\icons\*.svg" LogicalName="Kmrp.vector.%(Filename)" />
+  </ItemGroup>
   <!-- The Windows installer's resources under the same names, from the list build_kmrp.ps1
        writes (tools/build_linux_installer.ps1 makes this file and passes its path). -->
   <Import Project="$(KmrpResources)" Condition="'$(KmrpResources)' != '' And Exists('$(KmrpResources)')" />

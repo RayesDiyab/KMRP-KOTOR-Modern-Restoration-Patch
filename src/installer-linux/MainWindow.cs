@@ -123,24 +123,338 @@ namespace Kmrp
 
         /// <summary>An icon as a silhouette of COLOR in BOX: the art's alpha keeps the shape, the
         /// colour is ours (UiTheme.DrawIconArt, DrawStatusArt and DrawIconMask; the art is white
-        /// line work but for the gear, which is black). CROP fits only the ink, as DrawIconMask.</summary>
-        internal static void Icon(DrawingContext dc, string name, Rect box, Color color, bool crop)
+        /// line work but for the gear, which is black). CROP fits only the ink, as DrawIconMask.
+        /// OWNER is the control drawing it, for the screen's scale.</summary>
+        internal static void Icon(DrawingContext dc, Visual owner, string name, Rect box, Color color, bool crop)
         {
+            if (!crop && Vector(dc, owner, name, box, color))
+                return;
             Bitmap image = Resource("Kmrp.icon." + name);
             if (image == null || box.Width <= 0 || box.Height <= 0)
                 return;
             Rect target = box;
-            ImageBrush mask = new ImageBrush(image) { Stretch = Stretch.Fill };
+            Rect source = new Rect(0, 0, image.PixelSize.Width, image.PixelSize.Height);
             if (crop)
             {
-                Rect ink = InkBounds(name, image);
-                double scale = Math.Min(box.Width / ink.Width, box.Height / ink.Height);
-                double dw = Math.Max(1, Math.Round(ink.Width * scale)), dh = Math.Max(1, Math.Round(ink.Height * scale));
+                source = InkBounds(name, image);
+                double scale = Math.Min(box.Width / source.Width, box.Height / source.Height);
+                double dw = Math.Max(1, Math.Round(source.Width * scale)), dh = Math.Max(1, Math.Round(source.Height * scale));
                 target = new Rect(box.X + Math.Floor((box.Width - dw) / 2), box.Y + Math.Floor((box.Height - dh) / 2), dw, dh);
-                mask.SourceRect = new RelativeRect(ink, RelativeUnit.Absolute);
             }
-            using (dc.PushOpacityMask(mask, target))
+            // The window's Viewbox scales the whole design grid to the window, so a box here is
+            // not a box of screen pixels. Find where it lands on the screen, round that to whole
+            // pixels, and make the mask at exactly that size: drawn there, no pixel of it is
+            // resampled or split between two screen pixels.
+            TopLevel top = TopLevel.GetTopLevel(owner);
+            Matrix? toTop = top == null ? null : owner.TransformToVisual(top);
+            int pw, ph;
+            if (toTop.HasValue && toTop.Value.M11 > 0 && toTop.Value.M22 > 0)
+            {
+                Matrix m = toTop.Value;
+                double k = top.RenderScaling, sx = m.M11 * k, sy = m.M22 * k;
+                double left = Math.Round((target.X * m.M11 + m.M31) * k), up = Math.Round((target.Y * m.M22 + m.M32) * k);
+                pw = (int)Math.Max(1, Math.Round(target.Width * sx));
+                ph = (int)Math.Max(1, Math.Round(target.Height * sy));
+                target = new Rect((left / k - m.M31) / m.M11, (up / k - m.M32) / m.M22, pw / sx, ph / sy);
+            }
+            else
+            {
+                pw = (int)Math.Max(1, Math.Round(target.Width));
+                ph = (int)Math.Max(1, Math.Round(target.Height));
+            }
+            Bitmap shape = Mask(name, image, source, pw, ph);
+            using (dc.PushOpacityMask(new ImageBrush(shape) { Stretch = Stretch.Fill }, target))
                 dc.FillRectangle(Brush(color), target);
+        }
+
+        /// <summary>One path of a vector icon: its commands in the SVG's own units, and how it is
+        /// painted. A stroked path is line work whose lines are put on whole screen pixels; a
+        /// filled one (the tools' traced outline) is drawn as it is.</summary>
+        private sealed class VectorPath
+        {
+            internal readonly List<char> Ops = new List<char>();
+            internal readonly List<Point[]> Points = new List<Point[]>();
+            internal double Stroke;
+            internal bool Filled, EvenOdd;
+            internal PenLineCap Cap = PenLineCap.Flat;
+        }
+
+        private sealed class VectorArt
+        {
+            internal double Size;
+            internal Rect Ink;
+            internal readonly List<VectorPath> Paths = new List<VectorPath>();
+        }
+
+        private static readonly Dictionary<string, VectorArt> vectors = new Dictionary<string, VectorArt>();
+
+        /// <summary>The step icon NAME as vectors (Kmrp.vector.NAME, src/patcher/icons/NAME.svg),
+        /// or null when there is none. Reads what those files use and nothing more: a square
+        /// viewBox, paths of absolute M, L, C and Z, and fill, stroke, stroke-width,
+        /// stroke-linecap and fill-rule on the path or a group around it.</summary>
+        private static VectorArt Vectors(string name)
+        {
+            VectorArt art;
+            if (vectors.TryGetValue(name, out art))
+                return art;
+            art = null;
+            try
+            {
+                using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Kmrp.vector." + name))
+                {
+                    if (stream != null)
+                    {
+                        System.Xml.Linq.XElement svg = System.Xml.Linq.XElement.Load(stream);
+                        string[] box = ((string)svg.Attribute("viewBox") ?? "0 0 0 0").Split(' ');
+                        art = new VectorArt { Size = double.Parse(box[2], CultureInfo.InvariantCulture) };
+                        foreach (System.Xml.Linq.XElement element in svg.Descendants())
+                            if (element.Name.LocalName == "path")
+                                art.Paths.Add(ParsePath(element));
+                        if (art.Size <= 0 || art.Paths.Count == 0)
+                            art = null;
+                        else
+                            art.Ink = InkOf(art);
+                    }
+                }
+            }
+            catch { art = null; }
+            vectors[name] = art;
+            return art;
+        }
+
+        private static VectorPath ParsePath(System.Xml.Linq.XElement element)
+        {
+            Func<string, string> inherited = delegate (string attribute)
+            {
+                for (System.Xml.Linq.XElement e = element; e != null; e = e.Parent)
+                {
+                    System.Xml.Linq.XAttribute found = e.Attribute(attribute);
+                    if (found != null)
+                        return found.Value;
+                }
+                return null;
+            };
+            VectorPath path = new VectorPath();
+            string stroke = inherited("stroke");
+            if (stroke != null && stroke != "none")
+                path.Stroke = double.Parse(inherited("stroke-width") ?? "1", CultureInfo.InvariantCulture);
+            path.Filled = (inherited("fill") ?? "#000") != "none";
+            path.EvenOdd = inherited("fill-rule") == "evenodd";
+            string cap = inherited("stroke-linecap");
+            path.Cap = cap == "round" ? PenLineCap.Round : cap == "square" ? PenLineCap.Square : PenLineCap.Flat;
+            char op = ' ';
+            List<double> numbers = new List<double>();
+            Action flush = delegate
+            {
+                int need = op == 'C' ? 6 : op == 'Z' ? 0 : 2;
+                if (op == 'Z')
+                {
+                    path.Ops.Add('Z');
+                    path.Points.Add(new Point[0]);
+                }
+                for (int i = 0; need > 0 && i + need <= numbers.Count; i += need)
+                {
+                    Point[] points = new Point[need / 2];
+                    for (int p = 0; p < points.Length; p++)
+                        points[p] = new Point(numbers[i + 2 * p], numbers[i + 2 * p + 1]);
+                    path.Ops.Add(op == 'M' && i > 0 ? 'L' : op);
+                    path.Points.Add(points);
+                }
+                numbers.Clear();
+            };
+            foreach (System.Text.RegularExpressions.Match token in
+                     System.Text.RegularExpressions.Regex.Matches((string)element.Attribute("d") ?? "", "[MLCZ]|-?[0-9]+(\\.[0-9]+)?"))
+            {
+                if (char.IsLetter(token.Value[0]))
+                {
+                    flush();
+                    op = token.Value[0];
+                }
+                else
+                    numbers.Add(double.Parse(token.Value, CultureInfo.InvariantCulture));
+            }
+            flush();
+            return path;
+        }
+
+        /// <summary>What the art covers in its own units: every point, widened by half the line
+        /// width of its path. Control points count too, which can only make it a little larger.</summary>
+        private static Rect InkOf(VectorArt art)
+        {
+            double left = double.MaxValue, up = double.MaxValue, right = double.MinValue, down = double.MinValue;
+            foreach (VectorPath path in art.Paths)
+                foreach (Point[] points in path.Points)
+                    foreach (Point p in points)
+                    {
+                        left = Math.Min(left, p.X - path.Stroke / 2);
+                        up = Math.Min(up, p.Y - path.Stroke / 2);
+                        right = Math.Max(right, p.X + path.Stroke / 2);
+                        down = Math.Max(down, p.Y + path.Stroke / 2);
+                    }
+            return right > left && down > up ? new Rect(left, up, right - left, down - up) : new Rect(0, 0, art.Size, art.Size);
+        }
+
+        /// <summary>Draws NAME's vectors in BOX, or returns false when it has none.
+        ///
+        /// **Why vectors.** The step icons' line work is about one screen pixel wide at the size
+        /// the window draws them, and a picture shrunk to that size cannot be sharp: every line
+        /// lands part-way across two pixels (reported 2026-11-04: "it needs to be fully crisp").
+        /// Here each line's width is rounded to whole screen pixels, at least one, and its centre
+        /// is put on a pixel's centre (odd widths) or edge (even widths), as a font is hinted, so
+        /// the straight lines cover whole pixels. The curves' ends move with them; the curves
+        /// themselves stay smooth. The shapes come from src/patcher/icons/*.svg, drawn over the
+        /// 2000-pixel masters in assets/branding/ui-icons.</summary>
+        private static bool Vector(DrawingContext dc, Visual owner, string name, Rect box, Color color)
+        {
+            VectorArt art = Vectors(name);
+            if (art == null || box.Width <= 0 || box.Height <= 0)
+                return false;
+            // From the SVG's units to screen pixels and back: the Viewbox's scale and offset (as in
+            // Icon), then the screen's own scale.
+            TopLevel top = TopLevel.GetTopLevel(owner);
+            Matrix? toTop = top == null ? null : owner.TransformToVisual(top);
+            Matrix m = toTop.HasValue && toTop.Value.M11 > 0 && toTop.Value.M22 > 0 ? toTop.Value : Matrix.Identity;
+            double k = top == null ? 1 : top.RenderScaling;
+            // The art's own extent fills the box, not its canvas: the masters leave a wide empty
+            // margin, which drew the icons at about 60% of the box (asked 2026-11-04: the icons
+            // larger, their circles as they are).
+            double fit = Math.Min(box.Width / art.Ink.Width, box.Height / art.Ink.Height);
+            double left = box.X + (box.Width - art.Ink.Width * fit) / 2 - art.Ink.X * fit;
+            double up = box.Y + (box.Height - art.Ink.Height * fit) / 2 - art.Ink.Y * fit;
+            double unitX = fit * m.M11 * k, unitY = fit * m.M22 * k;
+            double originX = (left * m.M11 + m.M31) * k, originY = (up * m.M22 + m.M32) * k;
+            Func<Point, Point> local = delegate (Point d)
+            {
+                return new Point((d.X / k - m.M31) / m.M11, (d.Y / k - m.M32) / m.M22);
+            };
+            IBrush ink = Brush(color);
+            foreach (VectorPath path in art.Paths)
+            {
+                double width = path.Stroke > 0 ? Math.Max(1, Math.Round(path.Stroke * unitX)) : 0;
+                double phase = width % 2 == 1 ? 0.5 : 0;
+                Func<Point, Point> screen = delegate (Point p)
+                {
+                    Point d = new Point(originX + p.X * unitX, originY + p.Y * unitY);
+                    if (width == 0)
+                        return d;
+                    return new Point(Math.Floor(d.X - phase + 0.5) + phase, Math.Floor(d.Y - phase + 0.5) + phase);
+                };
+                Func<Point, Point> exact = delegate (Point p) { return new Point(originX + p.X * unitX, originY + p.Y * unitY); };
+                StreamGeometry geometry = new StreamGeometry();
+                using (StreamGeometryContext context = geometry.Open())
+                {
+                    context.SetFillRule(path.EvenOdd ? FillRule.EvenOdd : FillRule.NonZero);
+                    bool open = false;
+                    Point last = new Point(), lastShift = new Point();
+                    for (int i = 0; i < path.Ops.Count; i++)
+                    {
+                        Point[] p = path.Points[i];
+                        switch (path.Ops[i])
+                        {
+                            case 'M':
+                                if (open)
+                                    context.EndFigure(false);
+                                last = screen(p[0]);
+                                lastShift = last - exact(p[0]);
+                                context.BeginFigure(local(last), path.Filled && width == 0);
+                                open = true;
+                                break;
+                            case 'L':
+                                last = screen(p[0]);
+                                lastShift = last - exact(p[0]);
+                                context.LineTo(local(last));
+                                break;
+                            case 'C':
+                                Point end = screen(p[2]), endShift = end - exact(p[2]);
+                                // Each control point moves with the end it belongs to.
+                                context.CubicBezierTo(local(exact(p[0]) + lastShift), local(exact(p[1]) + endShift), local(end));
+                                last = end;
+                                lastShift = endShift;
+                                break;
+                            case 'Z':
+                                if (open)
+                                    context.EndFigure(true);
+                                open = false;
+                                break;
+                        }
+                    }
+                    if (open)
+                        context.EndFigure(false);
+                }
+                Pen pen = width > 0 ? new Pen(ink, width / (k * m.M11), null, path.Cap, PenLineJoin.Round) : null;
+                dc.DrawGeometry(width == 0 && path.Filled ? ink : null, pen, geometry);
+            }
+            return true;
+        }
+
+        private static readonly Dictionary<string, byte[]> alphas = new Dictionary<string, byte[]>();
+        private static readonly Dictionary<string, Bitmap> masks = new Dictionary<string, Bitmap>();
+
+        /// <summary>SOURCE of the icon's alpha, averaged down to exactly W x H pixels and cached.
+        ///
+        /// **Why not let the renderer scale it.** The art is 256 px (the gear 2000) and is drawn
+        /// in a box of about 36. Stretched as a brush, Skia samples a few source pixels per screen
+        /// pixel and skips the rest, so the thin line work came out broken and jagged (reported
+        /// 2026-11-04, against the same icons sharp on Windows and the Mac). Windows avoids it
+        /// with HighQualityBicubic and a scaled copy (DrawIconMask); this is that copy, made by
+        /// averaging every source pixel each screen pixel covers. Drawn at its own size, the
+        /// brush then needs no resampling at all.</summary>
+        private static Bitmap Mask(string name, Bitmap image, Rect source, int w, int h)
+        {
+            string key = string.Format(CultureInfo.InvariantCulture, "{0}|{1}|{2}x{3}", name, source, w, h);
+            Bitmap found;
+            if (masks.TryGetValue(key, out found))
+                return found;
+            int iw = image.PixelSize.Width, ih = image.PixelSize.Height;
+            byte[] px;
+            if (!alphas.TryGetValue(name, out px))
+            {
+                px = new byte[iw * ih * 4];
+                GCHandle pin = GCHandle.Alloc(px, GCHandleType.Pinned);
+                try { image.CopyPixels(new PixelRect(0, 0, iw, ih), pin.AddrOfPinnedObject(), px.Length, iw * 4); }
+                finally { pin.Free(); }
+                alphas[name] = px;
+            }
+            // Separable box filter: each output pixel takes every source pixel under it, partial
+            // ones by the fraction covered. Rows first, then columns.
+            double[] rows = new double[w * ih];
+            double sx = source.Width / w, sy = source.Height / h;
+            for (int x = 0; x < w; x++)
+            {
+                double from = source.X + x * sx, to = from + sx;
+                for (int c = (int)Math.Floor(from); c < to && c < iw; c++)
+                {
+                    double weight = Math.Min(to, c + 1) - Math.Max(from, c);
+                    if (c < 0 || weight <= 0)
+                        continue;
+                    for (int y = 0; y < ih; y++)
+                        rows[y * w + x] += px[(y * iw + c) * 4 + 3] * weight;
+                }
+            }
+            WriteableBitmap mask = new WriteableBitmap(new PixelSize(w, h), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
+            using (ILockedFramebuffer frame = mask.Lock())
+            {
+                byte[] line = new byte[w * 4];
+                for (int y = 0; y < h; y++)
+                {
+                    double from = source.Y + y * sy, to = from + sy;
+                    for (int x = 0; x < w; x++)
+                    {
+                        double sum = 0;
+                        for (int r = (int)Math.Floor(from); r < to && r < ih; r++)
+                        {
+                            double weight = Math.Min(to, r + 1) - Math.Max(from, r);
+                            if (r >= 0 && weight > 0)
+                                sum += rows[r * w + x] * weight;
+                        }
+                        byte a = (byte)Math.Min(255, Math.Round(sum / (sx * sy)));
+                        line[x * 4] = line[x * 4 + 1] = line[x * 4 + 2] = line[x * 4 + 3] = a;   // white, premultiplied
+                    }
+                    Marshal.Copy(line, 0, frame.Address + y * frame.RowBytes, line.Length);
+                }
+            }
+            masks[key] = mask;
+            return mask;
         }
 
         internal static void OpenOutside(string target)
@@ -264,7 +578,7 @@ namespace Kmrp
             Rect circle = new Rect(28, (96 - 64) / 2, 64, 64);
             dc.DrawEllipse(Ui.Brush(Ui.Badge), new Pen(Ui.Brush(Ui.BadgeEdge), 1), circle.Center, 32, 32);
             double side = Math.Round(64 * 0.563);
-            Ui.Icon(dc, IconName, new Rect(circle.X + Math.Floor((64 - side) / 2), circle.Y + Math.Floor((64 - side) / 2), side, side),
+            Ui.Icon(dc, this, IconName, new Rect(circle.X + Math.Floor((64 - side) / 2), circle.Y + Math.Floor((64 - side) / 2), side, side),
                 Dimmed ? Ui.TextFaint : Ui.GlyphInk, false);
             dc.DrawText(Ui.Text_(Title, Ui.Display, FontWeight.Bold, 22, Dimmed ? Ui.TextFaint : Ui.Text), new Point(120, 48 - 30));
             FormattedText sub = Ui.Text_(Subtitle, Ui.Body, FontWeight.Normal, 16.5, Dimmed ? Ui.TextFaint : Ui.TextMuted);
@@ -300,7 +614,7 @@ namespace Kmrp
                 bool iconOnly = Text.Length == 0;
                 double icon = iconOnly ? 48 : 32, gap = iconOnly ? 0 : 8;
                 double left = Math.Max(0, w - Math.Min(w, icon + gap + (iconOnly ? 0 : textWidth)));
-                Ui.Icon(dc, Badge == 1 ? "verified" : "missing", new Rect(left, Math.Floor((h - icon) / 2), icon, icon), Ink, false);
+                Ui.Icon(dc, this, Badge == 1 ? "verified" : "missing", new Rect(left, Math.Floor((h - icon) / 2), icon, icon), Ink, false);
                 if (!iconOnly)
                     dc.DrawText(text, new Point(left + icon + gap, (h - text.Height) / 2));
                 return;
@@ -376,7 +690,7 @@ namespace Kmrp
             if (!string.IsNullOrEmpty(IconName))
             {
                 double side = Math.Round(Math.Min(Bounds.Width, Bounds.Height) * 0.74);
-                Ui.Icon(dc, IconName, new Rect(Math.Floor((Bounds.Width - side) / 2), Math.Floor((Bounds.Height - side) / 2), side, side), ink, true);
+                Ui.Icon(dc, this, IconName, new Rect(Math.Floor((Bounds.Width - side) / 2), Math.Floor((Bounds.Height - side) / 2), side, side), ink, true);
                 return;
             }
             double points = TextPoints > 0 ? TextPoints : (Primary ? 18 : 15.5);

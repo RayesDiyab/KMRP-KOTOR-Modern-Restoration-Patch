@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 2000" width="2000" height="2000">
+  <!-- The shield of step 2. Drawn over assets/branding/ui-icons/Shield-button.png, in its 2000 x 2000 pixels, by
+       measuring it: the centre of each line and its width, so a line can be put on whole screen pixels. The Linux installer draws this file (src/installer-linux/MainWindow.cs,
+       Ui.Vector); every path is absolute M, L, C and Z only, which is all it reads. -->
+  <path fill="none" stroke="#000" stroke-width="39" stroke-linecap="round" stroke-linejoin="round" d="M 998 431 C 820.4 527.7 789.6 548.5 556 573 L 573 1080 C 589.7 1288.9 738.5 1461.3 998 1551 C 1257.5 1461.3 1406.3 1288.9 1423 1080 L 1440 573 C 1206.4 548.5 1175.6 527.7 998 431 Z"/>
+</svg>

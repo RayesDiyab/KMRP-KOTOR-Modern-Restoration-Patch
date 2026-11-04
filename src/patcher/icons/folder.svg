@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 2000" width="2000" height="2000">
+  <!-- The folder of step 1. Drawn over assets/branding/ui-icons/Folder-button.png, in its 2000 x 2000 pixels, by
+       measuring it: the centre of each line and its width, so a line can be put on whole screen pixels. The Linux installer draws this file (src/installer-linux/MainWindow.cs,
+       Ui.Vector); every path is absolute M, L, C and Z only, which is all it reads. -->
+  <g fill="none" stroke="#000" stroke-width="62" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 407.5 784.5 L 407.5 528 C 407.5 497 437 473.5 480 473.5 L 712 473.5 C 780 473.5 820 598 870 598 L 1530 598 C 1565 598 1587.5 620 1587.5 655 L 1587.5 1460 C 1587.5 1500 1560 1529.5 1525 1529.5 L 480 1529.5 C 440 1529.5 407.5 1497 407.5 1457 L 407.5 784.5 Z"/>
+    <path d="M 407.5 784.5 L 1587.5 784.5"/>
+    <path d="M 729 1385.5 L 1447 1385.5"/>
+  </g>
+</svg>

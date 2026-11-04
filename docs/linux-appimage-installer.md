@@ -80,6 +80,14 @@ Checked:
   - **Fonts.** Microsoft's Segoe UI and Bahnschrift cannot ship. Selawik, Microsoft's open
     stand-in for Segoe UI, and Barlow Semi Condensed, for Bahnschrift SemiCondensed, are
     carried (`src/installer-linux/fonts/README.md`).
+  - **The step icons are vectors** (since 2026-11-04): `src/patcher/icons/folder.svg`,
+    `shield.svg`, `monitor.svg` and `tools.svg`, embedded as `Kmrp.vector.*` and drawn by
+    `Ui.Vector`. Each line's width is rounded to whole screen pixels and its centre put on the
+    pixel grid; the art's own extent fills the icon box, so the icons are about 1.6 times the
+    Windows installer's inside the same 64 px circles. The gear and the status badges stay
+    bitmaps, pre-scaled to their size on the screen (`Ui.Mask`). Windows and the Mac still draw
+    the PNGs. Measured from renders of a `dotnet build` (`KMRP_RENDER_PNG`, 1710 px wide, scale
+    1); **not seen** at a display scale above 1 or in a published AppImage.
   - **Its first size** follows `FitInitialSizeToWorkingArea`: 1772 x 969 on the 3440x1440
     display, where the Windows window opens at 1633 x 923 with its frame.
   - **K1DC's tile works** since 2026-10-31 (issue 44): K1DC is installed as its `.kpatch`,

@@ -143,6 +143,32 @@ proxy, and it applies the executable changes above as well.
   Windows, the new worker reports each size as it is made (19 sizes, about 15 s, four workers, three
   runs); in WSL against a stand-in `proton` that writes its progress over three seconds, the
   installer showed 22, 47, 73 and 99% a second apart. **Not seen:** under a real Proton.
+- **Fixed: the Linux installer's icons were broken and jagged; the step icons are now vectors**
+  (2026-11-04, seen on SteamOS: the step icons "not good quality", against the same icons sharp on
+  Windows and the Mac). The icon art is 256 px (the settings gear 2000) and was stretched as a brush
+  into a box of about 36; Skia, sampling a few source pixels per screen pixel, dropped parts of the
+  thin lines (the monitor lost its top edge, the shield and tools broke up). Two changes in
+  `src/installer-linux/MainWindow.cs`:
+  - **The four step icons are drawn from vectors** (`Ui.Vector`): `src/patcher/icons/folder.svg`,
+    `shield.svg`, `monitor.svg` and `tools.svg`, drawn over the 2000-pixel masters in
+    `assets/branding/ui-icons` and embedded by `KmrpLinux.csproj` as `Kmrp.vector.*`. Folder,
+    shield and monitor are line centres and widths measured from the masters; the tools are their
+    outline traced with potrace 1.16. Rendered at 2000 px against the masters, the ink overlaps
+    98.3% (folder), 94.7% (shield), 97.6% (monitor) and 99.2% (tools). Each line's width is rounded
+    to whole screen pixels and its centre put on a pixel's centre or edge, so straight lines cover
+    whole pixels at any size. The art's own extent fills the icon box, not the masters' empty
+    margin, so the icons are about 1.6 times as large inside the same 64 px circles (asked for
+    on 2026-11-04).
+  - **The gear and the status badges stay bitmaps**, now pre-scaled once to their size on the
+    screen by averaging every source pixel under each screen pixel (`Ui.Mask`), as Windows'
+    `DrawIconMask` caches a HighQualityBicubic copy. The size is the screen's, not the design
+    grid's: the window's Viewbox scales the 1980-wide grid to the window (0.87 at 1718 px).
+
+  **Checked:** the window rendered from a `dotnet build` on SteamOS (`KMRP_RENDER_PNG`, 1710 px wide,
+  scale 1): the folder's lines are two whole pixels, the shield's and monitor's one, with no
+  half-lit neighbours on the straight lines; the gear and badge are whole. **Not checked:** a
+  published AppImage, a display scale above 1. Windows and the Mac are unchanged (they draw the
+  PNGs).
 - **Fixed: a worker of the art step could give up its share on a new build's first install**
   (2026-11-03, Windows and Linux). Every worker made the build's cache folder if it was not there,
   and gave up when making it failed; started together, one could find the folder missing, lose the
