@@ -152,8 +152,14 @@ proxy, and it applies the executable changes above as well.
   program`, 28 `Calling glActiveTexture from the current immediate mode state is invalid`. Their
   caller is not known: under Proton the debug callback's stack holds only Wine's own frames
   (`ntdll.dll+48319`), and the naming runs only while the frame is on, so whether they come without
-  it is not known either. **Not seen under Proton:** anti-aliasing 4 or 8 (the resolve), a movie,
-  Alt-Tab, a change of resolution, a Steam Deck.
+  it is not known either. **With anti-aliasing 8** (a second start the same day, AA changed in the
+  game): the frame was made again with `on, 3440x1440, 8 samples`, and in the next 2400 swaps 9301
+  binds of the window were redirected and 9172 reads resolved, about five of each a swap, so the
+  resolve runs under Proton; the picture was right, edges smoothed, nothing black or flickering (the
+  maintainer). The same burst came again, once: 30 errors at one second, 8 s after the 8-sample frame
+  came on (26 `glActiveTexture`, 4 `vertex program`). At the menu no bind of the window was
+  redirected in 9600 swaps: the game binds it only in play. **Not seen under Proton:** anti-aliasing
+  4, a movie, Alt-Tab, a change of resolution, a Steam Deck.
 
 - **Changed: the Linux installer makes KMRP's interface ahead, as Windows does** (2026-11-03, reported
   from SteamOS: "on linux its instant but it takes longer to launch the game"). The Windows installer

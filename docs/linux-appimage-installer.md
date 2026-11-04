@@ -134,12 +134,13 @@ Not done:
   (`K1OffscreenFrame.cpp`, `TakeAtImports`): the game's, and every game-folder module's,
   `GetProcAddress` included, which is how K1DC finds them. Seen working on Windows with
   `import-slots=1`, and **under Proton on 2026-11-04** (SteamOS, Proton 11.0-100, RTX 3080,
-  3440x1440, anti-aliasing 0): the same slot counts as on Windows, the frame on, 9541 binds of the
-  window redirected in 4200 swaps, the picture right (CHANGELOG, 2026-11-04, with the one burst of 32
-  GL errors that Windows did not show and whose caller Proton hides). The log line to look for is
-  `under Wine or Proton: opengl32 is reached at the import slots`, then `on, WxH, N samples`. Not seen
-  under Proton: anti-aliasing 4 or 8, a movie, Alt-Tab, a change of resolution. Whether Proton gains
-  anything from the frame has not been measured.
+  3440x1440, anti-aliasing 0 and then 8): the same slot counts as on Windows, the frame on, the
+  window's binds redirected, and with 8 samples the reads resolved, about five a swap; the picture
+  right both ways (CHANGELOG, 2026-11-04, with the one burst of about 30 GL errors per start that
+  Windows did not show and whose caller Proton hides). The log line to look for is `under Wine or
+  Proton: opengl32 is reached at the import slots`, then `on, WxH, N samples`. Not seen under Proton:
+  anti-aliasing 4, a movie, Alt-Tab, a change of resolution. Whether Proton gains anything from the
+  frame has not been measured.
 - The window's step texts are a second copy of `MainForm.RefreshStatus`'s, in the same words.
   Moving them into the core for both windows is left for later.
 

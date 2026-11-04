@@ -122,14 +122,27 @@ brightness 57 and `debug-logs=2`, about a minute of play including a loaded save
 | Reads resolved | 0 | yes: nothing to resolve without anti-aliasing |
 | `GL error` lines | 32 at one second, 13 s after the frame came on, none after | **no**: Windows had only K1DC's two at start-up |
 
+A second start the same day, with anti-aliasing changed to 8 in the game:
+
+| `kmrp-kpm.log` | Value | As on Windows with `import-slots=1`? |
+| --- | --- | --- |
+| At the menu | 9600 swaps, 0 binds of the window redirected | the game binds the window only in play |
+| After the change | `on, 3440x1440, 8 samples`: the frame made again | yes |
+| In play | 9301 binds redirected and 9172 reads resolved in 2400 swaps, about five of each a swap | yes: the resolve runs |
+| `GL error` lines | 30 at one second, 8 s after the 8-sample frame came on, none after | **no**, the same burst as the first start |
+
+The picture was right with 8 samples too: edges smoothed, nothing black or flickering (the
+maintainer). So the burst comes once per start, a few seconds after the frame does, in both
+runs; what the game was doing at that second was not noted either time.
+
 The picture was right throughout: the menu, the save, the brightness, nothing black or
 flickering (the maintainer). The 32 errors are 4 `State(s) are invalid: vertex program` and 28
 `Calling glActiveTexture from the current immediate mode state is invalid`. **Their caller is not
 known:** under Proton the debug callback runs with only Wine's frames on its stack
 (`ntdll.dll+48319`), so it cannot name the module, and the naming runs only while the frame is on,
 so a run without the frame cannot show whether they come anyway. What the game was doing at that
-second was not noted. **Not tested under Proton:** anti-aliasing 4 or 8, a movie, Alt-Tab, a change
-of resolution.
+second was not noted. **Not tested under Proton:** anti-aliasing 4, a movie, Alt-Tab, a change of
+resolution.
 
 **Correction to how this was reported:** the freeze was first taken for a KMRP or Proton
 regression ("it worked on older commits", "only on Linux"). It was neither: the same save files

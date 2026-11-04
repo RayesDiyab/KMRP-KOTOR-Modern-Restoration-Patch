@@ -162,7 +162,7 @@ The automated tests cover these on throwaway folders. These rows are the real St
 | Check | Needs |
 | --- | --- |
 | Linux: the running-game check, art cache removal, Repair in the AppImage window | a Linux or Steam Deck machine |
-| Proton: the offscreen frame through the import slots (issue 93): `KMRP\logs\kmrp-kpm.log` says `under Wine or Proton: opengl32 is reached at the import slots`, then `on, WxH, N samples`; with anti-aliasing 0, 4 and 8, brightness away from the default, a movie, Alt-Tab and a change of resolution, the picture is whole and not black. With `debug-logs=2`, no `GL error` lines. **Done 2026-11-04 on SteamOS for anti-aliasing 0 and brightness 57** (the log lines, 9541 binds redirected, the picture right; one burst of 32 GL errors, see CHANGELOG); anti-aliasing 4 and 8, a movie, Alt-Tab and a change of resolution still to do | the same |
+| Proton: the offscreen frame through the import slots (issue 93): `KMRP\logs\kmrp-kpm.log` says `under Wine or Proton: opengl32 is reached at the import slots`, then `on, WxH, N samples`; with anti-aliasing 0, 4 and 8, brightness away from the default, a movie, Alt-Tab and a change of resolution, the picture is whole and not black. With `debug-logs=2`, no `GL error` lines. **Done 2026-11-04 on SteamOS for anti-aliasing 0 and 8, brightness 57** (the log lines, the binds redirected, with 8 samples 9172 reads resolved, the picture right; one burst of about 30 GL errors per start, see CHANGELOG); anti-aliasing 4, a movie, Alt-Tab and a change of resolution still to do | the same |
 | Windows 7 and 8: K1DC's standalone route, the rename used for the manifest | those systems |
 | A full disk during install | a small volume |
 | Mac | waits for the port |
