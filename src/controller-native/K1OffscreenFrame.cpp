@@ -141,10 +141,13 @@ bool swapping = false;     // inside the swap the slot held, with the window bou
 bool checkedShow = false;  // this buffer's first copy to the window has been checked
 unsigned long long swaps = 0, redirected = 0, resolved = 0;
 
+// A line too long for sprintf_s's buffer ends the process (its invalid-parameter handler, with no
+// crash dump): a GL error line of 600 characters ended the game at its first error
+// (2026-11-04). Cut instead.
 void Log(const char* text)
 {
-    char line[300];
-    sprintf_s(line, "[KMRP] offscreen frame: %s", text);
+    char line[1024];
+    _snprintf_s(line, sizeof line, _TRUNCATE, "[KMRP] offscreen frame: %s", text);
     KmrpRuntimeLog(line);
 }
 
@@ -216,27 +219,118 @@ PROC WINAPI GetProcForGame(LPCSTR name)
     return found;
 }
 
+// " name+offset" for ADDRESS, added to TEXT at USED.
+int NameAddress(char* text, std::size_t size, int used, const void* address)
+{
+    HMODULE module = nullptr;
+    char name[MAX_PATH] = "?";
+    if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                           static_cast<const char*>(address), &module))
+        GetModuleFileNameA(module, name, MAX_PATH);
+    const char* const slash = std::strrchr(name, '\\');
+    const int added = sprintf_s(text + used, size - used, " %s+%lX", slash ? slash + 1 : name,
+                                static_cast<unsigned long>(static_cast<const char*>(address) - reinterpret_cast<char*>(module)));
+    return added > 0 ? used + added : used;
+}
+
+// The game's folder's modules, as address ranges with their names, for reading return addresses
+// off the stack. Listed before the driver is asked to report errors, never in its callback: the
+// module list and file names wait on the loader's lock, and a thread holding that lock while it
+// waited on the driver froze the game at its first error (2026-11-04).
+struct Range {
+    ULONG_PTR base, from, to;
+    char name[48];
+};
+Range ranges[32] = {};
+int rangeCount = 0;
+
+void ListGameModules()
+{
+    rangeCount = 0;
+    wchar_t folder[MAX_PATH];
+    HMODULE modules[256];
+    DWORD bytes = 0;
+    if (!KmrpGameFolder(folder) || !K32EnumProcessModules(GetCurrentProcess(), modules, sizeof modules, &bytes)) return;
+    const std::size_t length = std::wcslen(folder);
+    for (DWORD i = 0; i < bytes / sizeof(HMODULE) && i < ARRAYSIZE(modules) && rangeCount < ARRAYSIZE(ranges); ++i) {
+        wchar_t path[MAX_PATH];
+        MODULEINFO info{};
+        const DWORD named = GetModuleFileNameW(modules[i], path, MAX_PATH);
+        if (!named || named >= MAX_PATH || named <= length || _wcsnicmp(path, folder, length) || path[length] != L'\\' ||
+            !K32GetModuleInformation(GetCurrentProcess(), modules[i], &info, sizeof info))
+            continue;
+        Range& range = ranges[rangeCount++];
+        range.base = reinterpret_cast<ULONG_PTR>(info.lpBaseOfDll);
+        range.from = range.base + 0x1000;
+        range.to = range.base + info.SizeOfImage;
+        const wchar_t* slash = std::wcsrchr(path, L'\\');
+        sprintf_s(range.name, "%.40ls", slash ? slash + 1 : path);
+    }
+}
+
+const Range* GameModuleAt(ULONG_PTR address)
+{
+    for (int i = 0; i < rangeCount; ++i)
+        if (address >= ranges[i].from && address < ranges[i].to) return &ranges[i];
+    return nullptr;
+}
+
+// Whether VALUE, in a module of the game's folder, points just past a call: E8 rel32, or FF /2
+// through a register, memory or a slot. A page of a module that cannot be read (a protector's)
+// is no call.
+bool AfterCall(ULONG_PTR value)
+{
+    if (!GameModuleAt(value)) return false;
+    __try {
+        const auto code = reinterpret_cast<const unsigned char*>(value);
+        return code[-5] == 0xE8 || code[-6] == 0xFF || code[-2] == 0xFF || code[-3] == 0xFF;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+}
+
+// What KMRP's own frame was doing when the driver raised an error: null when it was not
+// drawing, so the call was the game's, K1DC's or another patch's.
+const char* busy = nullptr;
+
 // With debug logs at level 2: every error the driver raises, in its own words, with the modules
 // and offsets that called it, from the first GL call of a context. K1DC's log says only that a
 // pass ended with INVALID_OPERATION, and it cannot name the call.
+//
+// Under Proton the callback runs with only Wine's frames above it, so the walk names nothing of
+// the caller (`ntdll.dll+48319`, 2026-11-04). The caller's return addresses are still on this
+// thread's stack further up: the first eight values there that point just past a call into a
+// module of the game's folder are named too, which is what a stack walk would have named, with
+// perhaps a stale one among them. With what KMRP's frame was doing, and the swap.
 void WINAPI GlErrorMessage(GLenum, GLenum type, GLuint id, GLenum, GLsizei, const char* message, const void*)
 {
     static int left = 30;
     if (type != 0x824C || left <= 0) return;    // GL_DEBUG_TYPE_ERROR
     --left;
-    char text[700];
-    int used = sprintf_s(text, "GL error 0x%X: %.300s; from", id, message ? message : "");
+    char text[900];
+    int used = sprintf_s(text, "GL error 0x%X: %.300s; swap %llu, %s; from", id, message ? message : "", swaps,
+                         busy ? busy : "not in KMRP's frame");
     void* frames[10] = {};
     const USHORT count = RtlCaptureStackBackTrace(1, 10, frames, nullptr);
-    for (USHORT i = 0; i < count && used > 0 && used < 620; ++i) {
-        HMODULE module = nullptr;
-        char name[MAX_PATH] = "?";
-        if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                               static_cast<const char*>(frames[i]), &module))
-            GetModuleFileNameA(module, name, MAX_PATH);
-        const char* const slash = std::strrchr(name, '\\');
-        used += sprintf_s(text + used, sizeof text - used, " %s+%lX", slash ? slash + 1 : name,
-                          static_cast<unsigned long>(reinterpret_cast<char*>(frames[i]) - reinterpret_cast<char*>(module)));
+    for (USHORT i = 0; i < count && used > 0 && used < 560; ++i)
+        used = NameAddress(text, sizeof text, used, frames[i]);
+    if (used > 0 && used < 600) used += sprintf_s(text + used, sizeof text - used, "; on the stack");
+    // Only on this thread's own stack, and at most 64 KB of it: a driver may call this on a stack
+    // of its own, where reading on up to the thread's would leave mapped memory.
+    const NT_TIB* tib = reinterpret_cast<const NT_TIB*>(NtCurrentTeb());
+    const auto here = reinterpret_cast<const ULONG_PTR*>(&tib);
+    const auto top = static_cast<const ULONG_PTR*>(tib->StackBase);
+    if (here >= static_cast<const ULONG_PTR*>(tib->StackLimit) && here < top) {
+        const auto end = top - here > 16384 ? here + 16384 : top;
+        int named = 0;
+        for (auto at = here; at < end && named < 8 && used > 0 && used < 820; ++at) {
+            if (!AfterCall(*at)) continue;
+            const Range* module = GameModuleAt(*at);
+            const int added = sprintf_s(text + used, sizeof text - used, " %s+%lX", module->name,
+                                        static_cast<unsigned long>(*at - module->base));
+            if (added > 0) used += added;
+            ++named;
+        }
     }
     Log(text);
 }
@@ -250,6 +344,7 @@ void WatchGlErrors(HGLRC rc)
     using SetCallbackFn = void(WINAPI*)(CallbackFn, const void*);
     const auto set = reinterpret_cast<SetCallbackFn>(realGetProc("glDebugMessageCallback"));
     if (!set) { Log("the driver has no glDebugMessageCallback; GL errors are not named"); return; }
+    ListGameModules();
     enable(0x92E0);     // GL_DEBUG_OUTPUT
     enable(0x8242);     // GL_DEBUG_OUTPUT_SYNCHRONOUS: on the calling thread, so the stack is the caller's
     set(&GlErrorMessage, nullptr);
@@ -268,11 +363,19 @@ BOOL WINAPI MakeCurrentForGame(HDC dc, HGLRC rc)
     return ok;
 }
 
+// Names KMRP's own GL work for the error log while it runs.
+struct Busy {
+    const char* was;
+    explicit Busy(const char* what) : was(busy) { busy = what; }
+    ~Busy() { busy = was; }
+};
+
 // A read of KMRP's multisampled buffer reads its resolved copy instead. Returns whether it
 // did, so the caller binds KMRP's buffer for reading again after.
 bool ReadPlain()
 {
     if (!samples || !plain || !Ours()) return false;
+    Busy marked("resolving a read of its buffer");
     GLint reading = 0, drawing = 0;
     getIntegerv(kReadBinding, &reading);
     if (static_cast<GLuint>(reading) != frame) return false;
@@ -360,6 +463,7 @@ bool Make(HDC dc)
     if (!owner || !GetClientRect(owner, &client) || client.right <= 0 || client.bottom <= 0) return false;
     const HGLRC now = currentContext();
     if (frame && now == context && owner == window && client.right == width && client.bottom == height) return true;
+    Busy marked("making its buffer");
     if (!bind && !(Resolve(bind, "glBindFramebufferEXT") && Resolve(genFramebuffers, "glGenFramebuffersEXT") &&
                    Resolve(genRenderbuffers, "glGenRenderbuffersEXT") && Resolve(bindRenderbuffer, "glBindRenderbufferEXT") &&
                    Resolve(renderbufferStorage, "glRenderbufferStorageEXT") &&
@@ -437,6 +541,7 @@ bool Make(HDC dc)
 // as glGetError can stall a driver, and errors the game left are cleared first.
 void Show()
 {
+    Busy marked("copying its buffer to the window");
     const bool check = !checkedShow && getError;
     if (check) {
         checkedShow = true;
@@ -467,7 +572,11 @@ BOOL WINAPI SwapForGame(HDC dc)
     const bool drawnOffscreen = Ours() && WindowFromDC(dc) == window && static_cast<GLuint>(drawing) == frame;
     if (drawnOffscreen) Show();
     swapping = true;
-    const BOOL ok = nextSwap(dc);
+    BOOL ok;
+    {
+        Busy marked("in the SwapBuffers the slot held");
+        ok = nextSwap(dc);
+    }
     swapping = false;
     ++swaps;
     if (!refused && currentContext && currentContext() && Make(dc)) {
@@ -647,7 +756,11 @@ void KmrpInstallOffscreenFrame()
 {
     wchar_t options[MAX_PATH];
     const bool named = KmrpGamePath(options, L"configs\\kmrp.ini");
-    if (named && GetPrivateProfileIntW(L"Offscreen", L"window-drawn", 0, options) != 0) {
+    // With window-drawn=1 the frame stays out. At debug logs 2 its functions are taken all the
+    // same and the buffer is never made, so GL errors are named without the frame too: under
+    // Proton the only way to tell whether an error comes from it (issue 93, 2026-11-04).
+    const bool windowDrawn = named && GetPrivateProfileIntW(L"Offscreen", L"window-drawn", 0, options) != 0;
+    if (windowDrawn && KmrpDebugLevel() < 2) {
         Log("window-drawn=1 in configs\\kmrp.ini: not used");
         return;
     }
@@ -698,6 +811,12 @@ void KmrpInstallOffscreenFrame()
         }
         if (!Patch(gl, "wglMakeCurrent", &MakeCurrentForGame, realMakeCurrent))
             LogNotPatched("wglMakeCurrent", "a pbuffer would be drawn into KMRP's buffer");
+    }
+    if (windowDrawn) {
+        // Every function taken passes the game's calls on untouched while no buffer exists.
+        refused = true;
+        Log("window-drawn=1 in configs\\kmrp.ini: not used; at debug logs 2 GL errors are named all the same");
+        return;
     }
     DWORD old = 0;
     if (!VirtualProtect(slot, sizeof *slot, PAGE_READWRITE, &old)) { Log("the SwapBuffers slot cannot be written; not used"); return; }

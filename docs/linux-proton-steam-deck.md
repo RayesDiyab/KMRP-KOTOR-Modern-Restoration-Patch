@@ -144,6 +144,24 @@ so a run without the frame cannot show whether they come anyway. What the game w
 second was not noted. **Not tested under Proton:** anti-aliasing 4, a movie, Alt-Tab, a change of
 resolution.
 
+*Who makes the burst* (the same evening, a build whose error lines name KMRP's state and the
+callers on the stack, anti-aliasing 8, `debug-logs=2`; CHANGELOG, 2026-11-04):
+
+| Start | Errors | KMRP's frame | Callers on the stack |
+| --- | --- | --- | --- |
+| As installed | 33, at swaps 427 to 433 | `not in KMRP's frame` on every line | `swkotor.exe+433C0E`, `+433C60`, the engine's code, through `high-fps-fixes.dll+211C` |
+| `window-drawn=1` | 34 | the buffer never made | the same, and `Copy is invalid when anti-aliasing is enabled` from the engine's frame effects |
+
+**The burst is the game's, and it is left as it is** (the maintainer, 2026-11-04: "leave it"). The
+`glActiveTexture` errors are the engine's speed blur, `GLRender::RenderAccumulationBlur` (ATI path
+0x433970, NV path 0x433DA0), calling `glActiveTextureARB` twice inside the `glBegin`/`glEnd` of
+its quad (0x433C03 and 0x433C55; NV 0x433F83 and 0x433FD5); the addresses logged are just past
+those calls. The driver ignores them and `glMultiTexCoord2fARB` names its unit anyway, so nothing
+drawn changes; Linux's NVIDIA driver reports them, Windows' does not. The 4 `vertex program`
+errors at the same second have stack values in `Part::GetMinimumSphere`, likely stale, and are
+probably K1DC's emulation of the ATI shader the pass enables. The copy error comes only without
+the frame, which resolves that read.
+
 **Correction to how this was reported:** the freeze was first taken for a KMRP or Proton
 regression ("it worked on older commits", "only on Linux"). It was neither: the same save files
 fail with no KMRP at all, and load once complete.

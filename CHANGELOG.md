@@ -161,6 +161,50 @@ proxy, and it applies the executable changes above as well.
   redirected in 9600 swaps: the game binds it only in play. **Not seen under Proton:** anti-aliasing
   4, a movie, Alt-Tab, a change of resolution, a Steam Deck.
 
+- **Changed: the GL error log names the caller under Proton, and can run without the frame**
+  (2026-11-04, for the burst above, which has to be traced before it can be fixed). Three changes,
+  all at `debug-logs=2` only, in `K1OffscreenFrame.cpp`:
+  - Each `GL error` line now also gives the swap and what KMRP's frame was doing (`making its
+    buffer`, `copying its buffer to the window`, `resolving a read of its buffer`, `in the
+    SwapBuffers the slot held`, or `not in KMRP's frame`). After `on the stack` it gives the first
+    eight return addresses on the thread's stack that point just past a call in a module of the
+    game's folder. Under Proton the stack walk sees only Wine's frames; these addresses are still
+    on the stack above them. The modules are listed when error naming starts, never inside the
+    driver's callback.
+  - `window-drawn=1` in `[Offscreen]` with `debug-logs=2` takes the same functions but never
+    makes the buffer, so errors are named without the frame too: the way to tell whether an error
+    comes from it.
+  - **Fixed in passing:** the frame's log lines were written through a 300-byte `sprintf_s`
+    buffer, and a longer line ends the process through the C runtime's invalid-parameter handler,
+    with no crash dump. The longer error lines did exactly that at the first error. Lines are now
+    cut at 1024 characters instead.
+
+  **Checked on Windows** (`import-slots=1`, RTX 3080, K1DC 2.0.1): K1DC's two startup errors came out
+  as `swap 0, not in KMRP's frame`, and the stack reading named the same callers as the walk
+  (`k1-modern-driver-compatibility.dll+26C9B`, `+23E25`, `swkotor.exe+321C8`). With
+  `window-drawn=1` the same two came with no buffer made, so they are K1DC's own.
+  `Test-OffscreenFrame.py` now runs the callback and a 1500-character line.
+
+  **Run under Proton, and what the burst is** (2026-11-04, SteamOS, the same PC, anti-aliasing 8,
+  `debug-logs=2`, two starts). With the frame on, every error line said `not in KMRP's frame`. With
+  `window-drawn=1` the same burst came with no buffer made (34 lines). **It is not KMRP's, and it is
+  left as it is.** By the callers on the stack, named from KPM's address database:
+  - **26 to 28 `glActiveTexture` errors are the 2003 engine's own.** `GLRender::RenderAccumulationBlur`
+    (0x433970 for the ATI path, which K1DC's emulation selects, and 0x433DA0 for NV) draws its
+    quad with two `glActiveTextureARB` calls inside `glBegin`/`glEnd` (0x433C03 and 0x433C55; NV
+    0x433F83 and 0x433FD5), which OpenGL forbids. The return addresses logged, `swkotor.exe+433C0E`
+    and `+433C60`, are just past them. They are harmless: the driver ignores them, and each
+    `glMultiTexCoord2fARB` after them names its texture unit, so the picture is unchanged, as seen.
+    Linux's NVIDIA driver reports them; Windows' does not. They could be patched out (four
+    push-and-call pairs), which would only quiet the log, so they were not (the maintainer:
+    "leave it").
+  - **4 `vertex program` errors come at the same second.** Their stack values land in
+    `Part::GetMinimumSphere`, which draws nothing, so they are likely stale; the likeliest source is
+    K1DC's emulation of the ATI fragment shader the same pass enables. Not traced further.
+  - **`Copy is invalid when anti-aliasing is enabled on the current read buffer`** came only with the
+    frame off: `GLRender::FrameBufferModificationPixelShaders` copying from the multisampled window.
+    With the frame on, KMRP resolves that read first, so it does not come.
+
 - **Changed: the Linux installer makes KMRP's interface ahead, as Windows does** (2026-11-03, reported
   from SteamOS: "on linux its instant but it takes longer to launch the game"). The Windows installer
   makes every display size's art at install; the Linux installer skipped that step, as it cannot load

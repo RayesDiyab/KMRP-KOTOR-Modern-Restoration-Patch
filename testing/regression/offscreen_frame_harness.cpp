@@ -332,6 +332,16 @@ int main()
           heldCount == 0 && !takeAgain, "and every slot it took is put back, the other's left as it was");
     WriteSlot(readSlot, genuineRead);
 
+    // The error log (2026-11-04): it names the callers from the stack, which froze the game at its
+    // first error before this was checked here.
+    ListGameModules();
+    Check(rangeCount >= 1, "the error log lists the modules of this program's folder");
+    GlErrorMessage(0, 0x824C, 0x502, 0, 0, "a test error", nullptr);
+    Check(true, "and an error is logged and the callback returns");
+    const std::string longest(1500, 'x');
+    Log(longest.c_str());
+    Check(true, "a log line longer than its buffer is cut, not the end of the process");
+
     std::printf("%d failed\n", failures);
     ReleaseDC(host, dc);
     DestroyWindow(host);
