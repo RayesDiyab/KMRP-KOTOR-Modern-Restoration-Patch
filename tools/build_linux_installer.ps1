@@ -67,8 +67,7 @@ $icon = Join-Path $out "kmrp-installer.png"
 & python -c "import sys; from PIL import Image; im = Image.open(sys.argv[1]); im.size = (256, 256); im.save(sys.argv[2])" `
     (Join-Path $projectRoot "assets\branding\favicon.ico") $icon
 if ($LASTEXITCODE -ne 0) { throw "the icon could not be made" }
-$version = [regex]::Match((Get-Content -Raw -LiteralPath (Join-Path $projectRoot "src\patcher\InstallCore.cs")),
-    'internal const string PatchVersion = "([^"]+)";').Groups[1].Value
+$version = & (Join-Path $PSScriptRoot "kmrp_version.ps1")
 $script = (& wsl.exe wslpath -a ((Join-Path $projectRoot "tools\build_linux_appimage.sh") -replace '\\', '/')).Trim()
 & wsl.exe bash $script $version
 if ($LASTEXITCODE -ne 0) { throw "the AppImage could not be packed" }

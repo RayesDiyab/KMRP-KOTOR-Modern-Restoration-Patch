@@ -8,7 +8,7 @@ KPM applies them when the game starts, so KMRP can be combined with other
 KPM patches.
 
 If you do not use KOTOR Patch Manager, you do not need this: KMRP's
-installer, "KMRP - KOTOR Modern Restoration Patch.exe", installs KPM's
+installer, KMRP-Windows-<version>.exe, installs KPM's
 runtime itself, for the editable swkotor.exe, GOG's and Steam's alike, and
 you start the game as usual.
 

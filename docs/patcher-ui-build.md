@@ -41,8 +41,14 @@ Resolution and game-engine math remain in
 `build_kmrp.ps1` produces one portable executable:
 
 ```text
-dist/KMRP - KOTOR Modern Restoration Patch.exe
+dist/KMRP-Windows-<version>.exe
 ```
+
+The version is `PatchVersion` in `src/patcher/InstallCore.cs`, set by hand for a
+release; `tools/kmrp_version.ps1` reads it for the build and the tests, and with
+`-WindowsInstaller` prints this path. Until 2026-11-04 the build wrote
+`dist/KMRP - KOTOR Modern Restoration Patch.exe`, renamed by hand for each release;
+the hashes recorded below under that name are of that file.
 
 No companion asset folder is required. **Current build, 2026-10-01:** installer
 1.5.0, 168,698,880 bytes, SHA-256
@@ -828,7 +834,7 @@ rebuilt from the pool matches its archive, and took 41 seconds on 2026-09-25.
 `assets/branding/favicon.ico`. `src/patcher/favicon.ico` is retained as a
 synchronised compatibility copy, not as an independent source of truth.
 After compilation the universal builder sends `SHCNE_UPDATEITEM` for the output
-path so Explorer is prompted to refresh an icon cached for `dist/KMRP - KOTOR Modern Restoration Patch.exe`.
+path so Explorer is prompted to refresh an icon cached for `dist/KMRP-Windows-<version>.exe`.
 
 The final build prints the output path and SHA-256. A build's KMRP hash is not a
 stable project constant because compiler metadata can change; record the hash
@@ -853,12 +859,12 @@ Cases 6 and 7 and `Test-InstallerPatch.ps1` Case 7.
 
 ## Command-line modes
 
-The shipped name contains spaces, so quote it on the command line.
+The examples use 1.6.0's name; the number follows the release.
 
 ```text
-"KMRP - KOTOR Modern Restoration Patch.exe" --apply clean.exe output.exe WIDTHxHEIGHT
-"KMRP - KOTOR Modern Restoration Patch.exe" --in-place swkotor.exe WIDTHxHEIGHT
-"KMRP - KOTOR Modern Restoration Patch.exe" --restore swkotor.exe
+KMRP-Windows-1.6.0.exe --apply clean.exe output.exe WIDTHxHEIGHT
+KMRP-Windows-1.6.0.exe --in-place swkotor.exe WIDTHxHEIGHT
+KMRP-Windows-1.6.0.exe --restore swkotor.exe
 ```
 
 The installer also starts copies of itself as `--prepare-art MODULE GAME SHARE SHARES`
@@ -925,7 +931,7 @@ the resolution in the legacy `--apply` and `--in-place` forms selects
     packages, `tools/check_hook_stolen_bytes.py` and
     `.github/scripts/check_links.py`. (`tools/check_patcher_hook_table.py`, named
     here until 2026-10-08, was removed on 2026-10-04.)
-14. Record the final `dist/KMRP - KOTOR Modern Restoration Patch.exe` SHA-256 in the release directory.
+14. Record the final `dist/KMRP-Windows-<version>.exe` SHA-256 in the release directory.
 15. Confirm Properties → Details on the built installer shows the release's
     version (1.5.0 for KMRP 1.5), the same string as `PatchVersion` in
     `KmrpPatcher.cs`. `build_kmrp.ps1` refuses to compile while

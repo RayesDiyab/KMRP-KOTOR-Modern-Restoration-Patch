@@ -498,7 +498,7 @@ rectangles, and it disappears again at even sizes.
 ## 10. Verifying by hand
 
 ```powershell
-& '.\dist\KMRP - KOTOR Modern Restoration Patch.exe' --apply `
+& (& .\tools\kmrp_version.ps1 -WindowsInstaller) --apply `
     .\build-inputs\swkotornopatch.exe .\out.exe 1920x1080
 ```
 

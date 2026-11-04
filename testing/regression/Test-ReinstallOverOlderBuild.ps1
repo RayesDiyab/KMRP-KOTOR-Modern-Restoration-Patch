@@ -42,7 +42,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$Patcher      = ".\dist\KMRP - KOTOR Modern Restoration Patch.exe",
+    [string]$Patcher      = (& (Join-Path $PSScriptRoot "..\..\tools\kmrp_version.ps1") -WindowsInstaller),
     [string]$OlderPatcher = ".\build\legacy\KMRP-standalone.exe",
     [string]$CleanExe     = ".\build-inputs\swkotornopatch.exe",
     [string]$SeedIni      = ".\testing\virtual-display\swkotor-7680-windowed.ini",

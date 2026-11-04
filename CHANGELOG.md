@@ -117,6 +117,15 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Changed: the Windows installer is built under its release name** (2026-11-04). `build_kmrp.ps1`
+  writes `dist\KMRP-Windows-<version>.exe`, now `KMRP-Windows-1.6.0.exe`, the name the release assets
+  have had since 1.5.0, where it wrote `KMRP - KOTOR Modern Restoration Patch.exe` for renaming by
+  hand. The version is `PatchVersion` in `src\patcher\InstallCore.cs`, changed there by hand as
+  before, and is read in one place, `tools\kmrp_version.ps1`, by the Windows build, the Linux build
+  (whose AppImage was already named this way) and the six tests that start the installer, which
+  had the old name written into each. `-OutputName` still names a variant build. **Checked:** the
+  helper returns `1.6.0` and the new path; every edited script parses; a test's default path
+  resolves from another working folder.
 - **Added: the offscreen frame under Proton** (2026-11-04, issue 93). Since 2026-10-30 the game draws
   each frame into a buffer of KMRP's and the window gets only finished frames, but under Wine and
   Proton it never ran: it takes over six opengl32 functions with the Windows hot-patch form, which

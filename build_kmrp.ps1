@@ -16,7 +16,10 @@ param(
         ".\third_party\Included\KOTOR1 HD ICON PACK ver1.0 1.0.0 by JackInTheBox\Override"
     ),
     # Lets a variant build sit beside the standard one instead of overwriting it.
-    [string]$OutputName = "KMRP - KOTOR Modern Restoration Patch",
+    # Left out, the installer is named after the version: KMRP-Windows-<version>.exe
+    # (tools\kmrp_version.ps1). Until 2026-11-04 it was always
+    # "KMRP - KOTOR Modern Restoration Patch.exe" and was renamed by hand for a release.
+    [string]$OutputName,
     [string]$IconPath = ".\assets\branding\favicon.ico",
     [string]$HdFonts = ".\assets\hd-fonts",
     [switch]$ReuseResources,
@@ -40,7 +43,9 @@ $buildDir = Join-Path $projectRoot "build\kmrp"
 $resourceDir = Join-Path $buildDir "resources"
 $distDir = Join-Path $projectRoot "dist"
 $engineSource = Join-Path $buildDir "windows-engine.bin"
-$outputExe = Join-Path $distDir ($OutputName + ".exe")
+$patchVersion = & (Join-Path $projectRoot "tools\kmrp_version.ps1")
+$outputExe = if ($OutputName) { Join-Path $distDir ($OutputName + ".exe") }
+             else { & (Join-Path $projectRoot "tools\kmrp_version.ps1") -WindowsInstaller }
 
 # Local, uncommitted machine settings, if any.
 $localSettings = Join-Path $projectRoot "build.local.ps1"
@@ -441,10 +446,8 @@ $compilerArgs += (Join-Path $projectRoot "src\patcher\LightField.cs")
 # Properties -> Details must name the version the install record names. The two live
 # in different files and nothing compares them at run time, so they drifted twice:
 # the v2.10.0 release reported 2.7.0, and 2.11.0-movieaspect was built reporting
-# 2.10.0-mapnotes. Refuse to compile while they disagree.
-$patchVersion = [regex]::Match(
-    (Get-Content -Raw -LiteralPath (Join-Path $projectRoot "src\patcher\InstallCore.cs")),
-    'internal const string PatchVersion = "([^"]+)";').Groups[1].Value
+# 2.10.0-mapnotes. Refuse to compile while they disagree. $patchVersion was read at the
+# top, by tools\kmrp_version.ps1, which also names the installer.
 $assemblyInfo = Get-Content -Raw -LiteralPath (Join-Path $projectRoot "src\patcher\AssemblyInfo.cs")
 $versionFields = @{}
 foreach ($field in @("AssemblyVersion", "AssemblyFileVersion", "AssemblyInformationalVersion")) {

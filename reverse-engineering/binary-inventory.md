@@ -115,8 +115,9 @@ bytes it writes that gold leaves alone (§4, *Written at install*):
 
 ```bash
 mkdir -p build/installed
+installer="$(powershell -NoProfile -File tools/kmrp_version.ps1 -WindowsInstaller | tr -d '\r')"
 for r in $(grep -v '^#' build/kmrp/resources/resolutions.tsv | cut -f2,3 --output-delimiter=x); do
-    "dist/KMRP - KOTOR Modern Restoration Patch.exe" --apply \
+    "$installer" --apply \
         build-inputs/swkotornopatch.exe "build/installed/swkotor_$r.exe" "$r"
 done
 python tools/build_binary_inventory.py \

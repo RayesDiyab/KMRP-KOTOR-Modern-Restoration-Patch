@@ -357,7 +357,7 @@ check.
 
 ```powershell
 # produce a patched copy at any supported resolution, leaving the original alone
-& '.\dist\KMRP - KOTOR Modern Restoration Patch.exe' --apply `
+& (& .\tools\kmrp_version.ps1 -WindowsInstaller) --apply `
     .\build-inputs\swkotornopatch.exe .\out.exe 1920x1080
 ```
 

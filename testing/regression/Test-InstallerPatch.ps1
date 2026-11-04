@@ -86,7 +86,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-if (-not $Installer) { $Installer = Join-Path $projectRoot "dist\KMRP - KOTOR Modern Restoration Patch.exe" }
+if (-not $Installer) { $Installer = & (Join-Path $projectRoot "tools\kmrp_version.ps1") -WindowsInstaller }
 if (-not $SourceExe) { $SourceExe = Join-Path $projectRoot "build-inputs\swkotornopatch.exe" }
 if (-not $WorkRoot) { $WorkRoot = Join-Path ([IO.Path]::GetTempPath()) ("kmrp-installer-patch-" + [Guid]::NewGuid().ToString("N")) }
 $WorkRoot = [IO.Path]::GetFullPath($WorkRoot)

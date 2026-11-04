@@ -27,7 +27,9 @@ temporary directory—not beside tracked sources.
 .\build_kmrp.ps1
 ```
 
-Both write `dist\KMRP - KOTOR Modern Restoration Patch.exe`, the one installer
+Both write `dist\KMRP-Windows-<version>.exe` (the version is `PatchVersion` in
+`src\patcher\InstallCore.cs`, read by `tools\kmrp_version.ps1`; until 2026-11-04 the
+file was `dist\KMRP - KOTOR Modern Restoration Patch.exe`), the one installer
 (since 2026-09-29 it also installs for KOTOR Patch Manager; until then a second
 installer, `dist\KMRP for KPM\KMRP for KPM.exe`, compiled with `KPM_EDITION`,
 did); the two `.kpatch` files, `KMRP.kpatch` and `KOTOR 1 Native Controller Mod +

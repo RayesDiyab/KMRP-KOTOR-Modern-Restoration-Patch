@@ -7,7 +7,8 @@
 > anything untested labelled as untested.
 
 
-`KMRP - KOTOR Modern Restoration Patch.exe` is the single-file installer for all 66
+`KMRP-Windows-<version>.exe` (named so by `build_kmrp.ps1` since 2026-11-04, before
+which it was `KMRP - KOTOR Modern Restoration Patch.exe`) is the single-file installer for all 66
 listed resolutions, and since 2026-09-30 for any other size from 4:3 to 32:9, whose
 menus it blends from the listed ones and whose controller badges and HUD boxes it
 draws for them. Since 2026-10-04 that is done by KMRP's patch module while the game
@@ -118,8 +119,8 @@ per-resolution font caches are optional.
 Automation-only command-line modes are also available:
 
 ```text
-"KMRP - KOTOR Modern Restoration Patch.exe" --in-place swkotor.exe 1920x1080
-"KMRP - KOTOR Modern Restoration Patch.exe" --restore swkotor.exe
+KMRP-Windows-1.6.0.exe --in-place swkotor.exe 1920x1080
+KMRP-Windows-1.6.0.exe --restore swkotor.exe
 ```
 
 `--in-place` performs the complete installation. `--restore` restores owned

@@ -39,7 +39,7 @@ $projectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 Set-Location -LiteralPath $projectRoot
 $env:PATH = "C:\Program Files\dotnet;" + $env:PATH
 $script:failures = 0
-$installer = Join-Path $projectRoot "dist\KMRP - KOTOR Modern Restoration Patch.exe"
+$installer = & (Join-Path $projectRoot "tools\kmrp_version.ps1") -WindowsInstaller
 $nativeModule = Join-Path $projectRoot "build\native-runtime\kmrp-native.dll"
 $controllerModule = Join-Path $projectRoot "build\controller-standalone\kmrp-controller.dll"
 $stepFolders = @("build\native-runtime", "build\controller-standalone", "build\kpm-runtime",
