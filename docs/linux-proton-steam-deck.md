@@ -57,6 +57,62 @@ Modern Driver Compatibility (then its standalone build, inert without
 with no override, issue 44, and not yet run under Proton),
 the released 1.5.1 file itself (it is the last test build with the version number).
 
+**SteamOS: 1.6.0, the saved display mode and a save that would not load (2026-11-04).** The
+same PC: SteamOS, NVIDIA RTX 3080, driver 615.78.08, Proton 11.0-100 (`proton-11.0-2e`), a
+3440x1440 display whose X server lists 3440x1440 at 119.98 Hz only (`xrandr`). KMRP 1.6.0 was
+installed by the AppImage (`KMRP\kpm.manifest`: built 2026-11-03T23:09:55+02:00,
+`patches\kmrp.dll` SHA-256 `C70FA16FEDB22CFD…`) with five patches: KMRP, the controller patch,
+High FPS Fixes, Marked Empty Containers and Modern Driver Compatibility 2.0.1.
+
+*The saved display mode* (issue 92; the rules are in `src/controller-native/K1DisplayModePolicy.h`).
+`swkotor.ini` was edited before each start and KMRP's lines read from `KMRP\logs\kmrp-kpm.log`:
+
+| Saved in `swkotor.ini` | KMRP's line | What happened | Run by |
+| --- | --- | --- | --- |
+| 3440x1440 at 75 Hz | `the display has this size but not this rate`, then `now 3440x1440 at 120 Hz` | written back to the file; the game started at 120 Hz | an agent, the file read after |
+| 1281x800 at 120 Hz | `Wine may render above the panel` | left as saved | the maintainer |
+| 1280x800 at 120 Hz | `the display has this mode` | left; played, "works perfectly" | the maintainer |
+| 4516x1950 at 654 Hz | `Wine may render above the panel` | left as saved, 654 Hz included; the game ran | the maintainer |
+
+So under Proton the rate is corrected only when the display has the size; a size the display
+lacks is kept with whatever rate was saved, as the policy says. Whether a rate the display
+cannot have should still be capped there is **open**: Wine does not switch the panel to it, so
+it did no harm in these runs, but the file keeps a rate the game is not running at.
+
+*A save that froze while loading.* Three saves stopped the loading screen at about a third
+of the bar, with the screen still drawn and no file read after `data\models.bif`: Game 22
+("Trial success", Manaan), Game 375 (Ebon Hawk) and `KMRPSkipKorriban`. Endar Spire saves
+loaded. **Cause, measured: those three save folders had no `SAVEGAME.sav`**, only
+`GLOBALVARS.res`, `PARTYTABLE.res`, `savenfo.res` and `Screen.tga`. Steam Cloud's record for
+the game (`userdata/<account>/32370/remotecache.vdf`) lists `SAVEGAME.sav` for seven saves and
+not for these three, all marked synced, so the cloud never held it. The maintainer copied the
+three saves from the Windows install where they were made, and they load. Why their
+`SAVEGAME.sav` never reached the cloud is **not known**; it happened on the Windows side.
+
+How it was found, and what it was not. Every trial loaded the same save after a fresh start:
+
+| Tried | Loading |
+| --- | --- |
+| KMRP's art made at install under Proton, then set aside so the game made its own | froze both ways |
+| The patches removed from `patch_config.toml` one group at a time, down to none | froze |
+| Fully vanilla: KPM's proxy replaced by Steam's own `binkw32.dll` | froze |
+| 60 Hz; environmental audio off; frame buffer, grass and shadows off | froze |
+| The game held to one CPU core (`taskset`) | froze |
+| Steam's and NVIDIA's GL shader caches set aside | froze |
+| `WINE_LARGE_ADDRESS_AWARE=1` | froze |
+| The same build loading an Endar Spire save | loaded |
+
+A sampling `dinput8.dll` (built for the purpose and removed afterwards) read the main thread's
+stack every 2 s while frozen. With function names from KOTOR Patch Manager's address database
+(`kotor1_0_3.db`), the thread was in the server's loop, `CServerAIMaster::UpdateState` →
+`CSWSCreature::AIUpdate` → `CSWSArea::ComputeHeight` → `CSWRoomSurfaceMesh::CheckAABBWalkable`,
+and between those drew `CSWGuiLoadScreen::Draw`: the game was running, waiting on a load that
+could not finish, not hung in a driver.
+
+**Correction to how this was reported:** the freeze was first taken for a KMRP or Proton
+regression ("it worked on older commits", "only on Linux"). It was neither: the same save files
+fail with no KMRP at all, and load once complete.
+
 **Correction, 2026-10-11: released 1.5.0 does not start under Proton.** Its modules
 call Windows' Compression API (`cabinet.dll` ordinal 40, `CreateDecompressor`), which
 no Wine up to 11.0 and neither Valve's `proton_9.0` nor `proton_10.0` branch exports;
