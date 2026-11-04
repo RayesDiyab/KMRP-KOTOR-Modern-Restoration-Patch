@@ -98,6 +98,14 @@ Checked:
   in WSL): `dist/KMRP-Linux-<version>-x86_64.AppImage`, packed by appimagetool 1.9.1 (its
   SHA-256 checked). It holds the program, Skia's and HarfBuzz's libraries, a launcher, a
   desktop entry and the Windows installer's icon.
+- **VirusTotal, first scan (2026-11-04):** `KMRP-Linux-1.6.0-x86_64.AppImage`, SHA-256
+  `569e7d25811537dc035ee536f8c2c4cafe7b4b2d3bfc8b6dae635265d10ccb4f`, 70,191,608 bytes,
+  submitted and analysed 2026-11-04 12:20:06 UTC: **0 of 58 engines** flagged it
+  ([report](https://www.virustotal.com/gui/file/569e7d25811537dc035ee536f8c2c4cafe7b4b2d3bfc8b6dae635265d10ccb4f)).
+  VirusTotal reads it as an ELF64 static-PIE executable, an AppImage by TrID (98.8%). The hash is
+  that of the AppImage installed and played under Proton the same day (the offscreen-frame and
+  display-mode records in [linux-proton-steam-deck.md](linux-proton-steam-deck.md)), checked
+  against the file on disk. One scan of one build: a later build has a new hash and needs its own.
 - **Size.** Windows' installer needs no runtime, since .NET Framework 4 is part of Windows,
   so its 59.8 MB is almost all payload (59.2 MB, the art pack already LZMA-compressed). Linux
   has no .NET, so the program carries .NET 8 and Avalonia. Untrimmed the program was 134 MB
