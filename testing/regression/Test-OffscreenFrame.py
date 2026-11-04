@@ -29,7 +29,7 @@ def main():
         exe = out / "offscreen-frame.exe"
         script = out / "build.cmd"
         args = ["cl", "/nologo", "/O1", "/std:c++17", "/EHsc", "/MT", f"/I{SRC}",
-                str(Path(__file__).with_name("offscreen_frame_harness.cpp")), "user32.lib", "gdi32.lib",
+                str(Path(__file__).with_name("offscreen_frame_harness.cpp")), "user32.lib", "gdi32.lib", "opengl32.lib",
                 f"/Fo{out}\\", f"/Fe{exe}"]
         script.write_text(f'@echo off\ncall "{vc}" x86 >nul\n' + subprocess.list2cmdline(args) + "\n",
                           encoding="utf-8", newline="\r\n")
@@ -42,6 +42,10 @@ def main():
     text = SOURCE.read_text(encoding="utf-8")
     switch = 'GetPrivateProfileIntW(L"Offscreen", L"window-drawn", 0, options)' in text
     print(("ok  " if switch else "FAIL") + "  the module reads the hand-set switch")
+    imports = ('const bool atImports = wine || (named && GetPrivateProfileIntW(L"Offscreen", L"import-slots", 0, options) != 0);'
+               in text)
+    print(("ok  " if imports else "FAIL") + "  under Wine, or with import-slots=1, opengl32 is reached at the import slots")
+    switch = switch and imports
     if result.returncode or not switch:
         print(f"FAILED ({result.returncode:#x})")
         return 1

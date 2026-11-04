@@ -128,9 +128,14 @@ Not done:
   loaded, and the brightness slider worked as reported by the maintainer. That log has no
   `hooks installed=` line on this route; `patch_config.toml` lists its 28 hooks. Side-by-side effects
   with K1DC off, AMD, Intel and a Steam Deck remain untested.
-- KMRP's offscreen frame under Proton: it does not run. None of the six functions it hot-patches has
-  an `8B FF` entry in Proton 11.0-100's `opengl32.dll`, so the game draws to the window. Whether
-  Proton gains anything from the frame has not been measured.
+- KMRP's offscreen frame under Proton: until 2026-11-04 it did not run. None of the six functions it
+  hot-patches has an `8B FF` entry in Proton 11.0-100's `opengl32.dll`, so the game drew to the
+  window. Since issue 93 it takes the six at the import slots instead under Wine and Proton
+  (`K1OffscreenFrame.cpp`, `TakeAtImports`): the game's, and every game-folder module's,
+  `GetProcAddress` included, which is how K1DC finds them. Seen working on Windows with
+  `import-slots=1` (CHANGELOG, 2026-11-04); not yet seen under Proton. The log line
+  to look for is `under Wine or Proton: opengl32 is reached at the import slots`, then `on, WxH, N
+  samples`. Whether Proton gains anything from the frame has not been measured.
 - The window's step texts are a second copy of `MainForm.RefreshStatus`'s, in the same words.
   Moving them into the core for both windows is left for later.
 

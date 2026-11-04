@@ -37,10 +37,22 @@
 // glCopyTexSubImage2D and glReadPixels, reading KMRP's buffer, first resolve it into a
 // plain one of the same size and read that.
 //
-// The five opengl32 functions are redirected with the system's hot-patch form (a short
+// The six opengl32 functions are redirected with the system's hot-patch form (a short
 // jump over `mov edi, edi` to a long jump in the five bytes before), only where the two
 // bytes are still `8B FF` and the five before are padding: anything else is someone
 // else's change, and the option then does nothing but say so in the log.
+//
+// Under Wine and Proton (issue 93, 2026-11-04) opengl32 has no such entries, so the same six
+// are taken where they are called from instead: the import slots of the game and of every
+// module in its folder that still hold opengl32's own function, and those modules' own
+// GetProcAddress, which then answers with KMRP's for these six names on opengl32. That reaches
+// K1DC too, which imports no GL: it finds opengl32 from the game's glEnable slot and asks it
+// with GetProcAddress (its gl_loader.rs), and it later points the game's wglMakeCurrent,
+// glDrawBuffer and SwapBuffers slots at its own functions, which call what the slots held.
+// Taken once from DllMain and once more at the game's first wglMakeCurrent, for a patch
+// loaded after this one; a slot holding anything else is someone else's and stays. Without
+// the game's own slots for the copies and wglGetProcAddress, every slot taken is put back.
+// `import-slots=1` in [Offscreen] of configs\kmrp.ini takes this path on Windows, to test it.
 //
 // If it goes wrong on a driver: a copy to the window that the driver refuses is seen on the
 // first frame shown (glGetError) and the window is drawn into as before; and `window-drawn=1`
@@ -53,6 +65,7 @@
 // HDR on (the maintainer's display has no HDR), nor on AMD or Intel.
 #include "KmrpOptions.h"
 #include <windows.h>
+#include <psapi.h>
 #include <cstdio>
 #include <cstring>
 #include "K1RuntimeEngine.h"
@@ -94,7 +107,7 @@ using ReadPixelsFn = void(WINAPI*)(GLint, GLint, GLsizei, GLsizei, GLenum, GLenu
 using GetErrorFn = GLenum(WINAPI*)();
 using DrawBufferFn = void(WINAPI*)(GLenum);
 
-// opengl32's own, past their `mov edi, edi`.
+// opengl32's own, past their `mov edi, edi` (or whole, taken at the import slots).
 GetProcFn realGetProc = nullptr;
 MakeCurrentFn realMakeCurrent = nullptr;
 CopyTexImageFn realCopyTexImage = nullptr;
@@ -243,8 +256,12 @@ void WatchGlErrors(HGLRC rc)
     Log("GL errors are named here from now on");
 }
 
+void TakeImports();
+bool takeAgain = false;    // taken at the import slots: once more at the game's first wglMakeCurrent
+
 BOOL WINAPI MakeCurrentForGame(HDC dc, HGLRC rc)
 {
+    if (takeAgain) { takeAgain = false; TakeImports(); }
     const BOOL ok = realMakeCurrent(dc, rc);
     if (ok && rc && rc == context && frame && !refused && bind)
         bind(kFramebuffer, dc && WindowFromDC(dc) == window ? frame : 0);
@@ -479,15 +496,148 @@ template <typename T> bool Patch(HMODULE gl, const char* name, T wrapper, T& rea
     return false;
 }
 
-// Wine's opengl32 has no 8B FF entry, so HotPatch's refusal there says nothing about anyone else.
 void LogNotPatched(const char* functions, const char* outcome)
 {
-    const HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
-    const bool wine = ntdll && GetProcAddress(ntdll, "wine_get_version");
     char text[200];
-    sprintf_s(text, "opengl32's %s: %s; %s", functions,
-              wine ? "no entry KMRP can patch under Wine or Proton" : "already changed by something else", outcome);
+    sprintf_s(text, "opengl32's %s: already changed by something else; %s", functions, outcome);
     Log(text);
+}
+
+// Taken at the import slots (see the header): each function, opengl32's own, and KMRP's.
+struct Taken {
+    const char* name;
+    void* genuine;
+    void* wrapper;
+};
+Taken taken[6] = {};
+HMODULE opengl = nullptr;
+decltype(&GetProcAddress) realGetProcAddress = nullptr;
+// Every slot taken and what it held, to put back when the game's own could not be taken.
+struct Held {
+    void** slot;
+    void* was;
+};
+Held held[96] = {};
+int heldCount = 0;
+
+FARPROC WINAPI GetProcAddressForGame(HMODULE module, LPCSTR name)
+{
+    if (module && module == opengl && name && reinterpret_cast<ULONG_PTR>(name) >= 0x10000)
+        for (const Taken& each : taken)
+            if (!std::strcmp(name, each.name)) return reinterpret_cast<FARPROC>(each.wrapper);
+    return realGetProcAddress(module, name);
+}
+
+bool WriteSlot(void** slot, void* value)
+{
+    DWORD old = 0;
+    if (!VirtualProtect(slot, sizeof *slot, PAGE_READWRITE, &old)) return false;
+    *slot = value;
+    VirtualProtect(slot, sizeof *slot, old, &old);
+    return true;
+}
+
+// The slots of MODULE's import tables that hold one of opengl32's six or GetProcAddress, now
+// KMRP's. Returns how many.
+int TakeSlots(HMODULE module)
+{
+    auto base = reinterpret_cast<unsigned char*>(module);
+    const auto dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
+    if (dos->e_magic != IMAGE_DOS_SIGNATURE) return 0;
+    const auto nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
+    if (nt->Signature != IMAGE_NT_SIGNATURE) return 0;
+    const IMAGE_DATA_DIRECTORY& imports = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+    if (!imports.VirtualAddress || !imports.Size) return 0;
+    int count = 0;
+    for (auto entry = reinterpret_cast<const IMAGE_IMPORT_DESCRIPTOR*>(base + imports.VirtualAddress); entry->Name; ++entry) {
+        for (auto slot = reinterpret_cast<void**>(base + entry->FirstThunk); *slot; ++slot) {
+            void* wrapper = *slot == reinterpret_cast<void*>(realGetProcAddress) ? reinterpret_cast<void*>(&GetProcAddressForGame) : nullptr;
+            for (const Taken& each : taken)
+                if (*slot == each.genuine) wrapper = each.wrapper;
+            if (!wrapper || heldCount == ARRAYSIZE(held)) continue;
+            void* const was = *slot;
+            if (!WriteSlot(slot, wrapper)) continue;
+            held[heldCount++] = { slot, was };
+            ++count;
+        }
+    }
+    return count;
+}
+
+// The game's and every module's in its folder, as they are now loaded.
+void TakeImports()
+{
+    wchar_t folder[MAX_PATH];
+    HMODULE modules[256];
+    DWORD bytes = 0;
+    if (!KmrpGameFolder(folder) || !K32EnumProcessModules(GetCurrentProcess(), modules, sizeof modules, &bytes)) return;
+    const std::size_t length = std::wcslen(folder);
+    int slots = 0, owners = 0;
+    for (DWORD i = 0; i < bytes / sizeof(HMODULE) && i < ARRAYSIZE(modules); ++i) {
+        wchar_t path[MAX_PATH];
+        const DWORD named = GetModuleFileNameW(modules[i], path, MAX_PATH);
+        if (!named || named >= MAX_PATH || named <= length || _wcsnicmp(path, folder, length) || path[length] != L'\\') continue;
+        if (const int count = TakeSlots(modules[i])) { slots += count; ++owners; }
+    }
+    if (slots) {
+        char text[160];
+        sprintf_s(text, "%d import slots in %d modules of the game's folder now call KMRP's", slots, owners);
+        Log(text);
+    }
+}
+
+// The game's import slot for opengl32's NAME holds KMRP's function.
+bool GameSlotTaken(const char* name)
+{
+    const auto base = reinterpret_cast<const unsigned char*>(GetModuleHandleW(nullptr));
+    const auto nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + reinterpret_cast<const IMAGE_DOS_HEADER*>(base)->e_lfanew);
+    for (int i = 0; i < heldCount; ++i)
+        for (const Taken& each : taken)
+            if (!std::strcmp(each.name, name) && held[i].was == each.genuine &&
+                static_cast<ULONG_PTR>(reinterpret_cast<const unsigned char*>(held[i].slot) - base) < nt->OptionalHeader.SizeOfImage)
+                return true;
+    return false;
+}
+
+// Under Wine: the six at the import slots. False, with every slot put back, when the game's own
+// for the copies and wglGetProcAddress could not be taken.
+bool TakeAtImports(HMODULE gl)
+{
+    opengl = gl;
+    realGetProcAddress = &GetProcAddress;
+    const Taken six[6] = {
+        { "glCopyTexImage2D", nullptr, reinterpret_cast<void*>(&CopyTexImageForGame) },
+        { "glCopyTexSubImage2D", nullptr, reinterpret_cast<void*>(&CopyTexSubImageForGame) },
+        { "glReadPixels", nullptr, reinterpret_cast<void*>(&ReadPixelsForGame) },
+        { "glDrawBuffer", nullptr, reinterpret_cast<void*>(&DrawBufferForGame) },
+        { "wglGetProcAddress", nullptr, reinterpret_cast<void*>(&GetProcForGame) },
+        { "wglMakeCurrent", nullptr, reinterpret_cast<void*>(&MakeCurrentForGame) },
+    };
+    for (int i = 0; i < 6; ++i) {
+        taken[i] = six[i];
+        taken[i].genuine = reinterpret_cast<void*>(GetProcAddress(gl, six[i].name));
+        if (!taken[i].genuine) return false;
+    }
+    // Before any slot goes live: the game's thread may be running (audit GFX-02).
+    realCopyTexImage = reinterpret_cast<CopyTexImageFn>(taken[0].genuine);
+    realCopyTexSubImage = reinterpret_cast<CopyTexSubImageFn>(taken[1].genuine);
+    realReadPixels = reinterpret_cast<ReadPixelsFn>(taken[2].genuine);
+    realDrawBuffer = reinterpret_cast<DrawBufferFn>(taken[3].genuine);
+    realGetProc = reinterpret_cast<GetProcFn>(taken[4].genuine);
+    realMakeCurrent = reinterpret_cast<MakeCurrentFn>(taken[5].genuine);
+    TakeImports();
+    if (GameSlotTaken("glCopyTexImage2D") && GameSlotTaken("glCopyTexSubImage2D") && GameSlotTaken("glReadPixels") &&
+        GameSlotTaken("wglGetProcAddress")) {
+        if (!GameSlotTaken("glDrawBuffer")) LogNotPatched("glDrawBuffer", "the driver will refuse the game's own requests");
+        if (!GameSlotTaken("wglMakeCurrent")) LogNotPatched("wglMakeCurrent", "a pbuffer would be drawn into KMRP's buffer");
+        else takeAgain = true;
+        return true;
+    }
+    while (heldCount > 0) {
+        --heldCount;
+        WriteSlot(held[heldCount].slot, held[heldCount].was);
+    }
+    return false;
 }
 }
 
@@ -496,11 +646,14 @@ void LogNotPatched(const char* functions, const char* outcome)
 void KmrpInstallOffscreenFrame()
 {
     wchar_t options[MAX_PATH];
-    if (KmrpGamePath(options, L"configs\\kmrp.ini") &&
-        GetPrivateProfileIntW(L"Offscreen", L"window-drawn", 0, options) != 0) {
+    const bool named = KmrpGamePath(options, L"configs\\kmrp.ini");
+    if (named && GetPrivateProfileIntW(L"Offscreen", L"window-drawn", 0, options) != 0) {
         Log("window-drawn=1 in configs\\kmrp.ini: not used");
         return;
     }
+    const HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
+    const bool wine = ntdll && GetProcAddress(ntdll, "wine_get_version");
+    const bool atImports = wine || (named && GetPrivateProfileIntW(L"Offscreen", L"import-slots", 0, options) != 0);
     HMODULE gl = GetModuleHandleW(L"opengl32.dll");
     if (!gl) { Log("opengl32.dll is not loaded; not used"); return; }
     getIntegerv = reinterpret_cast<GetIntegervFn>(GetProcAddress(gl, "glGetIntegerv"));
@@ -519,24 +672,33 @@ void KmrpInstallOffscreenFrame()
         Log("the functions it needs are not there; not used");
         return;
     }
-    // The copies first: once wglGetProcAddress is redirected the buffer can be made, and a
-    // multisampled one must never be read unresolved.
-    if (!Patch(gl, "glCopyTexImage2D", &CopyTexImageForGame, realCopyTexImage) ||
-        !Patch(gl, "glCopyTexSubImage2D", &CopyTexSubImageForGame, realCopyTexSubImage) ||
-        !Patch(gl, "glReadPixels", &ReadPixelsForGame, realReadPixels)) {
-        // A redirected copy is harmless: it only resolves while KMRP's buffer exists, which
-        // it now never will.
-        LogNotPatched("copy functions", "not used, the game draws to the window");
-        return;
+    if (atImports) {
+        if (!TakeAtImports(gl)) {
+            Log("the game's own opengl32 imports could not be taken; not used, the game draws to the window");
+            return;
+        }
+        Log(wine ? "under Wine or Proton: opengl32 is reached at the import slots"
+                 : "import-slots=1 in configs\\kmrp.ini: opengl32 is reached at the import slots, as under Wine");
+    } else {
+        // The copies first: once wglGetProcAddress is redirected the buffer can be made, and a
+        // multisampled one must never be read unresolved.
+        if (!Patch(gl, "glCopyTexImage2D", &CopyTexImageForGame, realCopyTexImage) ||
+            !Patch(gl, "glCopyTexSubImage2D", &CopyTexSubImageForGame, realCopyTexSubImage) ||
+            !Patch(gl, "glReadPixels", &ReadPixelsForGame, realReadPixels)) {
+            // A redirected copy is harmless: it only resolves while KMRP's buffer exists, which
+            // it now never will.
+            LogNotPatched("copy functions", "not used, the game draws to the window");
+            return;
+        }
+        if (!Patch(gl, "glDrawBuffer", &DrawBufferForGame, realDrawBuffer))
+            LogNotPatched("glDrawBuffer", "the driver will refuse the game's own requests");
+        if (!Patch(gl, "wglGetProcAddress", &GetProcForGame, realGetProc)) {
+            LogNotPatched("wglGetProcAddress", "not used, the game draws to the window");
+            return;
+        }
+        if (!Patch(gl, "wglMakeCurrent", &MakeCurrentForGame, realMakeCurrent))
+            LogNotPatched("wglMakeCurrent", "a pbuffer would be drawn into KMRP's buffer");
     }
-    if (!Patch(gl, "glDrawBuffer", &DrawBufferForGame, realDrawBuffer))
-        LogNotPatched("glDrawBuffer", "the driver will refuse the game's own requests");
-    if (!Patch(gl, "wglGetProcAddress", &GetProcForGame, realGetProc)) {
-        LogNotPatched("wglGetProcAddress", "not used, the game draws to the window");
-        return;
-    }
-    if (!Patch(gl, "wglMakeCurrent", &MakeCurrentForGame, realMakeCurrent))
-        LogNotPatched("wglMakeCurrent", "a pbuffer would be drawn into KMRP's buffer");
     DWORD old = 0;
     if (!VirtualProtect(slot, sizeof *slot, PAGE_READWRITE, &old)) { Log("the SwapBuffers slot cannot be written; not used"); return; }
     nextSwap = *slot;

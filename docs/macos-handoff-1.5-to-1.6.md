@@ -1827,6 +1827,7 @@ Reported from SteamOS with a DualSense through Steam Input: A, B and Y turned th
 | The offscreen frame's log names Wine or Proton as the reason it is not used | 346b059 | Log text under Wine and Proton: the Mac has no offscreen frame |
 | The Linux installer makes the art ahead under Proton (`kmrp-prepare.exe`, `ProtonArt.cs`) | 2026-11-03 | the Linux installer; the Mac's installer makes its own art |
 | The Proton worker windowless, its progress read from files; progress counting shared as `ArtProgress.cs` | 2026-11-03 | the Linux and Windows installers; the Mac's `bin/kmrp-prepare` is its own |
+| The offscreen frame under Wine and Proton, through the import slots (issue 93, `K1OffscreenFrame.cpp`, `TakeAtImports`) | 2026-11-04 | Nothing for the Mac: it has no offscreen frame |
 | The cache folder made first, then looked for, so a worker that loses the race to make it keeps its share (`K1RuntimeAssets.cpp`, `Initialize`) | 2026-11-03 | Read: `macos/patches/kmrp-assets/assets.cpp` already makes each folder with `mkdir` and accepts `EEXIST`, so nothing to port |
 | The version raised to 1.6.0 | e763bab | Windows and Linux, as asked. The Mac's three `manifest.toml` files still say 1.5.1 |
 

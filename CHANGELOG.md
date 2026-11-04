@@ -117,6 +117,30 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Added: the offscreen frame under Proton** (2026-11-04, issue 93). Since 2026-10-30 the game draws
+  each frame into a buffer of KMRP's and the window gets only finished frames, but under Wine and
+  Proton it never ran: it takes over six opengl32 functions with the Windows hot-patch form, which
+  Proton's `opengl32.dll` does not have, so the game drew straight into the window. There KMRP now
+  takes the same six where they are called from: the import slots of the game and of every module in
+  its folder that still hold opengl32's own, and those modules' `GetProcAddress`, which answers with
+  KMRP's six for opengl32. That is how K1DC is reached: it imports no GL and finds opengl32 through
+  the game's `glEnable` slot (its `gl_loader.rs`), and it later puts its own functions in the game's
+  `wglMakeCurrent`, `glDrawBuffer` and `SwapBuffers` slots, which call what they held. The slots are
+  taken from KMRP's start and once more at the game's first `wglMakeCurrent`, for a patch loaded
+  later; a slot already changed by anything else is left, and if the game's own slots for the copies
+  and `wglGetProcAddress` cannot be taken, every slot taken is put back and the game draws to the
+  window, as before. Windows keeps the hot patches, unchanged; `import-slots=1` in `[Offscreen]` of
+  `configs\kmrp.ini` takes the Proton path there, to test it, and `window-drawn=1` still turns the
+  frame off. **Checked:** `Test-OffscreenFrame.py` runs the real code on its own program's import
+  slots (14 new checks: what is taken, what `GetProcAddress` answers, nothing taken twice, everything
+  put back when the program's own slot is someone else's). **Seen on Windows with `import-slots=1`**
+  (2026-11-04, the test copy, RTX 3080, 3440x1440, K1DC 2.0.1, brightness 80): 12 slots in 6 modules
+  taken at the start and 8 more in 8 modules at the first `wglMakeCurrent`; the frame on with 8
+  samples, 2533 binds of the window redirected and 3096 reads resolved in 1200 swaps, which are
+  K1DC's, reaching KMRP through the new path; with anti-aliasing 0 the same, nothing to resolve. The
+  menu and a save on the Ebon Hawk were whole and bright, and the GL error log held only K1DC's own
+  two startup errors, as without the switch. **Not seen under Proton.**
+
 - **Changed: the Linux installer makes KMRP's interface ahead, as Windows does** (2026-11-03, reported
   from SteamOS: "on linux its instant but it takes longer to launch the game"). The Windows installer
   makes every display size's art at install; the Linux installer skipped that step, as it cannot load

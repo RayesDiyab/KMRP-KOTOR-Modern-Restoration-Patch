@@ -11,6 +11,28 @@
 
 void KmrpRuntimeLog(const char* line) { std::printf("    log: %s\n", line); }
 
+// opengl32's six, imported as the game imports them, so the import-slot path (issue 93) has this
+// program's own slots to take. Declared here: GL/gl.h's types would clash with the module's.
+extern "C" __declspec(dllimport) void __stdcall glReadPixels(int, int, int, int, unsigned, unsigned, void*);
+extern "C" __declspec(dllimport) void __stdcall glCopyTexImage2D(unsigned, int, unsigned, int, int, int, int, int);
+extern "C" __declspec(dllimport) void __stdcall glCopyTexSubImage2D(unsigned, int, int, int, int, int, int, int);
+extern "C" __declspec(dllimport) void __stdcall glDrawBuffer(unsigned);
+static void* volatile imported[] = { reinterpret_cast<void*>(&glReadPixels), reinterpret_cast<void*>(&glCopyTexImage2D),
+    reinterpret_cast<void*>(&glCopyTexSubImage2D), reinterpret_cast<void*>(&glDrawBuffer),
+    reinterpret_cast<void*>(&wglGetProcAddress), reinterpret_cast<void*>(&wglMakeCurrent) };
+
+// This program's import slot holding VALUE.
+static void** SlotHolding(const void* value)
+{
+    auto base = reinterpret_cast<unsigned char*>(GetModuleHandleW(nullptr));
+    const auto nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + reinterpret_cast<const IMAGE_DOS_HEADER*>(base)->e_lfanew);
+    const IMAGE_DATA_DIRECTORY& imports = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+    for (auto entry = reinterpret_cast<const IMAGE_IMPORT_DESCRIPTOR*>(base + imports.VirtualAddress); entry->Name; ++entry)
+        for (auto slot = reinterpret_cast<void**>(base + entry->FirstThunk); *slot; ++slot)
+            if (*slot == value) return slot;
+    return nullptr;
+}
+
 static int failures = 0;
 static void Check(bool condition, const char* text)
 {
@@ -267,6 +289,48 @@ int main()
     getError = &FakeError;
     SwapForGame(dc);
     Check(!refused && frame != 0, "an error the game left behind is not taken for the copy's");
+
+    // Under Wine (issue 93): the six taken at this program's import slots, as at the game's, and
+    // its GetProcAddress answering with KMRP's for them on opengl32. Last, as it changes slots
+    // this program calls through.
+    const HMODULE gl = GetModuleHandleW(L"opengl32.dll");
+    Check(gl != nullptr && imported[0] != nullptr, "opengl32 is loaded by this program's import of it");
+    void* const genuineRead = reinterpret_cast<void*>(GetProcAddress(gl, "glReadPixels"));
+    void* const genuineGetProc = reinterpret_cast<void*>(&GetProcAddress);
+    void** const readSlot = SlotHolding(genuineRead);
+    void** const getProcSlot = SlotHolding(genuineGetProc);
+    void** const drawSlot = SlotHolding(reinterpret_cast<void*>(GetProcAddress(gl, "glDrawBuffer")));
+    Check(readSlot && getProcSlot && drawSlot, "this program imports glReadPixels, glDrawBuffer and GetProcAddress");
+    Check(TakeAtImports(gl), "taken at the import slots");
+    Check(*readSlot == reinterpret_cast<void*>(&ReadPixelsForGame) && *drawSlot == reinterpret_cast<void*>(&DrawBufferForGame),
+          "the program's glReadPixels and glDrawBuffer now call KMRP's");
+    Check(*getProcSlot == reinterpret_cast<void*>(&GetProcAddressForGame), "and its GetProcAddress KMRP's");
+    Check(reinterpret_cast<void*>(realReadPixels) == genuineRead, "which calls opengl32's own, whole");
+    // Called through the slot as a module does after the swap; this function's own calls may
+    // keep the slot's old value in a register.
+    const auto lookUp = reinterpret_cast<decltype(&GetProcAddress)>(*static_cast<void* volatile*>(getProcSlot));
+    Check(reinterpret_cast<void*>(lookUp(gl, "wglGetProcAddress")) == reinterpret_cast<void*>(&GetProcForGame) &&
+          reinterpret_cast<void*>(lookUp(gl, "glCopyTexSubImage2D")) == reinterpret_cast<void*>(&CopyTexSubImageForGame),
+          "GetProcAddress on opengl32 answers with KMRP's for the six, as K1DC asks");
+    Check(lookUp(gl, "glGetIntegerv") == realGetProcAddress(gl, "glGetIntegerv") && lookUp(gl, "glGetIntegerv"),
+          "and with opengl32's own for any other name");
+    Check(lookUp(GetModuleHandleW(L"kernel32.dll"), "GetTickCount") == realGetProcAddress(GetModuleHandleW(L"kernel32.dll"), "GetTickCount"),
+          "another module is answered as before");
+    Check(takeAgain, "and it is taken once more at the game's first wglMakeCurrent");
+    const int taking = heldCount;
+    TakeImports();
+    Check(heldCount == taking, "a second pass takes nothing twice");
+    while (heldCount > 0) {
+        --heldCount;
+        WriteSlot(held[heldCount].slot, held[heldCount].was);
+    }
+    Check(*readSlot == genuineRead && *getProcSlot == genuineGetProc, "put back, the slots hold opengl32's and kernel32's again");
+    WriteSlot(readSlot, reinterpret_cast<void*>(&FakeRead));
+    takeAgain = false;
+    Check(!TakeAtImports(gl), "with the program's glReadPixels slot someone else's: not used");
+    Check(*readSlot == reinterpret_cast<void*>(&FakeRead) && *getProcSlot == genuineGetProc && *drawSlot != reinterpret_cast<void*>(&DrawBufferForGame) &&
+          heldCount == 0 && !takeAgain, "and every slot it took is put back, the other's left as it was");
+    WriteSlot(readSlot, genuineRead);
 
     std::printf("%d failed\n", failures);
     ReleaseDC(host, dc);
