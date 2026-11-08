@@ -400,10 +400,54 @@ so H=0.48:
 | 1440 | 0.16 | 0.32 | 0.64 |
 | 2160 | 0.24 | 0.48 | 0.96 |
 
-Resources are materialized in KMRP's private cache. Existing Override font files
-retain priority and are not rewritten or deleted. Style switching skips font
-names with an Override `.tga`, `.tpc` or `.txi`. Their loaded native metrics can
-still follow the size preference: the early `0x00422CC1` callback receives the
+Resources are materialized in KMRP's private cache. Override's font files are never
+rewritten or deleted.
+
+### Modded Font: the fonts in Override (2026-11-08)
+
+The maintainer's design, after the KMRP Font Converter's Georgia was seen on this page in
+the game: "make override be a third option that appears and is auto selected Modded Font",
+"only auto select when its in Override", and a choice made later saved "so it doesnt change
+on restart".
+
+| Thing | What it does |
+| --- | --- |
+| The choice | **Modded Font**, a third row under HD Font, `FontStyle` 3 (`K1TextOptionsPolicy.h`). Shown only while `Override` has a file of one of the 18 font names (`.tga`, `.tpc` or `.txi`), as the game listed it at the start (`KmrpRuntimeOverrideFontSetK1`, `ListOverrideFonts`) |
+| Chosen by itself | At the start, when those fonts differ from the set saved in `[KMRP Text] ModdedFonts` (a number of their names, sizes and write times, `OverrideFontSet`): `FontStyle=3` and the new set are written at once (`Initialize`) |
+| A choice made since | Saved with the set (`Save` writes `ModdedFonts` too), so Original Font or HD Font stays across starts until the fonts in `Override` change |
+| No font in Override | The row is not there; a saved 3 is read as HD Font and left in the file, for when the fonts come back |
+| Default | HD Font, as before |
+| What it shows | Each name `Override` has as a `.tga` with its `.txi` and no `.tpc`: fitted to its drawn size when larger (below), else copied as it is. A name with a `.tpc` there, or only part of a pair, is left out of KMRP's fonts folder, so the game reads it from `Override`. KMRP's HD Font for the names `Override` lacks |
+| Original Font, HD Font | KMRP's own for all 18 names, `Override`'s or not: KMRP's fonts folder is searched before `Override`. Until 2026-11-08 every font `Override` had was left to it whatever the choice. A `.tpc` in `Override` still wins, as the game prefers that format wherever it is |
+
+The game lists a folder once, when it is given one (`RegisterFolder`), so the names in
+KMRP's fonts folder are fixed then (`fontListed`): a change of style later only changes
+what each name links to. So a name left to `Override` at the start (Modded Font with a
+`.tpc` there) stays with it until the next start, under any choice.
+
+**An Override font larger than it is drawn is fitted like KMRP's own** (`OverrideFontFitted`
+in [K1RuntimeAssets.cpp](../src/controller-native/K1RuntimeAssets.cpp)). An uncompressed
+32-bit `.tga` whose `.txi` `fontheight` is above the drawn size is read and fitted to it
+(`FitAtlas`, `FontTxiAtHeight`, `texturewidth` set to the fitted width) into
+`fonts\ovr-<name>-<id>-<size>` in the cache. `<id>` is FNV-1a over both files' sizes and
+last-write times, so a changed file is a new copy and an unchanged one is made once. The
+mod's files are only read; one shown as it is is copied, not hard-linked, as a link's
+attributes are the file's. A change of text size on the page fits them again, as HD Font's
+are (`FitFonts`). Why: the KMRP Font Converter writes six-times atlases, 2 to 3 times larger
+than they are drawn at 1080 and 1440 lines, with `mipmap 0`, and all seventeen are 273 MB
+uncompressed in a 32-bit game; until this the game loaded them whole and shrank them at every
+draw.
+
+**Tested:** `Test-OverrideFontMetrics.py` runs the fitting and the listing on the real code
+(1024 to 410 texels at a factor of 0.4, coverage kept to 0.2%, UV lines unchanged, made once,
+the mod's files unchanged, each case left to `Override` refused, the pairs KMRP can show, a
+new set number for a changed file). `Test-TextOptions.py` checks the row on half of its 70
+layouts (third, under HD Font, the previews under it, the pad round the three) and the saved
+choice: chosen by itself for a new set, kept across starts once another is saved, chosen
+again for another set, read as HD Font with none. `ApplyTextPreferences` itself needs the art
+pack and is not run by a test. **Not seen in the game.**
+
+The loaded native metrics of the rest can still follow the size preference: the early `0x00422CC1` callback receives the
 texture in EDI after loose/embedded metadata parsing and before first layout.
 It scales CAurFontInfo fields +0x04 through +0x14, then assigns exact target
 fontheight to make repeated notification idempotent. It preserves UVs, pointers,

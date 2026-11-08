@@ -15,12 +15,16 @@ constexpr int Minimum = 25, Maximum = 100, Step = 1, Default = 50;
 // "Original Font" and "HD Font" (HD Original) only, and a saved 0 (or anything else
 // unknown) is read as HD Font, the default. Its TXI files stay in the art pack as every
 // style's size reference (K1RuntimeAssets.cpp, FontSizes); its atlases are gone.
-enum FontStyle { HdOriginal=1, Original=2 };
-// The choices on the page, top to bottom.
-constexpr FontStyle FontChoices[]={Original,HdOriginal};
-constexpr int FontChoiceCount=2;
-inline int Style(int value) {return value==Original?Original:HdOriginal;}
-inline int ChoiceOf(int style) {return style==Original?0:1;}
+// On 2026-11-08 the maintainer added 3, "Modded Font": the fonts the game's Override holds,
+// KMRP's HD Font for the names it lacks. It is offered only while Override has a font, and
+// chosen by itself when the fonts there are new (K1TextOptions.cpp, Initialize); a saved 3
+// with none there is read as HD Font.
+enum FontStyle { HdOriginal=1, Original=2, Modded=3 };
+// The choices on the page, top to bottom; Modded Font's row only while it is offered.
+constexpr FontStyle FontChoices[]={Original,HdOriginal,Modded};
+constexpr int FontChoiceCount=3;
+inline int Style(int value, bool modded=false) {return value==Original?Original:value==Modded && modded?Modded:HdOriginal;}
+inline int ChoiceOf(int style) {return style==Original?0:style==Modded?2:1;}
 constexpr int SliderMaximum = (Maximum - Minimum) / Step;
 inline int Percent(int value) {
     value = (std::max)(Minimum, (std::min)(Maximum, value));

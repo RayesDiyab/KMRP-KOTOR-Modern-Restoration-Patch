@@ -90,6 +90,9 @@ const char* const previewTexts[]={"Menus and reply choices","Subtitles and descr
 void* fontChoices[FontChoiceCount]{};
 bool initialized=false, dirty=false;
 int style=HdOriginal, requestedStyle=HdOriginal;
+// Modded Font is offered: the game's Override has a font (KmrpRuntimeOverrideFontSetK1).
+bool moddedOffered=false;
+std::uint64_t moddedSet=0;
 Sizes sizing, requestedSizing;
 int releasedFrames=2;
 bool blockReopen=false;
@@ -153,8 +156,23 @@ void Initialize() {
         sizing.Link(GetPrivateProfileIntW(L"KMRP Text",L"LinkSizes",1,path)!=0);
         // OriginalFont, before FontStyle (pre-release builds only), named HD fonts only,
         // which are HD Font now (K1TextOptionsPolicy.h).
-        style=Style(GetPrivateProfileIntW(L"KMRP Text",L"FontStyle",HdOriginal,path));
+        moddedSet=KmrpRuntimeOverrideFontSetK1();moddedOffered=moddedSet!=0;
+        style=Style(GetPrivateProfileIntW(L"KMRP Text",L"FontStyle",HdOriginal,path),moddedOffered);
         iconSize=kmrp_icon_percent(static_cast<int>(GetPrivateProfileIntW(L"KMRP Text",L"IconSize",KMRP_ICON_DEFAULT,path)));
+        // Fonts in Override not seen before choose Modded Font by themselves, and that is saved
+        // with the set it was for (ModdedFonts), so a choice made since stays until the fonts
+        // there change (the maintainer, 2026-11-08: "only auto select when its in Override",
+        // and a change made later saved "so it doesnt change on restart").
+        if(moddedOffered) {
+            wchar_t seen[32]{},now[32];
+            swprintf_s(now,L"%016llX",static_cast<unsigned long long>(moddedSet));
+            GetPrivateProfileStringW(L"KMRP Text",L"ModdedFonts",L"",seen,32,path);
+            if(std::wcscmp(seen,now)) {
+                style=Modded;
+                WritePrivateProfileStringW(L"KMRP Text",L"FontStyle",L"3",path);
+                WritePrivateProfileStringW(L"KMRP Text",L"ModdedFonts",now,path);
+            }
+        }
     }
     requestedSizing=sizing;requestedStyle=style;requestedIcon=iconSize;
     saved=Settings{sizing,style,iconSize};fitted=sizing;
@@ -173,6 +191,10 @@ bool Save() {
     if(!WritePrivateProfileStringW(L"KMRP Text",L"LinkSizes",sizing.linked?L"1":L"0",path))return false;
     swprintf_s(value,L"%d",iconSize);
     if(!WritePrivateProfileStringW(L"KMRP Text",L"IconSize",value,path))return false;
+    if(moddedOffered) {
+        wchar_t set[32];swprintf_s(set,L"%016llX",static_cast<unsigned long long>(moddedSet));
+        if(!WritePrivateProfileStringW(L"KMRP Text",L"ModdedFonts",set,path))return false;
+    }
     swprintf_s(value,L"%d",style);
     return WritePrivateProfileStringW(L"KMRP Text",L"FontStyle",value,path) &&
         WritePrivateProfileStringW(L"KMRP Text",L"OriginalFont",L"1",path);
@@ -312,12 +334,13 @@ void Dirty() {dirty=requestedSizing.values!=sizing.values || requestedSizing.lin
 // it comes up (the mouse only as it comes up), so a toggle flipped twice (the
 // maintainer, 2026-10-18, on the HUD Size page). Each handler disarms the page, armed
 // again once the confirm button has been up for two frames (Armed).
-void Choose(int value) {if(Armed()){requestedStyle=Style(value);Dirty();releasedFrames=0;}}
+void Choose(int value) {if(Armed()){requestedStyle=Style(value,moddedOffered);Dirty();releasedFrames=0;}}
 void __fastcall ToggleLink(void*,void*,void*) {
     if(Armed()){requestedSizing.Link(!requestedSizing.linked);Dirty();releasedFrames=0;}
 }
 void __fastcall SelectOriginal(void*,void*,void*) {Choose(Original);}
 void __fastcall SelectHdOriginal(void*,void*,void*) {Choose(HdOriginal);}
+void __fastcall SelectModded(void*,void*,void*) {Choose(Modded);}
 void __fastcall Defaults(void*,void*,void*) {
     if(Armed()){requestedSizing=Sizes{};requestedStyle=HdOriginal;requestedIcon=KMRP_ICON_DEFAULT;Dirty();releasedFrames=0;}
 }
@@ -395,7 +418,7 @@ void UpdateCaptions() {
         displayedLinked=requestedSizing.linked;
     }
     if(displayedStyle!=requestedStyle) {
-        for(int i=0;i<FontChoiceCount;++i)
+        for(int i=0;i<FontChoiceCount;++i)if(fontChoices[i])
             Fn<void(__thiscall*)(void*,unsigned)>(0x685540)(fontChoices[i],FontChoices[i]==requestedStyle);
         displayedStyle=requestedStyle;
         // Right (or left) from "Link Text Sizes" goes to the font chosen.
@@ -464,7 +487,9 @@ void MakeScreen(void* manager,void* owner) {
     if(linkSizes)At<int>(linkSizes,0x1C4)=-1;
     // Native round options controls, with automatic toggling disabled. The
     // group explicitly selects one style, including re-selecting the same row.
-    for(void*& choice:fontChoices) {
+    for(int i=0;i<FontChoiceCount;++i) {
+        if(FontChoices[i]==Modded && !moddedOffered)continue;   // its row only while offered
+        void*& choice=fontChoices[i];
         choice=Bind(p,"CB_SHADOWS",0x2B4,0x6E00D0);
         if(choice)At<int>(choice,0x1C4)=-1;
     }
@@ -484,7 +509,8 @@ void MakeScreen(void* manager,void* owner) {
     void* saveMark=Bind(p,"LBL_GAMMA",0x140,0x41ACD0);
     void* backMark=Bind(p,"LBL_GAMMA",0x140,0x41ACD0);
     Fn<Simple>(0x40B8F0)(p);
-    bool complete=title && linkSizes && fontChoices[0] && fontChoices[1] && help && defaults && back &&
+    bool complete=title && linkSizes && fontChoices[0] && fontChoices[1] && (!moddedOffered || fontChoices[2]) &&
+        help && defaults && back &&
         save && defaultsMark && saveMark && backMark;
     for(int i=0;i<TextGroupCount;++i)complete=complete && sizeLabels[i] && sliders[i] && previews[i];
     complete=complete && iconLabel && iconSlider && iconPreviews[0] && iconPreviews[1] && iconPreviews[2];
@@ -497,7 +523,7 @@ void MakeScreen(void* manager,void* owner) {
     for(void* slider:sliders){SelectableAs(slider,owner,"SLI_GAMMA");At<unsigned>(slider,0x44)|=8u;SliderEvents(slider,p);}
     SelectableAs(iconSlider,owner,"SLI_GAMMA");At<unsigned>(iconSlider,0x44)|=8u;SliderEvents(iconSlider,p);
     SelectableAs(linkSizes,owner,"CB_SHADOWS");
-    for(void* choice:fontChoices)SelectableAs(choice,owner,"CB_SHADOWS");
+    for(void* choice:fontChoices)if(choice)SelectableAs(choice,owner,"CB_SHADOWS");
     SelectableAs(defaults,owner,"BTN_DEFAULT");
     SelectableAs(save,owner,"BTN_DEFAULT");
     SelectableAs(back,owner,"BTN_BACK");
@@ -571,7 +597,7 @@ void MakeScreen(void* manager,void* owner) {
     }
     const int margin=(std::max)(2,desc.height/32);
     Rect choiceRect={desc.left,desc.top+margin,desc.width,rect("BTN_RESOLUTION").height};
-    for(int i=0;i<FontChoiceCount;++i) {
+    for(int i=0;i<FontChoiceCount;++i)if(fontChoices[i]) {
         Extent(fontChoices[i],choiceRect);choiceRect.top+=choiceRect.height+gap;
     }
     // The icons' preview at the bottom, as tall as the largest icon (100%) and never more than
@@ -613,6 +639,10 @@ void MakeScreen(void* manager,void* owner) {
     Fn<Event>(0x41AB20)(linkSizes,0x27,p,reinterpret_cast<void*>(&ToggleLink));
     Fn<Event>(0x41AB20)(fontChoices[ChoiceOf(Original)],0x27,p,reinterpret_cast<void*>(&SelectOriginal));
     Fn<Event>(0x41AB20)(fontChoices[ChoiceOf(HdOriginal)],0x27,p,reinterpret_cast<void*>(&SelectHdOriginal));
+    if(void* modded=fontChoices[ChoiceOf(Modded)]) {
+        Text(modded,"Modded Font",true);
+        Fn<Event>(0x41AB20)(modded,0x27,p,reinterpret_cast<void*>(&SelectModded));
+    }
     Fn<Event>(0x41AB20)(defaults,0x27,p,reinterpret_cast<void*>(&Defaults));
     Fn<Event>(0x41AB20)(save,0x27,p,reinterpret_cast<void*>(&SaveClicked));
     Fn<Event>(0x41AB20)(back,0x27,p,reinterpret_cast<void*>(&Back));
@@ -627,10 +657,13 @@ void MakeScreen(void* manager,void* owner) {
     for(int i=0;i<TextGroupCount;++i)
         Navigation(sliders[i],i?sliders[i-1]:linkSizes,i+1<TextGroupCount?sliders[i+1]:iconSlider);
     Navigation(iconSlider,sliders[TextGroupCount-1],linkSizes);
-    Navigation(fontChoices[0],fontChoices[1],fontChoices[1],linkSizes,linkSizes);
-    Navigation(fontChoices[1],fontChoices[0],fontChoices[0],linkSizes,linkSizes);
+    // The fonts shown, up and down and round.
+    void* shown[FontChoiceCount]{};int count=0;
+    for(void* choice:fontChoices)if(choice)shown[count++]=choice;
+    for(int i=0;i<count;++i)
+        Navigation(shown[i],shown[(i+count-1)%count],shown[(i+1)%count],linkSizes,linkSizes);
     Navigation(defaults,iconSlider,linkSizes,back,back);
-    Navigation(back,fontChoices[FontChoiceCount-1],fontChoices[0],defaults,defaults);
+    Navigation(back,shown[count-1],shown[0],defaults,defaults);
     Fn<Focus>(0x40A630)(p,linkSizes,0);
     displayedSizes.fill(-1);displayedLinked=displayedStyle=displayedIcon=-1;
     releasedFrames=0;UpdateCaptions();UpdateSaveButton();
@@ -701,7 +734,8 @@ void ReloadFonts(bool images) {
 }
 
 // The HD atlases, for the sizes in use. Original Font keeps its atlas at every size, so its
-// metrics are all there is. A failure leaves the text as it was, stretched and readable.
+// metrics are all there is. Modded Font fits Override's fonts as KMRP's own (2026-11-08). A
+// failure leaves the text as it was, stretched and readable.
 bool FitFonts() {
     if(style==Original || fitted.values==sizing.values)return true;
     if(!KmrpRuntimeApplyTextPreferencesK1())return false;
@@ -730,7 +764,7 @@ int KmrpIconSizePercentK1(){Initialize();return iconSize;}
 int KmrpTextSizeForFontK1(const char* font){Initialize();return sizing.values[FontGroup(font)];}
 int KmrpTextFontStyleK1(){Initialize();return style;}
 bool KmrpSetTextPreferencesK1(int size,int fontStyle) {
-    Initialize();requestedSizing.Set(Menus,size);requestedStyle=Style(fontStyle);
+    Initialize();requestedSizing.Set(Menus,size);requestedStyle=Style(fontStyle,moddedOffered);
     Dirty();return true;
 }
 void KmrpTextOptionsDestroyedK1(void* panel) {

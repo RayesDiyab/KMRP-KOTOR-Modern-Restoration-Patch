@@ -48,7 +48,7 @@ KMRP's own output is never used as vanilla or as the mod's copy.
 | `.tga`, `.tpc` made from a game picture | KMRP's transform run on the mod's picture | `kmrp-gameart.c` (`KmrpDeriveImage`) | the picture cannot be decoded: the mod's as it is, and KMRP's copy named as off |
 | `.tga`, `.tpc`, `.txi` KMRP replaces with its own art, and its fonts | the mod's picture wins whole | `K1RuntimeAssets.cpp` (`LinkSet`, `LinkArtwork`) | always; a count line, as the picture is the mod's choice |
 | `.mdl` (with its `.mdx`) | KMRP's change made where the part it changes is still the game's | `kmrp-swoophud.c` (`KmrpSwoopHudModel`) | the part differs: the mod's model as it is, and the fix named as off |
-| a font a mod supplies | the mod's font, read with its own metrics; KMRP's layout is measured with it | `K1RuntimeAssets.cpp` (`OverrideFont`, `overrideFontHeights`) | none |
+| a font a mod supplies | the mod's font, read with its own metrics; KMRP's layout is measured with it. Since 2026-11-08 only under the page's **Modded Font**, chosen by itself when such fonts appear (a `.tga` and `.txi` larger than drawn shown fitted to its size from the mod's files); Original Font and HD Font show KMRP's own over them ([ingame-text-options.md](ingame-text-options.md) section 3) | `K1RuntimeAssets.cpp` (`OverrideFont`, `overrideFontHeights`, `OverrideFontFitted`) | none |
 | `swkotor.exe` code | no merge, ever. KPM checks the original bytes of every hook site before it writes (`Trampoline::VerifyBytes`, KPM 0.7.1 `patcher.cpp`), so another patcher's change on a KMRP site stops that hook with "Original bytes mismatch at hookAddress" in KPM's log | KPM | always reported, never merged |
 | any other format | the mod's file as it is | `DeriveFromOverrideK1` | logged where a KMRP record names one |
 
@@ -395,7 +395,7 @@ identified is left as it is, with the screen named in the log.
 | Loading screens `load_*` | 23 | KMRP's art pack | the mod's picture | Picture |
 | Equipment slots (`iarmor`, `ibelt`, `ihands`, `ihead`, `iimplant`, `iforearm_*`, `iweap_*`, their `id*` versions, `inone`) | 18 | KMRP's art pack | the mod's picture | Picture |
 | Frames and the rest (`border*` 8, `boxline*` 9, `confirm*` 4, `invent*` 4, `scr_*` 4, `panel*` 2, `blank`, `dp_*`, `logo_*`, `uparrow`) | 36 | KMRP's art pack | the mod's picture | Picture |
-| Fonts: `dialogfont10x10`, `10x10a`, `10x10b`, `12x16`, `16x16`, `16x16a`, `16x16b`, `32x32`, `fnt_console`, `fnt_credits`, `fnt_creditsa`, `fnt_d10x10b`, `fnt_d16x16`, `fnt_d16x16a`, `fnt_d16x16b`, `fnt_dialog16x16`, `fnt_galahad14` (`.tga` with `.txi`) | 17 | KMRP's fonts at the size in use | KMRP's left out; the mod's read with its own metrics, and KMRP notes the size its own would have had (`overrideFontHeights`) | Picture |
+| Fonts: `dialogfont10x10`, `10x10a`, `10x10b`, `12x16`, `16x16`, `16x16a`, `16x16b`, `32x32`, `fnt_console`, `fnt_credits`, `fnt_creditsa`, `fnt_d10x10b`, `fnt_d16x16`, `fnt_d16x16a`, `fnt_d16x16b`, `fnt_dialog16x16`, `fnt_galahad14` (`.tga` with `.txi`) | 17 | KMRP's fonts at the size in use | KMRP's left out; the mod's read with its own metrics, and KMRP notes the size its own would have had (`overrideFontHeights`); a mod's atlas larger than that size shown fitted to it (`OverrideFontFitted`); since 2026-11-08 all under the page's Modded Font, KMRP's own under its other two choices | Picture |
 
 756 pictures in all in `store\`, counted by name.
 

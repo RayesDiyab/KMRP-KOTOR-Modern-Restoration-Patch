@@ -20,6 +20,7 @@ std::map<void*,std::string> captions;
 std::map<void*,unsigned> sizes;
 void* source=nullptr;
 int resets=0,loads=0,images=0,reflows=0,applies=0,builds=0;
+std::uint64_t moddedSet=0;   // KmrpRuntimeOverrideFontSetK1: the fonts in Override, 0 for none
 int boxesMade=0,boxesShown=0,boxMode=0,cancelAllowed=0;
 std::string boxMessage;
 std::vector<void*> refresh;
@@ -169,6 +170,7 @@ void KmrpReflowTextK1(){++Mock::reflows;}
 bool KmrpRuntimeIsFontK1(const char* name){return !_stricmp(name,"fnt_console");}
 static void* captionFollows=nullptr,*captionLeads=nullptr;
 void KmrpTextLayoutCaptionLikeK1(void* control,void* like){captionFollows=control;captionLeads=like;}
+std::uint64_t KmrpRuntimeOverrideFontSetK1(){return Mock::moddedSet;}
 bool KmrpRuntimeApplyTextPreferencesK1(){++Mock::applies;if(Mock::fail){Mock::fail=false;return false;}return true;}
 // The Icon Size slider (issue 80): applied and counted.
 int iconApplies=0;
@@ -189,6 +191,8 @@ int main(int argc,char** argv) {
             if(i==3)At<int>(c,0x110)=(std::max)(1,r.width*86/1381);   // LB_DESC's scrollbar, as at 3440x1440
         }
         sizing=requestedSizing=Sizes{};style=requestedStyle=HdOriginal;dirty=false;blockReopen=false;releasedFrames=2;
+        // Every other fixture with a font in Override: Modded Font's row shown (2026-11-08).
+        moddedOffered=(cases%2)==1;moddedSet=moddedOffered?0xABCDull:0;
         iconSize=requestedIcon=KMRP_ICON_DEFAULT;iconApplies=0;
         auto adv=Mock::controls[owner]["BTN_ADVANCED"];auto above=Mock::controls[owner]["BTN_RESOLUTION"];
         At<void*>(adv,0x5C)=above;At<void*>(above,0x64)=adv;At<unsigned>(adv,0x44)|=4;
@@ -197,7 +201,7 @@ int main(int argc,char** argv) {
         assert(!std::memcmp(&At<Rect>(entry,4),&expected,sizeof expected));assert(At<int>(owner,0x24)==15);
         assert(At<void*>(adv,0x5C)==entry && At<void*>(above,0x64)==entry);
         At<unsigned>(adv,0x44)&=~4u;KmrpTextOptionsFrameK1(manager);assert(!(At<unsigned>(entry,0x44)&4));
-        Mock::held=true;Open(owner,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(current && sliders[0] && fontChoices[FontChoiceCount-1]);
+        Mock::held=true;Open(owner,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(current && sliders[0] && fontChoices[1] && (fontChoices[2]!=nullptr)==moddedOffered);
         // The right-hand column inside the frame round the list, as far from it on the
         // right as on the left, clear of the scrollbar's strip (since 2026-10-19).
         {
@@ -207,6 +211,7 @@ int main(int argc,char** argv) {
             std::vector<void*> column(std::begin(fontChoices),std::end(fontChoices));
             column.insert(column.end(),std::begin(previews),std::end(previews));
             for(void* c:column) {
+                if(!c)continue;   // Modded Font's row, when not offered
                 const Rect r=At<Rect>(c,4);
                 assert(r.left-frameLeft>0 && r.left-frameLeft==frameRight-(r.left+r.width));
             }
@@ -227,13 +232,25 @@ int main(int argc,char** argv) {
         assert(Mock::captions[static_cast<char*>(fontChoices[ChoiceOf(Original)])+0x16C]=="Original Font");
         auto selected=[](int wanted){
             int count=0;for(int i=0;i<FontChoiceCount;++i){
+                if(!fontChoices[i])continue;
                 assert(At<int>(fontChoices[i],0x1C4)==-1);
                 const bool on=(At<unsigned>(fontChoices[i],0x1C8)&1)!=0;
                 assert(on==(FontChoices[i]==wanted));count+=on;
             }assert(count==1);
         };
         selected(HdOriginal);
-        assert(owned.size()==28);   // and the Icon Size caption, slider and three icon previews   // with the glyphs beside Default's and Close's captions
+        if(moddedOffered) {
+            assert(Mock::captions[static_cast<char*>(fontChoices[ChoiceOf(Modded)])+0x16C]=="Modded Font");
+            // Third, under HD Font, and the previews under it.
+            const Rect hd=At<Rect>(fontChoices[ChoiceOf(HdOriginal)],4),modded=At<Rect>(fontChoices[ChoiceOf(Modded)],4);
+            assert(modded.top>hd.top+hd.height-1 && At<Rect>(previews[0],4).top>=modded.top+modded.height);
+            // Up and down round the three.
+            assert(At<void*>(fontChoices[0],0x5C)==fontChoices[2] && At<void*>(fontChoices[2],0x64)==fontChoices[0]);
+            assert(At<void*>(fontChoices[1],0x64)==fontChoices[2] && At<void*>(fontChoices[2],0x60)==linkSizes);
+        } else {
+            assert(At<void*>(fontChoices[0],0x5C)==fontChoices[1] && At<void*>(fontChoices[1],0x64)==fontChoices[0]);
+        }
+        assert(owned.size()==28u+(moddedOffered?1u:0u));   // and the Icon Size caption, slider and three icon previews   // with the glyphs beside Default's and Close's captions
         // "Link Text Sizes" at the top of the left column, the slider pairs under it, the
         // last above Default (since 2026-10-19; the link was under the pairs).
         {
@@ -264,7 +281,7 @@ int main(int argc,char** argv) {
         {
             std::vector<void*> reachable{linkSizes};
             for(void* c:sliders)reachable.push_back(c);
-            for(void* c:fontChoices)reachable.push_back(c);
+            for(void* c:fontChoices)if(c)reachable.push_back(c);
             reachable.push_back(iconSlider);   // the left column's fifth slider
             for(void* c:reachable)for(unsigned at:{0x5Cu,0x60u,0x64u,0x68u}) {
                 void* to=At<void*>(c,at);
@@ -330,6 +347,13 @@ int main(int argc,char** argv) {
         release();const int sameBuild=Mock::builds;
         SelectOriginal(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(Mock::builds==sameBuild);selected(Original);
         release();SelectHdOriginal(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(style==HdOriginal);selected(HdOriginal);
+        // Modded Font: chosen like the others while offered, and does nothing when not.
+        release();SelectModded(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);
+        assert(style==(moddedOffered?Modded:HdOriginal));selected(style);
+        if(moddedOffered) {
+            assert(At<void*>(linkSizes,0x68)==fontChoices[ChoiceOf(Modded)]);
+            release();SelectHdOriginal(current,nullptr,nullptr);KmrpTextOptionsFrameK1(manager);assert(style==HdOriginal);selected(HdOriginal);
+        }
         // Save (the maintainer, 2026-11-01): greyed until something differs from what is saved,
         // "Saving..." while the fonts are made, greyed again; nothing made or written before it,
         // and a warning on closing without it.
@@ -473,6 +497,7 @@ int main(int argc,char** argv) {
     Mock::CleanupFonts();
     assert(Mock::fontSelections==2*TextGroupCount*cases);
     assert(cases>=66 && Mock::loads>0 && Mock::images>0 && Mock::reflows>0);
+    Mock::moddedSet=0;moddedOffered=false;   // the ini checks below start with no font in Override
     wchar_t path[MAX_PATH];assert(ConfigPath(path));
     assert(GetPrivateProfileIntW(L"KMRP Text",L"Size",-1,path)==Default);
     assert(GetPrivateProfileIntW(L"KMRP Text",L"OriginalFont",-1,path)==1);
@@ -503,5 +528,35 @@ int main(int argc,char** argv) {
         style=expected;assert(Save());initialized=false;
         assert(KmrpTextFontStyleK1()==expected && KmrpTextSizePercentK1()==Default);
     }
-    std::cout<<"PASS: "<<cases<<" native UI fixtures; cloned geometry/focus policy, unique IDs, navigation, 50% default, four independent/linked sliders, two exclusive fonts (HD Font by default; the old HD font's saved choice read as HD Font), the Icon Size slider (caption, size and save at once, its pair in the left column, its icons on the right), defaults, failed-style rollback and parent/modal cleanup. ABI is mocked; game execution remains a separate check.\n";
+    // Modded Font (2026-11-08). No font in Override: a saved 3 is HD Font, nothing written.
+    Mock::moddedSet=0;
+    assert(WritePrivateProfileStringW(L"KMRP Text",L"ModdedFonts",nullptr,path));
+    assert(WritePrivateProfileStringW(L"KMRP Text",L"FontStyle",L"3",path));
+    initialized=false;assert(KmrpTextFontStyleK1()==HdOriginal && !moddedOffered);
+    assert(GetPrivateProfileIntW(L"KMRP Text",L"FontStyle",-1,path)==3);
+    // Fonts in Override not seen before: chosen by themselves, and saved with their set.
+    assert(WritePrivateProfileStringW(L"KMRP Text",L"FontStyle",L"1",path));
+    Mock::moddedSet=0x1234;initialized=false;assert(KmrpTextFontStyleK1()==Modded && moddedOffered);
+    assert(GetPrivateProfileIntW(L"KMRP Text",L"FontStyle",-1,path)==Modded);
+    wchar_t seen[32]{};GetPrivateProfileStringW(L"KMRP Text",L"ModdedFonts",L"",seen,32,path);
+    assert(!std::wcscmp(seen,L"0000000000001234"));
+    // The same fonts at the next start: Modded Font still.
+    initialized=false;assert(KmrpTextFontStyleK1()==Modded);
+    // Another font chosen and saved stays at the next start while the fonts are the same.
+    for(int expected:{Original,HdOriginal}) {
+        style=expected;assert(Save());initialized=false;
+        assert(KmrpTextFontStyleK1()==expected);
+    }
+    // New fonts in Override choose Modded Font again.
+    Mock::moddedSet=0x5678;initialized=false;assert(KmrpTextFontStyleK1()==Modded);
+    GetPrivateProfileStringW(L"KMRP Text",L"ModdedFonts",L"",seen,32,path);
+    assert(!std::wcscmp(seen,L"0000000000005678"));
+    // Taken out of Override again: HD Font, the saved 3 kept for when they come back.
+    Mock::moddedSet=0;initialized=false;assert(KmrpTextFontStyleK1()==HdOriginal);
+    assert(GetPrivateProfileIntW(L"KMRP Text",L"FontStyle",-1,path)==Modded);
+    Mock::moddedSet=0x5678;initialized=false;assert(KmrpTextFontStyleK1()==Modded);
+    Mock::moddedSet=0;style=HdOriginal;assert(Save());
+    assert(WritePrivateProfileStringW(L"KMRP Text",L"ModdedFonts",nullptr,path));
+    initialized=false;assert(KmrpTextFontStyleK1()==HdOriginal);
+    std::cout<<"PASS: "<<cases<<" native UI fixtures; cloned geometry/focus policy, unique IDs, navigation, 50% default, four independent/linked sliders, two exclusive fonts, three with Modded Font while Override has fonts (HD Font by default; the old HD font's saved choice read as HD Font; Modded Font chosen by itself for new fonts in Override, a later choice kept across starts), the Icon Size slider (caption, size and save at once, its pair in the left column, its icons on the right), defaults, failed-style rollback and parent/modal cleanup. ABI is mocked; game execution remains a separate check.\n";
 }

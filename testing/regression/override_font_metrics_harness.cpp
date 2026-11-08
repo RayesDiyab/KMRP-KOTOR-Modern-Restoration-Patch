@@ -67,8 +67,66 @@ struct FontFixture {
     void loaded() {KmrpFontMetricsLoadedK1(texture.data());}
 };
 bool CloseEnough(float a,float b) {return std::fabs(a-b)<=(std::max)(1e-6f,std::fabs(b)*2e-6f);}
+
+// OverrideFontFitted (2026-11-08) on the fixture Test-OverrideFontMetrics.py puts in the
+// Override folder beside this program: dialogfont10x10 a KMRP HD atlas (1024 square,
+// fontheight 0.6, as the KMRP Font Converter writes), fnt_console the same with a .tpc,
+// dialogfont12x16 a .tga without .txi, dialogfont16x16 a 24-bit .tga, fnt_credits none.
+std::string Text(const std::wstring& path) {std::vector<unsigned char> b;assert(Read(path,b));return std::string(b.begin(),b.end());}
+double Field(const std::string& text,const char* key) {
+    const auto at=text.find(std::string("\n")+key+" ");assert(at!=std::string::npos);
+    return std::atof(text.c_str()+at+std::strlen(key)+2);
+}
+unsigned long long AlphaSum(const std::vector<unsigned char>& tga) {
+    const size_t pixels=static_cast<size_t>(tga[12]|(tga[13]<<8))*(tga[14]|(tga[15]<<8));
+    unsigned long long sum=0;for(size_t i=0;i<pixels;++i)sum+=tga[18+tga[0]+i*4+3];return sum;
+}
+void TestOverrideFit() {
+    wchar_t exe[MAX_PATH];GetModuleFileNameW(nullptr,exe,MAX_PATH);*wcsrchr(exe,L'\\')=0;
+    const std::wstring folder(exe),source=folder+L"\\override\\dialogfont10x10";
+    root=folder+L"\\cache";CreateDirectoryW(root.c_str(),nullptr);CreateDirectoryW((root+L"\\fonts").c_str(),nullptr);
+    // Override as listed once (Modded Font, 2026-11-08): which names it has, which of them KMRP
+    // can show itself (a .tga with its .txi and no .tpc), and a number for the set.
+    const std::uint64_t set=OverrideFontSet();
+    assert(set && overrideAtStart[0] && overrideAtStart[8] && overrideAtStart[3] && overrideAtStart[4] && !overrideAtStart[9]);
+    assert(OverridePair(0) && !OverridePair(8) && !OverridePair(3) && OverridePair(4) && !OverridePair(9));
+    std::wstring txi,tga,txi2,tga2;
+    assert(OverrideFontFitted(0,0.24f,txi,tga));                 // factor 0.4
+    std::vector<unsigned char> in,out;assert(Read(source+L".tga",in)&&Read(tga,out));
+    assert(out[2]==2 && out[16]==32 && out[17]==in[17]);
+    assert((out[12]|(out[13]<<8))==410 && (out[14]|(out[15]<<8))==410);
+    // Coverage kept: each new texel the area average of the old ones it covers.
+    const double kept=static_cast<double>(AlphaSum(out))/(AlphaSum(in)*0.4*0.4);
+    assert(kept>0.99 && kept<1.01);
+    const std::string before=Text(source+L".txi"),after=Text(txi);
+    assert(std::fabs(Field(after,"fontheight")-0.24)<1e-6 && std::fabs(Field(after,"texturewidth")-4.10)<1e-6);
+    assert(std::fabs(Field(after,"baselineheight")-Field(before,"baselineheight")*0.4)<1e-5);
+    assert(before.substr(before.find("upperleftcoords"))==after.substr(after.find("upperleftcoords")));   // UVs untouched
+    // Made once: a second call finds the same copy and writes nothing.
+    WIN32_FILE_ATTRIBUTE_DATA first,second;GetFileAttributesExW(tga.c_str(),GetFileExInfoStandard,&first);
+    Sleep(20);assert(OverrideFontFitted(0,0.24f,txi2,tga2) && txi2==txi && tga2==tga);
+    GetFileAttributesExW(tga.c_str(),GetFileExInfoStandard,&second);
+    assert(!CompareFileTime(&first.ftLastWriteTime,&second.ftLastWriteTime));
+    // Another size is another copy; the mod's own files are never written.
+    assert(OverrideFontFitted(0,0.36f,txi2,tga2) && tga2!=tga);
+    std::vector<unsigned char> again;assert(Read(source+L".tga",again) && again==in && Text(source+L".txi")==before);
+    // A changed Override file is a new copy.
+    HANDLE h=CreateFileW((source+L".txi").c_str(),FILE_WRITE_ATTRIBUTES,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);
+    FILETIME later=first.ftLastWriteTime;later.dwHighDateTime+=1;assert(SetFileTime(h,nullptr,nullptr,&later));CloseHandle(h);
+    assert(OverrideFontFitted(0,0.24f,txi2,tga2) && tga2!=tga);
+    // Left to Override, as before: not larger than drawn, a .tpc, no .txi, not 32-bit, none.
+    assert(!OverrideFontFitted(0,0.6f,txi2,tga2) && !OverrideFontFitted(0,0.8f,txi2,tga2));
+    assert(!OverrideFontFitted(8,0.24f,txi2,tga2));   // fnt_console
+    assert(!OverrideFontFitted(3,0.24f,txi2,tga2));   // dialogfont12x16
+    assert(!OverrideFontFitted(4,0.24f,txi2,tga2));   // dialogfont16x16
+    assert(!OverrideFontFitted(9,0.24f,txi2,tga2));   // fnt_credits
+    assert(OverrideFontSet()!=set);   // a changed file is a new set: Modded Font is chosen again
+    std::cout<<"PASS: Override font fitted to its size (1024 to 410, coverage "<<kept<<"), UVs and the mod's files untouched, made once, a new copy for a new size or file; .tpc, no .txi, 24-bit, not larger and absent left to Override; Override's font names listed, the pairs KMRP can show, a new set number for a changed file.\n";
+}
+
 int main(int argc,char** argv) {
     assert(argc==2);std::ifstream input(argv[1]);assert(input);
+    TestOverrideFit();
     for(const char* font:fontNames)assert(KmrpRuntimeIsFontK1(font));
     assert(KmrpRuntimeIsFontK1("FNT_CONSOLE"));
     assert(!KmrpRuntimeIsFontK1(nullptr) && !KmrpRuntimeIsFontK1("") && !KmrpRuntimeIsFontK1("NormCubeMap"));

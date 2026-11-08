@@ -117,6 +117,39 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Added: Modded Font, the fonts in Override as a third choice** (2026-11-08, at the
+  maintainer's request, [ingame-text-options.md](docs/ingame-text-options.md) section 3). The
+  Text Size and Font page shows **Modded Font** under HD Font while the game's `Override` has
+  one of the 18 font names, and chooses it by itself when the fonts there are new (not the set
+  saved in `[KMRP Text] ModdedFonts`). A choice made since is saved with that set, so it stays
+  across starts until the fonts in `Override` change; with none there the row is gone and a
+  saved Modded Font reads as HD Font. Original Font and HD Font now show KMRP's own fonts over
+  `Override`'s (until now every font in `Override` won whatever the choice), except a `.tpc`
+  there, which the game prefers wherever it is. Modded Font shows each font `Override` has as a
+  `.tga` and `.txi`, fitted to its size as below, KMRP's HD Font for the names it lacks, and
+  leaves any other (a `.tpc`) to `Override`. `FontStyle` 3, `K1TextOptionsPolicy.h`;
+  `ApplyTextPreferences`, `OverrideFontSet` in `K1RuntimeAssets.cpp`; `Initialize`, `Save` and
+  the row in `K1TextOptions.cpp`. **Checked:** `Test-TextOptions.py` (the row on half its 70
+  layouts, the pad round three, the saved choice through new, kept, changed and removed fonts),
+  `Test-OverrideFontMetrics.py` (the listing and the pairs KMRP can show),
+  `Test-PartyRosterGui.py`, `Test-NativeAssetsBank.py` and `Test-FontInfo.py` pass; the module
+  builds. The linking itself needs the art pack and has no test. **Not seen in the game.**
+- **Changed: a font from Override is fitted to the size it is drawn at** (2026-11-08,
+  [ingame-text-options.md](docs/ingame-text-options.md) section 3). KMRP fits its own HD fonts'
+  six-times atlases to the size in use, but a font in `Override`, such as the KMRP Font
+  Converter's, only had its metrics scaled: the game loaded the whole atlas and shrank it 2 to 3
+  times at every draw at 1080 and 1440 lines, with no mipmaps, and the converter's seventeen are
+  273 MB uncompressed. Now one that `Override` has as an uncompressed 32-bit `.tga` with its
+  `.txi`, larger than drawn, is fitted the same way from the mod's files (`OverrideFontFitted` in
+  `K1RuntimeAssets.cpp`), made once per size and file in the cache, and shown in KMRP's fonts
+  folder; the mod's files are only read. A `.tpc`, a font with no `.txi` and one at or below the
+  drawn size are left to `Override` as before. A change of text size fits them again
+  (`FitFonts`). Since the same day this is what the Modded Font choice above shows. **Checked:** `Test-OverrideFontMetrics.py` runs the new code on a
+  KMRP HD atlas as a mod's font (1024 to 410 texels at 0.4, coverage within 0.2%, UVs unchanged,
+  made once, the mod's files unchanged, the five cases left to `Override` refused) and its 11,880
+  metrics cases; `Test-TextOptions.py`, `Test-NativeAssetsBank.py` and `Test-FontInfo.py` pass; the
+  module builds. The Font Converter's output was audited the same day and needs no change
+  ([font-converter.md](https://github.com/RayesDiyab/KOTOR-KMRP-Font-Converter/blob/master/font-converter/docs/font-converter.md) section 4). **Not seen in the game.**
 - **Changed: the Windows installer is built under its release name** (2026-11-04). `build_kmrp.ps1`
   writes `dist\KMRP-Windows-<version>.exe`, now `KMRP-Windows-1.6.0.exe`, the name the release assets
   have had since 1.5.0, where it wrote `KMRP - KOTOR Modern Restoration Patch.exe` for renaming by

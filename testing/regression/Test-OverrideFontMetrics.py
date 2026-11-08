@@ -81,6 +81,18 @@ def main():
     args=['cl','/nologo','/O2','/Gy','/std:c++17','/EHsc','/W3','/I'+str(ROOT/'build/native-runtime'),'/I'+str(ROOT/'src/controller-native'),str(ROOT/'testing/regression/override_font_metrics_harness.cpp'),'/Fo'+str(out/'harness.obj'),'/Fe'+str(exe),'/link','/OPT:REF','user32.lib','bcrypt.lib','crypt32.lib']
     cmd=out/'build.cmd';cmd.write_text('@echo off\ncall "'+vc+'" x86 >nul\nif errorlevel 1 exit /b %errorlevel%\n'+subprocess.list2cmdline(args)+'\nexit /b %errorlevel%\n',newline='\r\n')
     subprocess.run(['cmd','/d','/c',str(cmd)],cwd=ROOT,check=True)
+    # Override beside the harness for OverrideFontFitted: a KMRP HD atlas as a mod's font
+    # (the KMRP Font Converter writes the same format), and the cases left to Override.
+    import shutil
+    from PIL import Image
+    override=out/'override';shutil.rmtree(override,ignore_errors=True);shutil.rmtree(out/'cache',ignore_errors=True)
+    override.mkdir()
+    hd=ROOT/'assets/hd-original-fonts'
+    for target,parts in {'dialogfont10x10':('.tga','.txi'),'fnt_console':('.tga','.txi'),'dialogfont12x16':('.tga',)}.items():
+        for ext in parts:shutil.copyfile(hd/('dialogfont10x10'+ext),override/(target+ext))
+    (override/'fnt_console.tpc').write_bytes(b'not read')
+    Image.new('RGB',(64,64),'white').save(override/'dialogfont16x16.tga')
+    shutil.copyfile(hd/'dialogfont10x10.txi',override/'dialogfont16x16.txi')
     subprocess.run([str(exe),str(fixture)],check=True)
 
 

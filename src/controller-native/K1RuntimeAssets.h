@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <string>
 bool KmrpRuntimeAssetsDimensions(int width, int height);
 // Whether the finished layout sets reach this size: one of them, or a size the
@@ -13,8 +14,12 @@ const std::wstring& KmrpRuntimeLayoutDirectory();
 std::wstring KmrpRuntimeLayoutFile(const std::wstring& name);
 // Finalize Override font metrics at native LoadTXI return, before first layout.
 extern "C" void __cdecl KmrpFontMetricsLoadedK1(void* texture);
-// Rewrite only bundled font images for a style switch, preserving Override.
+// The fonts of the style chosen, linked again for a change of style or size (Modded Font:
+// Override's where it has them).
 bool KmrpRuntimeApplyTextPreferencesK1();
+// The fonts Override has, as the game listed it at the start: 0 when none, else a number of
+// their names, sizes and times (Modded Font, K1TextOptions.cpp).
+std::uint64_t KmrpRuntimeOverrideFontSetK1();
 // Known GUI font resource names; do not rebuild unrelated texture metadata.
 bool KmrpRuntimeIsFontK1(const char* name);
 // The Icon Size slider (issue 80): its percent (K1TextOptions.cpp, swkotor.ini [KMRP Text]
