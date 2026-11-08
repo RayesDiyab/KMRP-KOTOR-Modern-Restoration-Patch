@@ -34,7 +34,10 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-sys.path.insert(0, str(ROOT / "fonts" / "tools"))
+# The fonts and their redraw tools: in the KOTOR-KMRP Font Converter repository since 2026-11-08.
+from font_converter_checkout import font_converter_root  # noqa: E402
+FONT_REPO = font_converter_root()
+sys.path.insert(0, str(FONT_REPO / "fonts" / "tools"))
 from build_font_from_ttf import slot_character  # noqa: E402
 from build_hd_original_fonts import OUTLINED, SCALE, Stock, outlined  # noqa: E402
 from build_hd_original_otf import USES, read_txi  # noqa: E402
@@ -42,7 +45,7 @@ from build_scaled_fonts import write_tga  # noqa: E402
 import area  # noqa: E402  (fonts/tools/area.py: exact area coverage)
 
 ATLASES = ROOT / "assets/hd-original-fonts"
-FONTS = ROOT / "fonts/otf"
+FONTS = FONT_REPO / "fonts/otf"
 ORIGINALS = ROOT / "build/native-runtime/original-fonts"
 
 

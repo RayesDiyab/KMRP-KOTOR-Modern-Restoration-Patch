@@ -20,7 +20,7 @@ shapely      # 2.2.0  -- controller pictures as outlines: offsetting, unions and
              #           glow rings (tools/controller_drawn_art.py,
              #           tools/build_controller_glyph_vectors.py); the controller
              #           module's build needs it
-scipy        # 1.18.1 -- fonts/tools (measure.py, redraw.py): the font redraw and the
+scipy        # 1.18.1 -- fonts/tools (measure.py, redraw.py; in the KOTOR-KMRP Font Converter repository since 2026-11-08): the font redraw and the
              #           eight controller pictures fitted from PNGs; a maintainer's
              #           step only (tools/build_controller_glyph_vectors.py)
 python-docx  #        -- tools/build_technical_reconstruction_doc.py only.

@@ -29,8 +29,9 @@ name. The HD icons, portraits and menu art below are their authors' remakes,
 bundled with permission.
 
 Since 2026-10-22 the HD Original font's atlases are drawn from the KMRP Original HD
-fonts ([fonts/](fonts/README.md)), KMRP's own, Copyright 2026 RaymanGT, licensed
-under the SIL Open Font License 1.1 ([fonts/OFL.txt](fonts/OFL.txt)); until then they
+fonts ([fonts/](https://github.com/RayesDiyab/KOTOR-KMRP-Font-Converter/blob/master/fonts/README.md), in the KOTOR-KMRP Font Converter repository
+since 2026-11-08), KMRP's own, Copyright 2026 RaymanGT, licensed under the SIL Open Font
+License 1.1 ([fonts/OFL.txt](https://github.com/RayesDiyab/KOTOR-KMRP-Font-Converter/blob/master/fonts/OFL.txt)); until then they
 were rendered from Bank Gothic Medium and Helvetica fitted to the game's letters
 (`tools/build_hd_original_fonts.py`, those font files never in the repository), which
 no build uses any more.
@@ -480,7 +481,9 @@ Keep these credits with any public release. Confirm any additional redistributio
 
 ## Fonts
 
-**No font file is redistributed.** The patcher embeds only rendered TGA glyph
+**No font file is redistributed by the KMRP installer.** (The KMRP Font Converter, a
+separate download, carries two of KMRP's own OFL fonts: see its section below. Until
+2026-11-08 this line said no font file was redistributed at all.) The patcher embeds only rendered TGA glyph
 atlases; the `.ttf`/`.otf` files under `assets/fonts/` are build-time inputs
 that stay on the build machine. Verified by inspecting every embedded archive —
 there is no `.ttf` or `.otf` anywhere in the shipped executable. Re-checked
@@ -551,6 +554,19 @@ Chakra Petch (SIL OFL), Montserrat (SIL OFL), Rajdhani, Exo 2, Nimbus Sans L
 ITC Blair was considered but is a commercial Monotype/ITC face; it was neither
 obtained nor used.
 
+
+## KMRP Font Converter
+
+A separate download, in its own repository since 2026-11-08 ([KOTOR-KMRP Font Converter](https://github.com/RayesDiyab/KOTOR-KMRP-Font-Converter),
+`font-converter/`; GPL-3.0-or-later like KMRP). It carries KMRP
+Original HD Menu and Descriptions as TrueType for its window's text: KMRP's own fonts,
+Copyright (c) 2026 RaymanGT, SIL OFL 1.1, no Reserved Font Name (`fonts/OFL.txt`, shipped
+in its zip). Its example pictures are drawn in the same fonts; its KMRP and KOTOR logos are
+KMRP's sigil with letters drawn in Georgia (a picture, not the font). Game and company names
+in its example lines are their owners' trademarks. Its own list is
+`font-converter/release/THIRD-PARTY-NOTICES.txt`. Until 2026-11-08 it also carried GitHub's
+Octicons mark (MIT) and Deadly Stream's icon on a start pop-up, both removed with the
+pop-up.
 
 ## KotorUniResPatch (KPM), J0-o
 

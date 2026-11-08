@@ -49,7 +49,9 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-sys.path.insert(0, str(ROOT / "fonts" / "tools"))
+# The font redraw's outline tools: in the KOTOR-KMRP Font Converter repository since 2026-11-08.
+from font_converter_checkout import font_converter_root  # noqa: E402
+sys.path.insert(0, str(font_converter_root() / "fonts" / "tools"))
 import build_controller_prompt_textures as prompts  # noqa: E402
 
 PACK = prompts.GLYPH_PACK

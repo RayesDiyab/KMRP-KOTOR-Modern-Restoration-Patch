@@ -117,6 +117,46 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Moved: the KMRP Font Converter and the KMRP Original HD fonts to their own repository,
+  KOTOR-KMRP Font Converter** (2026-11-08, at the maintainer's request; [KOTOR-KMRP-Font-Converter](https://github.com/RayesDiyab/KOTOR-KMRP-Font-Converter)). `font-converter/`, `fonts/` (the 11 OTF
+  files, the collection, their OFL, README, redraw tools and release kit) and
+  `testing/regression/Test-FontConverter.py` (now `tests/`) left this repository, their six
+  commits of history with them, as KMSE did on 2026-10-24. **KMRP still ships its HD Font:**
+  the 17 atlases drawn from those fonts stay in `assets/hd-original-fonts`, and no build reads
+  the fonts. Drawing the atlases again (`tools/build_hd_original_atlases.py`) and the glyph
+  vectors' outline tools (`tools/build_controller_glyph_vectors.py`) find the fonts through
+  `tools/font_converter_checkout.py`: `KMRP_FONT_CONVERTER`, or the repository cloned next to
+  this one. **Checked:** `build_hd_original_atlases.py --check` with `fonts/` gone from here:
+  17 atlases, mean change 0.03% (0.01% to 0.04% recorded before the move), so the same fonts
+  draw the same atlases; the glyph vectors tool's imports resolve; in the new repository the
+  converter builds to the same SHA-256 as here (`30643C4A...`) and `Test-FontConverter.py`
+  passes. Links to the moved docs point at the new repository on GitHub.
+- **KMRP Font Converter 1.0.0, made ready for release** (2026-11-08, after its audit,
+  [release-audit-2026-11-08.md](https://github.com/RayesDiyab/KOTOR-KMRP-Font-Converter/blob/master/font-converter/docs/release-audit-2026-11-08.md); to be
+  released with KMRP 1.6.0 and KMSE the same day, the maintainer). A **Version** box beside
+  Convert makes the fonts for KMRP or for the **original game**, at the game's own font sizes
+  (a sixth of KMRP's, equal to the game's TXI values), the small letters drawn by Windows with
+  each font's hinting so they are crisp; with Original Game chosen the logo reads KOTOR. No
+  pop-up at the start (the "needs KMRP" pop-up and its Deadly Stream and GitHub buttons are
+  gone), and Convert turns green when done instead of a Done pop-up. Text at KMSE's sizes
+  (steps 1, 1.2, 1.32) drawn at the screen's own pixels. Conversion is all or nothing: every
+  font is made in a work folder first and moved into place only when all are made and none of
+  the files to replace is read-only; a `.tpc` set aside earlier is kept (the next is `-2`);
+  closing the window during a conversion stops it with nothing written. Refused: a font
+  without A to Z, a letter or set needing an atlas over 4096, a WOFF that claims more than a
+  font can be. The program is split from one 1,848-line file into nine by job; one version
+  number (`Program.Version`); a deterministic build with Visual Studio's C# compiler;
+  `build.ps1 -Release` makes the zip with the readme, GPL, OFL and notices. Corrected: the
+  root `THIRD_PARTY_NOTICES.md` said no font file is redistributed; the converter carries two
+  of KMRP's OFL fonts. **Checked:** `Test-FontConverter.py` (new; now `tests/` in its own repository): seven
+  kinds of font file for both versions, four refusals, the `.tpc`, read-only and close cases,
+  all passed; screenshots at 1600x900 in both themes and all three text sizes. **Seen in a
+  vanilla game** (the GOG 1.03 exe, no KMRP): Georgia made for the original game on the main
+  menu, Load Game, the inventory, the journal, a conversation and its replies, at the game's
+  own size ([font-converter.md](https://github.com/RayesDiyab/KOTOR-KMRP-Font-Converter/blob/master/font-converter/docs/font-converter.md)). The KMRP version as
+  built here is not yet seen in the game; not run under Proton.
+  Its first entry below (2026-10-21) gives `dist\KMRP Font Converter.exe` at 727,552 bytes; the
+  file is `font-converter\dist\KMRP Font Converter.exe`, 1,113,088 bytes at 1.0.0.
 - **Added: Modded Font, the fonts in Override as a third choice** (2026-11-08, at the
   maintainer's request, [ingame-text-options.md](docs/ingame-text-options.md) section 3). The
   Text Size and Font page shows **Modded Font** under HD Font while the game's `Override` has
@@ -1831,7 +1871,7 @@ proxy, and it applies the executable changes above as well.
   carried its temporary copy's time). A second build with nothing changed: 1 minute 18,
   both patches the same as the full build's.
 
-- **KMRP's fonts kern** (2026-10-24; [fonts/README.md](fonts/README.md)). The ten
+- **KMRP's fonts kern** (2026-10-24; [fonts/README.md](https://github.com/RayesDiyab/KOTOR-KMRP-Font-Converter/blob/master/fonts/README.md)). The ten
   proportional KMRP Original HD fonts (`fonts/otf`, the `.ttc` and the Font Converter's
   copies) carry pair kerning measured from their outlines (`fonts/tools/kern.py`, run by
   `finish.py`): a modder saw the small-caps a stand apart ("Aw areness", "G a m" in
@@ -1874,7 +1914,7 @@ proxy, and it applies the executable changes above as well.
   as from inside it; `Test-GameArt.py` on the Steam game and `Test-NativeAssetsBank.py`
   pass. Installed in the maintainer's Steam game; **not yet seen in the game.**
 - **The HD Original font is now KMRP's own, free under the SIL Open Font License 1.1**
-  (2026-10-22; [fonts/README.md](fonts/README.md)). The 11 KMRP Original HD fonts in
+  (2026-10-22; [fonts/README.md](https://github.com/RayesDiyab/KOTOR-KMRP-Font-Converter/blob/master/fonts/README.md)). The 11 KMRP Original HD fonts in
   `fonts/otf` were redrawn from the HD atlases as straight lines, sharp corners and arcs:
   every diagonal one straight line where the earlier OTFs (traced with potrace) stepped,
   corners where two edges meet, the rings of © and ® exact circles or ovals, whichever the
@@ -1892,7 +1932,7 @@ proxy, and it applies the executable changes above as well.
   Editor carries the four it uses in `save-editor/fonts`, so it builds with them anywhere.
   **Not yet seen in the game.**
 - **The Font Converter's window is set in KMRP's own fonts, sharp** (2026-10-22;
-  [font-converter.md](font-converter/docs/font-converter.md)). Its titles and text used
+  [font-converter.md](https://github.com/RayesDiyab/KOTOR-KMRP-Font-Converter/blob/master/font-converter/docs/font-converter.md)). Its titles and text used
   Bahnschrift and Segoe UI drawn without grid fitting, soft beside the Save Editor; they
   are now KMRP Original HD Menu and Descriptions, carried in the program, drawn
   grid-fitted. Its example pictures are made again from the redrawn HD atlases.
@@ -1958,7 +1998,7 @@ proxy, and it applies the executable changes above as well.
   a pop-up. A number typed anywhere is taken when the box is left, as if Enter were pressed.
 - **Settings in the Save Editor and the Font Converter, and bigger text** (2026-10-22;
   [save-editor.md](https://github.com/RayesDiyab/KMSE-KOTOR-Modern-Gamesave-Editor/blob/master/docs/save-editor.md),
-  [font-converter.md](font-converter/docs/font-converter.md)). Both have the installer's
+  [font-converter.md](https://github.com/RayesDiyab/KOTOR-KMRP-Font-Converter/blob/master/font-converter/docs/font-converter.md)). Both have the installer's
   gear at the top right; it opens a Settings pop-up with Text Size (Small, the old sizes;
   Medium, the new default; Large) and Appearance (Dark or Light). The Font Converter gained a
   light mode. The Save Editor's Settings also hold what KSE keeps in `kse.ini`: the KotOR and
@@ -2192,7 +2232,7 @@ proxy, and it applies the executable changes above as well.
   metrics, into the game's Override when the game is found. A pop-up at every start says
   the fonts need KMRP, with DeadlyStream and GitHub Releases buttons carrying their marks
   in the installer's icon blue (`font-converter/logos.html`). Measured on the maintainer's PC: window in 0.2 s,
-  17 atlases in 0.47 s. [font-converter.md](font-converter/docs/font-converter.md). **Not yet seen in the
+  17 atlases in 0.47 s. [font-converter.md](https://github.com/RayesDiyab/KOTOR-KMRP-Font-Converter/blob/master/font-converter/docs/font-converter.md). **Not yet seen in the
   game, nor run under Proton.**
 - **A round o in the Original HD Font, and the font as OTF files** (2026-10-21, at the
   maintainer's request: "this specific letter should be wider so its new width equals

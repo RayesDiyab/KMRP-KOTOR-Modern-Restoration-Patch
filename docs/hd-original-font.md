@@ -8,7 +8,8 @@ fitted to the drawn size is in [in-game text options](ingame-text-options.md); t
 Old HD atlases are in [font scaling](font-scaling.md).
 
 **Since 2026-10-22 the atlases are drawn from KMRP's own fonts.** The 11 KMRP Original
-HD fonts ([fonts/](../fonts/README.md), SIL Open Font License 1.1) were redrawn from
+HD fonts ([fonts/](https://github.com/RayesDiyab/KOTOR-KMRP-Font-Converter/blob/master/fonts/README.md), SIL Open Font License 1.1; since
+2026-11-08 in the [KOTOR-KMRP Font Converter](https://github.com/RayesDiyab/KOTOR-KMRP-Font-Converter) repository) were redrawn from
 these atlases as straight lines, corners and arcs, and
 [build_hd_original_atlases.py](../tools/build_hd_original_atlases.py) now writes the 17
 atlases from them: the same TXI files, cells and baselines, every cell rendered with
@@ -17,7 +18,7 @@ this document describes: 0.6% (dialogfont32x32) to 1.6% (the small menu and ligh
 fonts) mean change of the letters' coverage, straight diagonals where the faces'
 renderings were stepped, sharp corners where they were soft, the rings of © and ® exact,
 and dialogfont10x10's underscore a bar where its cell cut it to a sliver (per font in
-[fonts/README.md](../fonts/README.md), section 3).
+[fonts/README.md](https://github.com/RayesDiyab/KOTOR-KMRP-Font-Converter/blob/master/fonts/README.md), section 3).
 Bank Gothic Medium and Helvetica are no longer needed by any build. What follows is how
 the atlases were first made, and still the record of every decision their shapes came
 from; `build_hd_original_fonts.py` is no longer run.

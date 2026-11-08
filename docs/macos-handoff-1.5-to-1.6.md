@@ -1068,7 +1068,7 @@ every caption sits in the middle of its bar, New Game to Quit, within a pixel or
 
 ## 97. HD Original's atlases drawn from KMRP's own fonts (9f78f0e)
 
-**To do on the Mac** (2026-10-22; [fonts/README.md](../fonts/README.md),
+**To do on the Mac** (2026-10-22; [fonts/README.md](https://github.com/RayesDiyab/KOTOR-KMRP-Font-Converter/blob/master/fonts/README.md), in its own repository since 2026-11-08,
 `tools/build_hd_original_atlases.py`). The 17 atlases in `assets/hd-original-fonts` are now
 drawn from the KMRP Original HD fonts in `fonts/otf` (SIL OFL 1.1): straight diagonals,
 sharp corners, exact rings in © and ®; their TXI files are unchanged. The Mac's font art
