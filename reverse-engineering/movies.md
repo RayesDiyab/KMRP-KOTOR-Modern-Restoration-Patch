@@ -761,6 +761,13 @@ So anything that deactivates the movie window, a real Alt-Tab or anything else, 
 the movie and drops the game to the desktop until the player comes back. That is the
 "back to the desktop between two movies" of issue 48.
 
+*Note of 2026-11-10 (issue 96, read from the clean executable, not seen in play):* in
+full screen the replay came from `ReInitAurora`, since the return always rebuilt the
+window. KMRP's return keeps the window where the display is back at the game's size and
+goes on through the windowed path, so there the replay comes from
+`RestartMoviesIfNecessary` at `0x00402AA2`, as in a window
+([alt-tab-fullscreen.md](alt-tab-fullscreen.md)).
+
 ### What KMRP does
 
 Two detours, both in `src/controller-native/kotor1.hooks.toml`. Until

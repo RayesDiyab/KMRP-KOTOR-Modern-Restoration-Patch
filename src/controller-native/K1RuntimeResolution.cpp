@@ -3,6 +3,7 @@
 #include <windows.h>
 #include "KmrpOptions.h"
 #include <cstdio>
+#include <cstdarg>
 #include <cstdint>
 #include <cstring>
 #include <array>
@@ -331,6 +332,121 @@ extern "C" void __cdecl KmrpModeSwitchK1()
     Prepare(width, height);
     Log("switching", width, height);
     ReloadFontMetrics();
+}
+
+// Back from Alt-Tab in full screen, without the rebuild (issue 96).
+//
+// The game leaving the foreground in full screen: its window procedure (0x00402800)
+// minimises the window (0x004029DB) and calls the renderer's virtual at +0x18
+// (0x0044D8D0): the gamma ramp at 1.0, then ChangeDisplaySettingsA(NULL, 0), the
+// desktop's mode. Coming back, it calls the one at +0x1C (0x0044D900): the game's own
+// gamma ramp again and ChangeDisplaySettingsA of the mode the renderer was made in,
+// tested first, then CDS_FULLSCREEN. That brings back the picture's brightness and the
+// game's mode, and keeps the window and its OpenGL context. Then it stored 2 at
+// 0x007A3A2C (0x00402A66), and the next pass of the main loop rebuilt everything for
+// it (0x0040460E -> ReInitAurora, 0x00404663): a new window, OpenGL context and input,
+// and every texture loaded again. That rebuild is where a return to the game was
+// reported to freeze (issue 96, from players of 1.5.1, not reproduced by KMRP).
+//
+// This hook replaces that store. Where the display is back at the game's size, the
+// window and its context are kept: the procedure goes on as it does for a game in a
+// window, which kept them all along (0x00402A72: the interrupted movies started again,
+// RestartMoviesIfNecessary at 0x00402AA2), and drawing resumes (ActivateRenderWindow,
+// 0x00402AD1, which the hook at 0x00402ACF makes it call in full screen too). Where it
+// is not, or the call is not for the main window, the store is made here and the game
+// rebuilds as it always did. `rebuild=1` in [Alt-Tab] of configs\kmrp.ini keeps the
+// rebuild every time.
+//
+// KOTOR Patch Manager's Alt Tab Patch (J, MIT) does the same with its own display mode
+// switch in place of the game's +0x1C: that leaves the gamma ramp +0x18 set at 1.0, so
+// the picture comes back at the desktop's brightness, not the game's. This keeps the
+// game's call. The two patches cannot both be installed: KMRP's lists it as a conflict.
+// Each return and what was decided, with debug logs on (issue 96). The trace that found the
+// outer window on 2026-11-10 also logged every swap for five seconds after a return, why the
+// offscreen buffer was made again, and every ReInitAurora with its caller (a hook at
+// 0x00403800); those were taken out once it had: alt-tab-fullscreen.md, section 2.
+namespace {
+void AltTabTrace(const char* format, ...)
+{
+    if (!KmrpDebugLogs()) return;
+    char text[256];
+    va_list args;
+    va_start(args, format);
+    vsprintf_s(text, format, args);
+    va_end(args);
+    char line[300];
+    sprintf_s(line, "[Alt-Tab trace] %lu %s (rebuild flag %d)", GetTickCount(), text,
+              *reinterpret_cast<const volatile int*>(K1_RENDER_REBUILD));
+    KmrpRuntimeLog(line);
+}
+}
+
+extern "C" int __cdecl KmrpFullscreenReturnK1(void* const* windowSlot)
+{
+    AltTabTrace("WM_ACTIVATEAPP back in full screen: hwnd %p, main %p, iconic %d",
+                windowSlot ? *windowSlot : nullptr, *reinterpret_cast<void* const*>(K1_MAIN_WINDOW),
+                IsIconic(*reinterpret_cast<const HWND*>(K1_MAIN_WINDOW)) ? 1 : 0);
+    const HWND main = *reinterpret_cast<const HWND*>(K1_MAIN_WINDOW);   // the procedure's hwnd is at [esp+0x38]
+    const auto rebuild = [](const char* why) {
+        *reinterpret_cast<volatile int*>(K1_RENDER_REBUILD) = 2;   // the instruction the hook replaced
+        if (why) {
+            char line[200];
+            sprintf_s(line, "[KMRP] back from Alt-Tab: %s; the game rebuilds its window", why);
+            KmrpRuntimeLog(line);
+        }
+        AltTabTrace("  -> rebuild");
+        return 0;
+    };
+    // The game has two windows, and both get WM_ACTIVATEAPP: the render window (0x007A39D8)
+    // and the outer one (g_hWindow, 0x007A39D4, in the reconstruction). The procedure asks
+    // for the rebuild for either, the render window after its +0x1C (0x00402A53 jumps past
+    // the call for the other). The first version of this hook kept only the render window's
+    // and let the outer window's through, which rebuilt everything all the same: seen in the
+    // trace of 2026-11-10, the render window kept at 104526812, the outer window's rebuild
+    // 47 ms later, ReInitAurora from the main loop (0x00404668), and a new window and context.
+    const HWND outer = *reinterpret_cast<const HWND*>(K1_OUTER_WINDOW);
+    const HWND hwnd = windowSlot ? static_cast<HWND>(*windowSlot) : nullptr;
+    if (!main || !hwnd || (hwnd != main && hwnd != outer)) return rebuild(nullptr);   // not one of the game's
+    wchar_t options[MAX_PATH];
+    if (KmrpGamePath(options, L"configs\\kmrp.ini") && GetPrivateProfileIntW(L"Alt-Tab", L"rebuild", 0, options) != 0)
+        return rebuild(KmrpDebugLogs() ? "rebuild=1 in configs\\kmrp.ini" : nullptr);
+    const int width = *reinterpret_cast<const int*>(K1_SCREEN_WIDTH);
+    const int height = *reinterpret_cast<const int*>(K1_SCREEN_HEIGHT);
+    DEVMODEA display{};
+    display.dmSize = sizeof display;
+    if (!EnumDisplaySettingsA(nullptr, ENUM_CURRENT_SETTINGS, &display)) return rebuild("the display mode cannot be read");
+    if (static_cast<int>(display.dmPelsWidth) != width || static_cast<int>(display.dmPelsHeight) != height) {
+        char why[120];
+        sprintf_s(why, "the display came back at %lux%lu, not the game's %dx%d", display.dmPelsWidth,
+                  display.dmPelsHeight, width, height);
+        return rebuild(why);
+    }
+    // The window the game minimised, shown again. Asynchronously: this runs inside the
+    // window's own WM_ACTIVATEAPP, which a synchronous restore would enter again. The outer
+    // window is left as it is, as the game leaves it.
+    if (hwnd != main) {
+    } else if (IsIconic(main)) {
+        ShowWindowAsync(main, SW_RESTORE);
+    } else {
+        // At the top left at the game's size, as the window the rebuild would have made.
+        RECT client{};
+        POINT origin{};
+        if (GetClientRect(main, &client) && ClientToScreen(main, &origin) &&
+            (origin.x || origin.y || client.right != width || client.bottom != height)) {
+            RECT frame = {0, 0, width, height};
+            if (AdjustWindowRectEx(&frame, static_cast<DWORD>(GetWindowLongPtrA(main, GWL_STYLE)), FALSE,
+                                   static_cast<DWORD>(GetWindowLongPtrA(main, GWL_EXSTYLE))))
+                SetWindowPos(main, nullptr, frame.left, frame.top, frame.right - frame.left, frame.bottom - frame.top,
+                             SWP_NOZORDER | SWP_NOACTIVATE);
+        }
+    }
+    if (KmrpDebugLogs()) {
+        char line[160];
+        sprintf_s(line, "[KMRP] back from Alt-Tab at %dx%d: the same window and OpenGL context, no rebuild", width, height);
+        KmrpRuntimeLog(line);
+    }
+    AltTabTrace("  -> kept the window and context");
+    return 1;
 }
 
 extern "C" int __cdecl KmrpAllowRuntimeResolutionK1(const int* width, const int* height)

@@ -95,6 +95,7 @@ PARAMETERS = {
     'KmrpAllowRuntimeResolutionK1': [('esp+4', 'pointer'), ('esp+8', 'pointer')],
     'KmrpResolutionRequestedK1': [('ecx', 'pointer'), ('esp+4', 'pointer'), ('esp+8', 'pointer')],
     'KmrpModeSwitchK1': [],
+    'KmrpFullscreenReturnK1': [('esp+56', 'pointer')],
     'KmrpPrepareResourcesK1': [('ecx', 'pointer')],
     'KmrpPanelLayoutStartK1': [('ecx', 'pointer'), ('esp+4', 'pointer')],
     'KmrpPanelControlK1': [('ecx', 'pointer'), ('esp+4', 'pointer'), ('esp+8', 'pointer'), ('esp+12', 'pointer')],
@@ -144,8 +145,10 @@ OWN_FRAME_HOOKS = [
 RETIRED = ['kmrp-movies', 'kmrp-map-notes', 'kmrp-native',
            'kmrp-native-options', 'kmrp-native-map-notes', 'kmrp-native-preview']
 # Other authors' patches that make a change this one makes too, or hook its sites.
+# J's Alt Tab Patch hooks 0x00402A5B, 0x00402A66 and 0x00402ACF, where KMRP's return from
+# Alt-Tab is (issue 96, 2026-11-10); it supports CD 1.03 and GOG only.
 OTHERS = (['hud-minimap-map-size-fix-v1', 'scaled-kotor', '4gb-patch', 'better-movie-playback-v1']
-          + kmrp_controller.kpm_same_fix() + ['expanded-keyboard-control', 'xbox-controls-k1'])
+          + kmrp_controller.kpm_same_fix() + ['expanded-keyboard-control', 'xbox-controls-k1', 'alt-tab-patch-v1'])
 PATCH = {
     'id': ID,
     'name': 'KMRP - KOTOR Modern Restoration Patch',

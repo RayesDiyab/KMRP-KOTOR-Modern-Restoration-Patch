@@ -234,6 +234,10 @@ Done since 1.5.1 and not yet released. Some of it has not been seen in play yet;
   shown at its 16:9 size in the middle; drawn with GDI, meant for black movies on
   Windows 7 with an AMD card (issue 48), with `original-movie-mode=1` under
   `[Movies]` in `configs\kmrp.ini` to bring back the 640x480 switch.
+- **Alt-Tab in full screen:** coming back to the game keeps its window, so it no longer
+  rebuilds the picture and reloads every texture first, the step where players
+  reported a freeze (issue 96). Your brightness comes back with it. Inspired by J's Alt Tab Patch
+  for KOTOR Patch Manager and adjusted to work with KMRP, on Steam too.
 - **Marked Empty Containers:** a footlocker or body with nothing left in it says
   "(empty)" (ShaeMyName's mod, on by default, with the author's permission).
 - **K1 Modern Driver Compatibility 2.0.1**, installed as its KOTOR Patch Manager patch, so

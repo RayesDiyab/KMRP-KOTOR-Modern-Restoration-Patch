@@ -117,6 +117,31 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **New in 1.6: back from Alt-Tab in full screen without rebuilding the game's window**
+  (issue [#96](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/issues/96),
+  2026-11-10, the maintainer's choice of the two ways offered). Inspired by J's Alt Tab
+  Patch for KOTOR Patch Manager (MIT) and adjusted to work with KMRP: the idea of skipping
+  the rebuild is J's, the code is KMRP's own, it keeps the game's brightness restore, and it
+  runs on Steam, which J's patch does not support. Credited here and in the README, not in
+  the installer (the maintainer, 2026-11-10). Two players of 1.5.1 reported
+  that KOTOR freezes on a return from Alt-Tab, and that a window avoids it. The game, on
+  coming back in full screen, puts its brightness and display mode back (the renderer's
+  `+0x1C`, `0x0044D900`) and then always asks the main loop to rebuild everything:
+  `ReInitAurora`, a new window, OpenGL context and input, every texture loaded again
+  (`mov [0x007A3A2C], 2` at `0x00402A66`). In a window it does not. Now, where the display
+  is back at the game's size, KMRP keeps the window and its context and lets the game go on
+  as it does in a window (interrupted movies started again, drawing resumed): a detour at
+  `0x00402A66` (`KmrpFullscreenReturnK1`, `K1RuntimeResolution.cpp`) and `75 05` to
+  `90 90` at `0x00402ACF`. The game has two windows and both are told of the return; the first version kept only the render window and let the outer window ask for the rebuild, so the maintainer's first tests (one recorded) still showed the picture, about 0.9 s of black, then the game. A trace found it; a guessed third hook on the window's `WM_SIZE` (`0x00402868`) was tried, never ran, and was taken out. With both windows kept: five returns at 3440x1440, no rebuild, no black (the maintainer, 2026-11-10). Where it is not, or with `rebuild=1` in `[Alt-Tab]` of
+  `configs\kmrp.ini`, the game rebuilds as before, and `KMRP\logs\kmrp-kpm.log` says why.
+  KMRP's patch now lists KOTOR Patch Manager's Alt Tab Patch (`alt-tab-patch-v1`) as a
+  conflict: it hooks the same sites, and it drops the `+0x1C` call, so the picture would
+  come back at the desktop's brightness (read from the code). See
+  [alt-tab-fullscreen.md](reverse-engineering/alt-tab-fullscreen.md). **Not run in the
+  game:** whether the return works on a real driver (picture, brightness, mouse, a movie
+  interrupted by Alt-Tab), and whether the reported freeze is in the rebuild at all, are
+  untested.
+
 - **Moved: the KMRP Font Converter and the KMRP Original HD fonts to their own repository,
   KOTOR-KMRP Font Converter** (2026-11-08, at the maintainer's request; [KOTOR-KMRP-Font-Converter](https://github.com/RayesDiyab/KOTOR-KMRP-Font-Converter)). `font-converter/`, `fonts/` (the 11 OTF
   files, the collection, their OFL, README, redraw tools and release kit) and

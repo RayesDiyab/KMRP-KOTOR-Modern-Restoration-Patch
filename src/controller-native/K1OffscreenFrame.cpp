@@ -485,6 +485,16 @@ bool Make(HDC dc)
     }
     // The same context at a new size keeps nothing; a new context (the game made its window
     // again) has none of the old objects to delete.
+    {
+        // Why it is made again, with debug logs on (issue 96, 2026-11-10): the first, a new
+        // window, a new context, or a new size of the same window.
+        char why[200];
+        if (!frame) sprintf_s(why, "offscreen buffer made: none before");
+        else sprintf_s(why, "offscreen buffer made again: window %p -> %p, context %p -> %p, size %dx%d -> %ldx%ld",
+                       static_cast<void*>(window), static_cast<void*>(owner), static_cast<void*>(context),
+                       static_cast<void*>(now), width, height, client.right, client.bottom);
+        if (KmrpDebugLogs()) Log(why);
+    }
     if (frame && now == context) Delete();
     frame = colour = depth = plain = plainColour = 0;
     width = client.right;

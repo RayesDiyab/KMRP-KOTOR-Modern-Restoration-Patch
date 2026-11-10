@@ -52,6 +52,42 @@ type = "detour"
 function = "KmrpModeSwitchK1"
 original_bytes = [0x83, 0x3D, 0x2C, 0x3A, 0x7A, 0x00, 0x01]
 
+# Back from Alt-Tab in full screen without the rebuild (issue 96; KmrpFullscreenReturnK1,
+# K1RuntimeResolution.cpp). The main window procedure's WM_ACTIVATEAPP has called the
+# renderer's +0x1C (the game's gamma ramp and display mode again) and stores 2 at
+# 0x007A3A2C, which makes the main loop rebuild the window, OpenGL context and every
+# texture: `mov dword ptr [0x7A3A2C], 2`, ten bytes, a branch target only at its first
+# byte (0x00402A59, the path for a window other than the main one). Not replayed: the
+# handler makes the store itself when the rebuild is to happen and returns 0, which goes
+# on at 0x00402A70 as before. Returning 1 leaves through 0x00402A72, the path of a game
+# in a window: movies restarted, then drawing resumed. The window procedure's hwnd is
+# [esp+0x38] here, as the compare at 0x00402A53 reads it; EDI is pushed at 0x00402A2A on
+# both paths, so the stack at 0x00402A72 is the stack here.
+[[hooks]]
+address = 0x00402A66
+type = "detour"
+function = "KmrpFullscreenReturnK1"
+original_bytes = [0xC7, 0x05, 0x2C, 0x3A, 0x7A, 0x00, 0x02, 0x00, 0x00, 0x00]
+skip_original_bytes = true
+exclude_from_restore = ["eax"]
+consumed_exit_address = 0x00402A72
+
+[[hooks.parameters]]
+source = "esp+56"
+type = "pointer"
+
+# ...and resumes drawing in full screen as it does in a window. A return after a second
+# or more called ActivateRenderWindow (0x00401E00) only when the renderer was not full
+# screen, leaving it to the rebuild: `jne 0x00402AD6` after the renderer's +4. Removed,
+# so the call is made either way, as vanilla already made it on a return within a
+# second. Where the rebuild still happens (handler above returned 0), drawing resumes
+# first and the rebuild follows, which is that same within-a-second case.
+[[hooks]]
+address = 0x00402ACF
+type = "simple"
+original_bytes = [0x75, 0x05]
+replacement_bytes = [0x90, 0x90]
+
 # The GUI frame (0x0040CE70) is this module's own frame hook: KmrpCoreGuiWorkK1
 # (K1CoreFrames.cpp) samples the actual viewport first, so a rejected request is
 # never mistaken for a switch.

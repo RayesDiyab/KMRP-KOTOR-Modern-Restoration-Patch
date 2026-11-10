@@ -23,3 +23,5 @@ void KmrpStartAtDisplaySize();
 extern "C" int __cdecl KmrpAllowRuntimeResolutionK1(const int* width, const int* height);
 extern "C" void __cdecl KmrpResolutionRequestedK1(void* manager, const int* width, const int* height);
 extern "C" void __cdecl KmrpResolutionObservedK1(void* manager);
+// WM_ACTIVATEAPP back in full screen: 1 keeps the window and context, 0 rebuilds them.
+extern "C" int __cdecl KmrpFullscreenReturnK1(void* const* window);
