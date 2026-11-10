@@ -117,6 +117,31 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
+- **Apply New Settings: a changed setting without installing again** (2026-11-10, the
+  maintainer's request). Over an install of the same build, changing something in
+  Advanced Settings and going back to the main page now shows **Restore Original** and
+  **Apply New Settings** side by side, where Upgrade appears over an older build, and step 4
+  says "Settings changed" and lists them. Apply New Settings changes only what the settings
+  own (`KpmEditionOperations.ApplySettings`, `KpmEdition.cs`): the controller patch, High FPS
+  Fixes, Marked Empty Containers or K1DC put in or taken out (module, `.kpatch` in KOTOR
+  Patch Manager's folder), `patch_config.toml`, the `[Patch Options]` sections and
+  `kpm_install_state.json` written again, and for High FPS Fix the frame-rate keys of
+  `swkotor.ini`. The runtime, the proxy, the art pack and the art already made stay. To know
+  what changed, an install now records its settings in a `settings` row of
+  `KMRP\kpm.manifest`, which earlier installers skip. An install made before has none; its
+  settings are then read from what it installed (the patches `patch_config.toml` loads, the
+  `[Patch Options]` of `configs\kmrp.ini`). Without that, the maintainer's game, installed
+  earlier the same day, showed Restore Original alone. Where the quick change cannot be made
+  (a game KOTOR Patch Manager manages or has changed, a file changed since install, a module
+  in `patches\` that is not this installer's, K1DC as its Windows 7 and 8 build or the
+  player's own copy), the whole install is made instead and the log says why. The module
+  check is there because builds of one commit share a build date, so the window can take
+  another build for this one, and a hook table naming a function the installed module lacks
+  loses its hooks. A change stopped halfway leaves the manifest marked
+  incomplete, so the window offers Repair. `--apply-settings <swkotor.exe>` does the same
+  from the command line. The Linux installer's window has no such button yet. See
+  [patcher-ui-build.md](docs/patcher-ui-build.md).
+
 - **New in 1.6: back from Alt-Tab in full screen without rebuilding the game's window**
   (issue [#96](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/issues/96),
   2026-11-10, the maintainer's choice of the two ways offered). Inspired by J's Alt Tab

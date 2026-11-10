@@ -400,6 +400,352 @@ namespace Kmrp
             return false;
         }
 
+        // ------------------------------------------------------------ settings
+
+        // The Advanced Settings an install was made with, one manifest row since 2026-11-10:
+        // "settings <key>=<1|0>,...". ReadRecords skips it, as it skips every row it does not
+        // act on, and an older installer does the same. Keys, then the names the settings
+        // page gives them.
+        private const string SettingsRow = "settings";
+        private static readonly string[] SettingKeys =
+            { "controller", "driver-compatibility", "map-notes", "hd-icons", "high-fps", "empty-containers", "debug-logs" };
+        private static readonly string[] SettingNames =
+            { "Native Controller Support", "Modern Driver Compatibility", "Area Map Marker Fixes", "HD Item Icons",
+              "High FPS Fix", "Marked Empty Containers", "Debug Logs" };
+
+        private static bool[] SettingValues()
+        {
+            return new[] { KmrpSettings.ControllerSupport, KmrpSettings.DriverCompatibility, KmrpSettings.MarkerFixes,
+                           KmrpSettings.HdIcons, KmrpSettings.HighFpsFix, KmrpSettings.MarkedEmptyContainers,
+                           KmrpSettings.DebugLogs };
+        }
+
+        private static string[] SettingsRecord()
+        {
+            bool[] values = SettingValues();
+            StringBuilder text = new StringBuilder();
+            for (int i = 0; i < SettingKeys.Length; i++)
+                text.Append(i > 0 ? "," : "").Append(SettingKeys[i]).Append('=').Append(values[i] ? '1' : '0');
+            return new[] { SettingsRow, text.ToString() };
+        }
+
+        /// <summary>The settings the install here was made with, by key: its settings row, or,
+        /// for an install from before installs recorded them, what its files say
+        /// (SettingsFromFiles); null when nothing is installed or neither can be read.</summary>
+        private static Dictionary<string, bool> InstalledSettings(string targetPath)
+        {
+            return RecordedSettings(targetPath) ?? SettingsFromFiles(targetPath);
+        }
+
+        /// <summary>The settings of an install without a settings row, read from what it put
+        /// in: the patches patch_config.toml names, the [Patch Options] of configs\kmrp.ini,
+        /// and the Advanced Settings that have no file of their own taken as they are now.
+        /// Only for KMRP's own install with its patch_config.toml as written; null otherwise.
+        /// Until later on 2026-11-10 an install without the row offered nothing, so the
+        /// maintainer's game, installed that morning, showed Restore Original alone.</summary>
+        private static Dictionary<string, bool> SettingsFromFiles(string targetPath)
+        {
+            try
+            {
+                if (!IsInstalled(targetPath))
+                    return null;
+                string folder = FolderOf(targetPath);
+                List<string[]> records = ReadRecords(targetPath);
+                if (!records.Exists(r => r[0] == "moved") || !OwnedAsWritten(folder, records, ConfigName))
+                    return null;
+                List<string> ids = ConfiguredPatches(folder);
+                Dictionary<string, bool> settings = new Dictionary<string, bool>();
+                settings["controller"] = ids.Contains(ControllerPatchId);
+                settings["high-fps"] = ids.Contains(HighFpsPatchId);
+                settings["empty-containers"] = ids.Contains(EmptyContainersPatchId);
+                // K1DC as its Windows 7 and 8 build is not one of the patches.
+                settings["driver-compatibility"] = ids.Contains(DriverCompatPatchId) ||
+                    (KmrpSettings.DriverCompatibility && InstallPlatform.DriverCompatMissing() != null);
+                string options = GamePath.Combine(folder, OptionsName);
+                string text = File.Exists(options) ? File.ReadAllText(options, OptionsEncoding) : "";
+                foreach (KeyValuePair<string, bool> option in PatchOptions())
+                {
+                    Match value = Regex.Match(text, "^\\s*" + Regex.Escape(option.Key) + "\\s*=\\s*([01])\\s*$",
+                        RegexOptions.Multiline | RegexOptions.CultureInvariant);
+                    settings[option.Key] = value.Success ? value.Groups[1].Value == "1" : option.Key != "debug-logs";
+                }
+                return settings;
+            }
+            catch (IOException) { return null; }
+            catch (UnauthorizedAccessException) { return null; }
+        }
+
+        private static Dictionary<string, bool> RecordedSettings(string targetPath)
+        {
+            try
+            {
+                foreach (string line in File.ReadAllLines(ManifestPath(targetPath), Encoding.UTF8))
+                {
+                    string[] parts = line.Split('\t');
+                    if (parts.Length != 2 || parts[0] != SettingsRow)
+                        continue;
+                    Dictionary<string, bool> settings = new Dictionary<string, bool>();
+                    foreach (string pair in parts[1].Split(','))
+                    {
+                        string[] value = pair.Split('=');
+                        if (value.Length == 2)
+                            settings[value[0]] = value[1] == "1";
+                    }
+                    return settings;
+                }
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            return null;
+        }
+
+        /// <summary>The Advanced Settings that differ from the install here, in the settings
+        /// page's words ("High FPS Fix on, Debug Logs off"); null when none does, when
+        /// nothing is installed, or when the install does not record its settings (one from
+        /// before 2026-11-10, which an install of this build replaces).</summary>
+        internal static string ChangedSettings(string targetPath)
+        {
+            Dictionary<string, bool> installed = InstalledSettings(targetPath);
+            if (installed == null)
+                return null;
+            bool[] values = SettingValues();
+            List<string> changed = new List<string>();
+            for (int i = 0; i < SettingKeys.Length; i++)
+            {
+                bool was;
+                if (!installed.TryGetValue(SettingKeys[i], out was) || was != values[i])
+                    changed.Add(SettingNames[i] + (values[i] ? " on" : " off"));
+            }
+            return changed.Count == 0 ? null : String.Join(", ", changed.ToArray());
+        }
+
+        /// <summary>Applies the Advanced Settings to the install here without installing
+        /// again (the maintainer, 2026-11-10: changing a setting "should not install the
+        /// whole thing again", only switch that one on or off). Only what a setting owns
+        /// changes: a patch's module in patches\ and its .kpatch in KOTOR Patch Manager's
+        /// folder, added or taken out; patch_config.toml, the [Patch Options] sections and
+        /// kpm_install_state.json written again; for High FPS Fix, the frame-rate keys of
+        /// swkotor.ini. KOTOR Patch Manager's runtime, the proxy, the art pack, the art
+        /// already made and the swkotor.ini backup stay. The manifest is marked incomplete
+        /// while this runs, so a change stopped halfway is one the window offers to Repair.
+        /// Where the quick change cannot be made (QuickApplyRefusal), the whole install is
+        /// made instead, with the settings chosen now, and the report says why.</summary>
+        internal static void ApplySettings(string targetPath, Action<string> report, Action<int, string> progress)
+        {
+            targetPath = Path.GetFullPath(targetPath);
+            using (InstallGuard.Take(targetPath))
+            {
+                string refusal = QuickApplyRefusal(targetPath);
+                if (refusal == null)
+                {
+                    ApplySettingsCore(targetPath, report, progress);
+                    return;
+                }
+                SafeReport(report, refusal + " Installing again instead, with the settings chosen now.");
+            }
+            int width, height;
+            if (!TryReadInstalledResolution(targetPath, out width, out height))
+            {
+                width = IniOperations.DefaultWidth;
+                height = IniOperations.DefaultHeight;
+            }
+            Install(targetPath, width, height, report, progress);
+        }
+
+        /// <summary>Why the settings cannot be applied in place here, or null when they can.</summary>
+        private static string QuickApplyRefusal(string targetPath)
+        {
+            if (!IsInstalled(targetPath) || IsStandaloneInstall(targetPath))
+                return "KMRP's own install is not here.";
+            if (ManifestDamage(targetPath) != null || NeedsRepair(targetPath) != null)
+                return "The install needs a repair.";
+            if (CompareInstalled(targetPath) != 0)
+                return "The KMRP installed here is another build.";
+            if (InstalledSettings(targetPath) == null)
+                return "The install here does not record its settings.";
+            string folder = FolderOf(targetPath);
+            List<string[]> records = ReadRecords(targetPath);
+            if (!records.Exists(r => r[0] == "moved"))
+                return "KOTOR Patch Manager manages this game.";
+            if (RuntimeChangedSinceInstall(folder, records))
+                return "KOTOR Patch Manager has changed the install since.";
+            if (GameExecutable.Identify(targetPath) == null)
+                return "swkotor.exe is not a version KMRP knows.";
+            // K1DC's build for Windows 7 and 8, or a copy of the player's own, is not one
+            // of the patches; switching it is the whole install's (DriverCompatRoute).
+            bool driverWas;
+            InstalledSettings(targetPath).TryGetValue("driver-compatibility", out driverWas);
+            if (driverWas != KmrpSettings.DriverCompatibility &&
+                (InstallPlatform.DriverCompatMissing() != null ||
+                 File.Exists(GamePath.Combine(folder, StandaloneDriverCompatName))))
+                return "Modern Driver Compatibility is installed outside KOTOR Patch Manager on this PC.";
+            foreach (string name in new[] { ConfigName, KpmStateName })
+                if (!OwnedAsWritten(folder, records, name))
+                    return name + " changed since it was installed.";
+            // A module that stays must be this installer's own: patch_config.toml is written
+            // from this installer's hook tables, and a hook naming a function the installed
+            // module lacks is lost (2026-09-25, 23 hooks). Builds of one commit share a build
+            // date, so CompareInstalled can call two of them the same (2026-11-10).
+            List<string> now = ChosenPatches(folder, null);
+            for (int i = 0; i < Kpatches.GetLength(0); i++)
+            {
+                string module = PatchFolder + "\\" + Kpatches[i, 1] + ".dll";
+                string path = GamePath.Combine(folder, module);
+                if (!now.Contains(Kpatches[i, 1]) || !File.Exists(path))
+                    continue;
+                byte[] mine = PatchModule(Kpatches[i, 2], false);
+                if (mine != null && GoldPatch.HashFile(path) != HashBytes(mine))
+                    return module + " is not this installer's.";
+            }
+            // A module to take out must be the one installed, or it would stay behind.
+            foreach (string id in ConfiguredPatches(folder))
+            {
+                string module = PatchFolder + "\\" + id + ".dll";
+                if (!now.Contains(id) && records.Exists(r => r[0] == "file" && r[1] == module) &&
+                    !OwnedAsWritten(folder, records, module))
+                    return module + " changed since it was installed.";
+            }
+            return null;
+        }
+
+        /// <summary>The file `name` is recorded and still as written.</summary>
+        private static bool OwnedAsWritten(string folder, List<string[]> records, string name)
+        {
+            string[] row = records.Find(r => r[0] == "file" && String.Equals(r[1], name, StringComparison.OrdinalIgnoreCase));
+            string path = GamePath.Combine(folder, name);
+            return row != null && File.Exists(path) && GoldPatch.HashFile(path) == row[2];
+        }
+
+        /// <summary>A file this install wrote, written again: the row's hash follows the new
+        /// file. Refused when the file changed since it was written, which ApplySettings
+        /// checks first for the two it always writes.</summary>
+        private static void RewriteOwned(string folder, string name, byte[] data, InstallJournal records)
+        {
+            if (!OwnedAsWritten(folder, records.Rows, name))
+                throw new IOException(name + " changed since it was installed, so it was left alone.");
+            WriteWhole(GamePath.Combine(folder, name), data, delegate(string hash)
+            {
+                records.Remove(r => r[0] == "file" && String.Equals(r[1], name, StringComparison.OrdinalIgnoreCase));
+                records.Add(new[] { "file", name, hash });
+            });
+        }
+
+        /// <summary>The patch ids patch_config.toml names, in its order.</summary>
+        private static List<string> ConfiguredPatches(string folder)
+        {
+            List<string> ids = new List<string>();
+            foreach (string line in File.ReadAllLines(GamePath.Combine(folder, ConfigName), Encoding.UTF8))
+            {
+                Match id = Regex.Match(line, "^\\s*id\\s*=\\s*\"([^\"]+)\"\\s*$", RegexOptions.CultureInvariant);
+                if (id.Success)
+                    ids.Add(id.Groups[1].Value);
+            }
+            return ids;
+        }
+
+        private static void ApplySettingsCore(string targetPath, Action<string> report, Action<int, string> progress)
+        {
+            SafeProgress(progress, 5, "Applying the settings…");
+            string folder = FolderOf(targetPath);
+            GameExecutable exe = GameExecutable.Identify(targetPath);
+            int width, height;
+            if (!TryReadInstalledResolution(targetPath, out width, out height))
+                throw new InvalidDataException("KMRP's record of this install has no resolution. Use Repair.");
+            string changed = ChangedSettings(targetPath);
+            Dictionary<string, bool> before = InstalledSettings(targetPath);
+            List<string> was = ConfiguredPatches(folder);
+            List<string> now = ChosenPatches(folder, report);
+            InstallJournal records = new InstallJournal(targetPath, width, height, ReadRecords(targetPath));
+            string kpm = KpmPatchesFolder();
+            List<string> taken = new List<string>(), added = new List<string>();
+            try
+            {
+                for (int i = 0; i < Kpatches.GetLength(0); i++)
+                {
+                    string id = Kpatches[i, 1];
+                    if (id == PatchId || was.Contains(id) == now.Contains(id))
+                        continue;
+                    string module = PatchFolder + "\\" + id + ".dll";
+                    string kpatch = kpm == null ? null : GamePath.Combine(kpm, Kpatches[i, 0]);
+                    if (was.Contains(id))
+                    {
+                        // Out: its module while it is as written, its .kpatch where this
+                        // install created it, and the controller patch's options section.
+                        List<string[]> mine = records.Rows.FindAll(r =>
+                            (r[0] == "file" && String.Equals(r[1], module, StringComparison.OrdinalIgnoreCase)) ||
+                            (r[0] == "kpatch" && r.Length == 4 && String.Equals(Path.GetFileName(r[1]), Kpatches[i, 0],
+                                StringComparison.OrdinalIgnoreCase)) ||
+                            (id == ControllerPatchId && r[0] == "options" && r[1] == ControllerOptionsName));
+                        RemoveOwned(folder, mine, report);
+                        RemoveKpatches(mine, report);
+                        RemovePatchOptions(folder, mine);
+                        records.Remove(r => mine.Contains(r));
+                        taken.Add(id);
+                    }
+                    else
+                    {
+                        byte[] data = PatchModule(Kpatches[i, 2], id != EmptyContainersPatchId);
+                        if (data != null)
+                            WriteOwned(folder, module, data, records);
+                        if (kpatch != null)
+                        {
+                            bool theirs = id == HighFpsPatchId || id == EmptyContainersPatchId || id == DriverCompatPatchId;
+                            records.Remove(r => r[0] == "kpatch" && String.Equals(r[1], kpatch, StringComparison.OrdinalIgnoreCase));
+                            WriteKpatch(kpatch, ReadResource(Kpatches[i, 2]), theirs ? null : id, records, report);
+                        }
+                        added.Add(id);
+                    }
+                }
+                SafeProgress(progress, 40, "Writing the patches' settings…");
+                RewriteOwned(folder, ConfigName, new UTF8Encoding(false).GetBytes(PatchConfig(exe, now)), records);
+                records.Remove(r => r[0] == "options");
+                WritePatchOptions(folder, OptionsName, PatchOptions(), records);
+                if (now.Contains(ControllerPatchId))
+                    WritePatchOptions(folder, ControllerOptionsName, ControllerPatchOptions(), records);
+                RewriteOwned(folder, KpmStateName, new UTF8Encoding(false).GetBytes(
+                    KpmState(targetPath, exe, now)), records);
+                // KOTOR Patch Manager's backup record, where this install set the 4 GB flag,
+                // lists the patches too (WriteKpmBackup).
+                string[] backup = records.Rows.Find(r => r[0] == "file" && r[1].IndexOf(KpmBackupInfix,
+                    StringComparison.Ordinal) >= 0 && r[1].EndsWith(".json", StringComparison.OrdinalIgnoreCase));
+                if (backup != null && OwnedAsWritten(folder, records.Rows, backup[1]))
+                {
+                    StringBuilder ids = new StringBuilder();
+                    foreach (string id in now)
+                        ids.Append(ids.Length > 0 ? ", " : "").Append('"').Append(id).Append('"');
+                    string json = File.ReadAllText(GamePath.Combine(folder, backup[1]), Encoding.UTF8);
+                    json = Regex.Replace(json, "\"InstalledPatches\": \\[[^\\]]*\\]", "\"InstalledPatches\": [" + ids + "]",
+                        RegexOptions.CultureInvariant);
+                    RewriteOwned(folder, backup[1], new UTF8Encoding(false).GetBytes(json), records);
+                }
+                bool fpsWas;
+                if (!before.TryGetValue("high-fps", out fpsWas) || fpsWas != KmrpSettings.HighFpsFix)
+                {
+                    SafeProgress(progress, 70, "Updating display settings…");
+                    // Over the install as it stands: the backup stays the one from before
+                    // KMRP, and only the frame-rate keys change (IniOperations.Configure).
+                    int iniWidth = width, iniHeight = height;
+                    IniOperations.KeepChosenSize(targetPath, ref iniWidth, ref iniHeight, null);
+                    IniEditState ini = IniOperations.Configure(targetPath, iniWidth, iniHeight, true, report);
+                    records.Remove(r => r[0] == "ini");
+                    records.AddRange(ini.Rows);
+                }
+                records.Remove(r => r[0] == SettingsRow);
+                records.Add(SettingsRecord());
+                records.Finish();
+            }
+            catch (Exception failure)
+            {
+                throw new IOException(failure.Message + " The settings were not all applied: press Repair to " +
+                    "put the install right.", failure);
+            }
+            SafeProgress(progress, 100, "Settings applied");
+            List<string> moves = added.ConvertAll(id => "added " + id);
+            moves.AddRange(taken.ConvertAll(id => "removed " + id));
+            SafeReport(report, "Applied " + (changed ?? "the settings") + ", without installing again" +
+                (moves.Count == 0 ? "." : " (" + String.Join(", ", moves.ToArray()) + ")."));
+        }
+
         // ------------------------------------------------------------ install
 
         internal static void Install(string targetPath, int width, int height, Action<string> report,
@@ -571,6 +917,7 @@ namespace Kmrp
                 SafeProgress(progress, 20, "Adding KMRP's art…");
                 Directory.CreateDirectory(GamePath.Combine(folder, PatchFolder));
                 WriteOwnedResource(folder, PatchFolder + "\\" + PackName, PackResource, records);
+                records.Add(SettingsRecord());
                 records.Finish();
             }
             catch (Exception failure)
@@ -1219,18 +1566,12 @@ namespace Kmrp
             KeyValuePair<string, bool>[] options = PatchOptions();
             KeyValuePair<string, bool>[] controllerOptions = ControllerPatchOptions();
             Directory.CreateDirectory(GamePath.Combine(folder, PatchFolder));
-            // KMRP's first: the controller patch's module looks for kmrp.dll when it
-            // starts, and KOTOR Patch Manager loads the modules in this order.
-            string config = "target_version_sha = \"" + exe.Hash + "\"\n";
             bool controller = patches.Contains(ControllerPatchId);
             bool highFps = patches.Contains(HighFpsPatchId);
             bool emptyContainers = patches.Contains(EmptyContainersPatchId);
             bool driverCompat = patches.Contains(DriverCompatPatchId);
-            // The bundled patches of others have no options.
-            KeyValuePair<string, bool>[] none = new KeyValuePair<string, bool>[0];
             for (int i = 0; i < Kpatches.GetLength(0); i++)
             {
-                bool own = Kpatches[i, 1] == PatchId;
                 if (!patches.Contains(Kpatches[i, 1]))
                     continue;
                 // A patch without a module (Marked Empty Containers, the only one allowed
@@ -1238,10 +1579,8 @@ namespace Kmrp
                 byte[] module = PatchModule(Kpatches[i, 2], Kpatches[i, 1] != EmptyContainersPatchId);
                 if (module != null)
                     WriteOwned(folder, PatchFolder + "\\" + Kpatches[i, 1] + ".dll", module, records);
-                config += "\n" + PatchConfigSection(Kpatches[i, 1], Kpatches[i, 3],
-                    own ? options : Kpatches[i, 1] == ControllerPatchId ? controllerOptions : none, module != null);
             }
-            WriteOwned(folder, ConfigName, new UTF8Encoding(false).GetBytes(config), records);
+            WriteOwned(folder, ConfigName, new UTF8Encoding(false).GetBytes(PatchConfig(exe, patches)), records);
             WritePatchOptions(folder, OptionsName, options, records);
             if (controller)
                 WritePatchOptions(folder, ControllerOptionsName, controllerOptions, records);
@@ -1265,6 +1604,29 @@ namespace Kmrp
                 (emptyContainers ? ", and ShaeMyName's Marked Empty Containers" : "") +
                 (driverCompat ? ", and Synchro's K1 Modern Driver Compatibility " + DriverCompatVersion : "") +
                 (off.Count == 0 ? ", every option on." : ", without: " + String.Join(", ", off.ToArray()) + "."));
+        }
+
+        /// <summary>patch_config.toml for `patches`, with the options Advanced Settings has
+        /// now. KMRP's first: the controller patch's module looks for kmrp.dll when it
+        /// starts, and KOTOR Patch Manager loads the modules in this order (Kpatches). Used
+        /// by Install and by ApplySettings, so both write the same file.</summary>
+        private static string PatchConfig(GameExecutable exe, List<string> patches)
+        {
+            KeyValuePair<string, bool>[] options = PatchOptions();
+            KeyValuePair<string, bool>[] controllerOptions = ControllerPatchOptions();
+            // The bundled patches of others have no options.
+            KeyValuePair<string, bool>[] none = new KeyValuePair<string, bool>[0];
+            StringBuilder config = new StringBuilder("target_version_sha = \"" + exe.Hash + "\"\n");
+            for (int i = 0; i < Kpatches.GetLength(0); i++)
+            {
+                if (!patches.Contains(Kpatches[i, 1]))
+                    continue;
+                bool hasModule = Kpatches[i, 1] != EmptyContainersPatchId || PatchModule(Kpatches[i, 2], false) != null;
+                config.Append('\n').Append(PatchConfigSection(Kpatches[i, 1], Kpatches[i, 3],
+                    Kpatches[i, 1] == PatchId ? options : Kpatches[i, 1] == ControllerPatchId ? controllerOptions : none,
+                    hasModule));
+            }
+            return config.ToString();
         }
 
         /// <summary>kpm_install_state.json, as KOTOR Patch Manager 0.7.1 writes it
@@ -1553,11 +1915,25 @@ namespace Kmrp
             internal readonly List<string[]> Rows = new List<string[]>();
 
             internal InstallJournal(string executable, int width, int height)
+                : this(executable, width, height, new List<string[]>())
+            {
+            }
+
+            /// <summary>An install changed in place (ApplySettings): its rows to start
+            /// from, marked incomplete until Finish, as a new install's are.</summary>
+            internal InstallJournal(string executable, int width, int height, List<string[]> rows)
             {
                 this.executable = executable;
                 this.width = width;
                 this.height = height;
+                Rows.AddRange(rows);
                 WriteManifest(executable, width, height, Rows, false);
+            }
+
+            internal void Remove(Predicate<string[]> match)
+            {
+                if (Rows.RemoveAll(match) > 0)
+                    WriteManifest(executable, width, height, Rows, false);
             }
 
             internal void Add(string[] row)

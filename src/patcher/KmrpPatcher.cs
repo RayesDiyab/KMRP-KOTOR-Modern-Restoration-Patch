@@ -3161,6 +3161,9 @@ namespace Kmrp
         // installed (LayoutActionRow).
         private readonly PillButton upgradeButton;
         private bool upgradeOffered;
+        // What Advanced Settings changed since this build was installed here, or null
+        // (RefreshStatus): Apply New Settings is offered while it is not null.
+        private string changedSettings;
         private Rectangle actionRowDesign;
         // Under the button, at its right, while an install makes KMRP's art: the time left
         // (ArtPreparation, KpmEdition.cs). Empty and hidden otherwise.
@@ -4429,6 +4432,11 @@ namespace Kmrp
             // overlay on the first, which looked like a stutter and leaked a timer.
             if (show == settingsOpen)
                 return;
+            // Back on the main page, what it offers follows the settings just chosen:
+            // Apply New Settings where they differ from the install. Worked out while the
+            // settings page is still the one shown, so the fade starts from it.
+            if (!show)
+                RefreshStatus();
             settingsOpen = show;
             // Advanced Settings opens at its first row every time.
             if (show)
@@ -4850,9 +4858,16 @@ namespace Kmrp
             int? age = actionIsRestore ? KpmEditionOperations.CompareInstalled(target) : null;
             bool upgrade = age == -1 && iniExists;
             string repair = actionIsRestore ? KpmEditionOperations.NeedsRepair(target) : null;
-            upgradeButton.Text = repair != null ? "Repair" : "Upgrade";
-            upgradeButton.Enabled = upgrade;
-            LayoutActionRow(upgrade);
+            // This build installed, and Advanced Settings changed since: Restore Original
+            // and Apply New Settings, which changes only what the settings changed
+            // (KpmEditionOperations.ApplySettings; the maintainer, 2026-11-10). An older
+            // build's Upgrade applies them too, so it comes first.
+            changedSettings = actionIsRestore && age == 0 && repair == null && iniExists
+                ? KpmEditionOperations.ChangedSettings(target) : null;
+            upgradeButton.Text = repair != null ? "Repair" : upgrade ? "Upgrade" :
+                changedSettings != null ? "Apply New Settings" : "Upgrade";
+            upgradeButton.Enabled = upgrade || changedSettings != null;
+            LayoutActionRow(upgrade || changedSettings != null);
 
             UpdateGameStep(state, target, executableReady);
 
@@ -4898,6 +4913,11 @@ namespace Kmrp
                     ? "Installed: " + BuildStamp.Display(installedBuild.Value) + ". This build: " +
                       BuildStamp.Display(BuildStamp.Current.Value) + "."
                     : "An earlier KMRP is installed. This installer's build is newer.";
+            }
+            else if (state == ExecutableState.Gold && changedSettings != null)
+            {
+                SetState(applyState, "Settings changed", UiTheme.Accent);
+                lastDetail = "Changed since the install: " + changedSettings + ".";
             }
             else if (state == ExecutableState.Gold && age == 1 && installedBuild.HasValue)
             {
@@ -4995,8 +5015,19 @@ namespace Kmrp
 
         private void UpgradeClicked(object sender, EventArgs e)
         {
-            PatchClicked(sender, e, "Upgrade");
+            if (upgradeButton.Text != "Apply New Settings")
+            {
+                PatchClicked(sender, e, "Upgrade");
+                return;
+            }
+            RunOperation(ApplySettingsName, delegate(Action<string> report, Action<int, string> progress)
+            {
+                PatchOperations.ApplySettings(pathBox.Text.Trim(), report, progress);
+            });
         }
+
+        // The operation's name in the log and the window's messages.
+        private const string ApplySettingsName = "Apply New Settings";
 
         private void ActionClicked(object sender, EventArgs e)
         {
@@ -5048,11 +5079,14 @@ namespace Kmrp
             // The row is one button while anything runs: its progress fills it.
             LayoutActionRow(false);
             actionButton.ProgressPercent = 0;
+            bool applying = name == ApplySettingsName;
             actionButton.Text = name == "Upgrade" ? "Preparing upgrade…   0%"
+                : applying ? "Applying settings…   0%"
                 : installing ? "Preparing patch…   0%" : "Preparing restore…   0%";
             operationRunning = true;
             SetBusyState(true);
-            SetState(applyState, name == "Upgrade" ? "Upgrading…" : installing ? "Patching…" : "Restoring…", UiTheme.Accent);
+            SetState(applyState, name == "Upgrade" ? "Upgrading…" : applying ? "Applying…"
+                : installing ? "Patching…" : "Restoring…", UiTheme.Accent);
             stepApply.SetSubtitle(installing
                 ? "KMRP is updating your game. Please wait."
                 : "KMRP is restoring your original files. Please wait.");
@@ -5112,6 +5146,7 @@ namespace Kmrp
                 string result = e.Result as string;
                 RefreshStatus();
                 SetState(applyState, name == "Upgrade" ? "Upgraded successfully"
+                    : applying ? "Settings applied"
                     : installing ? "Patched successfully" : "Restored successfully", UiTheme.Success);
                 // The step has one line. `result` is the operation's last message, which
                 // for an install is whichever sentence came last, the one about KOTOR
@@ -5424,6 +5459,12 @@ namespace Kmrp
                 if (args.Length == 2 && args[0] == "--restore")
                 {
                     PatchOperations.Restore(args[1], delegate { });
+                    return 0;
+                }
+                // Apply New Settings, for the installer tests.
+                if (args.Length == 2 && args[0] == "--apply-settings")
+                {
+                    PatchOperations.ApplySettings(args[1], delegate { }, null);
                     return 0;
                 }
                 // Test-only (Test-InstallerPatch case 20): what the window's Repair goes by.

@@ -151,6 +151,27 @@ The primary button has one identity at a time:
   newer one ("Newer build installed"), keeps Restore Original alone, so the window
   never puts an older build over a newer one. Which is older is decided by the
   builds' dates, below;
+- this build installed, and Advanced Settings changed since, produces **Restore
+  Original** and **Apply New Settings** side by side, in the same places (since
+  2026-11-10, the maintainer's request). The row is worked out again on the way back
+  from the settings page, so the button is there as soon as the main page is. Step 4
+  says "Settings changed" and lists them ("Changed since the install: High FPS Fix on,
+  Debug Logs off."). Apply New Settings does not install again
+  (`KpmEditionOperations.ApplySettings`): only what a setting owns changes, a patch's
+  module in `patches\` and its `.kpatch` in KOTOR Patch Manager's folder added or taken
+  out, `patch_config.toml`, the `[Patch Options]` sections and `kpm_install_state.json`
+  written again, and for High FPS Fix the frame-rate keys of `swkotor.ini`. The runtime,
+  the proxy, the art pack and the art already made stay, so no art is made.
+  An install records its settings in a `settings` row of `KMRP\kpm.manifest`; for one
+  made before 2026-11-10, which has none, they are read from what it installed (the
+  patches `patch_config.toml` loads, the `[Patch Options]` of `configs\kmrp.ini`;
+  `SettingsFromFiles`). Where the quick change cannot be made (a game KOTOR Patch Manager
+  manages or has changed, a file changed since it was installed, a module in `patches\`
+  that is not this installer's, Modern Driver
+  Compatibility as its Windows 7 and 8 build or the player's own copy), the whole
+  install is made instead and the log says why. An older build's Upgrade, which applies
+  the settings too, comes first; `--apply-settings <swkotor.exe>` runs the same from
+  the command line;
 - an unresolved executable or game setup keeps the action disabled;
 - while work is running, all mutation controls are disabled and the primary
   button becomes the progress surface: a pale illuminated-blue fill advances

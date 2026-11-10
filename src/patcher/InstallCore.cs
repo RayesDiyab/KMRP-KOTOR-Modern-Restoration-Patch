@@ -1989,6 +1989,13 @@ namespace Kmrp
             KpmEditionOperations.Install(targetPath, width, height, report, progress);
         }
 
+        /// <summary>Advanced Settings applied to the install here, changing only what they
+        /// changed (KpmEditionOperations.ApplySettings).</summary>
+        internal static void ApplySettings(string targetPath, Action<string> report, Action<int, string> progress)
+        {
+            KpmEditionOperations.ApplySettings(targetPath, report, progress);
+        }
+
         internal static void Restore(string targetPath, Action<string> report)
         {
             Restore(targetPath, report, null);
