@@ -5,8 +5,9 @@ game as it comes from Steam or GOG, in plain words. Nothing here needs technical
 knowledge. The same list with how each item is done and where it lives in the code is
 in [features-technical.md](features-technical.md).
 
-The list is the Windows version's. The Mac version is the same KMRP; what differs
-there is in [On the Mac](#on-the-mac) below.
+This is KMRP 1.6, released on 2026-11-13; what is new in 1.6 says so. The list is the
+Windows version's. The Linux installer installs the same KMRP, and the Mac version is
+the same KMRP too; what differs there is in [On the Mac](#on-the-mac) below.
 
 KMRP changes how the game looks, fits and controls. It does not change the story,
 the quests, the balance or any of the game's content, apart from one optional fix to
@@ -19,7 +20,11 @@ misplaced map notes.
 - Text, lists, icons, popups, the map and the movies are all the right size and in
   the right place.
 - Several crashes and glitches of the original game are fixed.
-- A controller works everywhere, with the right button pictures for your pad.
+- Text, HUD and icon sizes of your choice, with a sharp HD redraw of the game's font
+  (new in 1.6).
+- Menus laid out as the game runs, a mod's menus included (new in 1.6).
+- A controller works everywhere, with the original Xbox game's buttons and the right
+  button pictures for your pad.
 - Higher-quality portraits, icons and menu art.
 - One installer, one click, and one click to undo everything.
 
@@ -40,7 +45,14 @@ misplaced map notes.
 | In the original game | With KMRP |
 | --- | --- |
 | Text stays tiny at high resolutions. | Text grows with the resolution and is drawn sharp for it, not enlarged from a small picture. |
-| The game's letters are small pixel drawings; enlarged, they turn soft and blocky. | The game's own font, redrawn sharp: the same letters, sizes and spacing, sharp up to 4K at the largest text size. In Graphics Options, Text Size and Font sets the size of four kinds of text and offers the original font and KMRP's earlier HD font too. |
+| The game's letters are small pixel drawings; enlarged, they turn soft and blocky. | **HD Font**, the default: the game's own font redrawn sharp, the same letters, sizes and spacing, sharp up to 4K at the largest text size, free under the SIL Open Font License. **Original Font** is the game's own, and **Modded Font** appears when your `Override` folder holds fonts, which are fitted to the size they are drawn at (new in 1.6). |
+| Text has one size, set by the resolution. | **Text Size and Font** in Graphics Options sets four kinds of text, 50% being the original size, linked or each on its own, with Save. Text too long for its box is drawn at the largest size that fits, and lists, icons, the feat and power charts and the conversation text grow with it; the conversation bars stay as they are (new in 1.6). |
+| Feat, Force power and skill icons have one size. | **Icon Size** makes them larger or smaller (new in 1.6). |
+| The HUD has one size. | **HUD Size** sets each part of each HUD from 25% to 100% (twice the normal size), with a preview, for the mouse and keyboard HUD and the Xbox-style HUD (new in 1.6). |
+| A mod's menu files are drawn as their author made them, usually for 640x480. | **Live Adaptive Layout:** 73 of the game's 85 menu layouts are laid out as the game runs, from the game's file or a mod's. A mod's screen already made for your size stays as it is (new in 1.6). |
+| A mod that replaces a file KMRP also changes would remove KMRP's changes. | Both are kept: tables, pictures, models and layouts are merged, and the mod wins where the two disagree (new in 1.6). |
+| Some shops' item list runs off the screen; the galaxy map's planets drift on wide screens. | The list stays on the screen, the planets sit where the game has them, and a mod's moved destinations are kept (new in 1.6). |
+| An empty footlocker or body looks like any other. | It says "(empty)": ShaeMyName's Marked Empty Containers, with permission, on by default (new in 1.6). |
 | Rows and icons in lists stay tiny too. | Inventory, shop, equipment, quest and other lists have rows and icons sized to match the text, with each row sitting neatly in its box. |
 | Item stack numbers disappear when icons are enlarged. | Stack numbers stay on their icons. |
 | Long descriptions run under the scrollbar, or past the edge of their box. | Descriptions stay inside their box and clear of the scrollbar. |
@@ -66,11 +78,12 @@ misplaced map notes.
 
 | In the original game | With KMRP |
 | --- | --- |
-| Starting a movie switches the monitor to 640x480; the game can flicker, minimise or lose focus. | Movies play at the resolution the game is running at. No switch, no flicker. The game also no longer resets the screen after each movie, which may be what made the screen go black for a moment on some PCs (new, not yet in a release, not yet seen in the game). |
-| On wide screens movies are zoomed in and cropped. | The whole picture is shown, with black bars where the movie is narrower than the screen. On a screen wider than 16:9, such as 3440x1440, movies are shown at the size they would have on a 16:9 screen of the same height, in the middle, with black around them (new, not yet in a release, not yet seen in the game; until then the widest movies filled an ultrawide screen and looked zoomed in). |
-| Sometimes, after the startup movies, the keyboard and mouse do nothing until the game is minimised and brought back. | They keep working: the message that switched them off by mistake is dropped while the game is in front (new, not yet in a release, not yet seen in the game). |
+| Starting a movie switches the monitor to 640x480; the game can flicker, minimise or lose focus. | Movies play at the resolution the game is running at. No switch, no flicker. The game also no longer resets the screen after each movie, which may be what made the screen go black for a moment on some PCs (new in 1.6, not yet seen in the game). |
+| On wide screens movies are zoomed in and cropped. | The whole picture is shown, with black bars where the movie is narrower than the screen. On a screen wider than 16:9, such as 3440x1440, movies are shown at the size they would have on a 16:9 screen of the same height, in the middle, with black around them (new in 1.6, not yet seen in the game; in 1.5 the widest movies filled an ultrawide screen and looked zoomed in). |
+| Sometimes, after the startup movies, the keyboard and mouse do nothing until the game is minimised and brought back. | They keep working: the message that switched them off by mistake is dropped while the game is in front (new in 1.6, not yet seen in the game). |
+| Coming back from Alt-Tab in full screen rebuilds the picture and reloads every texture, the step where players reported a freeze. | The game keeps its window, so it is back at once, with your brightness (new in 1.6; issue 96). Inspired by J's Alt Tab Patch for KOTOR Patch Manager. |
 
-Also new, not yet in a release and not yet tried on the PCs it is for: movies are
+Also new in 1.6 and not yet tried on the PCs it is for: movies are
 drawn with Windows' own drawing (GDI) instead of DirectDraw. This is meant to fix
 movies that stay black while their sound plays, reported on Windows 7 with an AMD
 graphics card (issue 48). If they are still black there, adding the two lines
@@ -85,8 +98,9 @@ them.
 | Opening the inventory can crash the game when an item has a long description. | Fixed. |
 | The game can run out of memory in long sessions or with large texture mods. | On the GOG and disc versions the game may use twice as much memory. (Steam's version cannot take this change; the other fixes apply to it as well.) |
 | Rare crashes tied to textures, grass and saving. | Fixed, using the fixes from KOTOR Patch Manager. |
-| On many modern graphics cards lighting, fog, reflections, soft shadows and grass are broken or have to be switched off. | They work. This part is optional (on by default) and is Synchro's K1 Modern Driver Compatibility. |
-| On some NVIDIA setups the menus flash white or show half-drawn pictures. | The installer sets the one driver option that prevents it, for this game only, and removes it again when you undo KMRP. |
+| On many modern graphics cards lighting, fog, reflections, soft shadows and grass are broken or have to be switched off. | They work. This part is optional (on by default) and is Synchro's K1 Modern Driver Compatibility, 2.0.1 since 1.6, which also works under Proton and has its author's own build for Windows 7 and 8. |
+| On some NVIDIA setups the menus flash white or show half-drawn pictures, and Windows Auto HDR and RTX HDR switch off. | Every frame is drawn offscreen and shown only when finished, so the menus do not flash and HDR keeps working (new in 1.6, issues 14 and 73). KMRP sets no NVIDIA option any more, and removes the one 1.5 set. |
+| A saved resolution the display no longer has can stop the game from starting properly. | The best resolution the display has is used instead (new in 1.6). |
 
 ## Above 60 frames per second
 
@@ -123,10 +137,9 @@ pictures on screen match the pad you are holding, and they disappear as soon as 
 use the mouse or keyboard. You can switch between pad and mouse at any time.
 
 **Playing.** The buttons are the original Xbox game's, with its White and Black
-buttons on LB and RB. This is new, not yet in a release, and not yet tried in play.
-Until 2026-10-19 KMRP had a layout of its own: the shoulder buttons picked targets,
-the left trigger switched party member, the right trigger paused, X disengaged and
-Start opened the map.
+buttons on LB and RB (new in 1.6, issue 49). In 1.5 KMRP had a layout of its own: the
+shoulder buttons picked targets, the left trigger switched party member, the right
+trigger paused, X disengaged and Start opened the map.
 
 - Left stick moves your character, as slowly or quickly as you push it. Right stick
   turns the camera.
@@ -144,7 +157,19 @@ Start opened the map.
 - The mouse pointer hides while you use the pad and comes back when you move the
   mouse.
 - The game comes to the front when it starts, so the pad can skip the opening
-  movies without a mouse click first.
+  movies without a mouse click first, and the A that skips a movie no longer presses
+  the next screen's button.
+- The Xbox-style HUD's action row is the Xbox manual's six places: your own Force
+  powers can be picked with an enemy targeted, and Stealth is in the row whenever it
+  would work (new in 1.6, issues 50 and 55).
+- A quick flick into the stick's corner no longer runs faster or the wrong way, a long
+  diagonal no longer spins the character, and free look looks up and down with the
+  right stick (new in 1.6, issues 45 and 46).
+- **Swoop racing and the gun turret:** the left stick steers and aims; A starts,
+  shifts and shoots; the triggers shoot in the turret; Start pauses. At the shift point
+  the race shows the pad's button instead of "Space" (new in 1.6, issue 47).
+- A Bluetooth DualSense that Steam's idle timer switched off is found again when it
+  comes back (new in 1.6, issue 71).
 
 **Menus.**
 
@@ -155,14 +180,17 @@ Start opened the map.
 - An A picture follows the selection, so you can always see what A will do: down
   the main menu, on Yes or No, and on the reply you are about to give.
 - RB switches the party member on the Character, Equipment, Inventory and
-  Abilities screens (a click of the right stick until 2026-10-19). On Abilities, X
+  Abilities screens (a click of the right stick in 1.5). On Abilities, X
   switches between Skills, Powers and Feats.
 - On the Character screen A is Level Up and Y is Auto Level Up.
 - In the Journal, X shows the quest items, Y switches between active and completed
-  quests and RB changes the order (until 2026-10-19 A and Y did the last two).
+  quests and RB changes the order (in 1.5 A and Y did the last two).
 - At the Pazaak table, X plays the card you picked, LB flips it, A ends the turn
-  and Y stands, as on the Xbox; the D-pad moves between the cards in your hand. New,
-  not yet in a release, and not yet tried in play.
+  and Y stands, as on the Xbox; the D-pad moves between the cards in your hand, and
+  the side deck screen is drawn as the Xbox drew it (new in 1.6).
+- The left stick walks a conversation's replies and moves the selection in character
+  creation, and the galaxy map moves planet to planet with its description following
+  (new in 1.6, issues 57 and 58).
 - In a shop, A buys or sells and X switches between the Buy and Sell lists.
 - On the options screens, D-pad left and right change a setting and Y puts the
   screen back to its defaults. The same two directions raise and lower attributes
@@ -178,8 +206,7 @@ Start opened the map.
 **Controller Layout screen.** Options, Gameplay has a new screen showing what every
 button does, with the pictures of your pad.
 
-**Choose your own buttons.** New, not yet in a release, and not yet tried with a
-pad. On the Controller Layout screen, Remap lets you put the face buttons, the
+**Choose your own buttons** (new in 1.6). On the Controller Layout screen, Remap lets you put the face buttons, the
 bumpers, the triggers and the stick clicks on whichever of those buttons you like:
 pick an action and press its new button. Remapping happens in a table, one row per
 action with its button, the controls that cannot change listed underneath in grey. Giving a button to an action takes it from
@@ -192,9 +219,14 @@ sticks, the D-pad, Start and Back stay as they are. Your layout applies while yo
 play; the menus keep every button where it always is. The button pictures on the
 HUD and in the pause notice show the buttons you chose. The layout is kept in
 `KMRP\controller.ini` in the game folder (`kmrp-controller.ini` beside the game until
-2026-10-20; it is moved there for you). A layout saved before 2026-10-19 was made
-against KMRP's old buttons and is not used: the screen opens on the Xbox layout,
-and you choose yours again.
+2026-10-20; it is moved there for you). A layout saved with 1.5 was made against
+KMRP's old buttons and is not used: the screen opens on the Xbox layout, and you
+choose yours again.
+
+**Button pictures** are drawn from vector outlines at the exact size they are shown,
+each letter centred on its button, so they are sharp at every resolution, the Steam
+Deck's included (new in 1.6, issue 68). The Xbox-style HUD's frames, the tab arrows
+and the Controller Layout diagram are drawn the same way.
 
 **Rumble.** Three settings: off, the original Xbox version's rumble (grenades, heavy
 footsteps, Force powers and the rumble BioWare made for the PC but never switched
@@ -212,7 +244,7 @@ mouse or keyboard and the PC display is back at once.
   them are the game's own.
 - A paused game says "PAUSED. PRESS [LB] TO CONTINUE" beside the minimap, with
   the button of your pad that pauses (in the English game; other languages keep
-  the game's own lines). Until 2026-10-19 that was the right trigger.
+  the game's own lines). In 1.5 that was the right trigger.
 - In a fight a line across the top says that combat mode is on and which button
   leaves it.
 - The marker around your target is sized for the screen.
@@ -225,7 +257,8 @@ the rest of KMRP.
 **Works with other interface and widescreen mods.** The controller patch puts no
 file into the game's folders and replaces none of another mod's. Its button
 pictures and its HUD are placed while the game runs, from the screens as they are,
-so they fit whatever interface is installed. Tried on the unchanged game, with
+so they fit whatever interface is installed, and since 1.6 a GUI mod's own screens
+get its button prompts. Tried on the unchanged game, with
 KMRP, and beside Scaled Kotor 1.3.1, the widescreen patch by J and Vriff. Other
 widescreen mods have not been tried.
 
@@ -245,20 +278,34 @@ widescreen mods have not been tried.
   `swkotor.ini` that Restore Original puts back (`backups`), and its records of what
   it installed. Until 2026-10-20 these lay loose beside the game; patching again
   moves them. Restore Original leaves the installer's log and the `swkotor.ini` copy
-  there, as it left them beside the game before. New, not yet in a release.
+  there, as it left them beside the game before. New in 1.6.
 - **Options** (the gear button): controller support, graphics-card compatibility,
-  the map note fixes and the HD item icons can each be switched off; the High FPS
-  Fix can be switched on or off (it starts on where your display runs above
-  60 Hz); diagnostic logs can be switched on when a bug report needs them. Your
-  choices are remembered, and Restore Defaults puts them all back.
-- **An older KMRP** is replaced automatically when you patch again.
+  the map note fixes, the HD item icons and Marked Empty Containers can each be
+  switched off; the High FPS Fix can be switched on or off (it starts on where your
+  display runs above 60 Hz); diagnostic logs can be switched on when a bug report
+  needs them. Your choices are remembered, and Restore Defaults puts them all back.
+- **Apply New Settings.** Change an option after installing and the installer changes
+  only that, without installing again (new in 1.6; Windows, and the Mac).
+- **An older KMRP** is offered as an **Upgrade**, which keeps your settings.
+- **Safer installs.** The installer checks before it starts, refuses while the game is
+  running and says so plainly, shows **Repair** when an install needs it, and an
+  install that is stopped or fails leaves nothing it cannot undo (new in 1.6).
+- **Windows compatibility mode** set on `swkotor.exe`, which can leave a black square
+  over the game, is turned off when KMRP patches and put back by Restore Original (new
+  in 1.6, issue 39).
 - **Update notice.** The installer tells you when a newer KMRP is out.
 - **KOTOR Patch Manager users** get KMRP as two patches that sit beside their other
   patches, and D3M0's High FPS Fixes as a third while High FPS Fix is on. Where
   KOTOR Patch Manager already looks after the game, the installer hands the
   patches to it and leaves its files alone.
-- **A smaller download.** The Windows installer is about 147 MB and the Mac disk
-  image about 114 MB, roughly half of what they were during development.
+- **A smaller download, and fast starts.** The Windows installer is 57 MiB (140 in
+  1.5.1), the Linux installer 67 MiB and the Mac disk image 73 MiB (108 in 1.5). Every
+  resolution your display offers is prepared while installing, so starts and
+  resolution changes take about a second and a half (new in 1.6).
+- **Linux.** A native installer, `KMRP-Linux-1.6.0-x86_64.AppImage`, finds the Steam
+  game and installs, restores and prepares KMRP's art under Proton as the Windows
+  installer does (new in 1.6, issue 76). The Windows installer still works there
+  through Protontricks.
 - **Without the window.** Everything the installer does can also be run from the
   command line.
 
@@ -274,16 +321,21 @@ KMRP replaces these. Do not install them alongside it:
 
 ## On the Mac
 
-New in KMRP 1.5: the Steam version of the game on macOS, with an installer of its
-own (`KMRP-macOS-1.5.0.dmg`) that looks and works like the Windows one. How to
-install it is in [macos/PLAYER-README.md](../macos/PLAYER-README.md).
+Since KMRP 1.5 the game on macOS has an installer of its own, now
+`KMRP-macOS-1.6.0.dmg`, that looks and works like the Windows one. It is for the
+Steam version and, new in 1.6, the Mac App Store version, which KMRP leaves unchanged
+and starts through a "KOTOR with KMRP" app of its own. How to install it is in
+[macos/PLAYER-README.md](../macos/PLAYER-README.md).
 
 **The same as on Windows:** the menus made for your resolution (the same 66 sets,
 and any other size fitted), the sharp text, the lists, icons and popups, the map
 and its note fixes, the conversation bars, the crash on long item descriptions,
 the HD portraits, icons and menu art, and all of controller support, with the
 button pictures, rumble, the Controller Layout screen and the Xbox-style HUD. The
-Mac game has no controller support at all without KMRP.
+Mac game has no controller support at all without KMRP. New in 1.6, as on Windows:
+Live Adaptive Layout, Text Size and Font with Modded Font, Icon Size, HUD Size, the
+Xbox controls with remapping, Pazaak with the pad, Marked Empty Containers and Apply
+New Settings.
 
 **Different on the Mac:**
 
@@ -292,22 +344,30 @@ Mac game has no controller support at all without KMRP.
   Pro). A change is made at once and kept for the next start.
 - **Another display** is offered after the game is started again, not while it
   runs.
-- **Options.** Five: controller support, the map note fixes, the HD item icons,
-  High FPS Fix and diagnostic logs. There is no graphics-card compatibility option;
-  that fix is for Windows.
+- **Options.** Six: controller support, the map note fixes, the HD item icons,
+  Marked Empty Containers, High FPS Fix and diagnostic logs. There is no
+  graphics-card compatibility option; that fix is for Windows.
 - **High FPS Fix** is KMRP's port of D3M0's patch to the Mac game.
-- **It builds on two patches by FTD,** Widescreen Patch and Stray Bug Fixes, which
-  the installer brings with it. With KOTOR Patch Manager the Mac version is five
-  patches.
+- **It builds on two patches by FTD,** Widescreen Patch (FTD and RaymanGT) and Stray
+  Bug Fixes (RaymanGT and FTD), which the installer brings with it. FTD's updates of
+  2026-11-09 bring back the menus' click sounds on the Mac and fix a crash at
+  Dantooine's Ebon Hawk and in Carth's conversation.
+- **Three more KotOR Patch Manager patches** come with 1.6: K1 Shader Fixes (FTD, J,
+  Synchro and Vriff; fog, reflections, lightmaps, particles and bump mapping as
+  Aspyr's port lost them, Steam's game only), the MP3 Playback Fix (Synchro, FTD,
+  Vriff and Lane) and Anti-Crash Prophylactics.
+- **Anti-aliasing** is switched off at 3840x2160 and above, without changing your
+  setting.
 - **The game is set to start full screen.**
 - **The dialogue's reply list fills the bar at the bottom** of a conversation.
-- **Needs** the unmodified Steam version of the game, macOS 10.13 or later, and
-  Rosetta 2 on an Apple Silicon Mac. Tested on Apple Silicon and on Intel Macs.
+- **Needs** the unmodified Steam or Mac App Store version of the game, macOS 10.13 or
+  later, and Rosetta 2 on an Apple Silicon Mac. Tested on Apple Silicon and on Intel
+  Macs.
 
 **Windows only:** the fix for Windows display scaling, the extra memory for the GOG
-and disc versions, the NVIDIA setting, Modern Driver Compatibility, the mouse kept
-inside the game on several monitors, and the movie fixes, which the Mac game does
-not need.
+and disc versions, Modern Driver Compatibility, the offscreen frame, the mouse kept
+inside the game on several monitors, and the movie and Alt-Tab fixes, which the Mac
+game does not need.
 
 ## Where it works
 
@@ -316,6 +376,7 @@ not need.
 | Windows, Steam version | Yes |
 | Windows, GOG version | Yes |
 | Windows, disc version 1.03 | Yes |
-| macOS, Steam version | Yes, since KMRP 1.5, with a separate installer (`KMRP-macOS-1.5.0.dmg`); tested on Apple Silicon and on Intel Macs. See [macos/PLAYER-README.md](../macos/PLAYER-README.md) and [macos/README.md](../macos/README.md). |
-| Linux with Proton | **SteamOS: tested and working with 1.5.1** (the maintainer, SteamOS 3.8 on a desktop PC with an NVIDIA RTX 3080, Proton 11.0, 2026-10-12: installed, played with a controller, resolution changed in the game, restored). Ubuntu: tested with a development build of 1.5, with the stable Proton and with Proton Experimental. 1.5.0 does not start under Proton. Other distributions are untested. See [linux-proton-steam-deck.md](linux-proton-steam-deck.md). |
+| macOS, Steam version | Yes, since KMRP 1.5, with a separate installer (`KMRP-macOS-1.6.0.dmg`); tested on Apple Silicon and on Intel Macs. See [macos/PLAYER-README.md](../macos/PLAYER-README.md) and [macos/README.md](../macos/README.md). |
+| macOS, Mac App Store version | Yes, since KMRP 1.6, with the same installer. |
+| Linux with Proton | Since 1.6 with a native installer (`KMRP-Linux-1.6.0-x86_64.AppImage`), run by the maintainer on SteamOS; the Windows installer works there too, through Protontricks. **SteamOS: tested and working with 1.5.1** (the maintainer, SteamOS 3.8 on a desktop PC with an NVIDIA RTX 3080, Proton 11.0, 2026-10-12: installed, played with a controller, resolution changed in the game, restored). Ubuntu: tested with a development build of 1.5, with the stable Proton and with Proton Experimental. 1.5.0 does not start under Proton. Other distributions are untested. See [linux-proton-steam-deck.md](linux-proton-steam-deck.md) and [linux-appimage-installer.md](linux-appimage-installer.md). |
 | Steam Deck | Not tested on the device. It runs SteamOS and the same Proton, so it is expected to work the same way, and the Deck's controls are among the pads KMRP knows. |

@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="releases/v1.5.1/press-kit/01-cover-hotfix.png" alt="KMRP - KOTOR Modern Restoration Patch" width="100%">
+<img src="releases/v1.6.0/press-kit/01-cover.png" alt="KMRP 1.6 - KOTOR Modern Restoration Patch" width="100%">
 
 # KMRP - KOTOR Modern Restoration Patch
 
@@ -21,10 +21,11 @@ runs at it. The resolution is chosen in the game, with no reinstall.
 
 ## Features
 
-Everything KMRP 1.5 changes compared with the game as it comes from Steam or GOG:
-1.5.0 and its hotfix 1.5.1 together, one list for the 1.5 releases (a fix that came with
-1.5.1 says so). What is done for the next release and not yet released is listed after
-it, under [Coming in 1.6](#coming-in-16). The same list as a before-and-after comparison
+Everything KMRP changes compared with the game as it comes from Steam or GOG, by
+release. First the 1.5 releases, 1.5.0 and its hotfix 1.5.1 together (a fix that came
+with 1.5.1 says so); then what 1.6 adds and changes, under [New in 1.6](#new-in-16),
+which is the current release. Where 1.6 replaced something of 1.5, such as the
+controller's buttons, the 1.6 list says so. The same list as a before-and-after comparison
 is in [docs/features.md](docs/features.md), and with how each item is done in
 [docs/features-technical.md](docs/features-technical.md). KMRP changes how the game
 looks, fits and controls. It does not change the story, the quests or the balance;
@@ -203,58 +204,127 @@ version's; what differs on the Mac is at its end.
   memory, the NVIDIA setting, Modern Driver Compatibility, the mouse kept inside the
   game, and the movie fixes.
 
-**Where it works.** Windows: the Steam, GOG and disc 1.03 versions. macOS: the Steam
-version ([Other platforms](#other-platforms)). Linux with Proton: **SteamOS is tested
-and working** with 1.5.1 (the maintainer, on a desktop PC with Proton 11), which is the
-first release that starts under Proton or on Windows 7 (Windows 7 not tried); Ubuntu was
-tested with a development build of 1.5. Steam Deck: not tested on the device.
+### New in 1.6
 
-### Coming in 1.6
-
-Done since 1.5.1 and not yet released. Some of it has not been seen in play yet; the
+Released on 2026-11-13 for Windows, Linux and macOS
+([v1.6.0](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/releases/tag/v1.6.0)).
+Much of it was played by the maintainer at 3440x1440 on Windows with an NVIDIA card;
+some of it had not been seen in play when it was released, and the
 [changelog](CHANGELOG.md) says which, item by item.
 
-- **Controller layout:** the original Xbox game's buttons everywhere, its White and
-  Black on LB and RB (issue 49): LB pauses and RB switches party member, the triggers
-  change target, X adds what A does to the queue, B disengages when there is nothing
-  to let go of, and Y flourishes your weapon when there is nothing to undo. Start
-  opens the menus on the screen you used last. In menus RB switches the party member
-  and the Journal is the game's own again (Y active or completed, RB the order). At
-  the Pazaak table X plays the card you picked, LB flips it, A ends the turn and Y
-  stands, as on the Xbox.
-- **Remapping:** every button can be changed on the Controller Layout screen.
-- **Swoop racing and the gun turret** with a pad (issue 47).
-- **Controller buttons drawn sharp at every size** from their outlines, each letter
-  centred on its button (issue 68).
-- **A DualSense switched off by Steam's idle timer** is found again when it comes back
-  (issue 71).
-- **Text Size and Font** in Graphics Options, with the HD Original font as the new
-  default, and **HUD Size**, for each part of both HUDs.
-- **Movies:** no screen reset after a movie; on screens wider than 16:9 a movie is
-  shown at its 16:9 size in the middle; drawn with GDI, meant for black movies on
-  Windows 7 with an AMD card (issue 48), with `original-movie-mode=1` under
-  `[Movies]` in `configs\kmrp.ini` to bring back the 640x480 switch.
-- **Alt-Tab in full screen:** coming back to the game keeps its window, so it no longer
-  rebuilds the picture and reloads every texture first, the step where players
-  reported a freeze (issue 96). Your brightness comes back with it. Inspired by J's Alt Tab Patch
-  for KOTOR Patch Manager and adjusted to work with KMRP, on Steam too.
-- **Marked Empty Containers:** a footlocker or body with nothing left in it says
-  "(empty)" (ShaeMyName's mod, on by default, with the author's permission).
+**Controller**
+
+- **The original Xbox game's buttons everywhere** (issue 49), replacing 1.5's layout. Its
+  White and Black are LB and RB: LB pauses and RB switches party member, the triggers
+  change target, X adds what A does to the queue, B disengages when there is nothing to
+  let go of, and Y flourishes your weapon when there is nothing to undo. Start opens the
+  menus on the screen you used last. In menus RB switches the party member and the
+  Journal is the game's own again (Y active or completed, RB the order).
+- **Remapping:** every main button can be given to another action on the Controller
+  Layout screen, in a table, with Save, Default and a warning for unsaved changes.
+- **The Xbox-style HUD's action row is the Xbox manual's six places** (issues 50, 55):
+  your own Force powers can be picked with an enemy targeted, and Stealth is in the row
+  whenever it would work. One place lights at a time (issue 56). Y, B, X and the D-pad
+  work in every fight (issues 87, 88, 90).
+- **Pazaak** as on the Xbox: X plays the card you picked, LB flips it, A ends the turn
+  and Y stands; the side deck screen is drawn as the Xbox drew it.
+- **Swoop racing and the gun turret** (issues 47, 62): the left stick steers and aims; A
+  starts, shifts and shoots; the triggers shoot in the turret; Start pauses. At the
+  shift point the race shows the pad's button instead of "Space".
+- **Button pictures drawn sharp at every size** (issue 68), from vector outlines at the
+  size shown, each letter centred on its button; the HUD's frames, the tab arrows and
+  the Controller Layout diagram are drawn the same way.
+- **Moving:** a quick flick into the stick's corner no longer runs faster or the wrong
+  way, a long diagonal no longer spins the character (issue 46), and free look looks up
+  and down with the right stick (issue 45). The left stick walks conversation replies
+  (issue 58) and moves the selection in character creation.
+- **Menus with the pad:** the galaxy map moves planet to planet and its description
+  follows (issue 57); saving, character creation, Advanced Graphics and Sound, and the
+  Text Size and HUD Size pages work fully with the pad; A on a message box no longer
+  clicks the button behind it; the A that skips a movie no longer presses the next
+  screen's button.
+- **Pad and mouse:** the mouse takes over at once when moved, no longer turns the camera
+  while the pad is in use under Proton, and a stray cursor is hidden (issue 85).
+- **A Bluetooth DualSense switched off by Steam's idle timer** is found again when it
+  comes back (issue 71).
+- **The controller patch on its own** gives a GUI mod's screens its button prompts.
+  Its settings are in `KMRP\controller.ini`.
+
+**Text, HUD and icon size**
+
+- **Text Size and Font** in Graphics Options (issues 51, 65): four sliders, 50% the
+  original size, linked or each on its own. Text too long for its box is drawn at the
+  largest size that fits; list rows, icons and the feat and power charts grow with it;
+  conversation text uses the bottom bar to the screen's edge. The letterbox bars stay.
+- **Fonts:** **HD Font**, the new default, is KMRP's own redraw of the game's font at
+  its original sizes and spacing (issue 52), free under the SIL Open Font License, with
+  every character of the original. **Original Font** is the game's own, and **Modded
+  Font** appears when your `Override` folder holds fonts, which are fitted to the size
+  they are drawn at and wrap correctly (issue 63).
+- **Icon Size** for feat, Force power and skill icons (issue 80).
+- **HUD Size:** each part of each HUD, 25% to 100% (twice the normal size), with a
+  preview, for the mouse and keyboard HUD and the Xbox-style HUD.
+
+**Menus laid out live**
+
+- **Live Adaptive Layout:** 73 of the game's 85 menu layouts are laid out as the game
+  runs, from the game's file or a mod's, so a GUI mod's screens are no longer forced to
+  640x480. A mod's screen already made for your size stays as its author made it.
+- **A mod's copy of a file KMRP changes keeps both** (issue 79): tables, pictures, models
+  and layouts are merged, and the mod wins where the two disagree.
+- **Shops** keep the item list on the screen (issue 61); **the galaxy map** has its
+  planets where the game has them and keeps a mod's destinations (issue 67);
+  **KOTOR Patch Manager's 32-slot party roster** has a layout (issue 38).
+- **Marked Empty Containers** (issue 43): a footlocker or body with nothing left in it
+  says "(empty)" (ShaeMyName's mod, on by default, with the author's permission).
+
+**Graphics, movies and Alt-Tab**
+
+- **Every frame drawn offscreen and shown only when finished:** menus no longer flash on
+  NVIDIA's "Prefer layered on DXGI Swapchain" (issue 14), so KMRP no longer changes that
+  NVIDIA setting and removes the "Prefer native" 1.5 set, and Windows Auto HDR and RTX
+  HDR keep working (issue 73). It runs under Proton too (issue 93).
 - **K1 Modern Driver Compatibility 2.0.1**, installed as its KOTOR Patch Manager patch, so
-  it also works on Linux through Proton with no launch option (issue 44), and as its
-  author's Windows 7 and 8 build on those systems.
-- **Every frame drawn offscreen and shown only when finished**, an engine change: menus
-  no longer flash on NVIDIA's "Prefer layered on DXGI Swapchain" path (issue 14), so KMRP
-  no longer changes that NVIDIA setting, and Windows Auto HDR and RTX HDR keep working
-  (issue 73). An install removes the "Prefer native" earlier versions set.
-- **Shops, the galaxy map and the 32-slot party roster:** the item list stays on the
-  screen (issue 61), the planets sit where the game has them and mods' destinations
-  are kept (issue 67), and KOTOR Patch Manager's 32-slot roster has a layout (issue
-  38).
-- **Installing:** an installer of 57 MiB instead of 126, every resolution ready before
-  the game starts, starts and resolution changes in about a second and a half, KMRP's
-  own files in one `KMRP` folder (with `KMRP\controller.ini`), and Windows
-  compatibility mode turned off when it would break the game (issue 39).
+  it works under Proton with no launch option (issue 44), and as its author's Windows 7
+  and 8 build there. Screens with KMRP's art no longer stall on opening with it.
+- **Movies:** no screen reset after a movie; on screens wider than 16:9 a movie plays at
+  its 16:9 size in the middle; the startup movies draw with GDI, meant for black movies
+  on Windows 7 with an AMD card (issue 48), with `original-movie-mode=1` under
+  `[Movies]` in `configs\kmrp.ini` to bring back the 640x480 switch. Keyboard and mouse
+  are no longer lost after the startup movies.
+- **Alt-Tab in full screen** (issue 96): coming back keeps the game's window, so it no
+  longer rebuilds the picture and reloads every texture first, and your brightness comes
+  back with it. Inspired by J's Alt Tab Patch for KOTOR Patch Manager.
+- **A saved resolution or refresh rate the display no longer has** is replaced by the
+  best one it has (issue 92).
+
+**Installing**
+
+- **An installer of 57 MiB instead of 1.5.1's 140.** Every resolution your display offers is prepared before the
+  game first starts; after that, starts and resolution changes take about a second and a
+  half.
+- **Upgrade** over an older KMRP keeps your settings, and **Apply New Settings**
+  (Windows) changes only what you changed, without installing again.
+- KMRP's own files are in one `KMRP` folder; Windows compatibility mode on
+  `swkotor.exe` is turned off when it would break the game (issue 39); the installer
+  checks before it starts, shows **Repair** when an install needs it, and an install that
+  is stopped leaves nothing it cannot undo.
+
+**Linux and the Mac**
+
+- **A native Linux installer** (issue 76), `KMRP-Linux-1.6.0-x86_64.AppImage`, which
+  finds the Steam game and installs, restores and prepares KMRP's art as the Windows one
+  does.
+- **The Mac has 1.6** (issue 81), `KMRP-macOS-1.6.0.dmg`, for the Steam version and now
+  the Mac App Store version, built on FTD's Widescreen Patch and Stray Bug Fixes and
+  bringing three more KotOR Patch Manager patches: K1 Shader Fixes, the MP3 Playback Fix
+  and Anti-Crash Prophylactics.
+
+**Where it works.** Windows: the Steam, GOG and disc 1.03 versions. macOS: the Steam
+version and the Mac App Store version ([Other platforms](#other-platforms)). Linux with
+Proton: **SteamOS is tested and working** (the maintainer, on a desktop PC with Proton
+11, with 1.5.1 and with the 1.6 Linux installer); Ubuntu was tested with a development
+build of 1.5. Windows 7 and the Steam Deck: not tested.
 
 ---
 
@@ -272,10 +342,10 @@ Done since 1.5.1 and not yet released. Some of it has not been seen in play yet;
 | --- | --- |
 | Game | *Star Wars: Knights of the Old Republic* (2003 PC release) |
 | `swkotor.exe` | One of three builds, and KMRP refuses every other: **Steam's** (`34E6D971…A439F34C88`), **GOG's** (`9C10E045…DEA91435`), or the **4,042,752-byte editable 1.03 build** (`761F9466…C49E9886`). GOG's and the editable build are also accepted with only the standard Large Address Aware bit already set. |
-| OS | Windows with .NET Framework 4.x (shipped with Windows 10/11). Linux with Proton: SteamOS is tested and working with 1.5.1; Ubuntu was tested with a development build of 1.5; the Steam Deck itself is untested. 1.5.0 does not start under Proton, use 1.5.1. See [Other platforms](#other-platforms). |
+| OS | Windows with .NET Framework 4.x (shipped with Windows 10/11). Linux with Proton: the native Linux installer, or this one through Protontricks; SteamOS is tested and working; Ubuntu was tested with a development build of 1.5; the Steam Deck itself is untested. macOS has its own installer. See [Other platforms](#other-platforms). |
 
 1. Launch KOTOR once so `swkotor.ini` exists.
-2. Download **`KMRP-Windows-1.5.1.exe`** from the [1.5.1 release](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/releases/tag/v1.5.1) and run it. It finds Steam's KOTOR by itself,
+2. Download **`KMRP-Windows-1.6.0.exe`** from the [1.6.0 release](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/releases/tag/v1.6.0) and run it. It finds Steam's KOTOR by itself,
    in any Steam library, and otherwise GOG's; **Browse** picks another `swkotor.exe`.
 3. Choose **Start Patching**. There is no resolution to pick: the game starts at
    your display's current resolution, and every resolution your display supports is
@@ -290,13 +360,14 @@ Done since 1.5.1 and not yet released. Some of it has not been seen in play yet;
 area-map marker fixes, the HD item icons and controller support, each on its own,
 and turns on D3M0's High FPS Fix and debug
 logs, which are off unless you are asked for them with a bug report. To change one
-later, use **Restore Original**, then patch again.
+later, change it in Advanced Settings and press **Apply New Settings**, which changes
+only what you changed.
 
 **Undo.** **Restore Original** reverses every change KMRP made, from the hashes it
 recorded when it installed; a file changed since is left alone, and said so.
 
-**Updating.** Patching over an older KMRP replaces it, whichever way that version
-installed itself. If Steam verifies the game's files, it puts its own `binkw32.dll`
+**Updating.** Over an older KMRP the installer offers **Upgrade**, which replaces it
+and keeps your settings, whichever way that version installed itself. If Steam verifies the game's files, it puts its own `binkw32.dll`
 back and KMRP stops loading: patch again.
 
 **What it changes** compared with the unmodified game is listed for players in
@@ -348,8 +419,10 @@ released it. With Marked Empty Containers on, the default, it adds
 
 ### Other platforms
 
-**macOS (Steam), new in KMRP 1.5.** A separate installer, `KMRP-macOS-1.5.0.dmg`, for the
-Aspyr build on Steam, made from the same resources as this one: the same interface for
+**macOS (Steam and Mac App Store), since KMRP 1.5.** A separate installer,
+`KMRP-macOS-1.6.0.dmg`, for Aspyr's game on Steam and, since 1.6, from the Mac App Store
+(which KMRP leaves unchanged, starting it through a "KOTOR with KMRP" app of its own),
+made from the same resources as this one: the same interface for
 every resolution, fonts, art and engine fixes, and controller support, which the Mac game
 does not have on its own. How to install it is in the package's own README
 ([macos/PLAYER-README.md](macos/PLAYER-README.md)); what it writes, byte for byte, and what
@@ -357,10 +430,18 @@ was and was not tested is in [macos/README.md](macos/README.md). Tested on Apple
 Silicon and on Intel Macs.
 Its two patch files, `KMRP-macOS.kpatch` and
 `KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch`, work on the Mac game only, and
-the Windows files named above on Windows only.
+the Windows files named above on Windows only. It builds on FTD's Widescreen Patch and
+Stray Bug Fixes, and since 1.6 also installs K1 Shader Fixes, the MP3 Playback Fix and
+Anti-Crash Prophylactics from KotOR Patch Manager.
 
-**Linux with Proton.** Launch the installer inside the game's Proton environment
-with `protontricks-launch --appid 32370`, and use the same route for restore.
+**Linux with Proton, native installer (new in 1.6).** `KMRP-Linux-1.6.0-x86_64.AppImage`:
+make it executable and run it. It finds the Steam game, installs and restores as the
+Windows installer does, and prepares KMRP's art under the game's Proton before the first
+start ([design and test record](docs/linux-appimage-installer.md)). Apply New Settings is
+Windows only for now.
+
+**Linux with Proton, the Windows installer.** Launch it inside the game's Proton
+environment with `protontricks-launch --appid 32370`, and use the same route for restore.
 **SteamOS: tested and working with 1.5.1.** The maintainer ran it on SteamOS 3.8
 on a desktop PC (NVIDIA RTX 3080, Proton 11.0, 3440x1440) on 2026-10-11 and
 2026-10-12: the installer found the game, the game started and was played with a
@@ -398,24 +479,28 @@ not touch `swkotor.exe`: KPM applies KMRP's patches.
 <summary><b>Command line</b> (same operations, no window)</summary>
 
 ```
-KMRP.exe --in-place <game.exe> [WIDTHxHEIGHT]
-KMRP.exe --restore  <game.exe>
-KMRP.exe --export-kpm-patches <folder>
-KMRP.exe --apply    <source.exe> <output.exe> [WIDTHxHEIGHT]
+KMRP-Windows-1.6.0.exe --in-place <game.exe> [WIDTHxHEIGHT]
+KMRP-Windows-1.6.0.exe --restore  <game.exe>
+KMRP-Windows-1.6.0.exe --apply-settings <game.exe>
+KMRP-Windows-1.6.0.exe --export-kpm-patches <folder>
 ```
 
 The resolution given to `--in-place` is where `swkotor.ini` starts the game.
-`--apply` writes a patched copy and leaves the original alone: a reference
-executable for one resolution, which the installer does not install.
+`--apply-settings` is Apply New Settings. `--apply`, which wrote a patched copy of the
+executable, was removed in 1.6.
 
 </details>
 
 <details>
 <summary><b>On the version number</b></summary>
 
-The current release is **KMRP 1.5**, published on 2026-10-09 and tagged
+The current release is **KMRP 1.6**, published on 2026-11-13 and tagged
+[v1.6.0](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/releases/tag/v1.6.0),
+for Windows, for Linux with its own installer for the first time, and for macOS. Its
+three installers report 1.6.0. Before it, **KMRP 1.5** was published on 2026-10-09 and
+tagged
 [v1.5.0](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/releases/tag/v1.5.0),
-for Windows and, for the first time, for macOS. Its installers report 1.5.0.
+for Windows and, for the first time, for macOS; its installers report 1.5.0.
 **KMRP 1.5.1**, a hotfix for Windows and for Linux with Proton, was published on
 2026-10-12 and tagged
 [v1.5.1](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/releases/tag/v1.5.1);
@@ -461,6 +546,23 @@ interface is scaled.
 ---
 
 ## What it looks like
+
+**New in 1.6:** the original Xbox controls with remapping, Pazaak and swoop racing with
+a pad, the Text Size and Font, Icon Size and HUD Size pages, and the menus laid out as
+the game runs.
+
+<img src="releases/v1.6.0/press-kit/02-controller-xbox-controls.png" alt="The original Xbox controls on the Controller Layout screen, KMRP 1.6 at 1920x1080" width="100%">
+
+<img src="releases/v1.6.0/press-kit/03-pazaak.png" alt="Pazaak with a controller, KMRP 1.6 at 1920x1080" width="100%">
+
+<img src="releases/v1.6.0/press-kit/04-swoop-racing.png" alt="Swoop racing with a controller, KMRP 1.6 at 1920x1080" width="100%">
+
+<img src="releases/v1.6.0/press-kit/05-text-hud-icon-size.png" alt="Text Size and Font, Icon Size and HUD Size, KMRP 1.6 at 1920x1080" width="100%">
+
+<img src="releases/v1.6.0/press-kit/06-live-adaptive-layout.png" alt="Live Adaptive Layout: the menus laid out as the game runs" width="100%">
+
+The whole 1.6 set is the release's press kit:
+[`releases/v1.6.0/press-kit/`](releases/v1.6.0/press-kit/).
 
 The original game beside KMRP 1.5, every frame whole and uncropped. The original
 is shown at the largest size it offers on that monitor.

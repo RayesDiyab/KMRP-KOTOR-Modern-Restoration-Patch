@@ -120,8 +120,6 @@ controller support is on. Since 2026-09-29 that runtime is KOTOR Patch
 Manager's own, built from the submodule and loaded through KPM's `binkw32.dll`
 proxy, and it applies the executable changes above as well.
 
-## [Unreleased]
-
 ## [1.6.0] -- 2026-11-13
 
 **The released files.** Three installers, published on the `v1.6.0` release:
