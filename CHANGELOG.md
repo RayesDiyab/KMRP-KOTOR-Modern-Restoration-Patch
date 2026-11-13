@@ -25,7 +25,9 @@ All notable changes to KMRP are recorded here. The format follows
 >
 > **Public names.** 2.10.0 is **KMRP 1.0**, and [1.5.0] is **KMRP 1.5**, released
 > on 2026-10-09 for Windows and for macOS; [1.5.1] is its hotfix of 2026-10-12, for
-> Windows and Linux with Proton. The headings up to 2.10.0 keep the
+> Windows and Linux with Proton; [1.6.0] is **KMRP 1.6**, released on 2026-11-13 for
+> Windows, Linux (a native AppImage, and the Windows installer under Proton) and
+> macOS. The headings up to 2.10.0 keep the
 > internal `PatchVersion` numbers, because the 2.0.0 hash record uses them; from
 > 1.5.0 on a heading is the public version, which is what the installer reports. The 1.0 release is tagged `v1.0.0` since 2026-09-25,
 > on the same commit. Until then its tag was `v2.10.0`, which remains as a
@@ -119,6 +121,30 @@ Manager's own, built from the submodule and loaded through KPM's `binkw32.dll`
 proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
+
+## [1.6.0] -- 2026-11-13
+
+**The released files.** Three installers, published on the `v1.6.0` release:
+
+| File | Bytes | SHA-256 | Built from |
+| --- | --- | --- | --- |
+| `KMRP-Windows-1.6.0.exe` | 59,700,224 | `C96EC1201BA37CE428DD174080A5DACE3A9985A3AB80BF04B4939DB39A1820C5` | `7011d6a` (build stamp 2026-11-13T20:47:29+02:00) |
+| `KMRP-Linux-1.6.0-x86_64.AppImage` | 70,199,800 | `76AB2ED6FBBD82D8943542F4BF8D812EDEB33ABABD3C9171EA41F93E43D9AF3F` | `7011d6a` (the same build stamp; it embeds the Windows installer's payload) |
+| `KMRP-macOS-1.6.0.dmg` | 76,280,999 | `B2AD134AA944FAD8E6A29AC3E2EA25C13FB2853EC7DCFEC7586D5EE36866106D` | `ba6a0a5` (made 2026-11-13 21:09) |
+
+Inside them, checked on 2026-11-13: the Windows installer's patches (from its
+`--export-kpm-patches`) are KMRP 1.6.0, whose `kmrp-native.dll` is the `304CA80C…` build of
+929,792 bytes named in the entry on the startup movies below, the KOTOR 1 Native Controller Mod + Xbox HUD
+1.0.0 (`A6A75486…`, 2,562,366 bytes, 38 hooks), K1 Modern Driver Compatibility 2.0.1, High
+FPS Fixes 1.0.1 and K1 Marked Empty Containers 1.0.0. The disk image holds `KMRP
+Installer.app` 1.6.0 (macOS 10.13 or later) with KMRP for macOS 1.6.0, the controller patch
+for macOS 1.6.0 and the five KotOR Patch Manager patches of the first entry; its 41 files
+listed in `SHA256SUMS` all match. The AppImage holds the Linux installer with the same
+build stamp as the Windows one.
+
+**On "not seen in the game" below.** Each entry says what had been seen in play on the
+day it was written, and those statements are kept as written. Some were seen later and
+say so in an update inside the entry; the others have not been recorded as seen since.
 
 - **(macOS) Five more of KotOR Patch Manager's Mac patches** (2026-11-13, the maintainer: "all five";
   `macos/third_party/kpm-patches/SOURCE.md`). Taken from KotOR Patch Manager's master (`60e0407`,
