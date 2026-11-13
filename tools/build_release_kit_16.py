@@ -386,11 +386,16 @@ def build_cover():
     return canvas
 
 
+# The page header's wordmark and tag. tools/build_controller_kit_10.py sets these for the
+# controller mod's kit and draws its pages with this file's page builders.
+HEADER_WORD, HEADER_VERSION, NEW_TAG = "KMRP", "1.6", "NEW IN 1.6"
+
+
 def header(canvas, subject, new=True):
     draw = ImageDraw.Draw(canvas)
     x, base = 56, 92
-    word = shiny_gold(cover.metal_text("KMRP", 44, DEFAULT_FONT))
-    num = cover.metal_text("1.6", 44, DEFAULT_FONT)
+    word = shiny_gold(cover.metal_text(HEADER_WORD, 44, DEFAULT_FONT))
+    num = cover.metal_text(HEADER_VERSION, 44, DEFAULT_FONT)
     wb, nb = word.getbbox(), num.getbbox()
     gold_pop(canvas, word.crop(wb), (x, base - (wb[3] - wb[1]) + 6), sparkles=False)
     nx = x + (wb[2] - wb[0]) + 26
@@ -399,9 +404,9 @@ def header(canvas, subject, new=True):
     end = nx + (nb[2] - nb[0])
     title = font(BOLD, 30)
     tw = tracked(draw, base - 8, subject, title, P["Holo"] + (255,), 6, right=W - 56)
-    if new:     # the NEW tag: holo, with night letters
+    if new and NEW_TAG:     # the NEW tag: holo, with night letters
         tag = font(BOLD, 20)
-        label = "NEW IN 1.6"
+        label = NEW_TAG
         lw = draw.textlength(label, font=tag) + 3 * (len(label) - 1)
         rx = W - 56 - tw - 28
         draw.rounded_rectangle([rx - lw - 24, base - 36, rx, base - 4], radius=4, fill=P["Holo"] + (255,))
