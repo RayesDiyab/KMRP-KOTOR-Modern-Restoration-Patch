@@ -251,7 +251,7 @@ Done since 1.5.1 and not yet released. Some of it has not been seen in play yet;
   screen (issue 61), the planets sit where the game has them and mods' destinations
   are kept (issue 67), and KOTOR Patch Manager's 32-slot roster has a layout (issue
   38).
-- **Installing:** an installer of 72 MiB instead of 126, every resolution ready before
+- **Installing:** an installer of 57 MiB instead of 126, every resolution ready before
   the game starts, starts and resolution changes in about a second and a half, KMRP's
   own files in one `KMRP` folder (with `KMRP\controller.ini`), and Windows
   compatibility mode turned off when it would break the game (issue 39).
