@@ -1,4 +1,4 @@
-"""The KMRP 1.6 press kit: eleven 1920x1080 pages in releases/v1.6.0/press-kit.
+"""The KMRP 1.6 press kit: twelve 1920x1080 pages in releases/v1.6.0/press-kit.
 
 The look is the one the maintainer settled on 2026-11-13 over the mockup rounds: a night sky
 of mixed stars, the crest's blue glow, thin red and orange smoke along the bottom, KOTOR in
@@ -69,6 +69,7 @@ FILES = {
     "hud-controller": "Star Wars  Knights Of The Old Republic Screenshot 2026.11.13 - 20.20.40.25.png",
     "text-size": "Star Wars  Knights Of The Old Republic Screenshot 2026.11.13 - 20.20.46.25.png",
     "remap": "Star Wars  Knights Of The Old Republic Screenshot 2026.11.13 - 20.21.03.75.png",
+    "layout": "Star Wars  Knights Of The Old Republic Screenshot 2026.11.13 - 22.38.19.59.png",  # 3440x1440
 }
 W, H = 1920, 1080
 
@@ -579,11 +580,18 @@ def wide_page(subject, before, after, before_label, after_label, line, new=False
 
 
 def solo_old_page(subject, name, label, line, new=False):
+    return solo_page(subject, old_shot(name), label, line, new)
+
+
+def solo_page(subject, picture, label, line, new=True):
+    """One frame across the page, whole; a wide one (21:9) is centred in the room a 16:9
+    one fills, from 160 down, with its label under it."""
     canvas = page_ground()
     header(canvas, subject, new)
-    picture = old_shot(name)
     width = 1420
-    frame(canvas, picture, (W - width) // 2, 160, width, label)
+    height = round(picture.height * width / picture.width)
+    top = max(160, 160 + (800 - height - 50) // 2)
+    frame(canvas, picture, (W - width) // 2, top, width, label)
     footer(canvas, line)
     return canvas
 
@@ -672,37 +680,40 @@ PAGES = (
             "Every button can be remapped",
         ), shot("remap"), "CONTROLLER LAYOUT: REMAPPING  1920x1080",
         "PlayStation, Steam Deck and other controllers show their own button icons in the game too.")),
-    ("03-pazaak", build_pazaak),
-    ("04-swoop-racing", build_swoop),
-    ("05-text-hud-icon-size", lambda: three_page(
+    ("03-controller-layout", lambda: solo_page(
+        "CONTROLLER LAYOUT", shot("layout"), "CONTROLLER LAYOUT  3440x1440",
+        "Every button of the Xbox layout at a glance, drawn for your pad. Remap changes them.")),
+    ("04-pazaak", build_pazaak),
+    ("05-swoop-racing", build_swoop),
+    ("06-text-hud-icon-size", lambda: three_page(
         "TEXT, HUD AND ICON SIZE", shot("text-size"), shot("hud-keyboard"), shot("hud-controller"),
         ("TEXT SIZE AND FONT  1920x1080", "HUD SIZE: MOUSE & KEYBOARD", "HUD SIZE: CONTROLLER"),
         "Text, font, feat and skill icons, and every part of both HUDs, sized in the game's own options.")),
-    ("06-live-adaptive-layout", lambda: card_page(
+    ("07-live-adaptive-layout", lambda: card_page(
         "LIVE ADAPTIVE LAYOUT", "EVERY SCREEN", "LAID OUT LIVE", (
             "The game's menus are laid out as it runs, for your screen's shape",
             "Every layout file the game uses, a mod's as well as the game's",
             "A GUI mod keeps its own design and is fitted like the rest",
             "Controller prompts added to any screen, KMRP's or a mod's",
         ), "Menus made for your screen while the game runs.")),
-    ("07-inventory-1080p", lambda: pair_page(
+    ("08-inventory-1080p", lambda: pair_page(
         "WIDESCREEN: INVENTORY", "v960-inventory", "k1080-inventory", "1280x960", "KMRP 1.5  1920x1080",
         "Rows, icons and text sized for the screen. Nothing cut off.")),
-    ("08-inventory-ultrawide", lambda: wide_page(
+    ("09-inventory-ultrawide", lambda: wide_page(
         "INVENTORY, ULTRAWIDE", "v1200-inventory", "k1440-inventory", "1600x1200", "KMRP 1.5  3440x1440",
         "21:9 has its own layout: not stretched, not letterboxed.")),
-    ("09-4k", lambda: solo_old_page(
+    ("10-4k", lambda: solo_old_page(
         "4K", "k2160-game", "KMRP 1.5  3840x2160",
         "On a 4K television the display and its text are made for 3840x2160.")),
-    ("10-installing", lambda: card_page(
+    ("11-installing", lambda: card_page(
         "INSTALLING", "ONE INSTALLER,", "READY AT ONCE", (
-            "The Windows installer: 57 MiB, down from 126 MiB in 1.5",
+            "The Windows installer: 57 MiB, down from 140 MiB in 1.5.1",
             "Every resolution made before the game first starts",
             "Starts and resolution changes in about a second and a half",
             "KMRP's own files in one KMRP folder",
             "Restore Original undoes every change",
         ), "", new=False)),
-    ("11-platforms", lambda: card_page(
+    ("12-platforms", lambda: card_page(
         "PLATFORMS", "WINDOWS, LINUX", "AND macOS", (
             "Windows: one installer for the Steam and GOG games",
             "Linux: a native installer, an AppImage, for the game under Proton",

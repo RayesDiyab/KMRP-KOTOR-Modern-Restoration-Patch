@@ -553,13 +553,15 @@ the game runs.
 
 <img src="releases/v1.6.0/press-kit/02-controller-xbox-controls.png" alt="The original Xbox controls on the Controller Layout screen, KMRP 1.6 at 1920x1080" width="100%">
 
-<img src="releases/v1.6.0/press-kit/03-pazaak.png" alt="Pazaak with a controller, KMRP 1.6 at 1920x1080" width="100%">
+<img src="releases/v1.6.0/press-kit/03-controller-layout.png" alt="The Controller Layout screen with the Xbox layout, KMRP 1.6 at 3440x1440" width="100%">
 
-<img src="releases/v1.6.0/press-kit/04-swoop-racing.png" alt="Swoop racing with a controller, KMRP 1.6 at 1920x1080" width="100%">
+<img src="releases/v1.6.0/press-kit/04-pazaak.png" alt="Pazaak with a controller, KMRP 1.6 at 1920x1080" width="100%">
 
-<img src="releases/v1.6.0/press-kit/05-text-hud-icon-size.png" alt="Text Size and Font, Icon Size and HUD Size, KMRP 1.6 at 1920x1080" width="100%">
+<img src="releases/v1.6.0/press-kit/05-swoop-racing.png" alt="Swoop racing with a controller, KMRP 1.6 at 1920x1080" width="100%">
 
-<img src="releases/v1.6.0/press-kit/06-live-adaptive-layout.png" alt="Live Adaptive Layout: the menus laid out as the game runs" width="100%">
+<img src="releases/v1.6.0/press-kit/06-text-hud-icon-size.png" alt="Text Size and Font, Icon Size and HUD Size, KMRP 1.6 at 1920x1080" width="100%">
+
+<img src="releases/v1.6.0/press-kit/07-live-adaptive-layout.png" alt="Live Adaptive Layout: the menus laid out as the game runs" width="100%">
 
 The whole 1.6 set is the release's press kit:
 [`releases/v1.6.0/press-kit/`](releases/v1.6.0/press-kit/).
