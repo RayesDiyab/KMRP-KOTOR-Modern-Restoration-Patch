@@ -4,8 +4,14 @@
   (src/controller-native/K1TextOptions.cpp). The file is the game's, in its Application Support
   folder (hud_sizes.h says why [KMRP Text] survives the game's own writes); the section is
   Windows', with its keys: Size, MenuSize, BodySize, SmallSize, HudSize, LinkSizes, IconSize,
-  FontStyle and OriginalFont. A missing file, section or key is that key's default, and a saved
-  FontStyle of 0, the old HD font, reads as HD Font (K1TextOptionsPolicy.h, Style).
+  FontStyle, OriginalFont and ModdedFonts. A missing file, section or key is that key's default,
+  and a saved FontStyle of 0, the old HD font, reads as HD Font (K1TextOptionsPolicy.h, Style).
+
+  Modded Font (FontStyle 3, handoff item 143, Windows 2026-11-08) is offered only while the game's
+  override has a font, and a saved 3 with none there reads as HD Font. Fonts there not seen before
+  choose it by themselves, written at once with their set (ModdedFonts), so a choice made since
+  stays until the fonts there change (the maintainer: "only auto select when its in Override", and
+  a change made later saved "so it doesnt change on restart").
 */
 #include "text_settings.h"
 
@@ -14,12 +20,19 @@
 
 #include "../../tools/kmrp-iconsize.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
 #include <strings.h>
 
 namespace kmrp {
+namespace fonts {
+// The override's fonts (kmrp-assets/fonts.cpp). Weak, so a build of this part alone links: no
+// fonts, no Modded Font.
+__attribute__((weak)) std::uint64_t OverrideFontSet() { return 0; }
+}
+
 namespace textfit {
 namespace {
 
@@ -31,13 +44,20 @@ const char* const kGroupKeys[TextGroupCount] = {"MenuSize", "BodySize", "SmallSi
 struct Store {
     bool read = false;
     Settings live, saved;
+    std::uint64_t moddedSet = 0;   // the override's fonts, 0 when it has none
 };
 Store& TheStore() {
     static Store* store = new Store;
     return *store;
 }
 
-Settings ReadFile() {
+std::string SetText(std::uint64_t set) {
+    char text[32];
+    std::snprintf(text, sizeof text, "%016llX", static_cast<unsigned long long>(set));
+    return text;
+}
+
+Settings ReadFile(std::uint64_t moddedSet, std::string& moddedSeen) {
     int legacy = Default, linked = 1, style = HdOriginal, icon = KMRP_ICON_DEFAULT;
     int group[TextGroupCount] = {-1, -1, -1, -1};
     const std::string path = hud::IniPath();
@@ -56,6 +76,7 @@ Settings ReadFile() {
             else if (strcasecmp(key.c_str(), "LinkSizes") == 0) linked = value;
             else if (strcasecmp(key.c_str(), "FontStyle") == 0) style = value;
             else if (strcasecmp(key.c_str(), "IconSize") == 0) icon = value;
+            else if (strcasecmp(key.c_str(), "ModdedFonts") == 0) moddedSeen = hud::Trimmed(line.substr(eq + 1));
             else for (int i = 0; i < TextGroupCount; ++i)
                 if (strcasecmp(key.c_str(), kGroupKeys[i]) == 0) group[i] = value;
         }
@@ -64,7 +85,7 @@ Settings ReadFile() {
     Settings settings;
     for (int i = 0; i < TextGroupCount; ++i) settings.sizing.values[i] = Percent(group[i] >= 0 ? group[i] : legacy);
     settings.sizing.Link(linked != 0);
-    settings.style = Style(style);
+    settings.style = Style(style, moddedSet != 0);
     settings.icon = kmrp_icon_percent(icon);
     return settings;
 }
@@ -73,12 +94,21 @@ Store& Loaded() {
     Store& store = TheStore();
     if (!store.read) {
         store.read = true;
-        store.live = store.saved = ReadFile();
+        store.moddedSet = fonts::OverrideFontSet();
+        std::string seen;
+        store.live = store.saved = ReadFile(store.moddedSet, seen);
+        // Fonts in the override not seen before: Modded Font, written at once with their set.
+        if (store.moddedSet && strcasecmp(seen.c_str(), SetText(store.moddedSet).c_str()) != 0) {
+            store.live.style = Modded;
+            if (WriteSettings(store.live)) store.saved = store.live;
+        }
     }
     return store;
 }
 
 }  // namespace
+
+bool ModdedOffered() { return Loaded().moddedSet != 0; }
 
 Settings& Live() { return Loaded().live; }
 Settings& Saved() { return Loaded().saved; }
@@ -102,6 +132,8 @@ bool WriteSettings(const Settings& settings) {
     body += settings.sizing.linked ? "LinkSizes=1\n" : "LinkSizes=0\n";
     std::snprintf(value, sizeof value, "IconSize=%d\nFontStyle=%d\nOriginalFont=1\n", settings.icon, settings.style);
     body += value;
+    // The override's fonts this choice was made with (read before Loaded's own write is done).
+    if (const std::uint64_t set = TheStore().moddedSet) body += "ModdedFonts=" + SetText(set) + "\n";
 
     std::string text;
     bool written = false, ours = false;

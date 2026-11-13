@@ -43,7 +43,12 @@ LISTS = {(1, 0): "patch_config.toml", (0, 0): "patch_config.controller-off.toml"
          (1, 1): "patch_config.high-fps.toml", (0, 1): "patch_config.controller-off.high-fps.toml"}
 KPATCH = {"k1-stray-bug-fixes-patch": "K1StrayBugFixes.kpatch", "k1widescreenpatch": "K1WidescreenPatch.kpatch",
           "kmrp": "KMRP-macOS.kpatch", "kmrp-controller": "KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch",
-          "high-fps-fixes": "High FPS Fixes (macOS).kpatch"}
+          "high-fps-fixes": "High FPS Fixes (macOS).kpatch", "k1-shader-fixes": "K1ShaderFixes.kpatch",
+          "mp3-playback-fix": "MP3PlaybackFix.kpatch", "anti-crash-prophylactics": "AntiCrashProphylactics.kpatch"}
+# Steam's game only (since 2026-11-13).
+STEAM_ONLY = {"k1-shader-fixes"}
+# Patches of hooks alone (since 2026-11-13): no module.
+NO_MODULE = {"k1-shader-fixes", "anti-crash-prophylactics"}
 APP = "KOTOR with KMRP.app"
 
 
@@ -74,6 +79,9 @@ def main() -> int:
     for (controller, high_fps), name in LISTS.items():
         listed = tomllib.loads((store / name).read_text())
         steam = tomllib.loads((package / "engine" / name).read_text())
+        # K1 Shader Fixes is Steam's alone (macos/build.sh): its code caves in Steam's KOTOR_Exe have
+        # nothing to translate to.
+        steam["patches"] = [p for p in steam["patches"] if p["id"] not in STEAM_ONLY]
         if listed["target_version_sha"].lower() != APPSTORE_SHA:
             failures.append(f"{name}: names another executable")
         if [p["id"] for p in listed["patches"]] != [p["id"] for p in steam["patches"]]:
@@ -137,6 +145,8 @@ def main() -> int:
                 failures.append(f"{label}: game-path.txt does not name the game")
             ids = [p["id"] for p in tomllib.loads((store / name).read_text())["patches"]]
             for patch in ids:
+                if patch in NO_MODULE:
+                    continue
                 module = kmrp / "patches" / f"{patch}.dylib"
                 delta = store / f"{patch}.dylib.delta"
                 if delta.is_file():
@@ -152,7 +162,7 @@ def main() -> int:
                     want = sha(store / f"{patch}.dylib")
                 if not module.is_file() or sha(module) != want:
                     failures.append(f"{label}: {patch}.dylib is not the App Store module")
-            others = {p.name for p in (kmrp / "patches").iterdir()} - {f"{i}.dylib" for i in ids}
+            others = {p.name for p in (kmrp / "patches").iterdir()} - {f"{i}.dylib" for i in ids if i not in NO_MODULE}
             if others != ({"kmrp-assets.pack", "kmrp-sdl3.dylib"} if controller else {"kmrp-assets.pack"}):
                 failures.append(f"{label}: beside the modules: {sorted(others)}")
             options = (kmrp / "configs/kmrp.ini").read_bytes()

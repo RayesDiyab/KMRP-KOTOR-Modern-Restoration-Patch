@@ -120,7 +120,44 @@ proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
 
-- **New in 1.6: keyboard and mouse no longer lost after the startup movies** (2026-11-11, the
+- **(macOS) Five more of KotOR Patch Manager's Mac patches** (2026-11-13, the maintainer: "all five";
+  `macos/third_party/kpm-patches/SOURCE.md`). Taken from KotOR Patch Manager's master (`60e0407`,
+  2026-11-11): FTD's Stray Bug Fixes of 2026-11-09, which brings back the menus' hover and click
+  sounds the Mac played only once (Aspyr's OpenAL wrapper did not restart a finished sound) and
+  stops a crash in Dantooine's Ebon Hawk vision and Carth's conversation (a creature removed from
+  its area with a move still queued); FTD's Widescreen Patch of 2026-11-09 (the menus' background
+  picture placed again; the menus were compared with the build before, the same to 0.2% of their
+  pixels, the main menu's moving smoke); and, new to KMRP, K1 Shader Fixes 0.2 (FTD, J, Synchro,
+  Vriff: fog, grass fog, reflections, overbright lightmaps, particle textures and bump mapping as
+  Aspyr's port lost them; all five of its fixes on, as the KotOR Patch Manager KMRP builds with has
+  no hook conditions), the MP3 Playback Fix 1.1.0 (Synchro, FTD, Vriff, Lane: loose `.mp3` music,
+  as music mods ship it) and Anti-Crash Prophylactics 0.9 (crashes and hangs from flawed mod
+  models). Each is installed with FTD's two, requires nothing and overlaps no hook of KMRP's. KMRP's
+  own change to them: K1 Shader Fixes' id is `k1-shader-fixes`, as KotOR Patch Manager's rule for
+  an id has it (FTD's `k1_shader_fixes` has an underscore). K1 Shader Fixes is left out for the Mac
+  App Store's game: most of its hooks write code into gaps of Steam's `KOTOR_Exe` that the App
+  Store's file has nothing to match with. FTD's Mac build of K1 Marked Empty Containers is not
+  taken: KMRP has its own port of it. Seen in the Steam game, all 204 hooks applied, the menus,
+  Dantooine and Manaan with no crash; the sounds themselves not heard (the test hears nothing).
+
+- **(macOS) Modded Font, Apply New Settings, and the installer's icons as vectors** (2026-11-13).
+  The Mac's port of three Windows changes of 2026-11-04 to 2026-11-10. *Modded Font* (Mac
+  handoff item 143): fonts a mod puts in the game's override are fitted to the size they are
+  drawn at, from the mod's files into KMRP's cache, as KMRP's own HD fonts are, and are a third
+  choice on the Text Size and Font page, chosen by itself when the fonts there are new
+  (`[KMRP Text] ModdedFonts`); Original Font and HD Font show KMRP's own over the override's.
+  Since the shared policy header of 2026-11-08 the Mac's page had carried a third checkbox with no
+  caption or handler. *Apply New Settings*: `kmrp-mac.sh apply-settings` and its button beside
+  Restore Original change only what the settings own (the controller and High FPS patches' modules,
+  the hook list, `[Patch Options]`, KotOR Patch Manager's state and folder), and install again where
+  another build is installed. *The step icons* are drawn from `src/patcher/icons/*.svg` on whole
+  pixels, as on Windows and Linux. Item 144 (input after the startup movies) was checked on the
+  Mac: nothing to port. Seen in the Steam game and the window, and tested by Test-MacInstaller;
+  `macos/PORT-1.6.md` and `macos/README.md` say what was seen. The Mac build now needs the
+  KOTOR-KMRP Font Converter repository beside this one, as the controller art step imports its
+  font tools.
+
+- **(Windows, Linux) New in 1.6: keyboard and mouse no longer lost after the startup movies** (2026-11-11, the
   maintainer's request; seen by the maintainer in vanilla and in KMRP). Sometimes, after the
   startup movies, the game took no keyboard or mouse input until it was minimised and brought
   back. Each movie plays in a window of the movie thread, and that window's `WM_ACTIVATEAPP`
@@ -173,7 +210,7 @@ proxy, and it applies the executable changes above as well.
   from the command line. The Linux installer's window has no such button yet. See
   [patcher-ui-build.md](docs/patcher-ui-build.md).
 
-- **New in 1.6: back from Alt-Tab in full screen without rebuilding the game's window**
+- **(Windows, Linux) New in 1.6: back from Alt-Tab in full screen without rebuilding the game's window**
   (issue [#96](https://github.com/RayesDiyab/KMRP-KOTOR-Modern-Restoration-Patch/issues/96),
   2026-11-10, the maintainer's choice of the two ways offered). Inspired by J's Alt Tab
   Patch for KOTOR Patch Manager (MIT) and adjusted to work with KMRP: the idea of skipping
@@ -212,7 +249,7 @@ proxy, and it applies the executable changes above as well.
   draw the same atlases; the glyph vectors tool's imports resolve; in the new repository the
   converter builds to the same SHA-256 as here (`30643C4A...`) and `Test-FontConverter.py`
   passes. Links to the moved docs point at the new repository on GitHub.
-- **KMRP Font Converter 1.0.0, made ready for release** (2026-11-08, after its audit,
+- **(Windows, Linux) KMRP Font Converter 1.0.0, made ready for release** (2026-11-08, after its audit,
   [release-audit-2026-11-08.md](https://github.com/RayesDiyab/KOTOR-KMRP-Font-Converter/blob/master/font-converter/docs/release-audit-2026-11-08.md); to be
   released with KMRP 1.6.0 and KMSE the same day, the maintainer). A **Version** box beside
   Convert makes the fonts for KMRP or for the **original game**, at the game's own font sizes
@@ -271,7 +308,7 @@ proxy, and it applies the executable changes above as well.
   metrics cases; `Test-TextOptions.py`, `Test-NativeAssetsBank.py` and `Test-FontInfo.py` pass; the
   module builds. The Font Converter's output was audited the same day and needs no change
   ([font-converter.md](https://github.com/RayesDiyab/KOTOR-KMRP-Font-Converter/blob/master/font-converter/docs/font-converter.md) section 4). **Not seen in the game.**
-- **Changed: the Windows installer is built under its release name** (2026-11-04). `build_kmrp.ps1`
+- **(Windows) Changed: the Windows installer is built under its release name** (2026-11-04). `build_kmrp.ps1`
   writes `dist\KMRP-Windows-<version>.exe`, now `KMRP-Windows-1.6.0.exe`, the name the release assets
   have had since 1.5.0, where it wrote `KMRP - KOTOR Modern Restoration Patch.exe` for renaming by
   hand. The version is `PatchVersion` in `src\patcher\InstallCore.cs`, changed there by hand as
@@ -280,7 +317,7 @@ proxy, and it applies the executable changes above as well.
   had the old name written into each. `-OutputName` still names a variant build. **Checked:** the
   helper returns `1.6.0` and the new path; every edited script parses; a test's default path
   resolves from another working folder.
-- **Added: the offscreen frame under Proton** (2026-11-04, issue 93). Since 2026-10-30 the game draws
+- **(Linux) Added: the offscreen frame under Proton** (2026-11-04, issue 93). Since 2026-10-30 the game draws
   each frame into a buffer of KMRP's and the window gets only finished frames, but under Wine and
   Proton it never ran: it takes over six opengl32 functions with the Windows hot-patch form, which
   Proton's `opengl32.dll` does not have, so the game drew straight into the window. There KMRP now
@@ -324,7 +361,7 @@ proxy, and it applies the executable changes above as well.
   redirected in 9600 swaps: the game binds it only in play. **Not seen under Proton:** anti-aliasing
   4, a movie, Alt-Tab, a change of resolution, a Steam Deck.
 
-- **Changed: the GL error log names the caller under Proton, and can run without the frame**
+- **(Windows, Linux) Changed: the GL error log names the caller under Proton, and can run without the frame**
   (2026-11-04, for the burst above, which has to be traced before it can be fixed). Three changes,
   all at `debug-logs=2` only, in `K1OffscreenFrame.cpp`:
   - Each `GL error` line now also gives the swap and what KMRP's frame was doing (`making its
@@ -368,7 +405,7 @@ proxy, and it applies the executable changes above as well.
     frame off: `GLRender::FrameBufferModificationPixelShaders` copying from the multisampled window.
     With the frame on, KMRP resolves that read first, so it does not come.
 
-- **Changed: the Linux installer makes KMRP's interface ahead, as Windows does** (2026-11-03, reported
+- **(Linux) Changed: the Linux installer makes KMRP's interface ahead, as Windows does** (2026-11-03, reported
   from SteamOS: "on linux its instant but it takes longer to launch the game"). The Windows installer
   makes every display size's art at install; the Linux installer skipped that step, as it cannot load
   the 32-bit `kmrp.dll`, so the game made it at its first start. It now runs `kmrp-prepare.exe`, a small
@@ -382,7 +419,7 @@ proxy, and it applies the executable changes above as well.
   fixed in the next entry. **Not run:** under Gamescope or on a Steam Deck. Under Gamescope the sizes the
   prefix reports at install may not be the game's; a size not made then is made when first used.
 
-- **Fixed: the Linux installer's art step is silent and shows its progress** (2026-11-03, seen on
+- **(Linux) Fixed: the Linux installer's art step is silent and shows its progress** (2026-11-03, seen on
   SteamOS: "during the artwork step a terminal opens and you can see the work being done under
   proton", while the installer's bar stood still and then jumped to the end). `kmrp-prepare.exe` was
   a console program, and Proton gave it a console window of its own, which also took the progress
@@ -394,7 +431,7 @@ proxy, and it applies the executable changes above as well.
   Windows, the new worker reports each size as it is made (19 sizes, about 15 s, four workers, three
   runs); in WSL against a stand-in `proton` that writes its progress over three seconds, the
   installer showed 22, 47, 73 and 99% a second apart. **Not seen:** under a real Proton.
-- **Fixed: the Linux installer's icons were broken and jagged; the step icons are now vectors**
+- **(Linux) Fixed: the Linux installer's icons were broken and jagged; the step icons are now vectors**
   (2026-11-04, seen on SteamOS: the step icons "not good quality", against the same icons sharp on
   Windows and the Mac). The icon art is 256 px (the settings gear 2000) and was stretched as a brush
   into a box of about 36; Skia, sampling a few source pixels per screen pixel, dropped parts of the
@@ -429,7 +466,7 @@ proxy, and it applies the executable changes above as well.
   installer's window captured at 1633x923 on the maintainer's PC: the four icons fill their circles
   as on Linux, with straight lines on whole pixels. **The Mac** still draws the PNGs; what it needs
   is in `docs/macos-handoff-1.5-to-1.6.md`.
-- **Fixed: a worker of the art step could give up its share on a new build's first install**
+- **(Windows, Linux) Fixed: a worker of the art step could give up its share on a new build's first install**
   (2026-11-03, Windows and Linux). Every worker made the build's cache folder if it was not there,
   and gave up when making it failed; started together, one could find the folder missing, lose the
   race to make it, and fail, leaving its sizes to the game. Found when the Proton worker's third of
@@ -438,7 +475,7 @@ proxy, and it applies the executable changes above as well.
   **Checked:** three runs of four workers on a fresh cache each made all 19 sizes;
   `Test-AssetPrepare.py` passed.
 
-- **macOS: KMRP 1.6 ported to the Mac** (2026-11-03, issue 81; uncommitted). Every item of
+- **(macOS) KMRP 1.6 ported to the Mac** (2026-11-03, issue 81). Every item of
   `docs/macos-handoff-1.5-to-1.6.md`, with its state and how it was seen, is in
   [`macos/PORT-1.6.md`](macos/PORT-1.6.md). In short: the art pack, `kmrp-assets.pack`, beside the
   module (measured: pack 64.6 MB, `KMRP-macOS.kpatch` 100.5 to 0.35 MB, the disk image 114.8 to
@@ -465,7 +502,7 @@ proxy, and it applies the executable changes above as well.
   crashed. Not with a physical pad (rumble, a pad switched off and on, SDL's device list unseen); a
   fight, the swoop race and the turret were not reached.
 
-- **Fixed: the mouse no longer turns the camera while the pad is in use** (2026-11-03, reported from
+- **(Windows, Linux) Fixed: the mouse no longer turns the camera while the pad is in use** (2026-11-03, reported from
   SteamOS with a DualSense through Steam Input). Under Proton A, B and Y turned the camera a little at
   each press, and so did leaving a menu with Start; LB did not. The right stick stayed under its
   deadzone and the game stayed on the pad, so neither was the cause, and moving the real pointer to
@@ -479,7 +516,7 @@ proxy, and it applies the executable changes above as well.
   the quick tests passed on it (39, 2026-11-03). It has not been played on Windows, AMD, Intel or a
   Steam Deck.
 
-- **Fixed: under Proton the offscreen frame's log blamed "something else"** (2026-11-03). The frame
+- **(Linux) Fixed: under Proton the offscreen frame's log blamed "something else"** (2026-11-03). The frame
   hot-patches six opengl32 functions, which needs an `8B FF` entry. None of the six in Proton 11.0-100's
   `opengl32.dll` has one (read from the file), so the frame has never run there and the game draws to
   the window, while the log said the functions were "already changed by something else". Under Wine
@@ -488,13 +525,13 @@ proxy, and it applies the executable changes above as well.
   `Test-OffscreenFrame.py` passed on it in the quick tests (2026-11-03). The new line has not been
   seen in a Proton log.
 
-- **Fixed: the driver refused the game's draw buffer calls on every frame's way through KMRP's
+- **(Windows, Linux) Fixed: the driver refused the game's draw buffer calls on every frame's way through KMRP's
   offscreen frame** (2026-11-02). The game asks for the back or front buffer, which a framebuffer
   object does not have, and each request raised `INVALID_OPERATION`, which then showed up in K1DC's log
   against its glow and soft shadow passes. These requests now mean KMRP's buffer. Nothing was seen
   wrong on screen before or after.
 
-- **Added: GL errors named in the log at `debug-logs=2`** (2026-11-02): the driver's own message
+- **(Windows, Linux) Added: GL errors named in the log at `debug-logs=2`** (2026-11-02): the driver's own message
   and the modules and offsets that called it, in `kmrp-kpm.log`.
 
 - **Added: a saved display mode the display no longer has is replaced at start** (issue 92, 2026-11-02).
@@ -511,7 +548,7 @@ proxy, and it applies the executable changes above as well.
   still too wide. Where they fit, as at 3440x1440, nothing changes. Back to the mouse, the row's
   font comes back.
 
-- **Fixed: a black screen at any brightness but the default, with anti-aliasing on** (2026-11-02).
+- **(Windows, Linux) Fixed: a black screen at any brightness but the default, with anti-aliasing on** (2026-11-02).
   KMRP's offscreen frame reads its multisampled buffer through a resolved copy, by redirecting
   opengl32's copy functions. K1DC asks `wglGetProcAddress` first even for core functions and NVIDIA
   answers with the driver's own, past that redirection, so K1DC's brightness pass copied the buffer
@@ -535,7 +572,7 @@ proxy, and it applies the executable changes above as well.
   its two buttons had copied the gap. Each row now says what it opens. English only, as the other
   text KMRP adds. Beside KMRP's module: with the controller patch alone the game's own behaviour stays.
 
-- **Fixed: at a low resolution the pad lost the menus to a mouse nobody touched** (2026-11-02). The
+- **(Windows, Linux) Fixed: at a low resolution the pad lost the menus to a mouse nobody touched** (2026-11-02). The
   engine puts the pointer back at the screen's centre and the pad's parking puts it at the top. At
   800x600 that jump is 284 pixels, under the 300 that counts as placed, so it read as a hand on the
   mouse: about 70 ms after every pad press the game went back to keyboard and mouse, the pointer
@@ -565,12 +602,12 @@ proxy, and it applies the executable changes above as well.
   the first poll after a movie now stays out of the game until it is let go. New Game itself was not
   seen to open in those trials, so the maintainer's exact case still wants a look.
 
-- **Removed: engine patches that did nothing (audit E-1, E-2)** (2026-11-01). Two stubs at the entry
+- **(Windows, Linux) Removed: engine patches that did nothing (audit E-1, E-2)** (2026-11-01). Two stubs at the entry
   of the game's text drawing multiplied each font's metrics by 1.0, on every text draw path, and one
   patched float had no reader left. KMRP now changes three fewer places in the game, and no page of
   its engine code is writable any more. Nothing shown changes.
 
-- **Changed: one home for what the modules shared (audit S-8)** (2026-11-02). The engine addresses
+- **(Windows, Linux) Changed: one home for what the modules shared (audit S-8)** (2026-11-02). The engine addresses
   more than one file names are in `K1EngineAddresses.h`, what files call of each other in headers
   the definitions include, the engine's font record is read in `K1FontInfo.h`, and each C tool
   includes `kmrp-embedded.h`. A changed signature now stops the build instead of going wrong in the
@@ -588,7 +625,7 @@ proxy, and it applies the executable changes above as well.
   rumble during a movie and XInput holds what it was last told, so a movie begun during a rumble
   could run with the pad shaking. Not yet seen on a pad.
 
-- **Faster: the controller patch's picture lookups (audit THR-5, GFX-07)** (2026-11-01). Each picture
+- **(Windows, Linux) Faster: the controller patch's picture lookups (audit THR-5, GFX-07)** (2026-11-01). Each picture
   border, each frame, walked three lists that only grew, one of them only to trigger a load. They
   are hash tables now, and the list by border is one map with a row per picture drawn. One border
   went from 4.6 to 14.9 microseconds, growing through a session, to 0.26 at any length of session;
@@ -626,7 +663,7 @@ proxy, and it applies the executable changes above as well.
   as the new names change the link's order. `IsControllerGeneratedKeyK1` could only say false, as
   nothing wrote its table, so that always-true test went with it.
 
-- **Removed: `--apply` from the installer (approved decisions 2 and 3)** (2026-11-01). No install
+- **(Windows, Linux) Removed: `--apply` from the installer (approved decisions 2 and 3)** (2026-11-01). No install
   has written a whole patched executable since 2026-09-29, and 778 lines of the installer existed
   only for this switch. Deleting them outright would have lost what checks the module's size values,
   the 4 GB flag's inputs and the binary inventory, so `ResolutionPatch` and `WindowsEnginePatch` move
@@ -636,7 +673,7 @@ proxy, and it applies the executable changes above as well.
   installer is 53 KB smaller. The F9 toggle went with the keystroke path, so the document that
   still offered it is corrected, and nothing replaces it.
 
-- **Testing: 12 tests side by side, what touches the player's settings alone, a status for every
+- **(Windows) Testing: 12 tests side by side, what touches the player's settings alone, a status for every
   finding** (2026-11-01). `run_regression.py` runs 12 at a time, the quick group in 58 s against 71.
   Going wider did harm at first: two tests that move the player's real KPM settings aside took the
   file from each other and left it in a work folder, from which it was put back unchanged. Such
@@ -645,7 +682,7 @@ proxy, and it applies the executable changes above as well.
   finding is in `docs/cleanup-audit-1.6-disposition.md`, and what only a game can check, with its
   steps, in `docs/gameplay-checklist-1.6.md`.
 
-- **Removed: the keystroke path (approved decision 1, audit S-2, S-9)** (2026-11-01). The first
+- **(Windows, Linux) Removed: the keystroke path (approved decision 1, audit S-2, S-9)** (2026-11-01). The first
   controller path turned the pad into synthetic key presses. Nothing has called it since the native
   path replaced it, and the linker already left it out. 72 functions and 167 constants and variables
   go, 2,811 lines of the two `vendor/` files, with the seven hook rows and 16 exports that named them,
@@ -657,13 +694,13 @@ proxy, and it applies the executable changes above as well.
   that changed no byte. All 43 remaining hook rows parse the same, and every hook table the installer
   writes is byte for byte the same. Keyboard and mouse are unaffected: no code they run was removed.
 
-- **Fixed: a kill while backing up `swkotor.ini` no longer blocks every later install (audit
+- **(Windows, Linux) Fixed: a kill while backing up `swkotor.ini` no longer blocks every later install (audit
   INS-03)** (2026-11-01). The backup was written before its hash, so a kill between the two left a
   backup with no hash, and each later install refused it. The hash goes first and the backup in one
   step, so a stop leaves no backup or a whole one. Found by Test-InstallerPatch case 17 at 250 ms on
   its fourth full run, which is why its stops are not relied on alone: case 17b sets that state up.
 
-- **Testing: the GUI audit measures what Windows loads and can fail (audit TST-02); the build cache
+- **(Windows) Testing: the GUI audit measures what Windows loads and can fail (audit TST-02); the build cache
   counts what a step reaches (S-10)** (2026-11-01). Test-GuiAudit exited 1 on every run from
   2026-10-02, so it could not fail, and it measured set copies of 73 screens Windows now lays out at
   run time. It now measures the layout helper's output for those, at all 672 sizes, and holds its
@@ -674,7 +711,7 @@ proxy, and it applies the executable changes above as well.
   cosmetic, and 243 still unreviewed. Any change in `tools/` made the 15 minute resource step run
   again: each cached step now counts only the tools it reaches, 63 or 64 of the 128.
 
-- **Fixed: the art cache and two installs, a stall in the size check, a stale saber (audit THR-4,
+- **(Windows, Linux) Fixed: the art cache and two installs, a stall in the size check, a stale saber (audit THR-4,
   THR-8, GUI-10, PAD-8)** (2026-11-01). The game's validator asks about every display mode on its
   own thread, and waited on the build lock while a size was being made, 7 to 9.5 s each, even for an
   answer it already had: the answers have a lock of their own now. Every game on a PC shares one art
@@ -712,7 +749,7 @@ proxy, and it applies the executable changes above as well.
   every start would otherwise rebuild it. A missing game file is no failure. Test-AssetPrepare
   case 10.
 
-- **Testing: the rumble mixer, the live controller suite and two baseline failures (audit
+- **(Windows) Testing: the rumble mixer, the live controller suite and two baseline failures (audit
   TST-07, coverage list)** (2026-11-01). Test-RumbleMixer runs the shipped mixer: the evaluator,
   the maximum per motor, modes, merging, keys, held loops, a full table and the saber hum's
   pulse, 32 checks. Which events start which pattern comes from engine hooks and stays untested.
@@ -724,7 +761,7 @@ proxy, and it applies the executable changes above as well.
   are now listed and cost the name corpus two entries. Test-ControllerPreload failed to compile
   after the path helpers changed, and has its include.
 
-- **The offscreen frame says when a driver refuses it, and can be turned off (audit GFX-04,
+- **(Windows, Linux) The offscreen frame says when a driver refuses it, and can be turned off (audit GFX-04,
   GFX-05)** (2026-11-01). Nothing checked the copy to the window, and a multisampled copy has
   run only on NVIDIA, so a driver refusing it would have left a black screen with no way out. The
   first copy of each buffer is now checked with `glGetError`, errors the game left being cleared
@@ -735,7 +772,7 @@ proxy, and it applies the executable changes above as well.
   anti-aliasing and every refusal against a stand-in driver, 38 checks. It says what the module
   asks of a driver, not what a real one does: AMD, Intel and Proton are on the gameplay checklist.
 
-- **Fixed: a kill can no longer leave an install with no record (audit INS-03 again)**
+- **(Windows, Linux) Fixed: a kill can no longer leave an install with no record (audit INS-03 again)**
   (2026-11-01). The kill test found what the first fix missed: `File.Replace` moves the old file
   aside before the new one is in, so a kill in that instant left no manifest, the runtime
   unrecorded and the next run calling it KPM's. The same step could leave a player with no
@@ -760,7 +797,7 @@ proxy, and it applies the executable changes above as well.
   and no set is marked complete with wrong files. The missing-file case failed before this.
   Not in a game.
 
-- **Build: the native modules are cached too** (2026-11-01). The step that builds KPM's runtime,
+- **(Windows) Build: the native modules are cached too** (2026-11-01). The step that builds KPM's runtime,
   both modules and their patches took 80 to 140 s of every build, even when only the installer's
   C# had changed. It is now skipped when nothing it depends on has changed, and an unchanged or
   C#-only build takes 17 s instead of about 90 s. Its fingerprint holds the contents of every
@@ -780,7 +817,7 @@ proxy, and it applies the executable changes above as well.
   the interface resources and fonts came from their own cache. A Python tool is counted but
   not changed by the test, as `tools\` also invalidates the resources, half an hour of work.
 
-- **Testing: a pad badge keeps its shape, checked again (audit TST-03)** (2026-11-01). The GUI
+- **(Windows) Testing: a pad badge keeps its shape, checked again (audit TST-03)** (2026-11-01). The GUI
   audit stopped looking at badges when the run-time rule replaced fixed art, which is what took
   its count from 1,651 to 1,269: a lost check, no fix. Test-BadgeShape compiles `K1UniformBadge`
   and `K1BadgeKeepsShape` from the source and asks them about all 144 rows at 5,454 areas: even
@@ -789,7 +826,7 @@ proxy, and it applies the executable changes above as well.
   were added, and it now fails that rule. `check_controller_drift` passes for the first time
   since the baseline: it read one of the two files that name badges.
 
-- **Testing: the size rules run from today's code (audit TST-05, TST-06, F11)** (2026-11-01).
+- **(Windows) Testing: the size rules run from today's code (audit TST-05, TST-06, F11)** (2026-11-01).
   `FieldValue` had no test: the values checked were its C# twin's, and only `--apply` reaches
   those. It moved unchanged to `K1EngineFields.h`, and Test-EngineFields compiles that with the
   module's flags and compares all 59 fields at 69 sizes with the executable `--apply` writes,
@@ -806,7 +843,7 @@ proxy, and it applies the executable changes above as well.
   the two lists of retired KPM patch ids. A display reporting a size KMRP has no layout for
   cannot be set up on a PC, so that half of the gate is checked in the source.
 
-- **Fixed: the installer checks before it starts and says what it could not do (audit
+- **(Windows, Linux) Fixed: the installer checks before it starts and says what it could not do (audit
   INS-05 to INS-10)** (2026-11-01). Install and Restore Original now refuse, with a plain
   message and nothing changed, while KOTOR runs from the folder (Windows: `swkotor.exe`
   will not open for writing, confirmed against a running copy of `ping.exe`; Linux: any
@@ -830,7 +867,7 @@ proxy, and it applies the executable changes above as well.
   test-only `--needs-repair`. A damaged manifest has no automatic way back: the message
   says to put the game's files back and delete it.
 
-- **Fixed: an install that stops or fails leaves nothing it cannot undo (audit INS-02,
+- **(Windows, Linux) Fixed: an install that stops or fails leaves nothing it cannot undo (audit INS-02,
   INS-03, INS-04)** (2026-11-01). The manifest was written last, so an install killed
   part way left a runtime nothing recorded, possibly with `binkw32.dll` renamed, and the
   next run took that for KOTOR Patch Manager's. The manifest now goes first, with an
@@ -861,7 +898,7 @@ proxy, and it applies the executable changes above as well.
   The applier puts back a run whose read-back differed (MEM-05), and a hot patch's real pointer
   is set before its jump goes live (GFX-02). Not seen in a game.
 
-- **Fixed: a failed preparation stops instead of repeating (audit THR-2), and the controller's
+- **(Windows, Linux) Fixed: a failed preparation stops instead of repeating (audit THR-2), and the controller's
   folder works for any user name** (2026-11-01). KMRP's and the controller's resource hooks run
   on every resource lookup and only stopped on success, so a full disk, a folder that could
   not be named to the game, or a missing pack repeated the whole preparation each time, which
@@ -885,7 +922,7 @@ proxy, and it applies the executable changes above as well.
   sets the field where a stale 0 used to refuse, which is the point; A on a slot behaves as
   before, and whether it activates twice (PAD-3) is still to be measured.
 
-- **Fixed: an upgrade keeps your settings (audit INS-01), and installing over KMRP 1.0
+- **(Windows, Linux) Fixed: an upgrade keeps your settings (audit INS-01), and installing over KMRP 1.0
   works again (INS-11)** (2026-11-01). An install over KMRP restored its first backup of
   `swkotor.ini` whole, so every upgrade lost the game's sound, gameplay and graphics
   options, KMRP's Text, Icon and HUD sizes, and a resolution chosen in the game. An upgrade
@@ -901,7 +938,7 @@ proxy, and it applies the executable changes above as well.
   Test-ReinstallOverOlderBuild hid this until the audit's first full run. Tested on throwaway
   game folders; not yet seen on a real upgrade.
 
-- **The native sources' repeated helpers are one copy each (issue 82, F2, F4, F6)**
+- **(Windows, Linux) The native sources' repeated helpers are one copy each (issue 82, F2, F4, F6)**
   (2026-11-01, [`docs/cleanup-audit-1.6-findings.md`](docs/cleanup-audit-1.6-findings.md)).
   One readable-memory check where there were four, one field helper where there were 13
   under four names, one engine routine helper where the plain copies were four. Two of the
@@ -914,7 +951,7 @@ proxy, and it applies the executable changes above as well.
   tests run (the three that failed before fail the same). Seen in the maintainer's game: "it
   works correctly" (what was checked not stated).
 
-- **Fixed: the Party Roster Limit 32 mod's empty portraits are repaired with KMRP alone
+- **(Windows, Linux) Fixed: the Party Roster Limit 32 mod's empty portraits are repaired with KMRP alone
   (issue 82, F5)** (2026-11-01,
   [`docs/cleanup-1.6/F5-party-portraits-with-kmrp-alone.md`](docs/cleanup-1.6/F5-party-portraits-with-kmrp-alone.md)).
   KMRP fills the portraits that mod leaves empty on its party selection page, and gives the
@@ -926,7 +963,7 @@ proxy, and it applies the executable changes above as well.
   fake page, the full build and the layout tests. **Not seen in a game, and not with the mod
   installed.**
 
-- **KMRP's module no longer carries the controller code (issue 82, F1)** (2026-11-01,
+- **(Windows, Linux) KMRP's module no longer carries the controller code (issue 82, F1)** (2026-11-01,
   [`docs/cleanup-1.6/F1-kmrp-without-controller-code.md`](docs/cleanup-1.6/F1-kmrp-without-controller-code.md)).
   `kmrp.dll` compiled the whole controller code base, `K1NativeJoystick.cpp` and
   `vendor/K1XboxControls.cpp` among it, for a handful of its own functions, and carried about
@@ -941,7 +978,7 @@ proxy, and it applies the executable changes above as well.
   `kmrp.dll` identical, every other difference explained in the report). Tested: the full
   build, 16 regression tests. **Not seen in a game.**
 
-- **K1 Modern Driver Compatibility 2.0.1 as its KOTOR Patch Manager patch: on Linux too,
+- **(Windows, Linux) K1 Modern Driver Compatibility 2.0.1 as its KOTOR Patch Manager patch: on Linux too,
   and on Windows 7 and 8 with its author's build for them (issue 44)** (2026-10-31,
   [`docs/third-party-driver-compat.md`](docs/third-party-driver-compat.md)). Until now the
   installer wrote K1DC's standalone `dinput8.dll` and `.asi` beside the game. Under Proton
@@ -986,7 +1023,7 @@ proxy, and it applies the executable changes above as well.
   before. Each re-hide is written to `kmrp-controller-events.log` with debug logs on.
   Tested: both modules build. **Not seen in the game, and not on a setup without a mouse.**
 
-- **Fixed: Restore Original with the game still running stopped with a stack trace (issue
+- **(Windows, Linux) Fixed: Restore Original with the game still running stopped with a stack trace (issue
   75)** (2026-10-31). The driver compatibility patch's restore deleted `dinput8.dll`
   directly, and while KOTOR runs Windows keeps that file locked: the player saw .NET's
   "Access to the path is denied" and its stack trace, three times in a row in the issue's
@@ -1042,7 +1079,7 @@ proxy, and it applies the executable changes above as well.
   existing layout, game art and icon tests: see the inventory. **Not tested in the game,
   and not with a real community mod's files.** The Mac does not run it yet.
 
-- **Windows Auto HDR and RTX HDR stay on with KMRP (issue 73), and menus no longer flash on
+- **(Windows) Windows Auto HDR and RTX HDR stay on with KMRP (issue 73), and menus no longer flash on
   NVIDIA's layered path (issue 14)** (2026-10-30). KOTOR is an OpenGL game, and NVIDIA's
   "Prefer layered on DXGI Swapchain" present method is the only way Auto HDR or RTX HDR
   reaches it. That path showed frames the game had not finished drawing: the white flash.
@@ -1134,7 +1171,7 @@ proxy, and it applies the executable changes above as well.
   computed per size, and the status summary has no set to compare against. Seen in the
   Steam game at 3440x1440: "looks good".
 
-- **Screens with KMRP's art open without the CPU mipmap stall** (2026-10-30). With
+- **(Windows, Linux) Screens with KMRP's art open without the CPU mipmap stall** (2026-10-30). With
   K1 Modern Driver Compatibility installed, the game believed it ran on a 2003 ATI driver
   and built every uncompressed texture's mipmaps on the CPU each time it loaded: the
   workbench took about 0.9 s to open (912 and 893 ms measured), nearly all of it in
@@ -1145,7 +1182,7 @@ proxy, and it applies the executable changes above as well.
   A workaround: reported to K1DC's author the same day, and to be removed once K1DC fixes
   it. Details and removal steps: `docs/third-party-driver-compat.md`, section 5.
 
-- **Level 2 debug logs time slow frames** (2026-10-30). With `debug-logs=2`,
+- **(Windows, Linux) Level 2 debug logs time slow frames** (2026-10-30). With `debug-logs=2`,
   `KMRP\logs\kmrp-frame-timing.log` lists every GUI frame that comes 100 ms or more after
   the one before, the screens built in it and KMRP's own time in them, and a summary of
   where the game's main thread was during it: a thread suspends it every 2 ms and reads
@@ -1191,7 +1228,7 @@ proxy, and it applies the executable changes above as well.
   and logs confirm hidden initialization before the first visible draw on both
   class-screen openings and the main menu. Other sizes remain not play-tested.
 
-- **Level 2 class-model diagnostics** (2026-10-29): record the native texture
+- **(Windows, Linux) Level 2 class-model diagnostics** (2026-10-29): record the native texture
   build queue, texture count, lock state and changed/unuploaded texture IDs
   before and after the first four class-selection draws. The existing GUI log
   records visible model controls but cannot establish texture readiness. This
@@ -1597,7 +1634,7 @@ proxy, and it applies the executable changes above as well.
     while Force Software is on. In the maintainer's game the + does nothing with the mouse
     either (2026-10-28), so the row is capped by the game and nothing is changed.
 
-- **`Test-OverrideFontMetrics.py` links again** (2026-10-28). Since the art pack
+- **(Windows) `Test-OverrideFontMetrics.py` links again** (2026-10-28). Since the art pack
   (`b5cbd6a`, 2026-10-19) `K1RuntimeAssets.cpp` calls `KmrpPack::ReadHeader`, `ReadIndex`,
   `Unpack`, `Unfilter` and `IdentityText` (`K1AssetPack.cpp`), which its harness neither
   compiled nor stubbed, so the test stopped at the link (LNK2019, five symbols) and had not
@@ -1860,7 +1897,7 @@ proxy, and it applies the executable changes above as well.
   `build_controller_prompt_textures.py`). Where drawing fails the stretched texture is
   shown, as before. Seen crisp at 1280x800 by the maintainer with a DualSense.
 
-- **Fixed: Restore Original left KOTOR Patch Manager's runtime behind, and the next install
+- **(Windows, Linux) Fixed: Restore Original left KOTOR Patch Manager's runtime behind, and the next install
   stopped** (2026-10-27, seen on the maintainer's Steam game). A restore that finds the
   runtime KMRP installed changed takes it for KOTOR Patch Manager's, and leaves it for KPM;
   unless KPM holds only KMRP's patches, when it removes the runtime as KPM would. Two
@@ -1922,7 +1959,7 @@ proxy, and it applies the executable changes above as well.
   ([controller-sdl-backend.md](docs/controller-sdl-backend.md)). **Not yet confirmed by
   the reporter.**
 
-- **Windows compatibility mode is turned off when KMRP patches** (2026-10-27; issue 39).
+- **(Windows) Windows compatibility mode is turned off when KMRP patches** (2026-10-27; issue 39).
   With compatibility mode on for `swkotor.exe` (Properties, Compatibility), the game drew
   a black square over most of the screen after patching; the reporter turned it off by
   hand and it was gone. The installer now takes the Windows version modes, reduced colour
@@ -1931,7 +1968,7 @@ proxy, and it applies the executable changes above as well.
   be changed without administrator rights: the installer says where to turn it off.
   `Test-DpiCompatibility.ps1` gained two cases (26 checks pass); its recovery record path
   is now `KMRP\dpi.manifest`. **Not yet seen in the game.**
-- **The build reuses what has not changed** (2026-10-27). `build_kmrp.ps1` fingerprints what
+- **(Windows) The build reuses what has not changed** (2026-10-27). `build_kmrp.ps1` fingerprints what
   each slow step reads (the files' paths, sizes and times; a named file by its content; the
   tools and the Python and PyKotor versions) and skips the step while the fingerprint
   matches: the 66 resolutions' interface (843 seconds), the layout pool (91) and the
@@ -1940,7 +1977,7 @@ proxy, and it applies the executable changes above as well.
   minutes to 54 seconds; the module, the runtime and both patches are byte for byte the
   same as from a full build. `-FreshResources` regenerates the interface regardless.
 
-- **A full build in 11 minutes instead of 40** (2026-10-27, the same day). The 66
+- **(Windows) A full build in 11 minutes instead of 40** (2026-10-27, the same day). The 66
   resolutions are made side by side, one process each, as many as the machine has cores
   less two (`build_resolution` in `tools/prepare_universal_resources.py`): 321 seconds
   instead of 1,900 on the maintainer's 16-core PC, every file in the 66 archives the same
@@ -1959,13 +1996,13 @@ proxy, and it applies the executable changes above as well.
   Gamesave), as it is a triangle and the fonts had no kerning. Advances, outlines and
   hints are unchanged; the game's atlases are drawn glyph by glyph and come out as before
   (`--check` 0.01% to 0.04%). Console stays without, being monospaced.
-- **The KMRP Save Editor moved to its own repository and is now the KOTOR Modern Gamesave
+- **(Windows) The KMRP Save Editor moved to its own repository and is now the KOTOR Modern Gamesave
   Editor (KMSE)** (2026-10-24), named so nobody takes it to need KMRP. `save-editor/` and
   its build workflow left this repository for [its own](https://github.com/RayesDiyab/KMSE-KOTOR-Modern-Gamesave-Editor); its history went with it, and its changes from
   now on are in that repository's CHANGELOG. The entries about it below stay as the record
   of its time here. The crest's sigil is now committed (`assets/branding/sigil.png`), the
   default of `tools/build_brand_image.py`.
-- **macOS: the installer records the widescreen patch's GUI mode as "GUI files"** (2026-10-24;
+- **(macOS) The installer records the widescreen patch's GUI mode as "GUI files"** (2026-10-24;
   `macos/kmrp-mac.sh`, `options_write`). FTD's widescreen patch gets a "GUI mode" option in
   KotOR Patch Manager, "Standard" (its own layout of the vanilla menus) or "GUI files" (the
   layouts from .gui files, KMRP's), proposed on FTD's branch with the entry points KMRP uses
@@ -1982,7 +2019,7 @@ proxy, and it applies the executable changes above as well.
   the animated fog). Uninstall left the game, its folder and `swkotor.ini` as before.
   `testing/regression/Test-MacInstaller.py` expects the file (0 problems). Not built or run:
   the Mac App Store set; not tested: an install for KPM followed by KPM's own Apply.
-- **Fixed: the tutorial popup's icon tiled again on Windows installs since 2026-10-19**
+- **(Windows, Linux) Fixed: the tutorial popup's icon tiled again on Windows installs since 2026-10-19**
   (2026-10-23; reported by the maintainer in the Steam game with K1CP). Since the installer
   makes every screen size's set ahead (b5cbd6a), `macos/tools/kmrp-gameart.c` ran outside
   the game folder, and it found `chitin.key`'s BIFs by the last `/` in the key's path:
@@ -2012,12 +2049,12 @@ proxy, and it applies the executable changes above as well.
   pack's version is 7, which makes `build_native_runtime.cmd` build it again. The KMRP Save
   Editor carries the four it uses in `save-editor/fonts`, so it builds with them anywhere.
   **Not yet seen in the game.**
-- **The Font Converter's window is set in KMRP's own fonts, sharp** (2026-10-22;
+- **(Windows) The Font Converter's window is set in KMRP's own fonts, sharp** (2026-10-22;
   [font-converter.md](https://github.com/RayesDiyab/KOTOR-KMRP-Font-Converter/blob/master/font-converter/docs/font-converter.md)). Its titles and text used
   Bahnschrift and Segoe UI drawn without grid fitting, soft beside the Save Editor; they
   are now KMRP Original HD Menu and Descriptions, carried in the program, drawn
   grid-fitted. Its example pictures are made again from the redrawn HD atlases.
-- **The Save Editor spawns creatures** (2026-10-22;
+- **(Windows) The Save Editor spawns creatures** (2026-10-22;
   [save-editor.md](https://github.com/RayesDiyab/KMSE-KOTOR-Modern-Gamesave-Editor/blob/master/docs/save-editor.md), section 3b;
   [save-editor-format.md](https://github.com/RayesDiyab/KMSE-KOTOR-Modern-Gamesave-Editor/blob/master/docs/save-editor-format.md), section 5.2). On the Map tab,
   a picked floor spot offers Spawn a Creature Here: a copy of someone in the area, or any
@@ -2036,7 +2073,7 @@ proxy, and it applies the executable changes above as well.
   moved to a narrow rail on the right with a switch between them. Revert and Save Changes
   moved to the top right beside the settings button; the bottom bar's backup folder went into
   Settings, so every tab is taller.
-- **Skip Ahead covers the whole of KotOR 1 and leaves the skipped areas played through**
+- **(Windows) Skip Ahead covers the whole of KotOR 1 and leaves the skipped areas played through**
   (2026-10-23; [save-editor.md](https://github.com/RayesDiyab/KMSE-KOTOR-Modern-Gamesave-Editor/blob/master/docs/save-editor.md)). Every chapter from the
   Endar Spire to the Star Forge is mapped from the game's own scripts and dialogs; skipping to
   one plays every earlier chapter first, in order: quests, story values, star maps, items,
@@ -2045,25 +2082,25 @@ proxy, and it applies the executable changes above as well.
   enemies gone, doors open, containers looted, first-visit flags set, so going back shows the
   chapter played. Checked by reading the written saves back; **only the Endar Spire has been
   seen in the game.**
-- **Skip Ahead leaves a save as a real run would, and pays nothing twice** (2026-10-23).
+- **(Windows) Skip Ahead leaves a save as a real run would, and pays nothing twice** (2026-10-23).
   The skipped chapters' quests are closed so their people do not offer them again, areas
   already visited are brought to the played state, and what the save already had (looted
   containers, killed enemies, finished quests, bought companions, held items) is not given
   again. KotOR 2 also gets influence, the masters' teachings, the prestige class and, as a
   choice, companions trained as Jedi without their conversations.
-- **Skip Ahead covers KotOR 2** (2026-10-23; [save-editor.md](https://github.com/RayesDiyab/KMSE-KOTOR-Modern-Gamesave-Editor/blob/master/docs/save-editor.md)).
+- **(Windows) Skip Ahead covers KotOR 2** (2026-10-23; [save-editor.md](https://github.com/RayesDiyab/KMSE-KOTOR-Modern-Gamesave-Editor/blob/master/docs/save-editor.md)).
   Eleven chapters from Peragus to Malachor V and the Ebon Hawk, mapped from the game's files:
   quests, story values, the masters found, companions by gender and side, loot, credits for
   either side, and the XP of a full run by the game's own kill-XP rule read from
   swkotor2.exe. Not yet seen in the game; party influence and the masters' teachings are not
   applied yet.
-- **Skip Ahead pays the credits and asks light or dark** (2026-10-23). Each chapter now gives
+- **(Windows) Skip Ahead pays the credits and asks light or dark** (2026-10-23). Each chapter now gives
   the credits its quests and conversations pay a full run, worked out per conversation for a
   light-side and a dark-side player, less the payments the main path needs, and moves the
   player's alignment that way. Where the story branches the confirmation asks for the side:
   the dark side kills slot 5 on Dantooine, brings slot 0 back at the Unknown World and loses
   slots 4, 5, 2 and 6, and plays the dark ending. Not yet seen in the game.
-- **The Save Editor travels anywhere and skips ahead in the story** (2026-10-23;
+- **(Windows) The Save Editor travels anywhere and skips ahead in the story** (2026-10-23;
   [save-editor.md](https://github.com/RayesDiyab/KMSE-KOTOR-Modern-Gamesave-Editor/blob/master/docs/save-editor.md)). The Map tab lists every area of the
   game by planet; Travel Here makes the game itself take the player there right after the
   save loads, an area never visited included, with its arrival scripts and the party, by an
@@ -2072,12 +2109,12 @@ proxy, and it applies the executable changes above as well.
   out enemy by enemy) and its loot, then the game's own route on, movies and all. Played by
   the maintainer from a new KotOR 1 save: the Endar Spire skip ended in the Taris apartment
   after the escape pod movie and the vision, at level 3 with a real run's items.
-- **The Save Editor's Story tab opens on a quest tracker** (2026-10-22;
+- **(Windows) The Save Editor's Story tab opens on a quest tracker** (2026-10-22;
   [save-editor.md](https://github.com/RayesDiyab/KMSE-KOTOR-Modern-Gamesave-Editor/blob/master/docs/save-editor.md)): active, completed and not started
   quests on the left; the picked quest's journal entry and every stage as a timeline on the
   right, a click putting the quest at a stage; Finish Quest asks which ending (with its XP) in
   a pop-up. A number typed anywhere is taken when the box is left, as if Enter were pressed.
-- **Settings in the Save Editor and the Font Converter, and bigger text** (2026-10-22;
+- **(Windows) Settings in the Save Editor and the Font Converter, and bigger text** (2026-10-22;
   [save-editor.md](https://github.com/RayesDiyab/KMSE-KOTOR-Modern-Gamesave-Editor/blob/master/docs/save-editor.md),
   [font-converter.md](https://github.com/RayesDiyab/KOTOR-KMRP-Font-Converter/blob/master/font-converter/docs/font-converter.md)). Both have the installer's
   gear at the top right; it opens a Settings pop-up with Text Size (Small, the old sizes;
@@ -2087,12 +2124,12 @@ proxy, and it applies the executable changes above as well.
   sun button left the bottom right, so the lists and the editor are taller. Edges of
   buttons, fields and tiles in both were nearly invisible; they now stand at least 1.8:1
   against what they sit on (the Save Editor's about 3:1), measured in each document.
-- **The Save Editor has its own icon** (2026-10-22;
+- **(Windows) The Save Editor has its own icon** (2026-10-22;
   [save-editor/assets/icon](https://github.com/RayesDiyab/KMSE-KOTOR-Modern-Gamesave-Editor/blob/master/assets/icon/README.md)): a holocron with a
   KOTOR-style datapad in front, in the holocron's obsidian and blue, with Aurebesh on the
   datapad's screen. It is the window's icon and the program file's (16 to 256 px); the
   header keeps the KMRP crest.
-- **New tool: the KMRP Save Editor, for KotOR 1 and KotOR 2** (2026-10-22;
+- **(Windows) New tool: the KMRP Save Editor, for KotOR 1 and KotOR 2** (2026-10-22;
   `save-editor`, [save-editor.md](https://github.com/RayesDiyab/KMSE-KOTOR-Modern-Gamesave-Editor/blob/master/docs/save-editor.md),
   [save-editor-format.md](https://github.com/RayesDiyab/KMSE-KOTOR-Modern-Gamesave-Editor/blob/master/docs/save-editor-format.md)). A separate program, not part of
   the installer, for Windows, Linux and macOS (Rust and Slint), in the Font Converter's
@@ -2301,7 +2338,7 @@ proxy, and it applies the executable changes above as well.
   `94CC21F2BA75176B23D38EDAC5FAAD8F23A664BD1DA21ED599000E9A1F167708`; the 9's tail is one
   straight stroke, g, j, p, q, y and _ end a pixel above the cell's foot so their outline
   fits under them, and the r's arm is an arch that grows out of its stem, as wide as the original's. **Not seen in the game.**
-- **KMRP Font Converter** (2026-10-21, at the maintainer's request: "a tool from kmrp
+- **(Windows) KMRP Font Converter** (2026-10-21, at the maintainer's request: "a tool from kmrp
   that just converts otfs to game files easily. Independent from kmrp in architecture.
   But has the branding"). A separate program, `dist\KMRP Font Converter.exe` (727,552
   bytes, .NET Framework 4, one file), built by `font-converter\build.ps1`. Eleven
@@ -2410,7 +2447,7 @@ proxy, and it applies the executable changes above as well.
   undo, and with L3. The manual names no flourish button at all, and the PC's
   keyboard has Flourish on its X key. The maintainer: "keep it as is".
 
-- **No screen-mode change after a movie** (2026-10-20, after `4a1cd73`). Not yet seen in
+- **(Windows, Linux) No screen-mode change after a movie** (2026-10-20, after `4a1cd73`). Not yet seen in
   the game. After every full-screen movie, the start-up movies and every story cutscene,
   the game rebuilt its renderer and set the display mode again (`ReInitAurora` at
   `0x00403F07`), because `RestoreResolutionFromMovie` compares the mode it saved with
@@ -2430,7 +2467,7 @@ proxy, and it applies the executable changes above as well.
   movie at least as wide or as tall as the screen, a replacement made for it, fills the
   screen again instead of the 16:9 area (`.kmv` 116 bytes).
 
-- **Movies: inside a 16:9 area, and drawn with GDI** (2026-10-20, issue 48). Not yet
+- **(Windows, Linux) Movies: inside a 16:9 area, and drawn with GDI** (2026-10-20, issue 48). Not yet
   seen in the game, and not run on Windows 7 or with a Radeon.
   - *The 16:9 area* (the maintainer's choice: on 3440x1440 the 2.35:1 story movies filled
     the screen and looked zoomed in). The fit stub in `.kmv`
@@ -2613,7 +2650,7 @@ proxy, and it applies the executable changes above as well.
 
     **Not yet seen in play,** and the scrolling page not yet seen by the maintainer.
 
-- **Modern Driver Compatibility is left out where it would keep the game from
+- **(Windows, Linux) Modern Driver Compatibility is left out where it would keep the game from
   starting** (2026-10-19, found while looking into issue 48; `DriverCompatOperations`
   in `src/patcher/KmrpPatcher.cs`). K1DC's two files import six functions Windows 7
   does not have: Ultimate ASI Loader 9.7.4, its `dinput8.dll`, linked with a 2025
@@ -2635,7 +2672,7 @@ proxy, and it applies the executable changes above as well.
   function (`KMRP_TEST_MISSING_IMPORT`) and checks the install succeeds without K1DC.
   **Not run on Windows 7.**
 
-- **K1 Modern Driver Compatibility 2.0.0** (2026-10-19, at the maintainer's request;
+- **(Windows, Linux) K1 Modern Driver Compatibility 2.0.0** (2026-10-19, at the maintainer's request;
   `third_party/Included/k1-modern-driver-compatibility-2.0.0 by Synchro`, `build_kmrp.ps1`,
   `DriverCompatOperations.Version` in `src/patcher/KmrpPatcher.cs`). The installer
   carries Synchro's 2.0.0 standalone build instead of 1.2.0: the glow back on NVIDIA
@@ -2651,7 +2688,7 @@ proxy, and it applies the executable changes above as well.
   the log but one warning, a GL error in the soft-shadow pass at that rebuild. Nothing
   was looked at on screen, and it was not played further.
 
-- **An installer of 72 MiB instead of 126, and every resolution ready before the game
+- **(Windows, Linux) An installer of 72 MiB instead of 126, and every resolution ready before the game
   starts** (2026-10-19; `tools/kmrp_pack.py`, `tools/build_native_assets.py`,
   `src/controller-native/K1AssetPack.cpp` and `.h`, `K1RuntimeAssets.cpp` and `.h`,
   `K1RuntimeEngine.cpp`, `KmrpOptions.h`, `K1TextOptions.cpp`, `build_native_runtime.cmd`,
@@ -2732,7 +2769,7 @@ proxy, and it applies the executable changes above as well.
   and about 116 MiB a size, most of it the controller badges of four pad families. Seen
   in the test game by the maintainer, 3440x1440 and 2560x1440: "It looks right".
 
-- **Installer: builds are dated, and an older KMRP offers Upgrade** (2026-10-19;
+- **(Windows, Linux) Installer: builds are dated, and an older KMRP offers Upgrade** (2026-10-19;
   `build_kmrp.ps1`, `src/patcher/KpmEdition.cs`, `src/patcher/KmrpPatcher.cs`,
   `testing/regression/Test-InstallerPatch.ps1`, `Test-ReinstallOverOlderBuild.ps1`;
   `docs/patcher-ui-build.md`, `docs/kpm-edition.md`). The installer could not tell an
@@ -3079,7 +3116,7 @@ proxy, and it applies the executable changes above as well.
   **Update, 2026-10-18:** confirmed in play by the maintainer.
   See [Override font timing](reverse-engineering/override-font-metrics.md).
 
-- **Expanded party roster compatibility** (2026-10-17; issue #38): generate
+- **(Windows, Linux) Expanded party roster compatibility** (2026-10-17; issue #38): generate
   the 32-slot party GUI at runtime from the current KMRP layout when the active
   roster patch has no supplied GUI. This covers the missing file in official
   KPM 0.7.3. A supplied valid roster GUI keeps its IDs, navigation, captions and
@@ -3302,7 +3339,7 @@ proxy, and it applies the executable changes above as well.
   `GetPlayerCharacter`: none; `Allocate`, `CExoString`'s assignment: one word;
   `GetGUIString`: two) and matches. **Seen in the game by the maintainer on 2026-10-13 (Steam's game, the corrected build, controller module SHA-256 `E02901ED...`): "stealth works now". Reported as that one sentence; which of the cases in `docs/controller-xbox-hud.md` were tried was not said.**
 
-- **macOS, the Mac App Store's game: work in progress** (2026-10-13; `docs/macos-app-store.md`,
+- **(macOS) The Mac App Store's game: work in progress** (2026-10-13; `docs/macos-app-store.md`,
   sections 7.7 and 7.8). Not released: the macOS installer on the 1.5.1 release was taken
   down again the day it was added, and `README.md` and `docs/features.md` say 1.5.0 and
   Steam's game, as before. With a save loaded the game ran at a few frames a second with KMRP
@@ -3313,7 +3350,7 @@ proxy, and it applies the executable changes above as well.
   `macos/tools/appstore/make_runtime.py` now translates them. **Written, not yet built or
   tested.** An audit of every address the sources use is in section 7.7.
 
-- **macOS, the Mac App Store's game: a message box, a dialogue and the area map no longer end
+- **(macOS) The Mac App Store's game: a message box, a dialogue and the area map no longer end
   the game** (2026-10-12; `macos/tools/appstore/rewrite_sources.py`; `docs/macos-app-store.md`,
   section 7.6). Reported by the maintainer: "when pressing load game in the kotor with kmrp it
   crashes". With no save, Load Game opens "You have no saved games", and the game ended at
@@ -3325,7 +3362,7 @@ proxy, and it applies the executable changes above as well.
   byte arrays that are written to a literal address, and stops the build on one it cannot.
   Steam's game was never affected: its bytes are the ones FTD wrote.
 
-- **macOS: the Mac App Store's game covers the display, and the macOS version is 1.5.1**
+- **(macOS) The Mac App Store's game covers the display, and the macOS version is 1.5.1**
   (2026-10-12; `macos/appstore/fullscreen.m`; `docs/macos-app-store.md`, section 7.5). With
   "Full screen" chosen in Aspyr's launcher, and full screen in the game's own settings
   (`Data.json`, `ASL_DisplayFullScreen` true), the App Store's game opened an ordinary window
@@ -3348,7 +3385,7 @@ proxy, and it applies the executable changes above as well.
   row), `macos/PLAYER-README.md`, `README.md`, `docs/features.md` and
   `docs/macos-changes-from-windows.md` (items 7 and 51).
 
-- **macOS: anti-aliasing off at 3840x2160 pixels or more, by the size the game runs at**
+- **(macOS) Anti-aliasing off at 3840x2160 pixels or more, by the size the game runs at**
   (2026-10-12, at the maintainer's word; `macos/patches/kmrp-assets/resolution.cpp`,
   `ApplyAntiAliasRule`). The installer's rule of 2026-10-09 went by the display at the time
   of install. A size chosen later in the game, a display connected later, the setting put
@@ -3369,7 +3406,7 @@ proxy, and it applies the executable changes above as well.
   engine sets the count itself there, so the choice probably lasts until the next start of
   the renderer), and the frame rate.
 
-- **macOS: the Mac App Store's game is supported** (2026-10-12; `docs/macos-app-store.md`).
+- **(macOS) The Mac App Store's game is supported** (2026-10-12; `docs/macos-app-store.md`).
   It is another build of the same game (bundle id `com.aspyr.kotor`, 1.4.1, `KOTOR_Exe`
   `d03315aa...`), sandboxed, and macOS does not start it once any file of its bundle has been
   added or changed, so KMRP does not install into it. The installer adds an app of its own
@@ -3394,7 +3431,7 @@ proxy, and it applies the executable changes above as well.
   for SDL beside its module before the copy it unpacks: the sandboxed game stopped at loading
   a library it had unpacked itself.
 
-- **macOS: the repairs of 1.5.1 that the Mac needed** (2026-10-12; `docs/macos-changes-from-windows.md`,
+- **(macOS) The repairs of 1.5.1 that the Mac needed** (2026-10-12; `docs/macos-changes-from-windows.md`,
   items 42 to 49). 1.5.1's note that none of its faults is in the Mac build did not hold for
   three of them:
   - **The player's Override comes before KMRP's files.** As on Windows until 1.5.1, the Mac

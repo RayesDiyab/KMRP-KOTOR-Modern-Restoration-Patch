@@ -84,8 +84,11 @@ installed while *High FPS Fix* is on.
 
 | Patch file | Id, and the module it installs | Whose | What |
 | --- | --- | --- | --- |
-| `K1StrayBugFixes.kpatch` | `k1-stray-bug-fixes-patch`, `patches/k1-stray-bug-fixes-patch.dylib` | FTD's, as of 2026-11-02 (`macos/third_party/kpm-patches/SOURCE.md`) | the engine fixes that hold at any resolution (K1, K2, K3, K5 below), the memory-safety fixes among them |
-| `K1WidescreenPatch.kpatch` | `k1widescreenpatch`, `patches/k1widescreenpatch.dylib` | FTD's, as upstream has it since 2026-10-28, KMRP's two commits merged there (`macos/third_party/kpm-patches/SOURCE.md`) | the resolution, the video mode (K4, K8, K9, the letterbox bars) and its `.gui` mode: no layout of its own, and the sizes, lists, popups and map that menus laid out for the resolution need |
+| `K1StrayBugFixes.kpatch` | `k1-stray-bug-fixes-patch`, `patches/k1-stray-bug-fixes-patch.dylib` | FTD's, as of 2026-11-09 (`macos/third_party/kpm-patches/SOURCE.md`) | the engine fixes that hold at any resolution (K1, K2, K3, K5 below), the memory-safety fixes among them |
+| `K1WidescreenPatch.kpatch` | `k1widescreenpatch`, `patches/k1widescreenpatch.dylib` | FTD's, as of 2026-11-09, KMRP's two commits merged there since 2026-10-28 (`macos/third_party/kpm-patches/SOURCE.md`) | the resolution, the video mode (K4, K8, K9, the letterbox bars) and its `.gui` mode: no layout of its own, and the sizes, lists, popups and map that menus laid out for the resolution need |
+| `K1ShaderFixes.kpatch` | `k1-shader-fixes` (FTD's id `k1_shader_fixes`, `SOURCE.md`); no module, hooks alone | FTD, J, Synchro and Vriff's, as of 2026-11-09, since 2026-11-13 | fog, grass fog, reflections, overbright lightmaps, particle textures and bump mapping as Aspyr's port lost them; all five of its fixes on (the KotOR Patch Manager KMRP builds with has no hook conditions). Steam's game only: not translated for the Mac App Store's |
+| `MP3PlaybackFix.kpatch` | `mp3-playback-fix`, `patches/mp3-playback-fix.dylib` | Synchro, FTD, Vriff and Lane's, 1.1.0, since 2026-11-13 | loose `.mp3` music, as music mods ship it |
+| `AntiCrashProphylactics.kpatch` | `anti-crash-prophylactics`; no module, hooks alone | KotOR Patch Manager's, 0.9, since 2026-11-13 | crashes and hangs from flawed mod models (node types, a node its own parent, walkmesh offsets) |
 | `KMRP-macOS.kpatch` | `kmrp`, `patches/kmrp.dylib`; name "KMRP for macOS" | KMRP's | every resolution's menu set and the artwork, from the art pack `patches/kmrp-assets.pack` beside the module (inside the module until 2026-11-03), the resolution chosen in the game, list rows centred, keyboard navigation, the text-height fixes, the status summary, map notes. `requires` the two above |
 | `KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch` | `kmrp-controller`, `patches/kmrp-controller.dylib`; name "KOTOR 1 Native Controller Mod + Xbox HUD (macOS)" | KMRP's | controller support with its own files and SDL (sections 7 and 7a). Requires nothing: it also works without KMRP and without FTD's patches |
 
@@ -163,6 +166,33 @@ replaces), and runs the script:
 | at launch and after every run | `status --brief`: `install.info`, or the game and its build, without hashing every installed file (a full status takes seconds once KMRP is installed) |
 | **Start Patching** | `install --yes --resolution current` (the size macOS is set to; `native` and `--size WxH` are the script's alone since 2026-10-07, section 5), with `--no-map-notes` when *Area Map Marker Fixes* is off, `--no-hd-icons` when *HD Item Icons* is off (since 2026-10-08), `--no-controller` when *Native Controller Support* is off, `--high-fps` or `--no-high-fps` as *High FPS Fix* is set (always one of them, since 2026-10-08), `--debug-logs` when *Debug Logs* is on (Advanced Settings, as on Windows), `--game` when one was chosen with **Browse** |
 | **Restore Original** | `uninstall --yes` (and `--game`) |
+| **Apply New Settings** (since 2026-11-13, Windows' of 2026-11-10) | `apply-settings --yes` with the same options as Start Patching. Shown beside Restore Original, which narrows to half the row, when Advanced Settings differs from what `status --brief` says the install has (its `map_notes=`, `hd_icons=`, `marked_empty=`, `controller=`, `high_fps=` and `debug_logs=`); step 4 then lists each change ("High FPS Fix: On → Off"). Not for an install for KotOR Patch Manager or one that did not finish |
+
+**Apply New Settings changes only what the settings own** (`do_apply_settings`): the controller
+patch's and High FPS Fixes' modules in `patches/` put in or taken out, `patch_config.toml` swapped
+for the hook list of the two, the `[Patch Options]` sections written again (the controller's taken
+out with its patch), `kpm_install_state.json`, their `.kpatch` files in KotOR Patch Manager's
+folder, and the controller's settings file when controller support is turned on. Each is changed
+in the manifest too, so uninstall finds what is there. KOTOR_Exe, KotorPatcher, the art pack, the
+resolution and the art already made stay. `install.info` says `complete=0` while it changes, so a
+change stopped halfway shows as an install that did not finish. Where the quick change cannot be
+made, it says why: another build of KMRP is installed or a change did not finish, and it installs
+again (uninstall, then install, the cache kept); KotOR Patch Manager manages the game, or KMRP's
+runtime or a module changed since (which the Mac reads as KPM's Apply, `handed_over`), and it
+stops with nothing touched. The Mac App Store's game has its app made again. Tested by
+Test-MacInstaller (its round 9) and in the window against the Steam game: High FPS off, its module
+taken out, nothing else changed.
+
+**The four step icons are drawn from vectors** (since 2026-11-13, the maintainer of 2026-11-04:
+"should be standard now on windows and linux and mac"): `src/patcher/icons/folder.svg`,
+`shield.svg`, `monitor.svg` and `tools.svg`, copied into the app's Resources, read and drawn by
+`DrawVectorIcon` as Windows' `UiTheme.DrawVectorIcon` and Linux's `Ui.Vector` do. The art's ink
+fills the 56.3% box in the 64 px circle; each line's width is rounded to whole pixels, at least
+one, its ends put on a pixel's centre (odd widths) or edge (even widths), each Bezier control
+point moving with its own end. The pixels are the backing store's (two a point on a Retina
+display), so the drawing is made in the context's device space; which way that space's y runs is
+read from the context, as a layer-backed view's runs down. The PNGs stay for a window that cannot
+read the SVGs; the gear and the status badges stay pictures.
 
 What the script refuses (the game running, another build), the app shows as a blocking
 message with the script's own words. A game KotOR Patch Manager manages is not refused: the
@@ -847,6 +877,7 @@ What was seen and what was not:
 | 104 | **Seen** at 1024x768: letters centred, captions on their art, the controller's badges on the letters' middle |
 | 55 | Not seen with a translation installed |
 | 130 | The Icon Size slider: not seen at another size |
+| 143 | Modded Font, 2026-11-13: **seen in play** (below) |
 
 All of it is the port of
 `K1TextLayout.cpp`, `K1TextRows.cpp`, `K1TextOptions.cpp` and the fonts in `K1RuntimeAssets.cpp`,
@@ -860,6 +891,19 @@ Windows' own headers (`K1TextFitPolicy.h`, `K1TextOptionsPolicy.h`) and the icon
 | Letters | `kmrp-layout/caption_ink.cpp` | Each font's letters read as the game uploads it (`0x1001f90d9`); a centred text's letters go on its box's middle, or on the art behind a control with none of its own. Windows' `K1CaptionInk.h` is written against `windows.h` and the 32-bit layout, so the Mac has its own copy. The controller's badges read it through `KmrpCaptionLetters` |
 | Fonts | `kmrp-assets/fonts.cpp` | The bank's group (0, 3) holds the sources under Windows' private names (`make_kmrp_assets.py --texture-pack`). `fonts::Prepare`, as each view of a set is made, links the style's fonts at the sizes in use over the set's, made once in the cache's `fonts` folder, HD Font's atlas fitted to one texel a pixel. Every font is finished at the TXI loader's return (`KmrpFontMetricsLoaded`, `0x1001f887a`; item 55), which replaces `ScaleOverrideFonts`. Without the group the set's fonts stay and the sizes work by metrics alone |
 | The page | `kmrp-assets/text_options.cpp`, `kmrp-layout/text_settings.cpp` | The Text Size and Font page, built as `hud_options.cpp` builds its page, saved in `swkotor.ini`, `[KMRP Text]`, Windows' keys. Nothing is made or written until Save; Close over unsaved changes asks in the game's message box |
+| Modded Font (item 143) | `kmrp-assets/fonts.cpp`, `kmrp-layout/text_settings.cpp`, `kmrp-assets/text_options.cpp` | A third row, `FontStyle` 3, while the game's override has a font. Fonts there not seen before choose it at the start, written with their set (`ModdedFonts`, FNV-1a over their names, sizes and times), so a choice made since stays until they change. It shows each font the override has as a `.tga` with its `.txi` and no `.tpc`, fitted to its drawn size when larger (`OverrideFontFitted`, `fonts/ovr-<name>-<id>-<size>` in the cache, the mod's files only read), else copied; any other font of the override's is left out of the view, so the game reads it from there; KMRP's HD Font for the rest. Original Font and HD Font show KMRP's own for every name. A view's names are chosen as it is made and fixed once the game has listed it, so a change of style relinks only. Until 2026-11-13 a font the override had was left to it whatever the choice |
+
+**Modded Font seen in play** (2026-11-13, the Steam game at 1512x982): seventeen of KMRP's own
+HD atlases made bold (every glyph's alpha widened by 8 texels at 6x) and put in `override` as a
+font mod would. At the first start Modded Font was chosen by itself (`FontStyle=3`,
+`ModdedFonts` written) and all seventeen were fitted, 2048 to 469 texels for `dialogfont16x16`;
+the page showed the third row chosen and its previews bold (82% more lit pixels in the two preview
+lines than under HD Font). HD Font saved and the game started again: kept, nothing fitted, the
+text KMRP's. A new set in `override`: Modded Font chosen again. On the page, HD Font, then Modded
+Font: the text switched both ways at once, Save lit only while the choice differed from the saved
+one. Two fonts alone in `override` (`dialogfont16x16`, `fnt_d16x16`) were fitted but not seen, as
+the game draws the size variants (`dialogfont16x16b`) at that height. Found by the way, as it was
+before: Right from Link Text Sizes goes to Original Font, not to the font chosen as on Windows.
 
 ## 7. Controller
 
@@ -1119,6 +1163,14 @@ come from the submodule (`git submodule update --init`), FTD's two patches from 
 `macos/third_party/kpm-patches` (its `SOURCE.md` says from which commits and why). Until then the
 command above carried `--kpm "../third_party/Kotor-Patch-Manager"`, the clone the maintainer's
 workspace keeps beside this repository, and the build stopped without it.
+
+**The KOTOR-KMRP Font Converter repository beside this one** (since 2026-11-09): the controller
+art step imports `tools/build_controller_glyph_vectors.py`, which looks for the KMRP Original HD
+fonts' outline tools there when it is loaded (`tools/font_converter_checkout.py`), so `build.sh`
+stops at "The controller patch's own files" without it. Clone
+https://github.com/RayesDiyab/KOTOR-KMRP-Font-Converter next to this checkout as
+"KOTOR-KMRP Font Converter", or set `KMRP_FONT_CONVERTER`. (Its commit, 861e11c, says no build
+reads the fonts: this one imports their tools.)
 
 **Before a release build, make the font sets afresh** (2 min 40 s on this Mac), as
 `build_kmrp.ps1` expects them on Windows:

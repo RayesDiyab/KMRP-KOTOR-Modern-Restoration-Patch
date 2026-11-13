@@ -1,0 +1,4 @@
+LIBRARY MP3PlaybackFix
+EXPORTS
+    K2LooseMp3
+    K2Mp3RiffOffsetByPath

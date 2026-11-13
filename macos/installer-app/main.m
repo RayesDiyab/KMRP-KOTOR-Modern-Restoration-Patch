@@ -38,7 +38,9 @@
 
   For checking the app from a script (macos/README.md, "The installer app"), NSUserDefaults
   arguments after `open ... --args`:
-    -KMRPRun install|uninstall    press the action button once the status is in
+    -KMRPRun install|uninstall|apply
+                                  press the action button (apply: Apply New Settings) once the
+                                  status is in
     -KMRPNoMapNotes YES           turn the map-marker fixes off
     -KMRPNoHdIcons YES            turn the HD icon pack off
     -KMRPNoController YES         turn controller support off
@@ -241,6 +243,215 @@ static void DrawArt(NSString *name, NSRect box, NSColor *color, BOOL crop) {
     }];
     [tinted drawInRect:to fromRect:NSZeroRect operation:NSCompositingOperationSourceOver fraction:1
         respectFlipped:YES hints:@{NSImageHintInterpolation: @(NSImageInterpolationHigh)}];
+}
+
+// ------------------------------------------------------------------------------------ vectors
+
+// A step's icon as vectors (src/patcher/icons/<name>.svg, copied into Resources), the standard
+// on every installer since 2026-11-04 (the maintainer: "should be standard now on windows and
+// linux and mac"): Windows' UiTheme.DrawVectorIcon (src/patcher/KmrpPatcher.cs) and Linux's
+// Ui.Vector (src/installer-linux/MainWindow.cs). Reads what those files hold and nothing more:
+// paths of absolute M, L, C and Z, with fill, stroke, stroke-width, stroke-linecap and fill-rule
+// on the path or a group around it.
+@interface KMRPVectorPath : NSObject
+@property (nonatomic) CGFloat stroke;   // 0: filled
+@property (nonatomic) BOOL evenOdd;
+@property (nonatomic) CGLineCap cap;
+@property (nonatomic, strong) NSMutableData *ops;      // one char an operation
+@property (nonatomic, strong) NSMutableData *points;   // its points, CGPoint each (M, L: 1; C: 3; Z: 0)
+@end
+@implementation KMRPVectorPath
+@end
+
+@interface KMRPVectorArt : NSObject
+@property (nonatomic) CGRect ink;   // every point, widened by half its path's line
+@property (nonatomic, strong) NSMutableArray<KMRPVectorPath *> *paths;
+@end
+@implementation KMRPVectorArt
+@end
+
+static KMRPVectorPath *ParseVectorPath(NSDictionary<NSString *, NSString *> *own,
+                                       NSArray<NSDictionary<NSString *, NSString *> *> *groups) {
+    NSString *(^inherited)(NSString *) = ^NSString *(NSString *attribute) {
+        if (own[attribute]) return own[attribute];
+        for (NSInteger i = (NSInteger)groups.count - 1; i >= 0; i--)
+            if (groups[i][attribute]) return groups[i][attribute];
+        return nil;
+    };
+    KMRPVectorPath *path = [KMRPVectorPath new];
+    path.ops = [NSMutableData data];
+    path.points = [NSMutableData data];
+    NSString *stroke = inherited(@"stroke");
+    if (stroke && ![stroke isEqualToString:@"none"]) path.stroke = (inherited(@"stroke-width") ?: @"1").doubleValue;
+    path.evenOdd = [inherited(@"fill-rule") isEqualToString:@"evenodd"];
+    NSString *cap = inherited(@"stroke-linecap");
+    path.cap = [cap isEqualToString:@"round"] ? kCGLineCapRound : [cap isEqualToString:@"square"] ? kCGLineCapSquare : kCGLineCapButt;
+    __block char op = ' ';
+    NSMutableArray<NSNumber *> *numbers = [NSMutableArray array];
+    void (^flush)(void) = ^{
+        const NSUInteger need = op == 'C' ? 6 : op == 'Z' ? 0 : 2;
+        if (op == 'Z') { char z = 'Z'; [path.ops appendBytes:&z length:1]; }
+        for (NSUInteger i = 0; need > 0 && i + need <= numbers.count; i += need) {
+            char kind = op == 'M' && i > 0 ? 'L' : op;
+            [path.ops appendBytes:&kind length:1];
+            for (NSUInteger p = 0; p < need / 2; p++) {
+                CGPoint point = CGPointMake(numbers[i + 2 * p].doubleValue, numbers[i + 2 * p + 1].doubleValue);
+                [path.points appendBytes:&point length:sizeof point];
+            }
+        }
+        [numbers removeAllObjects];
+    };
+    NSString *d = own[@"d"] ?: @"";
+    NSRegularExpression *tokens = [NSRegularExpression regularExpressionWithPattern:@"[MLCZ]|-?[0-9]+(\\.[0-9]+)?" options:0 error:nil];
+    for (NSTextCheckingResult *match in [tokens matchesInString:d options:0 range:NSMakeRange(0, d.length)]) {
+        NSString *token = [d substringWithRange:match.range];
+        if (isalpha([token characterAtIndex:0])) { flush(); op = (char)[token characterAtIndex:0]; }
+        else [numbers addObject:@(token.doubleValue)];
+    }
+    flush();
+    return path;
+}
+
+static KMRPVectorArt *VectorFor(NSString *name) {
+    static NSMutableDictionary<NSString *, id> *cache;
+    if (!cache) cache = [NSMutableDictionary dictionary];
+    id known = cache[name];
+    if (known) return known == NSNull.null ? nil : known;
+    KMRPVectorArt *art = nil;
+    NSString *file = [[NSBundle mainBundle] pathForResource:name ofType:@"svg"];
+    NSString *text = file ? [NSString stringWithContentsOfFile:file encoding:NSUTF8StringEncoding error:nil] : nil;
+    if (text) {
+        NSRegularExpression *comments = [NSRegularExpression regularExpressionWithPattern:@"<!--.*?-->"
+                                                                                  options:NSRegularExpressionDotMatchesLineSeparators error:nil];
+        text = [comments stringByReplacingMatchesInString:text options:0 range:NSMakeRange(0, text.length) withTemplate:@""];
+        NSRegularExpression *tags = [NSRegularExpression regularExpressionWithPattern:@"<(/?)(g|path)\\b([^>]*?)(/?)>" options:0 error:nil];
+        NSRegularExpression *attributes = [NSRegularExpression regularExpressionWithPattern:@"([a-z\\-]+)=\"([^\"]*)\"" options:0 error:nil];
+        art = [KMRPVectorArt new];
+        art.paths = [NSMutableArray array];
+        NSMutableArray<NSDictionary<NSString *, NSString *> *> *groups = [NSMutableArray array];
+        for (NSTextCheckingResult *tag in [tags matchesInString:text options:0 range:NSMakeRange(0, text.length)]) {
+            NSString *element = [text substringWithRange:[tag rangeAtIndex:2]];
+            if ([tag rangeAtIndex:1].length) {
+                if ([element isEqualToString:@"g"] && groups.count) [groups removeLastObject];
+                continue;
+            }
+            NSString *body = [text substringWithRange:[tag rangeAtIndex:3]];
+            NSMutableDictionary<NSString *, NSString *> *own = [NSMutableDictionary dictionary];
+            for (NSTextCheckingResult *pair in [attributes matchesInString:body options:0 range:NSMakeRange(0, body.length)])
+                own[[body substringWithRange:[pair rangeAtIndex:1]]] = [body substringWithRange:[pair rangeAtIndex:2]];
+            if ([element isEqualToString:@"g"]) {
+                if (![tag rangeAtIndex:4].length) [groups addObject:own];
+                continue;
+            }
+            [art.paths addObject:ParseVectorPath(own, groups)];
+        }
+        CGFloat left = CGFLOAT_MAX, up = CGFLOAT_MAX, right = -CGFLOAT_MAX, down = -CGFLOAT_MAX;
+        for (KMRPVectorPath *path in art.paths) {
+            const CGPoint *p = path.points.bytes;
+            for (NSUInteger i = 0; i < path.points.length / sizeof(CGPoint); i++) {
+                left = MIN(left, p[i].x - path.stroke / 2);
+                up = MIN(up, p[i].y - path.stroke / 2);
+                right = MAX(right, p[i].x + path.stroke / 2);
+                down = MAX(down, p[i].y + path.stroke / 2);
+            }
+        }
+        if (!art.paths.count || right <= left || down <= up) art = nil;
+        else art.ink = CGRectMake(left, up, right - left, down - up);
+    }
+    cache[name] = art ?: (id)NSNull.null;
+    return art;
+}
+
+// A point of a line `width` whole pixels wide on the pixel grid: odd widths on a pixel's centre,
+// even ones on its edge. A filled outline (width 0) is drawn where it falls.
+static CGPoint Snap(CGPoint p, CGFloat width, CGFloat phase) {
+    if (width == 0) return p;
+    return CGPointMake(floor(p.x - phase + 0.5) + phase, floor(p.y - phase + 0.5) + phase);
+}
+
+// NAME's vectors in BOX, or NO when the app carries none. The art's ink fills the box; each line's
+// width is rounded to whole pixels, at least one, and its ends put on the grid, each Bezier
+// control point moving with its own end. The pixels are the backing store's: on a Retina display
+// two a point, so the drawing is made in the context's device space.
+static BOOL DrawVectorIcon(NSString *name, NSRect box, NSColor *color) {
+    KMRPVectorArt *art = VectorFor(name);
+    CGContextRef context = NSGraphicsContext.currentContext.CGContext;
+    if (!art || !context || box.size.width <= 0 || box.size.height <= 0) return NO;
+    const CGAffineTransform toDevice = CGContextGetUserSpaceToDeviceSpaceTransform(context);
+    const CGRect device = CGRectApplyAffineTransform(NSRectToCGRect(box), toDevice);
+    const CGFloat fit = MIN(device.size.width / art.ink.size.width, device.size.height / art.ink.size.height);
+    const CGFloat originX = device.origin.x + (device.size.width - art.ink.size.width * fit) / 2 - art.ink.origin.x * fit;
+    // The SVG's y runs down. Which way the device's runs depends on the context (a layer-backed
+    // view's runs down, a window's backing store's up), so the box's top is found by mapping it:
+    // the top in user space is its maximum y unless the context is flipped.
+    const BOOL flipped = NSGraphicsContext.currentContext.isFlipped;
+    const CGPoint userTop = CGPointMake(NSMidX(box), flipped ? NSMinY(box) : NSMaxY(box));
+    const CGPoint userBottom = CGPointMake(NSMidX(box), flipped ? NSMaxY(box) : NSMinY(box));
+    const CGFloat deviceTop = CGPointApplyAffineTransform(userTop, toDevice).y;
+    const CGFloat down = CGPointApplyAffineTransform(userBottom, toDevice).y > deviceTop ? 1 : -1;
+    const CGFloat top = deviceTop + down * (device.size.height - art.ink.size.height * fit) / 2;
+    CGPoint (^place)(CGPoint) = ^CGPoint(CGPoint p) {
+        return CGPointMake(originX + p.x * fit, top + down * (p.y - art.ink.origin.y) * fit);
+    };
+    CGContextSaveGState(context);
+    CGContextConcatCTM(context, CGAffineTransformInvert(toDevice));   // drawing in device pixels
+    CGContextSetShouldAntialias(context, true);
+    CGColorRef ink = [color colorUsingColorSpace:NSColorSpace.sRGBColorSpace].CGColor ?: color.CGColor;
+    CGContextSetStrokeColorWithColor(context, ink);
+    CGContextSetFillColorWithColor(context, ink);
+    for (KMRPVectorPath *path in art.paths) {
+        const CGFloat width = path.stroke > 0 ? MAX(1, round(path.stroke * fit)) : 0;
+        const CGFloat phase = fmod(width, 2) == 1 ? 0.5 : 0;
+        CGMutablePathRef shape = CGPathCreateMutable();
+        const char *ops = path.ops.bytes;
+        const CGPoint *p = path.points.bytes;
+        CGPoint last = CGPointZero, lastShift = CGPointZero;
+        for (NSUInteger i = 0; i < path.ops.length; i++) {
+            CGPoint exact, end, shift;
+            switch (ops[i]) {
+                case 'M':
+                    exact = place(*p++);
+                    last = Snap(exact, width, phase);
+                    lastShift = CGPointMake(last.x - exact.x, last.y - exact.y);
+                    CGPathMoveToPoint(shape, NULL, last.x, last.y);
+                    break;
+                case 'L':
+                    exact = place(*p++);
+                    end = Snap(exact, width, phase);
+                    CGPathAddLineToPoint(shape, NULL, end.x, end.y);
+                    last = end;
+                    lastShift = CGPointMake(end.x - exact.x, end.y - exact.y);
+                    break;
+                case 'C': {
+                    const CGPoint c1 = place(p[0]), c2 = place(p[1]);
+                    exact = place(p[2]);
+                    p += 3;
+                    end = Snap(exact, width, phase);
+                    shift = CGPointMake(end.x - exact.x, end.y - exact.y);
+                    CGPathAddCurveToPoint(shape, NULL, c1.x + lastShift.x, c1.y + lastShift.y, c2.x + shift.x, c2.y + shift.y,
+                                          end.x, end.y);
+                    last = end;
+                    lastShift = shift;
+                    break;
+                }
+                case 'Z':
+                    CGPathCloseSubpath(shape);
+                    break;
+            }
+        }
+        CGContextAddPath(context, shape);
+        if (width > 0) {
+            CGContextSetLineWidth(context, width);
+            CGContextSetLineCap(context, path.cap);
+            CGContextSetLineJoin(context, kCGLineJoinRound);
+            CGContextStrokePath(context);
+        } else {
+            path.evenOdd ? CGContextEOFillPath(context) : CGContextFillPath(context);
+        }
+        CGPathRelease(shape);
+    }
+    CGContextRestoreGState(context);
+    return YES;
 }
 
 // ---------------------------------------------------------------------- the smoke (LightField)
@@ -587,9 +798,10 @@ static const double kWordmarkInkLeft = 0.0216, kWordmarkInkRight = 0.9774;
     [disc fill];
     [THEME_BADGE_EDGE setStroke];
     [disc stroke];
-    CGFloat side = circle.size.width * 0.563;   // UiTheme.DrawIconArt
-    DrawArt(self.icon, NSMakeRect(NSMidX(circle) - side / 2, NSMidY(circle) - side / 2, side, side),
-            self.dimmed ? THEME_TEXT_FAINT : THEME_GLYPH, NO);
+    CGFloat side = round(circle.size.width * 0.563);   // UiTheme.DrawIconArt
+    NSRect iconBox = NSMakeRect(NSMidX(circle) - side / 2, NSMidY(circle) - side / 2, side, side);
+    NSColor *iconColor = self.dimmed ? THEME_TEXT_FAINT : THEME_GLYPH;
+    if (!DrawVectorIcon(self.icon, iconBox, iconColor)) DrawArt(self.icon, iconBox, iconColor, NO);
     CGFloat left = S(120), textWidth = width - left - S(self.textRight > 0 ? self.textRight : 40);
     // Windows draws each from a point (title at header/2 - 30, subtitle at header/2 + 4),
     // which puts the baselines about 30 apart.
@@ -873,6 +1085,12 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
     {"Installed:", "Finishing…", 99},
     {"Removing KMRP from", "Restoring original files…", 20},
     {"KMRP removed", "Finishing…", 99},
+    // apply-settings (Apply New Settings)
+    {"Applying new settings to", "Applying settings…", 10},
+    {"Adding ", "Adding a patch…", 30},
+    {"Taking out ", "Taking out a patch…", 30},
+    {"The settings are applied by installing", "Installing again…", 5},
+    {"Applied:", "Finishing…", 99},
 };
 
 @interface KMRPInstaller : NSObject <NSApplicationDelegate, NSWindowDelegate>
@@ -881,7 +1099,13 @@ static const struct { const char *prefix, *stage; int percent; } kStages[] = {
 @property (nonatomic, strong) KMRPCard *card;
 @property (nonatomic, strong) KMRPStep *stepGame, *stepVerify, *stepResolution, *stepApply;
 @property (nonatomic, strong) KMRPState *verifyState, *resolutionState, *applyState;
-@property (nonatomic, strong) KMRPPill *browseButton, *actionButton, *settingsButton;
+@property (nonatomic, strong) KMRPPill *browseButton, *actionButton, *settingsButton, *applyButton;
+// The settings of the install there (status's map_notes=, controller=, ...), nil when none or not
+// known; and whether it is an install for KotOR Patch Manager, whose options are KPM's.
+@property (nonatomic, copy) NSDictionary<NSString *, NSNumber *> *installedSettings;
+@property (nonatomic) BOOL installedForKpm;
+@property (nonatomic) NSRect actionDesign;   // the action button's whole width, design units
+@property (nonatomic, weak) KMRPPill *progressButton;   // the button a run shows its progress on
 @property (nonatomic, strong) KMRPCard *settingsView;
 @property (nonatomic, strong) KMRPToggle *markerToggle, *iconsToggle, *emptyToggle, *controllerToggle, *fpsToggle, *debugToggle;
 @property (nonatomic, strong) NSMutableArray<NSView *> *mainViews;
@@ -1035,10 +1259,17 @@ static BOOL HighFpsAuto(void) { return DisplayRefresh() >= 62; }
     self.stepApply.textRight = 300;
 
     const CGFloat actionWidth = cardWidth - 160 - actionGap - actionHeight;
-    self.actionButton = [self pill:@"Start Patching" frame:NSMakeRect(80, actionTop, actionWidth, actionHeight) action:@selector(act:)];
+    self.actionDesign = NSMakeRect(80, actionTop, actionWidth, actionHeight);
+    self.actionButton = [self pill:@"Start Patching" frame:self.actionDesign action:@selector(act:)];
     self.actionButton.primary = YES;
     [self.card addSubview:self.actionButton];
     [self.mainViews addObject:self.actionButton];
+    // Apply New Settings, beside Restore Original while a setting differs from the install's
+    // (Windows' MainForm since 2026-11-10); hidden otherwise.
+    self.applyButton = [self pill:@"Apply New Settings" frame:self.actionDesign action:@selector(applySettings:)];
+    self.applyButton.primary = YES;
+    self.applyButton.hidden = YES;
+    [self.card addSubview:self.applyButton];
     self.settingsButton = [self pill:@"" frame:NSMakeRect(80 + actionWidth + actionGap, actionTop, actionHeight, actionHeight)
                               action:@selector(openSettings:)];
     self.settingsButton.subtle = YES;
@@ -1227,6 +1458,7 @@ static BOOL HighFpsAuto(void) { return DisplayRefresh() >= 62; }
         for (NSView *view in outgoing) view.animator.alphaValue = 0;
     } completionHandler:^{
         for (NSView *view in outgoing) { view.hidden = YES; view.alphaValue = 1; }
+        if (!open) [self updateView];   // back on the main page: Apply New Settings if a setting changed
     }];
 }
 
@@ -1358,6 +1590,8 @@ static BOOL HighFpsAuto(void) { return DisplayRefresh() >= 62; }
         self.replacesKpm = NO;
         self.forKpm = NO;
         self.installedSize = nil;
+        self.installedSettings = nil;
+        self.installedForKpm = NO;
         // kmrp-mac.sh names the Mac App Store's game in its status line, and in what it recorded
         // of an install for it.
         self.appStore = [output containsString:@"Mac App Store"] || [output containsString:@"store=mac-app-store"];
@@ -1371,6 +1605,13 @@ static BOOL HighFpsAuto(void) { return DisplayRefresh() >= 62; }
             self.installed = YES;
             self.incomplete = ![output containsString:@"complete=1"];
             self.installedSize = Value(output, @"resolution=");
+            NSMutableDictionary *settings = [NSMutableDictionary dictionary];
+            for (NSString *key in @[@"map_notes", @"hd_icons", @"marked_empty", @"controller", @"high_fps", @"debug_logs"]) {
+                NSString *value = Value(output, [key stringByAppendingString:@"="]);
+                if (value.length) settings[key] = @(value.integerValue != 0);
+            }
+            self.installedSettings = settings.count == 6 ? settings : nil;
+            self.installedForKpm = [Value(output, @"for_kpm=") isEqualToString:@"1"];
         }
         self.statusLoaded = YES;
         [self updateView];
@@ -1443,10 +1684,48 @@ static BOOL HighFpsAuto(void) { return DisplayRefresh() >= 62; }
         [self.applyState set:self.statusLoaded ? @"Not patched" : @"" color:THEME_TEXT_MUTED badge:nil];
         self.stepApply.subtitle = @"Patches will be applied to make KOTOR modern-ready.";
     }
+    // A setting changed since the install: Restore Original and Apply New Settings side by side,
+    // and step 4 says what changes.
+    NSArray<NSString *> *changes = done ? [self settingChanges] : @[];
+    const BOOL apply = changes.count > 0;
+    if (apply) {
+        [self.applyState set:@"Settings changed" color:THEME_ACCENT badge:nil];
+        self.stepApply.subtitle = [changes componentsJoinedByString:@"   ·   "];
+    }
+    const NSRect whole = self.actionDesign;
+    const CGFloat gap = 12, half = (whole.size.width - gap) / 2;
+    const NSRect left = apply ? NSMakeRect(whole.origin.x, whole.origin.y, half, whole.size.height) : whole;
+    self.actionButton.frame = NSMakeRect(S(left.origin.x), S(left.origin.y), S(left.size.width), S(left.size.height));
+    self.applyButton.frame = NSMakeRect(S(whole.origin.x + half + gap), S(whole.origin.y), S(half), S(whole.size.height));
+    self.actionButton.primary = !apply;
+    self.applyButton.hidden = !apply || !self.settingsView.hidden;
+    self.applyButton.enabled = apply && !self.checking;
+    if (apply && ![self.mainViews containsObject:self.applyButton]) [self.mainViews addObject:self.applyButton];
+    if (!apply) [self.mainViews removeObject:self.applyButton];
     self.actionButton.text = self.installed ? @"Restore Original" : @"Start Patching";
     self.actionButton.enabled = self.statusLoaded && !self.checking && (self.installed || self.gameReady);
     self.browseButton.enabled = YES;
     self.settingsButton.enabled = YES;
+    [self.actionButton setNeedsDisplay:YES];
+}
+
+// What Advanced Settings would change in the install there, one line a setting; none when the
+// install's settings are not known, or KotOR Patch Manager chooses them.
+- (NSArray<NSString *> *)settingChanges {
+    NSDictionary<NSString *, NSNumber *> *was = self.installedSettings;
+    if (!was || self.installedForKpm || self.incomplete) return @[];
+    NSMutableArray<NSString *> *lines = [NSMutableArray array];
+    void (^compare)(NSString *, NSString *, BOOL) = ^(NSString *key, NSString *name, BOOL now) {
+        if (was[key].boolValue != now)
+            [lines addObject:[NSString stringWithFormat:@"%@: %@ → %@", name, was[key].boolValue ? @"On" : @"Off", now ? @"On" : @"Off"]];
+    };
+    compare(@"controller", @"Controller Support", self.controllerToggle.on);
+    compare(@"map_notes", @"Map Marker Fixes", self.markerToggle.on);
+    compare(@"hd_icons", @"HD Item Icons", self.iconsToggle.on);
+    compare(@"high_fps", @"High FPS Fix", self.fpsToggle.on);
+    compare(@"marked_empty", @"Marked Empty Containers", self.emptyToggle.on);
+    compare(@"debug_logs", @"Debug Logs", self.debugToggle.on);
+    return lines;
 }
 
 - (void)chooseGame:(id)sender {
@@ -1475,13 +1754,29 @@ static BOOL HighFpsAuto(void) { return DisplayRefresh() >= 62; }
     [arguments addObjectsFromArray:self.gameArguments];
     // The game starts at the size macOS is set to, and lists what the display supports.
     [arguments addObjectsFromArray:@[@"--resolution", @"current"]];
+    [arguments addObjectsFromArray:[self optionArguments]];
+    [self runOperation:@"Patch" arguments:arguments];
+}
+
+- (NSArray<NSString *> *)optionArguments {
+    NSMutableArray *arguments = [NSMutableArray array];
     if (!self.markerToggle.on) [arguments addObject:@"--no-map-notes"];
     if (!self.iconsToggle.on) [arguments addObject:@"--no-hd-icons"];
     if (!self.emptyToggle.on) [arguments addObject:@"--no-marked-empty"];
     if (!self.controllerToggle.on) [arguments addObject:@"--no-controller"];
     [arguments addObject:self.fpsToggle.on ? @"--high-fps" : @"--no-high-fps"];
     if (self.debugToggle.on) [arguments addObject:@"--debug-logs"];
-    [self runOperation:@"Patch" arguments:arguments];
+    return arguments;
+}
+
+// Only what the settings own changes (kmrp-mac.sh apply-settings); where that cannot be done the
+// script installs again, and says why.
+- (void)applySettings:(id)sender {
+    NSMutableArray *arguments = [NSMutableArray arrayWithObjects:self.script, @"apply-settings", @"--yes", nil];
+    [arguments addObjectsFromArray:self.gameArguments];
+    [arguments addObjectsFromArray:@[@"--resolution", @"current"]];
+    [arguments addObjectsFromArray:[self optionArguments]];
+    [self runOperation:@"Apply" arguments:arguments];
 }
 
 - (void)restore {
@@ -1493,17 +1788,21 @@ static BOOL HighFpsAuto(void) { return DisplayRefresh() >= 62; }
 // is happening; a failure is a blocking message with the script's own words.
 - (void)runOperation:(NSString *)name arguments:(NSArray<NSString *> *)arguments {
     if (self.running) return;
-    BOOL patch = [name isEqualToString:@"Patch"];
+    BOOL patch = [name isEqualToString:@"Patch"], settings = [name isEqualToString:@"Apply"];
     self.running = YES;
     [self.output setString:@""];
     self.percent = 0;
-    self.stage = patch ? @"Preparing patch…" : @"Preparing restore…";
+    self.stage = patch ? @"Preparing patch…" : settings ? @"Applying settings…" : @"Preparing restore…";
+    // The progress is shown on the button pressed: Apply New Settings has its own.
+    self.progressButton = settings ? self.applyButton : self.actionButton;
+    if (settings) self.actionButton.enabled = NO;
     [self showProgress];
     self.browseButton.enabled = NO;
     self.settingsButton.enabled = NO;
-    [self.applyState set:patch ? @"Patching…" : @"Restoring…" color:THEME_ACCENT badge:nil];
+    [self.applyState set:patch ? @"Patching…" : settings ? @"Applying…" : @"Restoring…" color:THEME_ACCENT badge:nil];
     self.stepApply.subtitle = patch ? @"KMRP is updating your game. Please wait."
-                                    : @"KMRP is restoring your original files. Please wait.";
+                            : settings ? @"KMRP is changing only the settings that changed. Please wait."
+                                       : @"KMRP is restoring your original files. Please wait.";
     NSArray *shown = [arguments subarrayWithRange:NSMakeRange(1, arguments.count - 1)];
     [self appendLogFile:[NSString stringWithFormat:@"\n== %@ %@: kmrp-mac.sh %@\n", [NSDate date], name,
                                                    [shown componentsJoinedByString:@" "]]];
@@ -1511,13 +1810,18 @@ static BOOL HighFpsAuto(void) { return DisplayRefresh() >= 62; }
         self.running = NO;
         self.percent = -1;
         self.actionButton.progress = -1;
+        self.applyButton.progress = -1;
+        self.applyButton.text = @"Apply New Settings";
+        self.progressButton = nil;
         [self appendLogFile:[NSString stringWithFormat:@"== exit status %d\n", status]];
         [self refreshStatus];
         if (status == 0) {
-            [self.applyState set:patch ? @"Patched successfully" : @"Restored successfully" color:THEME_SUCCESS badge:nil];
+            [self.applyState set:patch ? @"Patched successfully" : settings ? @"Settings applied" : @"Restored successfully"
+                           color:THEME_SUCCESS badge:nil];
         } else {
             [self.applyState set:@"Error" color:THEME_ERROR badge:nil];
-            self.stepApply.subtitle = [name stringByAppendingString:@" stopped. What it had done was undone."];
+            self.stepApply.subtitle = settings ? @"Applying the settings stopped. Open Log shows where."
+                                               : [name stringByAppendingString:@" stopped. What it had done was undone."];
             [self tell:[name stringByAppendingString:@" blocked"] text:[self failure:output]];
         }
         [self finishAutomation];
@@ -1525,8 +1829,9 @@ static BOOL HighFpsAuto(void) { return DisplayRefresh() >= 62; }
 }
 
 - (void)showProgress {
-    self.actionButton.progress = self.percent;
-    self.actionButton.text = [NSString stringWithFormat:@"%@   %d%%", self.stage, self.percent];
+    KMRPPill *button = self.progressButton ?: self.actionButton;
+    button.progress = self.percent;
+    button.text = [NSString stringWithFormat:@"%@   %d%%", self.stage, self.percent];
     static BOOL snapped;
     if (self.percent >= 34 && !snapped) {   // a scripted check sees the progress fill once
         snapped = YES;
@@ -1686,6 +1991,7 @@ static BOOL HighFpsAuto(void) { return DisplayRefresh() >= 62; }
         BOOL can = self.actionButton.enabled;
         if ([run isEqualToString:@"install"] && can && !self.installed) [self patch];
         else if ([run isEqualToString:@"uninstall"] && can && self.installed) [self restore];
+        else if ([run isEqualToString:@"apply"] && !self.applyButton.hidden && self.applyButton.enabled) [self applySettings:nil];
         else {
             if (run.length) [self.output appendFormat:@"KMRPRun %@: the action is not available\n", run];
             [self finishAutomation];

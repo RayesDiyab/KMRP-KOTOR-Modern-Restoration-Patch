@@ -278,6 +278,14 @@ step "The patches: FTD's Widescreen Patch and Stray Bug Fixes, KMRP's own on top
 # to an unpatched game in KotOR Patch Manager gets it.
 STRAY="$FTD_PATCHES_DIR/K1StrayBugFixes"
 [[ -f "$STRAY/manifest.toml" ]] || { print -u2 "no Patches/K1StrayBugFixes in $KPM"; exit 2; }
+# Three more of KotOR Patch Manager's Mac patches, installed with FTD's two since 2026-11-13 (the
+# maintainer: "all five" of what was new upstream): K1 Shader Fixes (FTD, J, Synchro, Vriff),
+# the MP3 Playback Fix (Synchro, FTD, Vriff, Lane) and Anti-Crash Prophylactics. KMRP requires
+# none of them and none requires another; each is staged after FTD's two, before KMRP's own.
+INCLUDED=("$FTD_PATCHES_DIR/K1ShaderFixes" "$FTD_PATCHES_DIR/MP3PlaybackFix" "$FTD_PATCHES_DIR/AntiCrashProphylactics")
+for source in $INCLUDED; do
+    [[ -f "$source/manifest.toml" ]] || { print -u2 "no Patches/${source:t} in $FTD_PATCHES_DIR"; exit 2; }
+done
 grep -q K1Widescreen_UseGuiFileLayouts "$WIDESCREEN/mac_widescreen.cpp" || {
     print -u2 "the Widescreen Patch in $WIDESCREEN has no entry points for KMRP (K1Widescreen_UseGuiFileLayouts): KMRP needs FTD's patch with its 2026-10-04 adjustment. Pass --kpm with a KotOR Patch Manager tree that has it."
     exit 2
@@ -285,7 +293,7 @@ grep -q K1Widescreen_UseGuiFileLayouts "$WIDESCREEN/mac_widescreen.cpp" || {
 dotnet build "$HERE/tools/kpm-cli" -c Release -p:KpmRoot="$KPM" -o "$BUILD/kpm-cli" >/dev/null
 KPMCLI=(dotnet "$BUILD/kpm-cli/kpm-cli.dll")
 mkdir -p "$PKG/engine" "$BUILD/kpatch/ftd" "$BUILD/kpatch/kmrp"
-for source in "$STRAY" "$WIDESCREEN"; do
+for source in "$STRAY" "$WIDESCREEN" $INCLUDED; do
     patch=${source:t}
     (cd "$source" && "$PYTHON" "$KPM/Patches/create-patch.py" -o "$BUILD/kpatch/ftd" >"$BUILD/kpatch/ftd/$patch.log" 2>&1) ||
         { cat "$BUILD/kpatch/ftd/$patch.log" >&2; print -u2 "$patch does not build"; exit 1; }
@@ -304,7 +312,9 @@ PATCH_ARGS=(--layout "$HERE/patches/kmrp-layout" --notes "$HERE/patches/kmrp-map
 # installed while High FPS Fix is on, as on Windows. It needs none of the others.
 HFPS="High FPS Fixes (macOS)"
 "$PYTHON" "$HERE/tools/make_high_fps_patch.py" --exe "$EXE" --out "$BUILD/kpatch/kmrp/$HFPS.kpatch"
-FTD_PATCHES=("$BUILD/kpatch/ftd/K1StrayBugFixes.kpatch" "$BUILD/kpatch/ftd/K1WidescreenPatch.kpatch")
+FTD_TWO=("$BUILD/kpatch/ftd/K1StrayBugFixes.kpatch" "$BUILD/kpatch/ftd/K1WidescreenPatch.kpatch")
+FTD_PATCHES=($FTD_TWO "$BUILD/kpatch/ftd/K1ShaderFixes.kpatch" "$BUILD/kpatch/ftd/MP3PlaybackFix.kpatch"
+             "$BUILD/kpatch/ftd/AntiCrashProphylactics.kpatch")
 for patch in "KMRP-macOS" "KOTOR 1 Native Controller Mod + Xbox HUD (macOS)" "$HFPS"; do
     $KPMCLI validate "$BUILD/kpatch/kmrp/$patch.kpatch" "$EXE" | { grep -v DEBUG || true; }
 done
@@ -318,7 +328,7 @@ $KPMCLI stage-many "$EXE" "$BUILD/engine/kmrp.high-fps" $FTD_PATCHES "$BUILD/kpa
 $KPMCLI stage-many "$EXE" "$BUILD/engine/kmrp.controller-off.high-fps" $FTD_PATCHES "$BUILD/kpatch/kmrp/KMRP-macOS.kpatch" \
     "$BUILD/kpatch/kmrp/$HFPS.kpatch" | { grep -v DEBUG || true; }
 $KPMCLI stage-many "$EXE" "$BUILD/engine/controller-alone" "$BUILD/kpatch/kmrp/KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch" | { grep -v DEBUG || true; }
-$KPMCLI stage-many "$EXE" "$BUILD/engine/controller-widescreen" $FTD_PATCHES "$BUILD/kpatch/kmrp/KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch" | { grep -v DEBUG || true; }
+$KPMCLI stage-many "$EXE" "$BUILD/engine/controller-widescreen" $FTD_TWO "$BUILD/kpatch/kmrp/KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch" | { grep -v DEBUG || true; }
 # The same modules whichever list: the choice is which patches are in it.
 for module in kmrp k1widescreenpatch k1-stray-bug-fixes-patch; do
     cmp -s "$BUILD/engine/kmrp/patches/$module.dylib" "$BUILD/engine/kmrp.controller-off/patches/$module.dylib" \
@@ -338,10 +348,13 @@ def staged(name):
 kmrp_hooks, kmrp = declared("KMRP-macOS.kpatch")
 pad_hooks, pad = declared("KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch")
 ftd = ["k1-stray-bug-fixes-patch", "k1widescreenpatch"]
+# Installed with them since 2026-11-13, each a patch of its own that requires nothing.
+included = ["k1-shader-fixes", "mp3-playback-fix", "anti-crash-prophylactics"]
+base = ftd + included
 hfps_hooks, hfps = declared("High FPS Fixes (macOS).kpatch")
-expected = {"kmrp": ftd + ["kmrp", "kmrp-controller"], "kmrp.controller-off": ftd + ["kmrp"],
-            "kmrp.high-fps": ftd + ["kmrp", "kmrp-controller", "high-fps-fixes"],
-            "kmrp.controller-off.high-fps": ftd + ["kmrp", "high-fps-fixes"],
+expected = {"kmrp": base + ["kmrp", "kmrp-controller"], "kmrp.controller-off": base + ["kmrp"],
+            "kmrp.high-fps": base + ["kmrp", "kmrp-controller", "high-fps-fixes"],
+            "kmrp.controller-off.high-fps": base + ["kmrp", "high-fps-fixes"],
             "controller-alone": ["kmrp-controller"], "controller-widescreen": ftd + ["kmrp-controller"]}
 lists = {}
 for name, order in expected.items():
@@ -363,15 +376,15 @@ for name in expected:
         sys.exit(f"{name}: the controller patch's staged hook list is not the patch's")
     if "high-fps-fixes" in lists[name] and lists[name]["high-fps-fixes"] != [h["address"] for h in hfps_hooks]:
         sys.exit(f"{name}: High FPS Fixes' staged hook list is not the patch's")
-if hfps["requires"] or {"kmrp", "kmrp-controller", *ftd} & set(hfps["conflicts"]):
+if hfps["requires"] or {"kmrp", "kmrp-controller", *base} & set(hfps["conflicts"]):
     sys.exit(f"High FPS Fixes requires {hfps['requires']}, conflicts {hfps['conflicts']}")
 print(f"KMRP-macOS.kpatch: {len(kmrp_hooks)} hooks; KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch: {len(pad_hooks)} hooks, options "
       f"{', '.join(o['id'] for o in pad['options'])}; with FTD's {len(lists['kmrp'][ftd[0]])} and {len(lists['kmrp'][ftd[1]])}; "
-      f"High FPS Fixes (macOS).kpatch: {len(hfps_hooks)} hooks")
+      f"High FPS Fixes (macOS).kpatch: {len(hfps_hooks)} hooks; " + ", ".join(f"{i} {len(lists['kmrp'][i])}" for i in included) + " hooks")
 PY
 # The modules are not packaged a second time: KMRP's is 150 MB with the menu sets inside, and the
 # installer takes each out of its .kpatch, as KPM does (binaries/macos_x86_64.dylib).
-for pair in "kmrp:kmrp/KMRP-macOS.kpatch" "kmrp-controller:kmrp/KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch" k1widescreenpatch:ftd/K1WidescreenPatch.kpatch k1-stray-bug-fixes-patch:ftd/K1StrayBugFixes.kpatch "high-fps-fixes:kmrp/High FPS Fixes (macOS).kpatch"; do
+for pair in "kmrp:kmrp/KMRP-macOS.kpatch" "kmrp-controller:kmrp/KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch" k1widescreenpatch:ftd/K1WidescreenPatch.kpatch k1-stray-bug-fixes-patch:ftd/K1StrayBugFixes.kpatch "high-fps-fixes:kmrp/High FPS Fixes (macOS).kpatch" mp3-playback-fix:ftd/MP3PlaybackFix.kpatch; do
     staged=kmrp; [[ "${pair%%:*}" == high-fps-fixes ]] && staged=kmrp.high-fps
     cmp -s "$BUILD/engine/$staged/patches/${pair%%:*}.dylib" <(unzip -p "$BUILD/kpatch/${pair#*:}" binaries/macos_x86_64.dylib) \
         || { print -u2 "the staged ${pair%%:*} module is not the one in its .kpatch"; exit 1; }
@@ -383,7 +396,9 @@ cp "$BUILD/engine/kmrp.controller-off.high-fps/patch_config.toml" "$PKG/engine/p
 # The patches themselves, which the installer takes the modules from and puts in KotOR Patch
 # Manager's patch folder, as the Windows installer does with its .kpatch files, so KPM lists them.
 cp "$BUILD/kpatch/kmrp/KMRP-macOS.kpatch" "$BUILD/kpatch/kmrp/KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch" \
-    "$BUILD/kpatch/ftd/K1WidescreenPatch.kpatch" "$BUILD/kpatch/ftd/K1StrayBugFixes.kpatch" "$BUILD/kpatch/kmrp/$HFPS.kpatch" "$PKG/engine/"
+    "$BUILD/kpatch/ftd/K1WidescreenPatch.kpatch" "$BUILD/kpatch/ftd/K1StrayBugFixes.kpatch" "$BUILD/kpatch/kmrp/$HFPS.kpatch" \
+    "$BUILD/kpatch/ftd/K1ShaderFixes.kpatch" "$BUILD/kpatch/ftd/MP3PlaybackFix.kpatch" "$BUILD/kpatch/ftd/AntiCrashProphylactics.kpatch" \
+    "$PKG/engine/"
 cp "$BUILD/KotorPatcher.dylib" "$BANK" "$PKG/engine/"
 cp "$SDL_DIR/LICENSE.txt" "$PKG/licenses/SDL3-LICENSE.txt"
 cp "$ROOT/third_party/Included/HighFpsFixes-1.0.1 by D3M0/LICENSE" "$PKG/licenses/High-FPS-Fixes-D3M0-LICENSE.txt"
@@ -408,12 +423,13 @@ if [[ -n "$APPSTORE_EXE" && -f "$APPSTORE_EXE" && "$(shasum -a 256 "$APPSTORE_EX
     ln -s "$AS/src/macos/patches" "$AS/src/kmrp"
     "$PYTHON" "$ASTOOLS/translate.py" "$EXE" "$APPSTORE_EXE" "$AS/map.json"
     for pair in "${WIDESCREEN}:ftd/K1WidescreenPatch" "${STRAY}:ftd/K1StrayBugFixes" \
+                "${INCLUDED[1]}:ftd/K1ShaderFixes" "${INCLUDED[2]}:ftd/MP3PlaybackFix" "${INCLUDED[3]}:ftd/AntiCrashProphylactics" \
                 "$HERE/patches/kmrp-layout:kmrp/kmrp-layout" "$HERE/patches/kmrp-assets:kmrp/kmrp-assets" \
                 "$HERE/patches/kmrp-map-notes:kmrp/kmrp-map-notes" "$HERE/patches/kmrp-controller:kmrp/kmrp-controller" \
                 "$HERE/patches/high-fps-fixes:kmrp/high-fps-fixes"; do
         "$PYTHON" "$ASTOOLS/rewrite_sources.py" "$AS/map.json" "${pair%%:*}" "$AS/src/${pair#*:}" "$EXE" "$APPSTORE_EXE"
     done
-    for patch in K1StrayBugFixes K1WidescreenPatch; do
+    for patch in K1StrayBugFixes K1WidescreenPatch K1ShaderFixes MP3PlaybackFix AntiCrashProphylactics; do
         (cd "$AS/src/ftd/$patch" && "$PYTHON" "$KPM/Patches/create-patch.py" -o "$AS/kpatch" >"$AS/kpatch/$patch.log" 2>&1) ||
             { cat "$AS/kpatch/$patch.log" >&2; print -u2 "$patch does not build from the translated sources"; exit 1; }
     done
@@ -427,7 +443,19 @@ if [[ -n "$APPSTORE_EXE" && -f "$APPSTORE_EXE" && "$(shasum -a 256 "$APPSTORE_EX
     "$PYTHON" "$HERE/tools/make_high_fps_patch.py" --exe "$EXE" --source "$AS/src/kmrp/high-fps-fixes" \
         --out "$AS/kpatch/$HFPS.kpatch" >/dev/null
     for staged in kmrp kmrp.controller-off kmrp.high-fps kmrp.controller-off.high-fps; do
-        "$PYTHON" "$ASTOOLS/make_runtime.py" "$AS/map.json" "$EXE" "$APPSTORE_EXE" "$BUILD/engine/$staged/patch_config.toml" \
+        # K1 Shader Fixes stays Steam's (2026-11-13): most of its hooks write new code into gaps of
+        # Steam's KOTOR_Exe around 0x100525000 and data at 0x1005c8e5c, which the App Store's file
+        # matches with no instruction (translate.py), so its list is the other patches'.
+        mkdir -p "$AS/staged/$staged"
+        "$PYTHON" - "$BUILD/engine/$staged/patch_config.toml" "$AS/staged/$staged/patch_config.toml" <<'PY'
+import re, sys
+text = open(sys.argv[1]).read()
+head, *blocks = re.split(r"(?m)^(?=\[\[patches\]\]$)", text)
+kept = [b for b in blocks if not re.search(r'(?m)^id = "k1-shader-fixes"$', b)]
+assert len(kept) == len(blocks) - 1, "no K1 Shader Fixes in the staged list"
+open(sys.argv[2], "w").write(head + "".join(kept))
+PY
+        "$PYTHON" "$ASTOOLS/make_runtime.py" "$AS/map.json" "$EXE" "$APPSTORE_EXE" "$AS/staged/$staged/patch_config.toml" \
             "$BUILD/KotorPatcher.dylib" "$AS/rt/$staged" "$AS/kpatch" > "$AS/rt-$staged.log" ||
             { cat "$AS/rt-$staged.log" >&2; print -u2 "the hook list $staged does not translate"; exit 1; }
         tail -1 "$AS/rt-$staged.log"
@@ -438,7 +466,7 @@ if [[ -n "$APPSTORE_EXE" && -f "$APPSTORE_EXE" && "$(shasum -a 256 "$APPSTORE_EX
     cp "$AS/rt/kmrp.controller-off.high-fps/patch_config.toml" "$PKG/appstore/patch_config.controller-off.high-fps.toml"
     # Each module as what turns Steam's into it (make_delta.py), or whole when the two differ
     # in length. The installer makes the module from the one in Steam's .kpatch.
-    for module in k1-stray-bug-fixes-patch k1widescreenpatch kmrp kmrp-controller high-fps-fixes; do
+    for module in k1-stray-bug-fixes-patch k1widescreenpatch kmrp kmrp-controller high-fps-fixes mp3-playback-fix; do
         new="$AS/rt/kmrp.high-fps/patches/$module.dylib"
         for staged in kmrp kmrp.controller-off kmrp.controller-off.high-fps; do
             [[ ! -f "$AS/rt/$staged/patches/$module.dylib" ]] || cmp -s "$new" "$AS/rt/$staged/patches/$module.dylib" ||
@@ -488,6 +516,12 @@ plutil -lint "$INSTALLER/Contents/Info.plist" >/dev/null
 cp "$ROOT/src/patcher/brand.png" "$INSTALLER/Contents/Resources/"
 for icon in folder shield monitor tools verified missing Settings; do
     cp "$ROOT/src/patcher/icons/$icon.png" "$INSTALLER/Contents/Resources/"
+done
+# The four step icons as vectors too, which the window draws on whole pixels (main.m,
+# DrawVectorIcon, the standard on every installer since 2026-11-04); the pictures above stay for
+# a window that cannot read them.
+for icon in folder shield monitor tools; do
+    cp "$ROOT/src/patcher/icons/$icon.svg" "$INSTALLER/Contents/Resources/"
 done
 # KMRP's icon on the Mac, the disk image's art with it (tools/make_package_art.py): the crest
 # over "KMRP", for the app and, below, for the disk.

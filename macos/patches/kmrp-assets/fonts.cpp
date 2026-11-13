@@ -11,8 +11,12 @@
   new texel the area average of the old ones it covers, so it is drawn one texel to one pixel
   (FitAtlas). Made the first time a size is used, in the cache's fonts folder (CachedFont), and
   linked into the view of the set the game is shown, in place of the set's own files of those
-  names. A font the player's override has is the game's to read from there, and stays out of the
-  view (assets.cpp, PlayerHas): it is drawn at the size KMRP's own would have.
+  names. The view is searched before the override, so the style chosen shows whatever the override
+  holds (handoff item 143, Windows 2026-11-08): Modded Font (FontStyle 3, offered only while the
+  override has a font) shows the override's fonts, fitted to their size when larger
+  (OverrideFontFitted), and Original Font and HD Font show KMRP's own for every name. Until then a
+  font the override had was the game's to read from there whatever the choice, drawn at the size
+  KMRP's own would have.
 
   The sizes are finished at the texture loader's end, before any caller can measure (item 55). The
   TXI load (0x1001f866a, Windows 0x00422AF0) has one common return, and every load passes there:
@@ -78,6 +82,10 @@ struct State {
     std::map<std::string, float> first;     // as first parsed, for a font with no noted height
     std::map<std::string, bool> theirs;     // the override's font names, lower case
     bool listed = false;
+    // The names the newest view holds. The game lists a folder once, when it is given one, so a
+    // view's names are fixed then: a name taken out would be a file the game still lists and
+    // cannot open, one put in would not be seen. Set as a view is prepared, before that.
+    bool inView[18] = {};
     std::string root;   // the cache's folder for this build
     int height = 720;
 };
@@ -120,6 +128,33 @@ bool OverrideFont(const char* name) {
 bool Exists(const std::string& path) {
     struct stat info;
     return lstat(path.c_str(), &info) == 0;
+}
+
+// The path a font name has in the game's override, without extension, or empty.
+std::string OverrideFontBase(const char* name) {
+    const std::string folder = assets::OverrideDirectory();
+    return folder.empty() ? folder : folder + "/" + name;
+}
+// The override's font of a name as a .tga with its .txi and no .tpc: one KMRP can show itself, as
+// it is or fitted (the game prefers a .tpc wherever it is, so one with a .tpc is left to the
+// override).
+bool OverridePair(unsigned i) {
+    const std::string base = OverrideFontBase(kNames[i]);
+    return !base.empty() && Exists(base + ".tga") && Exists(base + ".txi") && !Exists(base + ".tpc");
+}
+
+// FNV-1a over 32-bit parts, a byte at a time, as Windows' over its DWORDs.
+void Mix(std::uint64_t& id, std::uint32_t part) {
+    for (int shift = 0; shift < 32; shift += 8) { id ^= (part >> shift) & 0xFF; id *= 1099511628211ull; }
+}
+void MixFile(std::uint64_t& id, const struct stat& info) {
+    const auto size = static_cast<std::uint64_t>(info.st_size);
+    const auto seconds = static_cast<std::uint64_t>(info.st_mtimespec.tv_sec);
+    Mix(id, static_cast<std::uint32_t>(size >> 32));
+    Mix(id, static_cast<std::uint32_t>(size));
+    Mix(id, static_cast<std::uint32_t>(seconds >> 32));
+    Mix(id, static_cast<std::uint32_t>(seconds));
+    Mix(id, static_cast<std::uint32_t>(info.st_mtimespec.tv_nsec));
 }
 bool ReadFile(const std::string& path, std::vector<unsigned char>& data) {
     FILE* f = fopen(path.c_str(), "rb");
@@ -334,25 +369,99 @@ bool CachedFont(const char* prefix, unsigned i, float sized, bool fitted, std::s
     return ok;
 }
 
-// The style's fonts at the sizes in use, as links in `view`. Every source is checked to be there
-// before anything changes.
-bool LinkFonts(const std::string& view) {
+// A font the override has as a .tga with its .txi, fitted to the size it is drawn at as KMRP's own
+// HD fonts are (FitAtlas), in the cache's fonts folder (handoff item 143). Until then such a font
+// only had its metrics scaled, and the game shrank its whole atlas each time it drew: the KMRP
+// Font Converter writes six times the original size, 2 to 3 times larger than drawn at 1080 and
+// 1440 lines, with no mipmaps. The mod's files are read, never changed: the copy is made from
+// them, under a name of their sizes and times. False, and the font shown as it is, for a .tpc,
+// no .txi, an atlas that is not uncompressed 32-bit, or one at or below the size.
+bool OverrideFontFitted(unsigned i, float sized, std::string& txiPath, std::string& tgaPath) {
+    const std::string base = OverrideFontBase(kNames[i]);
+    struct stat tgaInfo, txiInfo;
+    if (base.empty() || Exists(base + ".tpc") || stat((base + ".tga").c_str(), &tgaInfo) != 0 ||
+        stat((base + ".txi").c_str(), &txiInfo) != 0) return false;
+    std::uint64_t id = 1469598103934665603ull;   // a changed file is a new name
+    MixFile(id, tgaInfo);
+    MixFile(id, txiInfo);
+    unsigned bits;
+    std::memcpy(&bits, &sized, sizeof bits);
+    char number[64];
+    std::snprintf(number, sizeof number, "-%016llX-%08X", static_cast<unsigned long long>(id), bits);
+    const std::string folder = TheState().root + "/fonts";
+    mkdir(folder.c_str(), 0755);
+    const std::string cached = folder + "/ovr-" + kNames[i] + number;
+    txiPath = cached + ".txi";
+    tgaPath = cached + ".tga";
+    if (Exists(txiPath) && Exists(tgaPath)) return true;
+    std::vector<unsigned char> txi, tga;
+    if (!ReadFile(base + ".txi", txi)) return false;
+    const float own = FontHeightOf(txi);
+    if (!(own > 0.001f) || !(sized < own)) return false;   // only ever made smaller
+    if (!ReadFile(base + ".tga", tga) || tga.size() < 18 || tga[1] != 0 || tga[2] != 2 || tga[16] != 32) return false;
+    const int width = tga[12] | (tga[13] << 8), height = tga[14] | (tga[15] << 8);
+    int newWidth = 0;
+    if (!FontTxiAtHeight(txi, sized) || !FitAtlas(tga, sized / own, newWidth) ||
+        !SetTxiField(txi, "texturewidth", newWidth / 100.0)) return false;
+    const std::string work = ".tmp" + std::to_string(getpid());
+    const bool ok = WriteNew(tgaPath + work, tga) && rename((tgaPath + work).c_str(), tgaPath.c_str()) == 0 &&
+        WriteNew(txiPath + work, txi) && rename((txiPath + work).c_str(), txiPath.c_str()) == 0;
+    unlink((tgaPath + work).c_str());
+    unlink((txiPath + work).c_str());
+    if (ok)
+        std::fprintf(stderr, "[KMRP] the override's font %s fitted from %dx%d to %dx%d (%.3f) for the size in use\n",
+                     kNames[i], width, height, tga[12] | (tga[13] << 8), tga[14] | (tga[15] << 8), sized / own);
+    return ok;
+}
+
+// A file of the override copied into `to`, never linked: a hard link is the mod's own file.
+bool CopyIn(const std::string& from, const std::string& to) {
+    std::vector<unsigned char> data;
+    unlink(to.c_str());
+    return ReadFile(from, data) && WriteNew(to, data);
+}
+
+// The style's fonts at the sizes in use, as links in `view`. Every source of KMRP's is checked to
+// be there before anything changes. `fresh`: a view the game has not listed yet, whose names are
+// chosen here (State::inView); every other only has its names relinked. Modded Font shows a font
+// the override has as a .tga and .txi from there, fitted when larger and else as it is; any other
+// font of the override's (one with a .tpc, or part of a pair) is left out of the view so the game
+// reads it from the override; KMRP's HD Font stands in for the names the override lacks.
+bool LinkFonts(const std::string& view, bool fresh) {
     if (view.empty()) return false;
+    State& state = TheState();
     const int style = textfit::FontStyle();
+    const bool modded = style == Modded;
     const bool fitted = style != Original;
     const char* const prefix = style == Original ? "kmrfog" : "kmrfho";
+    if (fresh)
+        for (unsigned i = 0; i < 18; ++i) state.inView[i] = !(modded && OverrideFont(kNames[i]) && !OverridePair(i));
+    const auto theirs = [&](unsigned i) { return modded && OverrideFont(kNames[i]) && OverridePair(i); };
     for (unsigned i = 0; i < 18; ++i) {
-        if (OverrideFont(kNames[i])) continue;
+        if (!state.inView[i] || theirs(i)) continue;
         std::string txi, tga;
         float target, sized;
-        if (!FontSizes(i, TheState().height, target, sized) || !CachedFont(prefix, i, sized, fitted, txi, tga)) return false;
+        if (!FontSizes(i, state.height, target, sized) || !CachedFont(prefix, i, sized, fitted, txi, tga)) return false;
     }
     for (unsigned i = 0; i < 18; ++i) {
-        if (OverrideFont(kNames[i])) continue;
+        const std::string name = view + "/" + kNames[i];
+        if (!state.inView[i]) {
+            if (fresh) { unlink((name + ".tga").c_str()); unlink((name + ".txi").c_str()); }
+            continue;
+        }
         float target, sized;
         std::string txi, tga;
-        if (!FontSizes(i, TheState().height, target, sized) || !CachedFont(prefix, i, sized, fitted, txi, tga)) return false;
-        const std::string name = view + "/" + kNames[i];
+        if (!FontSizes(i, state.height, target, sized)) return false;
+        if (theirs(i)) {
+            if (OverrideFontFitted(i, sized, txi, tga)) {
+                if (!Link(tga, name + ".tga") || !Link(txi, name + ".txi")) return false;
+                continue;
+            }
+            const std::string base = OverrideFontBase(kNames[i]);
+            if (!CopyIn(base + ".tga", name + ".tga") || !CopyIn(base + ".txi", name + ".txi")) return false;
+            continue;
+        }
+        if (!CachedFont(prefix, i, sized, fitted, txi, tga)) return false;
         if (!Link(tga, name + ".tga") || !Link(txi, name + ".txi")) return false;
     }
     return true;
@@ -379,13 +488,33 @@ void Prepare(const std::string& whole, const std::string& view, int height) {
             if (own > 0.0f) state.heights[kNames[i]] = own;
         }
     }
-    if (!LinkFonts(view)) fprintf(stderr, "[KMRP] the fonts of the style in use could not be made: the set's stay\n");
+    if (!LinkFonts(view, true)) fprintf(stderr, "[KMRP] the fonts of the style in use could not be made: the set's stay\n");
 }
 
 bool Apply() {
-    const bool linked = LinkFonts(assets::NewestSetDirectory());
+    const bool linked = LinkFonts(assets::NewestSetDirectory(), false);
     assets::ReleaseUnpacked();   // the blocks read for the sources, up to 48 MB, not kept for the run
     return linked;
+}
+
+// The fonts the override has, as listed at the start: 0 when none, else a number of their names,
+// sizes and times, so a new set can be told from one already seen (text_settings.cpp: Modded Font
+// is chosen by itself only for a new set).
+std::uint64_t OverrideFontSet() {
+    std::uint64_t id = 1469598103934665603ull;
+    bool any = false;
+    for (unsigned i = 0; i < 18; ++i) {
+        if (!OverrideFont(kNames[i])) continue;
+        any = true;
+        Mix(id, i);
+        const std::string base = OverrideFontBase(kNames[i]);
+        for (const char* extension : {".tga", ".tpc", ".txi"}) {
+            struct stat info;
+            if (base.empty() || stat((base + extension).c_str(), &info) != 0) { Mix(id, 0xFFFFFFFFu); continue; }
+            MixFile(id, info);
+        }
+    }
+    return any ? (id ? id : 1) : 0;
 }
 
 // Reload as Windows' page does it: all styles keep the same native texture and font objects, the

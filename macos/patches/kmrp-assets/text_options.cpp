@@ -1,7 +1,8 @@
 /*
   KMRP for macOS: the Text Size and Font page. A button in Graphics Options above Advanced Options
   opens a page of the graphics screen's own controls: four text-size sliders, Link Text Sizes, the
-  two fonts (Original Font, HD Font), a preview of each size, the Feat & Skill Icons slider with
+  fonts (Original Font, HD Font, and Modded Font while the game's override has a font, handoff
+  item 143), a preview of each size, the Feat & Skill Icons slider with
   its preview, and Default, Save and Close. The port of src/controller-native/K1TextOptions.cpp,
   whose comments give the reasons and the maintainer's requests; docs/ingame-text-options.md
   describes the page. Handoff items 56, 64, 70, 129, 130 and the rows of 133 about this page.
@@ -384,7 +385,11 @@ void Open(void* owner, void* control) {
 }
 void Choose(int value, void* control) {
     Page& p = P();
-    if (Armed() && Pressed(control)) { p.requestedStyle = Style(value); Dirty(); p.releasedFrames = 0; }
+    if (Armed() && Pressed(control)) {
+        p.requestedStyle = Style(value, kmrp::textfit::ModdedOffered());
+        Dirty();
+        p.releasedFrames = 0;
+    }
 }
 void ToggleLink(void*, void* control) {
     Page& p = P();
@@ -392,6 +397,7 @@ void ToggleLink(void*, void* control) {
 }
 void SelectOriginal(void*, void* control) { Choose(Original, control); }
 void SelectHdOriginal(void*, void* control) { Choose(HdOriginal, control); }
+void SelectModded(void*, void* control) { Choose(Modded, control); }
 void Defaults(void*, void* control) {
     Page& p = P();
     if (Armed() && Pressed(control)) {
@@ -483,7 +489,8 @@ void UpdateCaptions() {
         p.displayedLinked = p.requestedSizing.linked;
     }
     if (p.displayedStyle != p.requestedStyle) {
-        for (int i = 0; i < FontChoiceCount; ++i) Checked(p.fontChoices[i], FontChoices[i] == p.requestedStyle);
+        for (int i = 0; i < FontChoiceCount; ++i)
+            if (p.fontChoices[i]) Checked(p.fontChoices[i], FontChoices[i] == p.requestedStyle);
         p.displayedStyle = p.requestedStyle;
         // Right (or left) from "Link Text Sizes" goes to the font chosen.
         if (p.linkSizes) At<void*>(p.linkSizes, kNavLeft) = At<void*>(p.linkSizes, kNavRight) = p.fontChoices[ChoiceOf(p.requestedStyle)];
@@ -552,7 +559,10 @@ void MakeScreen(void* manager, void* owner) {
         kmrp::slider::TakeMouse(s.sliders[i]);   // dragged to the end is the maximum (slider_grip.h)
     }
     s.linkSizes = BindCheckbox(p);
-    for (void*& choice : s.fontChoices) choice = BindCheckbox(p);
+    // Modded Font's row only while it is offered.
+    const bool modded = kmrp::textfit::ModdedOffered();
+    for (int i = 0; i < FontChoiceCount; ++i)
+        s.fontChoices[i] = FontChoices[i] == Modded && !modded ? nullptr : BindCheckbox(p);
     s.help = BindLabel(p, "LBL_GAMMA");
     for (void*& preview : s.previews) preview = BindLabel(p, "LBL_GAMMA");
     s.iconLabel = BindLabel(p, "LBL_GAMMA");
@@ -565,7 +575,8 @@ void MakeScreen(void* manager, void* owner) {
     void* marks[3];   // the pad's Y, X and B beside the three captions (options_pad.h)
     for (void*& mark : marks) mark = BindLabel(p, "LBL_GAMMA");
     StopLoad(p);
-    bool complete = title && s.linkSizes && s.fontChoices[0] && s.fontChoices[1] && s.help && defaults && back && save &&
+    bool complete = title && s.linkSizes && s.fontChoices[0] && s.fontChoices[1] && (!modded || s.fontChoices[2]) &&
+                    s.help && defaults && back && save &&
                     marks[0] && marks[1] && marks[2] && s.iconLabel && s.iconSlider;
     for (int i = 0; i < TextGroupCount; ++i) complete = complete && s.sizeLabels[i] && s.sliders[i] && s.previews[i];
     for (void* icon : s.iconPreviews) complete = complete && icon;
@@ -654,6 +665,7 @@ void MakeScreen(void* manager, void* owner) {
     const int margin = (std::max)(2, desc.height / 32);
     Rect choiceRect{desc.left, desc.top + margin, desc.width, RectOf(owner, "BTN_RESOLUTION").height};
     for (int i = 0; i < FontChoiceCount; ++i) {
+        if (!s.fontChoices[i]) continue;
         PlaceCheckbox(s.fontChoices[i], choiceRect, gap);
         choiceRect.top += choiceRect.height + gap;
     }
@@ -695,6 +707,10 @@ void MakeScreen(void* manager, void* owner) {
     AddEvent(s.linkSizes, kEventA, p, reinterpret_cast<void*>(&ToggleLink), 0);
     AddEvent(s.fontChoices[ChoiceOf(Original)], kEventA, p, reinterpret_cast<void*>(&SelectOriginal), 0);
     AddEvent(s.fontChoices[ChoiceOf(HdOriginal)], kEventA, p, reinterpret_cast<void*>(&SelectHdOriginal), 0);
+    if (void* choice = s.fontChoices[ChoiceOf(Modded)]) {
+        Text(choice, "Modded Font", true);
+        AddEvent(choice, kEventA, p, reinterpret_cast<void*>(&SelectModded), 0);
+    }
     AddEvent(defaults, kEventA, p, reinterpret_cast<void*>(&Defaults), 0);
     AddEvent(save, kEventA, p, reinterpret_cast<void*>(&SaveClicked), 0);
     AddEvent(back, kEventA, p, reinterpret_cast<void*>(&Back), 0);
@@ -708,10 +724,13 @@ void MakeScreen(void* manager, void* owner) {
     for (int i = 0; i < TextGroupCount; ++i)
         Navigation(s.sliders[i], i ? s.sliders[i - 1] : s.linkSizes, i + 1 < TextGroupCount ? s.sliders[i + 1] : s.iconSlider);
     Navigation(s.iconSlider, s.sliders[TextGroupCount - 1], s.linkSizes);
-    Navigation(s.fontChoices[0], s.fontChoices[1], s.fontChoices[1], s.linkSizes, s.linkSizes);
-    Navigation(s.fontChoices[1], s.fontChoices[0], s.fontChoices[0], s.linkSizes, s.linkSizes);
+    void* shown[FontChoiceCount] = {};
+    int count = 0;
+    for (void* choice : s.fontChoices) if (choice) shown[count++] = choice;
+    for (int i = 0; i < count; ++i)
+        Navigation(shown[i], shown[(i + count - 1) % count], shown[(i + 1) % count], s.linkSizes, s.linkSizes);
     Navigation(defaults, s.iconSlider, s.linkSizes, back, back);
-    Navigation(back, s.fontChoices[FontChoiceCount - 1], s.fontChoices[0], defaults, defaults);
+    Navigation(back, shown[count - 1], shown[0], defaults, defaults);
     SetActive(p, s.linkSizes, 0);
     s.displayedSizes.fill(-1);
     s.displayedLinked = s.displayedStyle = s.displayedIcon = -1;
@@ -775,7 +794,7 @@ void ReloadFonts(bool images) {
     kmrp::fonts::ReflowPanels();
 }
 // The HD atlases, for the sizes in use. Original Font keeps its atlas at every size, so its metrics
-// are all there is. A failure leaves the text as it was, stretched and readable.
+// are all there is. Modded Font fits the override's fonts as KMRP's own. A failure leaves the text as it was, stretched and readable.
 bool FitFonts() {
     Page& p = P();
     const Settings& live = kmrp::textfit::Live();

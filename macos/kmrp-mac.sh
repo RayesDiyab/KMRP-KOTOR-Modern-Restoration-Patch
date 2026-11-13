@@ -5,6 +5,7 @@
 #                         [--no-controller] [--high-fps | --no-high-fps] [--keep-anti-aliasing]
 #                         [--debug-logs] [--no-prepare]
 #                         [--resolution current|native | --size <W>x<H>] [--yes]
+#   kmrp-mac.sh apply-settings [--game ...] [the options of install] [--yes]
 #   kmrp-mac.sh uninstall [--game ...] [--yes]
 #   kmrp-mac.sh status    [--game ...] [--brief]
 #
@@ -352,11 +353,17 @@ nearest_size() {
 # its Remove deletes it (PatchRemover), as with the rest.
 KPM_FILES=(KotorPatcher.dylib patch_config.toml patches kpm_install_state.json addresses.db)
 KMRP_PACK=kmrp-assets.pack   # KMRP's art, beside KMRP's module in patches/ (no module itself)
-FTD_PATCHES=(k1widescreenpatch k1-stray-bug-fixes-patch)
+# The patches of KotOR Patch Manager's that KMRP installs (FTD's two, and since 2026-11-13 three
+# more): a KPM install holding only these is replaced, as one of FTD's two alone was.
+FTD_PATCHES=(k1widescreenpatch k1-stray-bug-fixes-patch k1-shader-fixes mp3-playback-fix anti-crash-prophylactics)
 # What this installer installs, since 2026-10-04: KMRP's own patch and the two of FTD's it
 # requires (until then KMRP's one patch carried a copy of them). The package's file for each and
 # the patch's id, which is also the name KPM gives its module in patches/. In KPM's order: a patch
 # after the ones it requires.
+#
+# Since 2026-11-13 three more of KotOR Patch Manager's Mac patches come with FTD's two, each
+# requiring nothing: K1 Shader Fixes and Anti-Crash Prophylactics (hooks only, no module) and the
+# MP3 Playback Fix (a module).
 #
 # Since 2026-10-07 controller support is a fourth patch, kmrp-controller, which works with or
 # without KMRP and is installed while Controller Support is on (until then it was part of KMRP's
@@ -373,8 +380,12 @@ PAD_KPATCH="KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch"
 # keeps), installed while High FPS Fix is on: Windows installs D3M0's own the same way.
 HFPS_KPATCH="High FPS Fixes (macOS).kpatch"
 OLD_KPATCH_FILES=(kmrp.kpatch kmrp-controller.kpatch)
-KPATCH_FILES=(K1StrayBugFixes.kpatch K1WidescreenPatch.kpatch "$KMRP_KPATCH" "$PAD_KPATCH" "$HFPS_KPATCH")
-KPATCH_IDS=(k1-stray-bug-fixes-patch k1widescreenpatch kmrp kmrp-controller high-fps-fixes)
+KPATCH_FILES=(K1StrayBugFixes.kpatch K1WidescreenPatch.kpatch K1ShaderFixes.kpatch MP3PlaybackFix.kpatch
+              AntiCrashProphylactics.kpatch "$KMRP_KPATCH" "$PAD_KPATCH" "$HFPS_KPATCH")
+KPATCH_IDS=(k1-stray-bug-fixes-patch k1widescreenpatch k1-shader-fixes mp3-playback-fix anti-crash-prophylactics kmrp kmrp-controller high-fps-fixes)
+kpatch_has_module() {   # kpatch_has_module <.kpatch>: a patch of hooks alone has none
+    unzip -l "$1" binaries/macos_x86_64.dylib >/dev/null 2>&1
+}
 KMRP_IDS=($KPATCH_IDS)
 choose_patches() {
     choose_high_fps
@@ -1092,6 +1103,7 @@ do_install() {
         # time. KMRP's holds SDL, the menu sets and the artwork.
         local n module
         for n in {1..${#KPATCH_FILES}}; do
+            kpatch_has_module "$PAYLOAD/engine/${KPATCH_FILES[n]}" || continue
             module="$MACOS/patches/${KPATCH_IDS[n]}.dylib"
             unzip -p "$PAYLOAD/engine/${KPATCH_FILES[n]}" binaries/macos_x86_64.dylib > "$module" || true
             # Recorded before it is checked, so that an install that stops here takes it out again.
@@ -1184,6 +1196,7 @@ do_install() {
         print -r -- "controller=$CONTROLLER"
         print -r -- "high_fps=$HIGH_FPS"
         print -r -- "debug_logs=$DEBUG_LOGS"
+        print -r -- "keep_aa=$KEEP_AA"
         print -r -- "for_kpm=$for_kpm"
         print -r -- "kpatch=${KPATCH_FOLDER:--}"
         print -r -- "complete=1"
@@ -1209,6 +1222,193 @@ do_install() {
         [[ -n "$KPATCH_FOLDER" ]] && say "KMRP's patch is also in KotOR Patch Manager's patch folder ($KPATCH_FOLDER)."
     fi
     say "To undo everything: Uninstall in KMRP Installer, or kmrp-mac.sh uninstall."
+}
+
+# ---------------------------------------------------------------------- apply-settings
+# A change of settings over an install of this same build, without installing again (Windows'
+# Apply New Settings, 2026-11-10, KpmEditionOperations.ApplySettings: the maintainer asked for the
+# change "to switch only the setting changed"). Only what the settings own changes: the controller
+# patch's and High FPS Fixes' modules put in or taken out, the hook list for the two, the
+# [Patch Options] sections, kpm_install_state.json, their .kpatch files in KotOR Patch Manager's
+# folder, and the controller's settings file when controller support is turned on. KotorPatcher,
+# KOTOR_Exe, the art pack, the resolution and the art already made stay. The options are install's,
+# with install's defaults. Where the quick change cannot be made because another build is installed
+# or a change did not finish, the whole install is made again instead and the output says why.
+# Where a file of the install changed since, nothing is touched: uninstall keeps such a file, so
+# installing again would stop halfway (Windows installs again; its Restore replaces the file). Where
+# KotOR Patch Manager manages the game, the options are KPM's to change, as at install.
+manifest_drop() {   # manifest_drop <path>: every row of that path out
+    local rows; rows=$(awk -F'\t' -v p="$1" '$2 != p' "$STATE/manifest.tsv"; print -n x)
+    print -rn -- "${rows%x}" > "$STATE/manifest.tsv.kmrp-tmp"
+    mv -f "$STATE/manifest.tsv.kmrp-tmp" "$STATE/manifest.tsv"
+}
+info_value() { sed -n "s/^$1=//p" "$STATE/install.info" | tail -1; }
+module_sha() {   # module_sha <.kpatch>: its module's SHA-256 as install takes it out
+    unzip -p "$PAYLOAD/engine/$1" binaries/macos_x86_64.dylib | shasum -a 256 | cut -d' ' -f1
+}
+
+settings_blocker() {   # why the quick change cannot be made: "again <why>" (install again), "stop <why>", or nothing
+    local recorded kind target sha backup
+    while IFS=$'\t' read -r kind target sha backup; do
+        [[ "$kind" == (added|exe) ]] || continue
+        [[ "$target" == "$MACOS/"* ]] || continue
+        [[ "$target" == *.pack ]] && continue   # KMRP's art pack, which the settings do not own
+        if [[ -f "$target" && "$(sha "$target")" != "$sha" ]]; then
+            print -r -- "stop ${target:t} changed since KMRP installed it"; return
+        fi
+    done < "$STATE/manifest.tsv"
+    [[ "$(info_value complete)" == 1 ]] || { print -r -- "again the last change did not finish"; return; }
+    recorded=$(awk -F'\t' -v p="$MACOS/patches/kmrp.dylib" '$1 == "added" && $2 == p { print $3 }' "$STATE/manifest.tsv" | tail -1)
+    [[ -n "$recorded" && "$recorded" == "$(module_sha "$KMRP_KPATCH")" ]] ||
+        { print -r -- "again another build of KMRP is installed ($(info_value version))"; return; }
+}
+
+on_off() { (( $1 )) && print -n on || print -n off; }
+
+do_apply_settings() {
+    if (( APPSTORE )) || { [[ -n "$GAME" ]] && is_app_store_game "$GAME"; } ||
+       [[ ! -f "$STATE/install.info" && -f "$APPSTORE_STATE/install.info" ]]; then
+        # The App Store's game: KMRP is an app beside it, which holds everything the settings
+        # choose and nothing the game needs, so it is simply made again.
+        APPSTORE=1
+        [[ -f "$APPSTORE_STATE/install.info" ]] || die "KMRP is not installed for the Mac App Store's game."
+        [[ -n "$GAME" ]] || GAME=$(sed -n 's/^game=//p' "$APPSTORE_STATE/install.info")
+        set_paths
+        say "Applying the settings to KOTOR with KMRP (the app is made again; the game is not changed)..."
+        do_uninstall_app_store
+        do_install_app_store
+        return 0
+    fi
+    [[ -f "$STATE/install.info" ]] || die "KMRP is not installed (no $STATE/install.info)."
+    [[ -n "$GAME" ]] || GAME=$(info_value game)
+    set_paths; refuse_if_running
+    [[ -f "$PAYLOAD/SHA256SUMS" ]] || die "the package is incomplete (SHA256SUMS missing)"
+    (cd "$PAYLOAD" && shasum -a 256 -s -c SHA256SUMS) || die "the package is damaged: a file does not match SHA256SUMS. Download it again."
+    if [[ "$(info_value for_kpm)" == 1 ]] || handed_over; then
+        die "KotOR Patch Manager manages this game, or KMRP's runtime or a module changed since KMRP installed it (as KPM's Apply changes them), so KMRP's settings are chosen in KPM: change them there and press Apply. Without KPM, Restore Original, then install."
+    fi
+    local blocker; blocker=$(settings_blocker)
+    if [[ "$blocker" == "stop "* ]]; then
+        die "${blocker#stop } (a file KMRP keeps at uninstall), so the settings cannot be changed. Restore Original (uninstall), then install with the settings wanted."
+    elif [[ -n "$blocker" ]]; then
+        blocker=${blocker#again }
+        say "The settings are applied by installing KMRP again: $blocker."
+        confirm "Install KMRP again with these settings?" || die "cancelled"
+        local kept=0
+        restore_from_manifest 0 || kept=$?
+        (( kept == 0 )) || die "$kept file(s) changed after KMRP installed them were kept (listed above); run uninstall, then install."
+        rm -rf "$STATE"
+        ASSUME_YES=1
+        do_install
+        return 0
+    fi
+
+    local was_controller was_high_fps was_keep_aa
+    was_controller=$(info_value controller); was_high_fps=$(info_value high_fps)
+    was_keep_aa=$(info_value keep_aa); was_keep_aa=${was_keep_aa:-0}
+    local -a changes
+    [[ "$was_controller" == $CONTROLLER ]] || changes+=("Controller support: $(on_off $was_controller) -> $(on_off $CONTROLLER)")
+    [[ "$was_high_fps" == $HIGH_FPS ]] || changes+=("High FPS Fix: $(on_off $was_high_fps) -> $(on_off $HIGH_FPS)")
+    [[ "$(info_value map_notes)" == $MAP_NOTES ]] || changes+=("Map note corrections: $(on_off $(info_value map_notes)) -> $(on_off $MAP_NOTES)")
+    [[ "$(info_value hd_icons)" == $HD_ICONS ]] || changes+=("HD icons: $(on_off $(info_value hd_icons)) -> $(on_off $HD_ICONS)")
+    [[ "$(info_value marked_empty)" == $MARKED_EMPTY ]] || changes+=("Marked empty containers: $(on_off $(info_value marked_empty)) -> $(on_off $MARKED_EMPTY)")
+    [[ "$(info_value debug_logs)" == $DEBUG_LOGS ]] || changes+=("Debug logs: $(on_off $(info_value debug_logs)) -> $(on_off $DEBUG_LOGS)")
+    [[ "$was_keep_aa" == $KEEP_AA ]] || changes+=("Keep anti-aliasing: $(on_off $was_keep_aa) -> $(on_off $KEEP_AA)")
+    if (( ! ${#changes} )); then
+        say "The settings are as installed: nothing to change."
+        return 0
+    fi
+    say "Applying new settings to $GAME (KMRP $KMRP_VERSION for macOS)"
+    local line; for line in $changes; do say "  $line"; done
+    confirm "Apply these settings?" || die "cancelled"
+
+    # Marked unfinished while it changes: a change stopped halfway leaves status saying so, and
+    # KMRP Installer offering Repair (uninstall, then install), as Windows' window does.
+    sed -i '' 's/^complete=1$/complete=0/' "$STATE/install.info"
+    WORK=$(mktemp -d "${TMPDIR:-/tmp}/kmrp-settings.XXXXXX")
+
+    # 1. The two optional patches' modules, in or out.
+    local id file module on was
+    for id file on was in kmrp-controller "$PAD_KPATCH" $CONTROLLER $was_controller \
+                          high-fps-fixes "$HFPS_KPATCH" $HIGH_FPS $was_high_fps; do
+        [[ "$on" == "$was" ]] && continue
+        module="$MACOS/patches/$id.dylib"
+        if (( on )); then
+            say "Adding ${file%.kpatch}..."
+            unzip -p "$PAYLOAD/engine/$file" binaries/macos_x86_64.dylib > "$module.kmrp-tmp"
+            [[ -s "$module.kmrp-tmp" ]] || die "$file holds no module"
+            mv -f "$module.kmrp-tmp" "$module"
+            codesign --verify "$module" || die "the module taken out of $file is damaged"
+            manifest_drop "$module"
+            record added "$module" "$(sha "$module")" "-"
+        else
+            say "Taking out ${file%.kpatch}..."
+            rm -f "$module"
+            manifest_drop "$module"
+        fi
+    done
+
+    # 2. The hook list for the two, staged by KPM's own code at build.
+    local hook_list=patch_config
+    (( CONTROLLER )) || hook_list+=.controller-off
+    (( HIGH_FPS )) && hook_list+=.high-fps
+    hook_list+=.toml
+    cp "$PAYLOAD/engine/$hook_list" "$MACOS/patch_config.toml.kmrp-tmp"
+    mv -f "$MACOS/patch_config.toml.kmrp-tmp" "$MACOS/patch_config.toml"
+    manifest_drop "$MACOS/patch_config.toml"
+    record added "$MACOS/patch_config.toml" "$(sha "$MACOS/patch_config.toml")" "-"
+
+    # 3. The [Patch Options] sections, one row each as at install; the controller's own section
+    # out with its patch.
+    local configs="${OPTIONS_INI:h}"
+    manifest_drop "$configs/kmrp.ini"
+    manifest_drop "$configs/k1widescreenpatch.ini"
+    manifest_drop "$configs/kmrp-controller.ini"
+    if (( ! CONTROLLER )); then
+        local kmrp_ini=$OPTIONS_INI
+        OPTIONS_INI="$configs/kmrp-controller.ini"; options_remove
+        OPTIONS_INI=$kmrp_ini
+    fi
+    options_write
+
+    # 4. KotOR Patch Manager's record of the patches installed, and their files in its folder.
+    manifest_drop "$MACOS/kpm_install_state.json"
+    write_kpm_state
+    local folder target row; folder=$(info_value kpatch)
+    if [[ -n "$folder" && "$folder" != - && -d "$folder" ]]; then
+        deliver_kpatch 0
+        for id file on in kmrp-controller "$PAD_KPATCH" $CONTROLLER high-fps-fixes "$HFPS_KPATCH" $HIGH_FPS; do
+            (( on )) && continue
+            target="$folder/$file"
+            row=$(awk -F'\t' -v p="$target" '$1 == "kpatch" && $2 == p { print $3 "\t" $4 }' "$STATE/manifest.tsv" | tail -1)
+            if [[ -f "$target" && "${row%%	*}" == "$(sha "$target")" && "${row#*	}" == created ]]; then
+                rm -f "$target"
+                manifest_drop "$target"
+            fi
+        done
+    fi
+
+    # 5. The controller's settings file, when controller support is turned on (one already there is
+    # the player's, as at install); turned off, it stays.
+    if (( CONTROLLER && ! was_controller )); then install_settings; fi
+
+    # 6. The record of what is installed.
+    local info; info=$(cat "$STATE/install.info"; print -n x); info=${info%x}
+    {
+        print -rn -- "$info" | grep -v -E '^(map_notes|hd_icons|marked_empty|controller|high_fps|debug_logs|keep_aa|complete|settings_changed)='
+        print -r -- "map_notes=$MAP_NOTES"
+        print -r -- "hd_icons=$HD_ICONS"
+        print -r -- "marked_empty=$MARKED_EMPTY"
+        print -r -- "controller=$CONTROLLER"
+        print -r -- "high_fps=$HIGH_FPS"
+        print -r -- "debug_logs=$DEBUG_LOGS"
+        print -r -- "keep_aa=$KEEP_AA"
+        print -r -- "settings_changed=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        print -r -- "complete=1"
+    } > "$STATE/install.info.kmrp-tmp"
+    mv -f "$STATE/install.info.kmrp-tmp" "$STATE/install.info"
+    rm -rf "$WORK"; WORK=""
+    say "Applied: the settings changed and nothing else. The art already made, the resolution and KOTOR_Exe are as they were."
 }
 
 # ---------------------------------------------------------------------- uninstall
@@ -1595,6 +1795,7 @@ do_install_app_store() {
     local n id base
     for n in {1..${#KPATCH_FILES}}; do
         id=${KPATCH_IDS[n]}
+        kpatch_has_module "$PAYLOAD/engine/${KPATCH_FILES[n]}" || continue
         if [[ -f "$payload/$id.dylib" ]]; then
             cp "$payload/$id.dylib" "$kmrp/patches/$id.dylib"
             continue
@@ -1699,7 +1900,7 @@ do_status_app_store() {
 }
 
 # ---------------------------------------------------------------------- main
-[[ $# -ge 1 ]] || { sed -n '2,7p' "$0"; exit 2; }
+[[ $# -ge 1 ]] || { sed -n '2,10p' "$0"; exit 2; }
 command=$1; shift
 while (( $# )); do
     case "$1" in
@@ -1738,7 +1939,8 @@ trap 'on_exit' ZERR
 trap 'exit 1' INT TERM
 case "$command" in
     install) do_install ;;
+    apply-settings) do_apply_settings ;;
     uninstall) do_uninstall ;;
     status) do_status ;;
-    *) die "unknown command: $command (install, uninstall or status)" ;;
+    *) die "unknown command: $command (install, apply-settings, uninstall or status)" ;;
 esac

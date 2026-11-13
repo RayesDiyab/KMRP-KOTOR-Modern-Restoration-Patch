@@ -1,10 +1,15 @@
 // KMRP for macOS: the fonts at the sizes in use, and the font style chosen (fonts.cpp).
 #pragma once
 
+#include <cstdint>
 #include <string>
 
 namespace kmrp {
 namespace fonts {
+
+// The fonts the game's override has, as listed at the start: 0 when none, else a number of their
+// names, sizes and times (Modded Font, kmrp-layout/text_settings.cpp).
+std::uint64_t OverrideFontSet();
 
 // A size's view of its set has just been made (assets.cpp, Prepare; `whole` the set in the cache,
 // `view` the folder the game is shown, `height` the screen's): the chosen style's fonts at the sizes

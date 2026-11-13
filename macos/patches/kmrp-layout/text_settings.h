@@ -14,6 +14,8 @@ KmrpTextOptions::Settings& Live();
 KmrpTextOptions::Settings& Saved();
 bool WriteSettings(const KmrpTextOptions::Settings& settings);
 int FontStyle();
+// Modded Font is offered: the game's override has a font.
+bool ModdedOffered();
 
 }  // namespace textfit
 }  // namespace kmrp

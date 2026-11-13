@@ -49,6 +49,12 @@ section of the patch's own, which install and uninstall keep byte for byte.
    Every other install passes --no-prepare.
 8. The controller's settings file of before 2026-10-20 (kmrp-controller.ini beside swkotor.ini):
    moved into the KMRP folder byte for byte, and kept there at uninstall.
+9. Apply New Settings (apply-settings, 2026-11-13, Windows' of 2026-11-10): controller off and
+   High FPS on, then back, each changing only the modules, the hook list, the [Patch Options]
+   sections, KPM's state and KPM's folder, KOTOR_Exe as it was and status clean; the same settings
+   again change nothing; another build's module recorded as installed makes it install again; a
+   module changed since stops it before it changes anything; uninstall then leaves the game as it
+   was.
 
     python testing/regression/Test-MacInstaller.py PACKAGE_KMRP_DIR CLEAN_KOTOR_EXE SWPC_TEX_GUI_ERF
 
@@ -71,10 +77,14 @@ from pathlib import Path
 
 # What the installer installs since 2026-10-04: KMRP's patch and the two of FTD's it requires, each
 # a .kpatch in the package, with the id KPM names its module by, in KPM's order.
-# What an install holds: FTD's two, KMRP's own, and, while Controller Support is on, the
-# controller patch (a patch of its own since 2026-10-07).
+# What an install holds: FTD's two, since 2026-11-13 three more of KotOR Patch Manager's (K1 Shader
+# Fixes, the MP3 Playback Fix, Anti-Crash Prophylactics), KMRP's own, and, while Controller Support
+# is on, the controller patch (a patch of its own since 2026-10-07).
 CORE_PATCHES = (("K1StrayBugFixes.kpatch", "k1-stray-bug-fixes-patch"), ("K1WidescreenPatch.kpatch", "k1widescreenpatch"),
-                ("KMRP-macOS.kpatch", "kmrp"))
+                ("K1ShaderFixes.kpatch", "k1-shader-fixes"), ("MP3PlaybackFix.kpatch", "mp3-playback-fix"),
+                ("AntiCrashProphylactics.kpatch", "anti-crash-prophylactics"), ("KMRP-macOS.kpatch", "kmrp"))
+# Patches of hooks alone: nothing in patches/ for them.
+NO_MODULE = {"k1-shader-fixes", "anti-crash-prophylactics"}
 CONTROLLER_PATCH = ("KOTOR 1 Native Controller Mod + Xbox HUD (macOS).kpatch", "kmrp-controller")
 PATCHES = CORE_PATCHES + (CONTROLLER_PATCH,)
 # High FPS Fixes for the Mac (since 2026-10-08), installed while High FPS Fix is on.
@@ -232,7 +242,8 @@ def main() -> int:
             # configs/k1widescreenpatch.ini (since 2026-10-24): the widescreen patch's GUI mode
             # as KMRP runs it, for KPM to show.
             want = ["KOTOR_Exe", "KotorPatcher.dylib", "kpm_install_state.json", "patch_config.toml",
-                    "configs/kmrp.ini", "configs/k1widescreenpatch.ini", "patches/kmrp-assets.pack"] + [f"patches/{patch_id}.dylib" for _, patch_id in installed]
+                    "configs/kmrp.ini", "configs/k1widescreenpatch.ini", "patches/kmrp-assets.pack"] + [
+                        f"patches/{patch_id}.dylib" for _, patch_id in installed if patch_id not in NO_MODULE]
             if mode != "off":
                 want.append("configs/kmrp-controller.ini")
             if (macos_dir / "kmrp-resolutions.txt").exists():
@@ -285,6 +296,8 @@ def main() -> int:
                 failures.append(f"{size}: patch_config.toml is not the package's {hook_list}")
             # Each module is its patch's own, taken out of the .kpatch as KPM takes it.
             for name, patch_id in installed:
+                if patch_id in NO_MODULE:
+                    continue
                 with zipfile.ZipFile(package / "engine" / name) as patch:
                     module = macos_dir / f"patches/{patch_id}.dylib"
                     if not module.is_file() or module.read_bytes() != patch.read("binaries/macos_x86_64.dylib"):
@@ -357,6 +370,107 @@ def main() -> int:
                     failures.append(f"{size}: uninstall left {name} in KPM's patch folder")
             print(f"     {size}: {'a listed size' if listed else 'a size the module blends'}; "
                   f"{'controller and map notes off' if mode == 'off' else f'controller settings {mode}'}")
+
+        # 9. Apply New Settings (apply-settings, 2026-11-13): over an install of this build, only
+        #    what the settings own changes. Controller off and High FPS on and back; the same
+        #    settings again change nothing; a file of the install changed since makes it install
+        #    again; uninstall then leaves the game as it was.
+        macos = game / "Contents/MacOS"
+        ini.write_bytes(INI_BEFORE.encode())
+        before_settings = settings.read_bytes() if settings.is_file() else None
+        result = run("install", "--size", "1512x982", "--yes")
+        if result.returncode != 0:
+            failures.append(f"apply-settings: install failed: {result.stderr.strip()[-300:]}")
+        else:
+            installed_exe = sha(exe)
+
+            def apply(*options: str) -> subprocess.CompletedProcess:
+                return subprocess.run([str(script), "apply-settings", "--yes", *options, "--game", str(game)],
+                                      env=env, text=True, capture_output=True)
+
+            def check(label: str, controller: bool, high_fps: bool, map_notes: bool) -> None:
+                for module, wanted in (("kmrp-controller.dylib", controller), ("high-fps-fixes.dylib", high_fps)):
+                    if (macos / "patches" / module).is_file() != wanted:
+                        failures.append(f"apply-settings {label}: {module} {'missing' if wanted else 'left in'}")
+                hook_list = ("patch_config" + ("" if controller else ".controller-off")
+                             + (".high-fps" if high_fps else "") + ".toml")
+                if sha(macos / "patch_config.toml") != sha(package / "engine" / hook_list):
+                    failures.append(f"apply-settings {label}: patch_config.toml is not {hook_list}")
+                options_text = (macos / "configs/kmrp.ini").read_text()
+                if f"map-notes={int(map_notes)}" not in options_text:
+                    failures.append(f"apply-settings {label}: configs/kmrp.ini does not say map-notes={int(map_notes)}")
+                pad_options = macos / "configs/kmrp-controller.ini"
+                if controller != (pad_options.is_file() and "[Patch Options]" in pad_options.read_text()):
+                    failures.append(f"apply-settings {label}: the controller's [Patch Options] is "
+                                    f"{'missing' if controller else 'left in'}")
+                state = (macos / "kpm_install_state.json").read_text()
+                for patch_id, wanted in (("kmrp-controller", controller), ("high-fps-fixes", high_fps)):
+                    if (f'"{patch_id}"' in state) != wanted:
+                        failures.append(f"apply-settings {label}: kpm_install_state.json {'lacks' if wanted else 'still lists'} {patch_id}")
+                for name, wanted in ((CONTROLLER_PATCH[0], controller), (HIGH_FPS_PATCH[0], high_fps)):
+                    if (kpm_folder / name).is_file() != wanted:
+                        failures.append(f"apply-settings {label}: KPM's folder {'lacks' if wanted else 'still has'} {name}")
+                if sha(exe) != installed_exe:
+                    failures.append(f"apply-settings {label}: KOTOR_Exe changed")
+                status = run("status")
+                for line in ("0 changed or missing", f"controller={int(controller)}", f"high_fps={int(high_fps)}",
+                             f"map_notes={int(map_notes)}", "complete=1"):
+                    if line not in status.stdout:
+                        failures.append(f"apply-settings {label}: status lacks {line}")
+
+            result = apply("--no-controller", "--high-fps", "--no-map-notes")
+            if result.returncode != 0 or "Applied:" not in result.stdout:
+                failures.append(f"apply-settings: the change failed: {(result.stderr or result.stdout).strip()[-300:]}")
+            check("off", controller=False, high_fps=True, map_notes=False)
+            result = apply("--no-controller", "--high-fps", "--no-map-notes")
+            if result.returncode != 0 or "nothing to change" not in result.stdout:
+                failures.append("apply-settings: the same settings again did not say there was nothing to change")
+            result = apply("--no-high-fps")
+            if result.returncode != 0 or "Applied:" not in result.stdout:
+                failures.append(f"apply-settings: the change back failed: {(result.stderr or result.stdout).strip()[-300:]}")
+            check("back", controller=True, high_fps=False, map_notes=True)
+            # Another build's module, recorded as installed: installed again, and said why.
+            module = macos / "patches/kmrp.dylib"
+            manifest = home / "Library/Application Support/KMRP/macos/manifest.tsv"
+            old_sha = sha(module)
+            with open(module, "ab") as other_build:
+                other_build.write(b"\0")
+            manifest.write_text(manifest.read_text().replace(old_sha, sha(module)))
+            result = apply("--no-controller", "--no-high-fps")
+            if result.returncode != 0 or "installing KMRP again" not in result.stdout:
+                failures.append(f"apply-settings: another build did not make it install again: "
+                                f"{(result.stderr or result.stdout).strip()[-300:]}")
+            else:
+                installed_exe = sha(exe)
+                check("reinstalled", controller=False, high_fps=False, map_notes=True)
+            # A module changed by hand since: nothing touched, and said why.
+            widescreen = macos / "patches/k1widescreenpatch.dylib"
+            widescreen_bytes = widescreen.read_bytes()
+            widescreen.write_bytes(widescreen_bytes + b"\0")
+            hooks_before = sha(macos / "patch_config.toml")
+            result = apply("--high-fps")
+            # A module is KPM's runtime to the Mac's installer (is_runtime_path): KPM's Apply extracts
+            # them again, so a changed one reads as KPM's, as at uninstall.
+            if result.returncode == 0 or "changed since KMRP installed it" not in result.stderr:
+                failures.append(f"apply-settings: a changed module did not stop it: {(result.stderr or result.stdout).strip()[-300:]}")
+            if sha(macos / "patch_config.toml") != hooks_before or (macos / "patches/high-fps-fixes.dylib").exists():
+                failures.append("apply-settings: a changed module stopped it, but not before it changed something")
+            widescreen.write_bytes(widescreen_bytes)
+            result = run("uninstall", "--yes")
+            if result.returncode != 0:
+                failures.append(f"apply-settings: uninstall failed: {result.stderr.strip()[-300:]}")
+            left = sorted(p.name for p in macos.iterdir())
+            if left != ["KOTOR_Exe"] or sha(exe) != vanilla:
+                failures.append(f"apply-settings: uninstall left the game changed: {left}")
+            if ini.read_bytes() != INI_BEFORE.encode():
+                failures.append("apply-settings: swkotor.ini is not as it was")
+            if (settings.read_bytes() if settings.is_file() else None) != before_settings:
+                failures.append("apply-settings: the player's controller settings file changed")
+            for name, _ in PATCHES:
+                if (kpm_folder / name).exists():
+                    failures.append(f"apply-settings: uninstall left {name} in KPM's patch folder")
+            print("     apply-settings: controller and High FPS off and on, nothing to change, a changed file "
+                  "installed again, uninstall clean")
 
         # 8. The controller's settings file of before 2026-10-20, kmrp-controller.ini beside
         #    swkotor.ini: install moves it into the KMRP folder as it is (it has a [Hud] section,
@@ -432,7 +546,7 @@ def main() -> int:
             if gone:
                 failures.append(f"KPM: FTD's install was not removed: {gone}")
             for _, patch_id in PATCHES:
-                if f"patches/{patch_id}.dylib" not in now:
+                if patch_id not in NO_MODULE and f"patches/{patch_id}.dylib" not in now:
                     failures.append(f"KPM: {patch_id} is not installed over FTD's install")
             if "patches/kmrp.dylib" not in now:
                 failures.append("KPM: KMRP's patch not installed")
