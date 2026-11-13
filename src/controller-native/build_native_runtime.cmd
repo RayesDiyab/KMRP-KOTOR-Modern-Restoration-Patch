@@ -60,6 +60,7 @@ cl /nologo /MP /Brepro /std:c++17 /O2 /fp:strict /EHsc /MT /LD /DKMRP_NATIVE_RUN
   src\controller-native\K1TextOptions.cpp src\controller-native\K1HudOptions.cpp src\controller-native\K1PcHud.cpp ^
   src\controller-native\K1OffscreenFrame.cpp src\controller-native\K1CoreFrames.cpp ^
   src\controller-native\K1MovieWindow.cpp src\controller-native\K1CursorConfinement.cpp ^
+  src\controller-native\K1MovieActivation.cpp ^
   src\controller-native\K1StatusSummary.cpp src\controller-native\K1PartyPortraits.cpp ^
   src\controller-native\K1PopupFit.cpp src\controller-native\K1GrantedPopup.cpp ^
   src\controller-native\K1KeyboardNavigation.cpp ^

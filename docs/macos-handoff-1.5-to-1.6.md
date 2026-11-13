@@ -141,6 +141,8 @@ features** (Icon Size, HUD Size, Text Size, issue 92 and others): this document 
 | 140 | A failed art helper retries before the set is sealed |
 | 141 | Check: a held button when the input object is rebuilt (audit PAD-6) |
 | 142 | Check: the mouse turning the camera while the pad is in use |
+| 143 | Modded Font, and a font from Override fitted to its size |
+| 144 | Check: keyboard and mouse after the startup movies |
 
 Items 46 and 47 are in the 1.5.1 group below (46: the controller events log; 47: a Linux
 pad's own key, Windows and Wine only).
@@ -1793,6 +1795,39 @@ Reported from SteamOS with a DualSense through Steam Input: A, B and Y turned th
 KMRP fits its own HD fonts' six-times atlases to the size in use; a font a mod puts in `Override` (the KMRP Font Converter writes the same six-times atlases) only had its metrics scaled, so the game loaded the whole atlas and shrank it at every draw. Windows now fits one that `Override` has as an uncompressed 32-bit `.tga` with its `.txi`, no `.tpc`, larger than drawn, from the mod's files into the cache (`fonts\ovr-<name>-<id>-<size>`, `<id>` FNV-1a over both files' sizes and write times) and links it into the fonts folder in its place. And the fonts in `Override` are a third choice on the Text Size and Font page, **Modded Font** (`FontStyle` 3), shown only while `Override` has a font and chosen by itself when the set there is new (`[KMRP Text] ModdedFonts`), a later choice kept across starts; Original Font and HD Font then show KMRP's own over `Override`'s. The fonts folder's names are fixed once the game is given it, so a style change only relinks. `OverrideFontFitted`, `OverrideFontSet`, `ApplyTextPreferences` in `K1RuntimeAssets.cpp`; `Initialize`, `Save` and the row in `K1TextOptions.cpp`; `K1TextOptionsPolicy.h`; tested by `Test-OverrideFontMetrics.py` and `Test-TextOptions.py`. The rules and wording are in [ingame-text-options.md](ingame-text-options.md) section 3.
 
 **The Mac has the old behaviour, read not run:** `LinkFonts` in `macos/patches/kmrp-assets/fonts.cpp` skips every font `OverrideFont` names, so the game reads it from `Override` whole, and the Mac's page has two choices. The Mac's `FitAtlas` and `CachedFont` are already there to build the same thing on. **To check:** put a converted font in `Override` at a 1080-line window: Modded Font appears and is chosen, `fonts/ovr-*` appears in the cache, the text is as sharp as KMRP's own HD Font; HD Font shows KMRP's font, and stays chosen after a restart.
+
+## 144. Check: keyboard and mouse after the startup movies (Windows 2026-11-11, uncommitted)
+
+Sometimes, after the startup movies, Windows' game took no keyboard or mouse input until it was
+minimised and brought back. The maintainer saw it in vanilla and in KMRP. The cause is in the
+Windows build's movie player: each movie plays in a window of a separate movie thread, and that
+window takes any loss of activation, including activation passing to the game's own render
+window, as the player leaving. At the end of the list the movie thread posts
+`WM_ACTIVATEAPP(0, 0)` to the render window (`0x00405CCB`). When the game's thread takes that
+message from its queue after the render window already has the foreground again, it switches
+input off while the game is in front, and nothing switches it on until the foreground changes.
+
+Windows now drops that one message when the render window is the foreground window and not
+minimised: a `WH_GETMESSAGE` hook on the game's thread, `KmrpInstallMovieActivationFilterK1` and
+`FilterPostedActivation` in `src/controller-native/K1MovieActivation.cpp`, installed once from
+`NativeMovieWindowOpenK1` in `K1MovieWindow.cpp`, in `kmrp.dll` only. No executable byte and no
+hook table entry. A player who really leaves during a movie is not in front, so the message goes
+through as before. The whole reading, with every address, is
+[movie-activation.md](../reverse-engineering/movie-activation.md). **Built, not run in the game.**
+
+**Nothing to port, read not run.** The race needs two threads with a window each and a posted
+message between them, and the Aspyr build has neither, as far as KMRP's notes go: its movie loop
+(`0x1000139e4`) runs inside the game loop and takes its events from SDL through its own callback
+(`0x1000152d8`; the comment above `KmrpMovieFrame` in
+`macos/patches/kmrp-controller/gameplay.cpp`). Whether Aspyr's build makes a second window or
+thread for a movie, or reacts to the app losing focus during one, was not read in `KOTOR_Exe`;
+no Mac executable was at hand for this item. **To check:** start the game ten times with the
+mouse and keyboard only, letting the startup movies play out on some starts and clicking through
+them on others. At the main menu the mouse must move the highlight and a click must open a menu,
+every time, without a Cmd-Tab away and back. Then Cmd-Tab away during a startup movie and come
+back: the game must take input again. If input is ever lost, read what `KOTOR_Exe` does when the
+app resigns active during a movie before porting anything: the Windows filter is Win32 only and
+does not carry over.
 
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 

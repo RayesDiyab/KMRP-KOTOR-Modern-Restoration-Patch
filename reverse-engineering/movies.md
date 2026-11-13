@@ -768,6 +768,15 @@ goes on through the windowed path, so there the replay comes from
 `RestartMoviesIfNecessary` at `0x00402AA2`, as in a window
 ([alt-tab-fullscreen.md](alt-tab-fullscreen.md)).
 
+*Note of 2026-11-11 (read from both 1.03 executables; the race measured in KCRP, not in
+KMRP):* the movie window's handler never reads `lParam`, so "anything else" above includes
+activation passing to the game's own render window, which Windows reports to the movie window
+as a deactivation because the two windows belong to different threads. When the worker's posted
+`WM_ACTIVATEAPP(0, 0)` (step 2) is taken from the queue after the render window has the foreground
+again, the game switches its input off while in front, and keeps it off until it is minimised and
+restored. KMRP drops that one message when the render window is in front:
+[movie-activation.md](movie-activation.md).
+
 ### What KMRP does
 
 Two detours, both in `src/controller-native/kotor1.hooks.toml`. Until

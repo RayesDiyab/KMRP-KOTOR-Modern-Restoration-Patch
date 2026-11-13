@@ -6,6 +6,9 @@
 #include "K1MovieWindow.h"
 #include "K1EngineMemory.h"
 #include "KmrpOptions.h"
+#ifdef KMRP_NATIVE_RUNTIME
+#include "K1MovieActivation.h"   // kmrp.dll only
+#endif
 
 #include <windows.h>
 #include <cstdint>
@@ -129,6 +132,9 @@ extern "C" void __cdecl NativeMovieWindowOpenK1(void* player)
 {
     g_movie.lastW = -1;                // a fresh window: repaint on frame one
     BlackenMovieWindowK1(player);
+#ifdef KMRP_NATIVE_RUNTIME
+    KmrpInstallMovieActivationFilterK1();   // once, before this list can end: K1MovieActivation.cpp
+#endif
 }
 
 // CExoMoviePlayerInternal::ShutDown, before it closes the Bink buffer and

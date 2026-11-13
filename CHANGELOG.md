@@ -110,12 +110,43 @@ own process in memory at startup without writing to `swkotor.exe` at all.
 KMRP's runtime is the same: its hooks are applied in memory from
 `patch_config.toml`. It installs on every patch and always carries three memory
 fixes from the KOTOR Patch Manager project, the movie bars, mouse confinement
-and the status summary's layout; the controller's own hooks join them when
+and the status summary's layout, and since 2026-11-11 the filter that keeps input
+on after the startup movies (no hook of its own: it is installed from the movie
+bars' window hook, [movie-activation.md](reverse-engineering/movie-activation.md));
+the controller's own hooks join them when
 controller support is on. Since 2026-09-29 that runtime is KOTOR Patch
 Manager's own, built from the submodule and loaded through KPM's `binkw32.dll`
 proxy, and it applies the executable changes above as well.
 
 ## [Unreleased]
+
+- **New in 1.6: keyboard and mouse no longer lost after the startup movies** (2026-11-11, the
+  maintainer's request; seen by the maintainer in vanilla and in KMRP). Sometimes, after the
+  startup movies, the game took no keyboard or mouse input until it was minimised and brought
+  back. Each movie plays in a window of the movie thread, and that window's `WM_ACTIVATEAPP`
+  handler (`0x00405255`) takes any deactivation, including activation passing to the game's own
+  render window, as the player leaving: it cancels the movie and records it (`[player+0x1C]`). At
+  the end of the list the worker forwards that to the render window as a posted
+  `WM_ACTIVATEAPP(0, 0)` (`0x00405CCB`). Taken from the queue after the render window has the
+  foreground again, it runs `DeactivateRenderWindow` (`0x00401D90`), which switches input off
+  while the game is in front, and nothing switches it on again until the foreground changes. In
+  full screen the same message also minimises the game (`0x004029DB`; read from the code, not
+  seen). Now a `WH_GETMESSAGE` hook on the game's thread turns that one message into `WM_NULL`
+  when the render window is the foreground window and not minimised
+  (`K1MovieActivation.cpp`, installed from `NativeMovieWindowOpenK1`). A player who really leaves
+  during a movie is not in front, so the message goes through and the game deactivates as
+  before. No byte of the executable and no hook table entry is added; the controller patch's
+  module gets none of it. With debug logs on, each drop is a line in `KMRP\logs\kmrp-kpm.log`.
+  Read from the CD and GOG 1.03 executables (the same bytes at every site), with the public
+  reconstruction TeamGizka/Odyssey as corroboration. The race and the same filter were
+  measured in KCRP, the maintainer's other project, on GOG 1.03: `SetActive(0)` from
+  `DeactivateRenderWindow` with focus and foreground both the render window, and with the filter,
+  input kept on fresh starts. **Built, not run in the game:** `build_native_runtime.cmd` builds
+  `kmrp-native.dll` with it (`304CA80C…`, 929,792 bytes; the map lists the filter, and
+  `NativeMovieWindowOpenK1` ends in a jump to it), and `Test-KpatchSource.py` passes. Whether it
+  drops the message in KMRP's build, in a window and in full screen, with KMRP's Alt-Tab return,
+  is untested. Deliberately not changed: the cancelled startup movie is still cut and kept, as in
+  vanilla. See [movie-activation.md](reverse-engineering/movie-activation.md).
 
 - **Apply New Settings: a changed setting without installing again** (2026-11-10, the
   maintainer's request). Over an install of the same build, changing something in
