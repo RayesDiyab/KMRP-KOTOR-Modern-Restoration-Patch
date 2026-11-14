@@ -308,7 +308,7 @@ const PromptBinding kSkillInfoPrompts[] = {   // CSWGuiSkillInfoBox
 };
 const PromptBinding kUpgradePrompts[] = {   // CSWGuiUpgrade
     {0x3a18, "kmrpb_upgasm", Variant::None, nullptr, nullptr},   // BTN_BACK (Windows 0x2D84)
-    {0x3638, "kmrpa_upgasm", Variant::None, nullptr, nullptr},   // BTN_ASSEMBLE (Windows 0x2AA0)
+    {0x3638, "kmrpx_upgasm", Variant::None, nullptr, nullptr},   // BTN_ASSEMBLE (Windows 0x2AA0), X presses it (issue 104)
 };
 const PromptBinding kUpgradeItemSelectPrompts[] = {   // CSWGuiUpgradeItemSelect
     {0xd30, "kmrpb_upgitm", Variant::None, nullptr, nullptr},   // BTN_BACK (Windows 0x0A68)

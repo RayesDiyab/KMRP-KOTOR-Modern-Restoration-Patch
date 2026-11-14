@@ -306,6 +306,11 @@ Statically proven only; each needs live or human verification (**S**, needs **V 
 | Solo mode query | **panel-level, ignores focus** | close | — | — | — | KMRP |
 | Key mappings | focused control | close | — | — | — | KMRP |
 
+*Since 2026-11-14 (issue 104)* the workbench (`CSWGuiUpgrade`, the "Upgrade" row above)
+takes X as Assemble, pressed by KMRP wherever the focus is (`K1_OK_BUTTONS`); the engine's
+own handler there has no X, and its Assemble button is one the D-pad never lands on, so until
+then a pad could not apply upgrades. Not played.
+
 *Since 2026-10-19* Pazaak's table (the game, not the side-deck setup) takes X, A, Y
 and LB itself, and the D-pad there moves between the hand cards only: see *Changed
 since this measurement*. Not played.

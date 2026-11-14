@@ -224,8 +224,13 @@ const Offset kDefaultButtons[] = {
 // Windows 2026-10-28): A toggles the focused box there, so with OK on A as well the pad could not
 // both choose and confirm from the box. The Mac has no Advanced Sound screen. The button is
 // called BTN_BACK, as on Windows.
+//
+// X is Assemble on the workbench too (K1_OK_BUTTONS, Windows 2026-11-14, issue 104): the game
+// keeps the D-pad off BTN_ASSEMBLE and the screen answers no pad button with it, so A only ever
+// reached the focused slot or upgrade, and B cancelled them.
 const Offset kOkButtons[] = {
     {0x1005ac2b0UL, 0x2598},   // CSWGuiOptionsGraphicsAdvanced
+    {0x1005a5180UL, 0x3638},   // CSWGuiUpgrade BTN_ASSEMBLE (Windows 0x2AA0)
 };
 
 // X is Cancel on character creation's two step lists (K1_CANCEL_BUTTONS, Windows 2026-10-28),
@@ -984,7 +989,7 @@ const Remap kRemaps[] = {
     {kFeats, kSlotA, kEventX, "A: OK (Feats)", FeatsConfirm, nullptr},
     {kFeats, kSlotX, kEventA, "X: Add Feat (Feats)", FeatsAdd, nullptr},
     {0, kSlotY, kEventY, "Y: Default (settings)", PressDefault, HasDefaultButton},
-    {0, kSlotX, kEventX, "X: OK (Advanced Graphics)", PressOk, HasOkButton},
+    {0, kSlotX, kEventX, "X: OK (Advanced Graphics), Assemble (workbench)", PressOk, HasOkButton},
     {0, kSlotX, kEventX, "X: Cancel (character creation)", PressCancel, HasCancelButton},
     // Last, so Pazaak's and Feats' own A come first.
     {0, kSlotA, kEventA, "A: the focused button", PressFocusedRaiseButton, HasFocusedRaiseButton},

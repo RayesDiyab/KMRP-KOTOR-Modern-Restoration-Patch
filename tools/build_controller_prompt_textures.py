@@ -331,7 +331,10 @@ PROMPT_TARGETS = (
     PromptTarget("optgraphicsadv.gui", "BTN_BACK", 4, "X", "kmrpx_optgfxadv"),
     PromptTarget("optsoundadv.gui", "BTN_BACK", 3, "X", "kmrpx_optsndadv"),
     PromptTarget("upgradeitems.gui", "BTN_UPGRADEITEM", 3, "A", "kmrpa_upgitm"),
-    PromptTarget("upgrade.gui", "BTN_ASSEMBLE", 24, "A", "kmrpa_upgasm"),
+    # The workbench's Assemble is X, which presses it wherever the focus is (K1_OK_BUTTONS in
+    # the module, issue 104): the engine keeps the D-pad off it and its screen answers no pad
+    # button with it, so the A badge it had until 2026-11-14 was a button A never reached.
+    PromptTarget("upgrade.gui", "BTN_ASSEMBLE", 24, "X", "kmrpx_upgasm"),
     PromptTarget("abilities.gui", "BTN_EXIT", 14, "B", "kmrpb_abilexit"),
 
     # Its sibling on the resolution screen. That dispatcher DOES implement

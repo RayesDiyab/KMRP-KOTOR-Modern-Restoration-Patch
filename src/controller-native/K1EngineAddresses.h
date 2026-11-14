@@ -47,6 +47,7 @@ constexpr std::uintptr_t K1_INVENTORY_PANEL_VTABLE                 = 0x007564E0;
 constexpr std::uintptr_t K1_EQUIP_PANEL_VTABLE                     = 0x007569A0;
 constexpr std::uintptr_t K1_PARTY_RECORD_VTABLE                    = 0x00756BB8;
 constexpr std::uintptr_t K1_PARTY_SELECT_PANEL_VTABLE              = 0x00756D28;
+constexpr std::uintptr_t K1_UPGRADE_PANEL_VTABLE                   = 0x00757298;   // CSWGuiUpgrade, the workbench
 constexpr std::uintptr_t K1_SKILL_INFO_PANEL_VTABLE                = 0x00757940;
 constexpr std::uintptr_t K1_CLASS_SELECT_PANEL_VTABLE              = 0x00758020;
 constexpr std::uintptr_t K1_OPTIONS_FEEDBACK_PANEL_VTABLE          = 0x007581E8;

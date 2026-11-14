@@ -3378,9 +3378,17 @@ void PressDefaultK1(void* panel)
 // Frame Buffer Effects, Force Software), so with OK on A as well the pad could not both
 // choose and confirm from the box. Both screens call their OK button BTN_BACK
 // (build_controller_prompt_textures.py); offsets from the bind calls, as the badges'.
+//
+// X is Assemble on the workbench (issue 104, the maintainer, 2026-11-14). The engine makes
+// BTN_ASSEMBLE unreachable by the D-pad (CSWGuiUpgrade's constructor, 0x006C6B60, clears its
+// navigable flag) and the panel's own handler (0x006C6A80) answers only B and the description
+// scroll, so A always went to the focused slot or upgrade and the pad could only add upgrades
+// and then cancel them with B. Assemble's click runs OnAssemble (0x006C6190), which tests the
+// press flag at +0x4C, finishes the upgrade and closes the screen.
 constexpr DefaultButtonK1 K1_OK_BUTTONS[] = {
     {K1_OPTIONS_GRAPHICS_ADVANCED_PANEL_VTABLE, 0x1DC4},   // Advanced Graphics
     {K1_OPTIONS_SOUND_ADVANCED_PANEL_VTABLE, 0x0DC8},   // Advanced Sound
+    {K1_UPGRADE_PANEL_VTABLE, 0x2AA0},   // the workbench's Assemble
 };
 
 // Square is Cancel on character creation's two step lists, custom and quick (the
@@ -3821,7 +3829,7 @@ constexpr ButtonRemapK1 K1_BUTTON_REMAPS[] = {
     { K1_FEATS_DISPATCHER,   0x76, K1_EVENT_A,     "X: Add Feat (Feats)", FeatsAddK1 },
     { 0,                     0x77, K1_EVENT_Y,     "Y: Default (settings)", PressDefaultK1,
       HasDefaultButtonK1 },
-    { 0,                     0x76, K1_EVENT_X,     "X: OK (Advanced Graphics, Advanced Sound)", PressOkK1,
+    { 0,                     0x76, K1_EVENT_X,     "X: OK (Advanced Graphics, Advanced Sound), Assemble (workbench)", PressOkK1,
       HasOkButtonK1 },
     { 0,                     0x76, K1_EVENT_X,     "X: Cancel (character creation)", PressCancelK1,
       HasCancelButtonK1 },

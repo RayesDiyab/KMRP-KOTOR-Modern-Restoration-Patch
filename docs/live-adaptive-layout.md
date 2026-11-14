@@ -191,7 +191,7 @@ pending separately; section 6 records verification limits.
 | `tooltip6x4.gui` | Yes | Shared runtime layout rules. |
 | `tooltip8x6.gui` | Yes | Shared runtime layout rules. |
 | `top.gui` | Yes | Menu tab strip and LT/RT cues. |
-| `upgrade.gui` | Yes | Shared runtime layout rules. |
+| `upgrade.gui` | Yes | Shared runtime layout rules. Since 2026-11-14 gold's `LB_DESC_LS` sits inside its frame as `upgradeitems.gui`'s description does (CHANGELOG, Unreleased). |
 | `upgradeitems.gui` | Yes | Item list fitted to rows. |
 | `upgradesel.gui` | Yes | Shared runtime layout rules. |
 

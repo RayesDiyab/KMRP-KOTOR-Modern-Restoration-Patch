@@ -134,7 +134,6 @@ constexpr std::uintptr_t K1_CONTAINER_PANEL_VTABLE = 0x007567E0;
 constexpr std::uintptr_t K1_SAVELOAD_PANEL_VTABLE = 0x00757650;
 constexpr std::uintptr_t K1_UPGRADE_SELECTION_PANEL_VTABLE = 0x007571B0;
 constexpr std::uintptr_t K1_UPGRADE_ITEM_SELECT_PANEL_VTABLE = 0x00757228;
-constexpr std::uintptr_t K1_UPGRADE_PANEL_VTABLE = 0x00757298;
 // The store needs no strip table: CSWGuiStore::HandleInputEvent already answers
 // the X button by toggling ShowBuyGUI/ShowSellGUI, and B closes, so its bottom
 // row is reachable through the face buttons once the panel is recognised at all.
@@ -953,7 +952,7 @@ constexpr ControllerPromptBinding K1_STORE_PROMPTS[] = {
 
 constexpr ControllerPromptBinding K1_UPGRADE_PROMPTS[] = {
     {K1_UPGRADE_BACK_OFFSET, "kmrpb_upgasm"},
-    {K1_UPGRADE_ASSEMBLE_OFFSET, "kmrpa_upgasm"},
+    {K1_UPGRADE_ASSEMBLE_OFFSET, "kmrpx_upgasm"},   // X presses it (K1_OK_BUTTONS, issue 104)
 };
 
 constexpr ControllerPromptBinding K1_UPGRADE_ITEM_SELECT_PROMPTS[] = {

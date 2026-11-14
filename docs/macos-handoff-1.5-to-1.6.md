@@ -143,6 +143,7 @@ features** (Icon Size, HUD Size, Text Size, issue 92 and others): this document 
 | 142 | Check: the mouse turning the camera while the pad is in use |
 | 143 | Modded Font, and a font from Override fitted to its size |
 | 144 | Check: keyboard and mouse after the startup movies |
+| 145 | X is Assemble on the workbench (issue 104) |
 
 Items 46 and 47 are in the 1.5.1 group below (46: the controller events log; 47: a Linux
 pad's own key, Windows and Wine only).
@@ -1828,6 +1829,22 @@ every time, without a Cmd-Tab away and back. Then Cmd-Tab away during a startup 
 back: the game must take input again. If input is ever lost, read what `KOTOR_Exe` does when the
 app resigns active during a movie before porting anything: the Windows filter is Win32 only and
 does not carry over.
+
+## 145. X is Assemble on the workbench (Windows 2026-11-14, issue 104)
+
+With a pad, upgrades could be added to an item at a workbench but not applied: the game keeps
+the D-pad off `BTN_ASSEMBLE` and `CSWGuiUpgrade`'s handler answers only B and the description
+scroll, so A only reached the focused slot or upgrade, and B cancelled. Windows' X now presses
+Assemble wherever the focus is (`K1_OK_BUTTONS` in `src/controller-native/K1NativeJoystick.cpp`)
+and its badge is `kmrpx_upgasm` (X) in place of `kmrpa_upgasm` (A).
+
+**Made on the Mac, not built or run:** `kOkButtons` in `macos/patches/kmrp-controller/gui.cpp`
+has `CSWGuiUpgrade` (`0x1005a5180`) at `0x3638`, the `BTN_ASSEMBLE` offset `prompts.cpp`
+already gave for the badge, and `prompts.cpp` names `kmrpx_upgasm` there. The offset comes from
+that badge row, which was itself mapped from Windows' `0x2AA0`; it was not read again from the
+Mac binary. **How to check:** at a workbench with a pad, put an upgrade in a slot with A,
+press X: the screen closes, and reopening it shows the upgrade applied. The badge on Assemble
+is X.
 
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 

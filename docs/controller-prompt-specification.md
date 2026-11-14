@@ -427,6 +427,15 @@ with OK on A too a player on the box could not confirm without moving to OK firs
 maintainer asked for OK on Square, PlayStation's X. Until that day this table gave both
 screens' A as OK. A on a focused OK still presses it.
 
+**X presses Assemble on the workbench** (`upgrade.gui`, 2026-11-14, issue 104), the same
+way, and its badge is X (`kmrpx_upgasm`). Until then the badge was A (`kmrpa_upgasm`),
+following the "A on each screen's primary action" convention, but A never reached the
+button: the game keeps the D-pad off `BTN_ASSEMBLE` (`CSWGuiUpgrade`'s constructor,
+`0x006C6B60`) and the screen's handler (`0x006C6A80`) answers only B and the description
+scroll, so A went to the focused slot or upgrade, and a pad could add upgrades but only
+cancel them with B. A still chooses slots and upgrades, and B still closes the upgrade list,
+then cancels.
+
 **Y presses Default**, which no settings panel does itself. The module presses
 the button as a click does (`PressDefaultK1`, `K1NativeJoystick.cpp`). The five Y
 registrations the engine has on these screens are the gamma and volume sliders'
