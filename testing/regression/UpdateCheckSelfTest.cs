@@ -81,8 +81,12 @@ namespace Kmrp
 
         private static void Comparison()
         {
-            string current = GoldPatch.PatchVersion;
-            Check(current == "1.6.0", "this build is 1.6.0 (update these cases when it changes)");
+            // This build is the 1.6.1 beta (issue 102), and a version with a suffix is not
+            // one IsNewer reads: a beta is never told about a release. The AppImage that
+            // carries it has no update check; the cases below compare against 1.6.0.
+            Check(GoldPatch.PatchVersion == "1.6.1-beta.1", "this build is 1.6.1-beta.1 (update these cases when it changes)");
+            Check(!UpdateCheck.IsNewer("1.7", GoldPatch.PatchVersion), "a beta build is offered nothing");
+            string current = "1.6.0";
             Check(!UpdateCheck.IsNewer("1.0.0", current), "the 1.0.0 release is not offered to 1.6.0");
             Check(!UpdateCheck.IsNewer("1.5.0", current), "the release before is not offered");
             Check(!UpdateCheck.IsNewer("1.6.0", current), "the same version is not offered");

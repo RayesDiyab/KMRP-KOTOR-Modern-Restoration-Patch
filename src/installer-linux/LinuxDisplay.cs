@@ -24,6 +24,16 @@ namespace Kmrp
     /// xrandr's modes and its current size are used. Neither available: nothing is offered, and
     /// swkotor.ini's size or --size is used.
     ///
+    /// Both sources are read landscape: a mode taller than it is wide counts as its width and
+    /// height swapped (issue 102). The Steam Deck's panel is a portrait 800x1280 that SteamOS
+    /// turns to 1280x800. DRM lists only 800x1280, and so does xrandr's mode list on X11 (the
+    /// turned size is only in the output's header); XWayland lists 1280x800. Read as they are,
+    /// the sizes offered were 800x1280 alone, a shape KMRP does not cover, and the installer
+    /// said the display reports no resolution KMRP can use. The game runs landscape there
+    /// (Gamescope and Proton show it 1280x800), and KMRP covers no portrait shape (4:3 to
+    /// 32:9), so turning a portrait mode loses nothing; both sources are turned alike, so the
+    /// comparisons above between them are unchanged.
+    ///
     /// For tests, KMRP_TEST_XRANDR names a file to read as xrandr's output ("none": no xrandr)
     /// and KMRP_TEST_DRM a folder to read as /sys/class/drm.</summary>
     internal static class LinuxDisplay
@@ -122,6 +132,7 @@ namespace Kmrp
                     continue;
                 int w = int.Parse(size.Groups[1].Value, CultureInfo.InvariantCulture);
                 int h = int.Parse(size.Groups[2].Value, CultureInfo.InvariantCulture);
+                Landscape(ref w, ref h);
                 foreach (Match rate in Regex.Matches(size.Groups[3].Value, @"(\d+(?:\.\d+)?)([*+ ]*)"))
                 {
                     if (rate.Groups[1].Value.Length == 0)
@@ -156,10 +167,13 @@ namespace Kmrp
                         Match m = Regex.Match(line.Trim(), @"^(\d+)x(\d+)");
                         if (!m.Success)
                             continue;
+                        int w = int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
+                        int h = int.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture);
+                        Landscape(ref w, ref h);
                         modes.Add(new Mode
                         {
-                            Width = int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture),
-                            Height = int.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture),
+                            Width = w,
+                            Height = h,
                             Preferred = first,
                             Drm = true,
                         });
@@ -169,6 +183,18 @@ namespace Kmrp
             }
             catch { }
             return modes;
+        }
+
+        /// <summary>A portrait mode as the landscape size it is turned to (issue 102; see the
+        /// class summary).</summary>
+        private static void Landscape(ref int width, ref int height)
+        {
+            if (height > width)
+            {
+                int t = width;
+                width = height;
+                height = t;
+            }
         }
 
         private static string Run(string program, string arguments)

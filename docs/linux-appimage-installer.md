@@ -182,6 +182,47 @@ game's own Options is outside the installer (section 6).
 - `Test-InstallerPatch.ps1` and `Test-ReinstallOverOlderBuild.ps1`, which borrow the real
   KMRP and KPM settings files, were not run.
 
+**Correction, 2026-11-14: the "Steam Deck" row above recorded the wrong panel (issue 102).** It
+gave the kernel a landscape 1280x800 mode. A Deck's panel is a portrait 800x1280 that SteamOS
+turns to landscape, and its DRM list, `card0-eDP-1/modes`, names 800x1280 only. On X11
+xrandr's mode list names 800x1280 as well; the turned 1280x800 is only in the output's header
+line (its geometry, and the rotation `right`). XWayland lists 1280x800. So on a real Deck the
+1.6.0 AppImage offered 800x1280 alone, a shape outside the 4:3 to 32:9 that KMRP covers, and
+"Start Patching" said "This display reports no resolution KMRP can use." Three players
+reported it (issue 102 and two on Reddit); one worked around it by running the Windows
+installer under Proton. The recording above was written from the issue 72 report's
+description, not read off a Deck, which is how the case passed.
+
+**2026-11-14: portrait modes are read landscape (issue 102, 1.6.1-beta.1).** `LinuxDisplay`
+now swaps the width and height of any mode taller than it is wide, in both `FromXrandr` and
+`FromDrm`. The game only runs landscape (Gamescope and Proton show it 1280x800 on a Deck), and
+no portrait shape is covered, so nothing that could be offered is lost. Both sources are
+turned alike, so issue 72's comparisons between them are unchanged.
+
+Rejected: offering xrandr's modes beside DRM's when they disagree. On X11 xrandr's modes are
+the portrait 800x1280 too, so it would not have fixed desktop mode, and it would have brought
+back the Gamescope and desktop-scaling sizes issue 72 removed.
+
+`testing/regression/Test-LinuxDisplay.py` replays recorded displays through the AppImage's
+`sizes` command in WSL and checks the start size and every size offered:
+
+| Case | 1.6.0 started at | 1.6.1-beta.1 started at (offers) |
+| --- | --- | --- |
+| Deck, desktop mode on X11: DRM 800x1280, xrandr mode 800x1280 turned `right` | 800x1280, not covered | 1280x800 (1280x800) |
+| Deck, desktop mode through XWayland: DRM 800x1280, xrandr 1280x800 | 800x1280, not covered | 1280x800 (1280x800) |
+| Deck, game mode: DRM 800x1280, Gamescope at 1920x1200 | 800x1280, not covered | 1280x800 (1280x800) |
+| Deck, DRM 800x1280, no xrandr | 800x1280, not covered | 1280x800 (1280x800) |
+| 2560x1440 monitor, no scaling | 2560x1440 | 2560x1440 (2560x1440, 1920x1080, 1280x720) |
+| 2560x1440 monitor, XWayland sees 2048x1152 | 2560x1440 | 2560x1440 (the same three) |
+| 2560x1440 monitor stood on its side, XWayland sees 1440x2560 | 2560x1440 | 2560x1440 (the same three) |
+| No DRM list, xrandr only | 2560x1440 | 2560x1440 (the same three) |
+
+The 1.6.0 column is the released `KMRP-Linux-1.6.0-x86_64.AppImage`; the test fails its four
+Deck cases. The Deck recordings are built from the panel's known 800x1280 and xrandr's usual
+output for a turned screen, **not read off a real Deck**; whether the beta works on one is
+being checked by the issue's reporter. Not tested: a real Deck, a real Gamescope session, an
+install on a Deck.
+
 **Kind: design (2026-10-30), being built.** Issue 76 asks for a native Linux
 installer, `KMRP-Linux-x86_64.AppImage`, that installs, verifies and restores KMRP in
 a Proton KOTOR without running the Windows installer under Protontricks. The

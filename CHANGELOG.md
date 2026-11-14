@@ -120,6 +120,36 @@ controller support is on. Since 2026-09-29 that runtime is KOTOR Patch
 Manager's own, built from the submodule and loaded through KPM's `binkw32.dll`
 proxy, and it applies the executable changes above as well.
 
+## [Unreleased]
+
+**1.6.1-beta.1, a Linux-only beta for issue 102.** `PatchVersion` is `1.6.1-beta.1`
+(`AssemblyVersion` and `AssemblyFileVersion` 1.6.1.0). Only the AppImage is meant for
+release, as a GitHub pre-release tagged `v1.6.1-beta.1`. The Windows installer's update check
+asks GitHub's "latest release", which never answers with a pre-release, and its tag reader
+rejects a tag with a suffix, so no 1.6.0 player is offered the beta. A build whose own version
+has a suffix is offered nothing (`UpdateCheck.IsNewer` does not read it); the AppImage has no
+update check in any case.
+
+### Fixed
+
+- **Linux AppImage on a Steam Deck: "This display reports no resolution KMRP can use"
+  (issue 102).** The Deck's panel is a portrait 800x1280 that SteamOS turns to 1280x800; the
+  kernel's mode list, and xrandr's on X11, name only 800x1280, so that was the one size
+  offered, and KMRP covers no portrait shape. `LinuxDisplay` now reads every mode taller than
+  it is wide as its landscape size, in both sources, so a Deck offers and starts at 1280x800
+  in desktop mode and in game mode. Ordinary monitors are unchanged. Measured with the new
+  `testing/regression/Test-LinuxDisplay.py` on eight recorded displays: 1.6.0 fails the four
+  Deck cases, the beta passes all eight. The Deck recordings are built from its known panel,
+  not read off a real Deck; not yet tested on one. The "Steam Deck" case recorded for issue 72
+  had a landscape panel, which is why this passed before (correction in
+  `docs/linux-appimage-installer.md`).
+
+| File | Bytes | SHA-256 |
+| --- | --- | --- |
+| `KMRP-Linux-1.6.1-beta.1-x86_64.AppImage` | 70,195,704 | `B172C17BD51AA75ED84C24688A674342AE40632B2CA1B79E87126148CD329D7D` |
+
+Built 2026-11-14 from `2497b9d` with these changes uncommitted.
+
 ## [1.6.0] -- 2026-11-13
 
 **The released files.** Three installers, published on the `v1.6.0` release:
