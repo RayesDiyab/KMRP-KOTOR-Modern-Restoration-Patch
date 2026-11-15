@@ -145,6 +145,7 @@ features** (Icon Size, HUD Size, Text Size, issue 92 and others): this document 
 | 144 | Check: keyboard and mouse after the startup movies |
 | 145 | X is Assemble on the workbench (issue 104) |
 | 146 | Equipment rows no longer grow on every slot change (issue 106) |
+| 147 | Check: a crash on character creation's Feats page (issue 107, Mac only) |
 
 Items 46 and 47 are in the 1.5.1 group below (46: the controller events log; 47: a Linux
 pad's own key, Windows and Wine only).
@@ -1866,6 +1867,57 @@ itself as its own (`OwnHeight`).
 the Mac binary. **How to check:** set the menu Text Size to 75%, open Equipment with items in
 the inventory, and move between a slot that has items and an empty one ten times: the rows keep
 one height and every item stays in view.
+
+## 147. Check: a crash on character creation's Feats page (issue 107, Mac only, 2026-11-15)
+
+A public Reddit report, copied into issue 107 on 2026-11-15: with KMRP 1.6 on Steam's Mac
+game, the game crashes every time the player opens the Feats page in character creation. The
+report gives no crash log, macOS version, Mac model or list of other mods, and it has not been
+reproduced. Nothing like it has been reported from Windows or Linux.
+
+**Not reproduced, read on Windows only.** No Mac and no `KOTOR_Exe` were at hand, so this is
+a reading of `macos/` against Windows' code and the reconstructed `CSWGuiFeatsCharGen`
+(`OnPanelAdded`, Windows `0x006F2F30`). The cause is not known.
+
+What opening Feats in character creation does, in order: `OnPanelAdded` shows the Feats
+tutorial box (`ShowTutorialWindow(0x12, ...)`), and when that closes, the granted popup
+(`skillinfo.gui`, "You have been granted the following feat(s) this level."). `BuildButtons`
+fills `LB_FEATS` with the chart's rows (`AddControls(..., 0, 1, 0)`), and the page lays out
+`LB_DESC`. KMRP for macOS changes each of these:
+
+| Suspect | Where | Why it is suspected |
+| --- | --- | --- |
+| The tutorial box fitted to its text, with KMRP's `tutorial.2da` and `tut_*` icons (merged with Override's since item 126) | `popup_fit.cpp`, `assets.cpp` | Shown first. Seen fitted on the Mac on 2026-09-30, on 1.5 |
+| The granted popup: rows spaced, list, OK and panel grown with the text size (`GrantedFilled`, `GrantedBaseline`, `GrantedFrame`) | `granted_popup.cpp`, `text_rows.cpp` | Shown next. The growth with the text size is new on the Mac in 1.6. The popup was seen on 2026-09-30, on 1.5 |
+| `ftchrgen.gui` and `skillinfo.gui` laid out at run time | Live Adaptive Layout, item 116 | New in 1.6. Not seen in play on Windows either |
+| The five KotOR Patch Manager patches added on 2026-11-13 (FTD's Stray Bug Fixes and Widescreen of 2026-11-09, K1 Shader Fixes, MP3 Playback Fix, Anti-Crash Prophylactics) | `macos/third_party/kpm-patches` | Added on release day, and checked only on the menus, Dantooine and Manaan |
+| The chart rows' text size and Icon Size code (`Chart`, `ChainRowExtent`) | `text_rows.cpp` | Less likely: the in-game Abilities screen uses the same row class (`0x1005a9cd0`) and was seen working at 50% and 100% text in 1.6 |
+
+None of the Mac's custom-character screens has been seen in 1.6: the 1.6 playtest of
+2026-11-03 made its character with the quick option (`macos/PORT-1.6.md`, *Playtest*).
+
+**Ruled out by reading:**
+- No hook of the 208 in the Mac package lies in the Feats screen's code or in the chain-row
+  code (`0x10028c000` to `0x10028e000`).
+- Item 146's change is not in 1.6.0 (it came after `v1.6.0`).
+- The controller's Feats offsets in `prompts.cpp` and `gui.cpp` follow Windows' class layout
+  with the Mac's 0x240-byte button (Windows 0x1C4). Its Feats code runs only on a pad press.
+- `ApplyIconRows` writes the chain row's height at `0x100570efc`, which is in
+  `__TEXT,__const` (`resolution_sizes.cpp`), so putting that page back to read and execute is
+  correct.
+
+**To check:**
+1. With the package installed as a player gets it, start New Game, choose Custom, and go to
+   Feats. Note whether the crash comes before the tutorial box, after it closes (as the
+   granted popup opens), or once the page itself is shown. Keep the crash report from
+   Console.
+2. If it crashes, install again with the five KotOR Patch Manager patches of 2026-11-13
+   ticked off in KotOR Patch Manager, then try again. This tells KMRP's own code apart from
+   theirs.
+3. Try at 50% and at 100% Text Size, and with an empty `Override` and one holding a mod's
+   `tutorial.2da`.
+4. If it does not crash, ask the reporter for the crash report, macOS version, Mac model and
+   mod list. Ask the maintainer before posting anything on the issue.
 
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
