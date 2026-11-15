@@ -321,5 +321,38 @@ int main() {
         skillOwned=false;textPercent=50;++generation;KmrpTextRowsK1(list.ptr());
         KmrpTextRowsForgetK1(skill.ptr());KmrpTextRowsForgetK1(list.ptr());
     }
-    std::cout<<"Native row adapter: expansion, shrink, counters, cache, scroll, selection, unequal mode and charts passed\n";
+    // Issue 106: the equipment screen refills its list on every slot change with the same
+    // rows, through AddControls(rows, owned 0, restore extents 1, unequal 0) at 0x006B985A:
+    // ClearControls gives each row back its saved extent (the height KMRP gave it), then
+    // AddControls saves each row's current extent. A row that left the list must come back
+    // at its own height, not grow by the larger icon again on every visit. Also without
+    // the restore, where the saved height is the one the equal-row layout left.
+    for (int restore = 1; restore >= 0; --restore) {
+        Object none,item1,item2;
+        Init(none,0x7568F8,84,20);Init(item1,0x7568F8,84,20);Init(item2,0x7568F8,84,20);
+        for(Object* o:{&none,&item1,&item2})Set(o->ptr(),nullptr,&At<Rect>(o->ptr(),4));
+        void* refill[3]={};Rect refillSaved[3]={};int refillCount=0;
+        const auto add=[&](std::initializer_list<void*> next) {
+            for(int i=0;i<refillCount;++i)if(restore)Set(refill[i],nullptr,&refillSaved[i]);
+            refillCount=0;
+            for(void* r:next){refill[refillCount]=r;refillSaved[refillCount]=At<Rect>(r,4);++refillCount;}
+            InitList(list,refill,refillSaved,refillCount,false);
+            At<unsigned>(list.ptr(),0x2BC)|=8;Arrange(list.ptr(),nullptr);
+            KmrpTextRowsK1(list.ptr());
+        };
+        textPercent=65;++generation;
+        for(int visit=0;visit<6;++visit) {
+            add({none.ptr(),item1.ptr(),item2.ptr()});   // a slot with two items
+            for(Object* o:{&none,&item1,&item2})assert(At<Rect>(o->ptr(),4).height==109);
+            add({none.ptr()});                            // an empty slot: None only
+            assert(At<Rect>(none.ptr(),4).height==109);
+        }
+        // Back at 50% the rows return to the native 84.
+        textPercent=50;++generation;
+        add({none.ptr(),item1.ptr(),item2.ptr()});
+        for(Object* o:{&none,&item1,&item2})assert(At<Rect>(o->ptr(),4).height==84);
+        for(Object* o:{&none,&item1,&item2})KmrpTextRowsForgetK1(o->ptr());
+        KmrpTextRowsForgetK1(list.ptr());
+    }
+    std::cout<<"Native row adapter: expansion, shrink, counters, cache, scroll, selection, unequal mode, charts and list refills passed\n";
 }

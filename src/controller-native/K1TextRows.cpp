@@ -241,6 +241,26 @@ struct List {
     bool busy = false;
 };
 std::map<void*, List> lists;
+// Rows that have left their list, with what this knew of them (issue 106). The equipment
+// screen refills its list on every slot change with the same row objects, through
+// CSWGuiListBox::AddControls(rows, owned 0, restore extents 1, unequal 0) (0x006B985A):
+// ClearControls gives each row back its saved extent, which holds the height this gave it,
+// and AddControls saves each row's current extent again. A row this had forgotten came back
+// with that grown height as its authored one, and every visit to a slot with items grew the
+// rows by the larger icon again (Text Size 65%: 109, 134, 159 px... from a native 84) until
+// only the first row fitted. Kept until the row comes back or is destroyed
+// (KmrpTextRowsForgetK1), so a returning row keeps its native baseline.
+std::map<void*, Row> departed;
+void Depart(std::map<void*, Row>& rows, const std::map<void*, Row>* staying) {
+    for (auto& entry : rows)
+        if (!staying || !staying->count(entry.first)) departed[entry.first] = entry.second;
+}
+// A saved height is one this gave the row: what it last wrote to the list's saved extent, or
+// the height the native layout left the row at afterwards (a list of equal rows gives every
+// row the tallest one's height, and a list that does not restore extents saves that).
+bool OwnHeight(const Row& row, int height) {
+    return height == row.saved.height || height == row.applied.height;
+}
 int viewportHeight = 720;
 double ViewScale() { return std::max(1.0, viewportHeight / 720.0); }
 int Minimum(const Row& row) {
@@ -326,7 +346,7 @@ void KmrpTextRowsK1(void* list) {
     const int count = At<int>(list, 0x2A0);
     if (count < 0 || count > 4096 || (count && !rows)) return;
     Flow(At<void*>(list, 0x2CC));
-    if (!count) { state.rows.clear(); state.valid = false; return; }
+    if (!count) { Depart(state.rows, nullptr); state.rows.clear(); state.valid = false; return; }
     StretchAll(rows, count);  // before the signature: undo a native layout pass's reset
     const auto signature = Signature(list, rows, count);
     if (state.valid && state.signature == signature) return;
@@ -347,13 +367,21 @@ void KmrpTextRowsK1(void* list) {
             Row row;
             const auto old = state.rows.find(p);
             if (old != state.rows.end() && old->second.table == At<std::uintptr_t>(p, 0)) row = old->second;
+            else if (old == state.rows.end()) {
+                const auto gone = departed.find(p);
+                if (gone != departed.end()) {
+                    if (gone->second.table == At<std::uintptr_t>(p, 0)) row = gone->second;
+                    departed.erase(gone);
+                }
+            }
             // A native repopulation/resolution change supplies a new authored extent.
-            // Keep the last native baseline otherwise, including when font sizes shrink.
-            const bool newGeometry = !row.known || current.width != row.applied.width ||
-                (fixed && saved[i].height != row.saved.height);
+            // Keep the last native baseline otherwise, including when font sizes shrink,
+            // and when the list hands back the height this gave the row (OwnHeight).
+            const bool authoredChange = fixed && !OwnHeight(row, saved[i].height);
+            const bool newGeometry = !row.known || current.width != row.applied.width || authoredChange;
             if (newGeometry) {
                 const int previousBase = row.baseline.height;
-                const bool authoredHeight = !row.known || (fixed && saved[i].height != row.saved.height);
+                const bool authoredHeight = !row.known || authoredChange;
                 row.table = At<std::uintptr_t>(p, 0);
                 row.baseline = fixed ? saved[i] : current;
                 // A width-only reflow must not promote our expanded saved height to
@@ -431,6 +459,7 @@ void KmrpTextRowsK1(void* list) {
             }
         }
         for (auto& entry : next) entry.second.applied = At<Rect>(entry.first, 4);
+        Depart(state.rows, &next);
         state.rows.swap(next);
         StretchAll(rows, count);  // the native pass above reset the entry rows' boxes
         bool settled = true;
@@ -458,6 +487,7 @@ void KmrpTextRowsK1(void* list) {
 }
 void KmrpTextRowsForgetK1(void* control) {
     lists.erase(control);
+    departed.erase(control);
     stretched.erase(control);
     charts.erase(control);
     for (auto& list : lists) { if (list.second.rows.erase(control)) list.second.valid = false; }

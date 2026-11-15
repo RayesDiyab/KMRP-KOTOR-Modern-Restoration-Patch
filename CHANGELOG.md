@@ -186,6 +186,23 @@ Built 2026-11-14 from `2497b9d` with these changes uncommitted.
   than the item list's and is left as it is. `Test-LiveLayout.py`, `Test-ControllerKpatch.py`,
   `Test-ControllerPromptAssets.py` and `Test-KpatchSource.py` pass on a full build. **Not seen
   in the game.**
+- **Equipment: the item list's rows grew on every slot change until only "None" was left
+  (issue 106, reported on a Steam Deck).** It happens with the menu Text Size above 50%. The
+  equipment screen refills its list on every slot change with the same row objects, and has
+  the list give each row back its saved extent first (`CSWGuiListBox::AddControls` with
+  restore extents on, `0x006B985A` in the GOG executable; `ClearControls` and `AddControls`
+  read in the public decompilation, `gui_control.cpp`). That saved extent held the height
+  `K1TextRows.cpp` had given the row. A row that had left the list was forgotten, so it came
+  back with the grown height as its authored one, and the room for the larger icon
+  (`IconMinimum`) was added on top again: at 65% the rows went 109, 134, 159 px and on from a
+  native 84, one icon difference per visit. `K1TextRows.cpp` now keeps a row's state after it
+  leaves its list, until it comes back or is destroyed, and treats a saved height it gave the
+  row itself as its own, so a returning row keeps its native baseline. The same change is made
+  in the Mac's `macos/patches/kmrp-layout/text_rows.cpp`, not built or run there (Mac handoff
+  item 146). `NativeTextRowsHarness.cpp` gains the equipment refill, with and without the
+  restore, at 65% and back at 50%; it fails on the old code and passes now.
+  `Test-TextRows.py` and `Test-TextLayoutRows.py` pass, and the native runtime module builds.
+  **Not seen in the game.** Which other screens refill their lists this way was not checked.
 
 ## [1.6.0] -- 2026-11-13
 

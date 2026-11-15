@@ -123,6 +123,12 @@ struct State {
     std::map<void*, Stretched> stretched;
     std::map<void*, ChartRow> charts;
     std::map<void*, List> lists;
+    // Rows that have left their list, with what Rows knew of them (issue 106, as on Windows,
+    // K1TextRows.cpp). The equipment screen refills its list on every slot change with the
+    // same rows and restores their saved extents first, which hold the height Rows gave them;
+    // a forgotten row came back with that as its authored height and grew by the larger icon
+    // again on every visit. Kept until the row comes back or is destroyed (RowsForget).
+    std::map<void*, Row> departed;
     int viewportHeight = 720;
     bool iconsScaled = false;   // the slider has left its default this session
     int iconPercent = -1, iconHeight = 0;
@@ -133,6 +139,19 @@ struct State {
 State& TheState() {
     static State* state = new State;
     return *state;
+}
+
+// Rows leaving their list are kept in departed (State::departed).
+void Depart(std::map<void*, Row>& rows, const std::map<void*, Row>* staying) {
+    State& all = TheState();
+    for (auto& entry : rows)
+        if (!staying || !staying->count(entry.first)) all.departed[entry.first] = entry.second;
+}
+// A saved height is one Rows gave the row: what it last wrote to the list's saved extent, or the
+// height the game's layout left the row at afterwards (a list of equal rows gives every row the
+// tallest one's height, and a list that does not restore extents saves that).
+bool OwnHeight(const Row& row, int height) {
+    return height == row.saved.height || height == row.applied.height;
 }
 
 double IconScale() { return std::max(1.0, TextSizePercent() / 50.0); }
@@ -506,7 +525,7 @@ void Rows(void* list) {
     const int count = At<int>(list, kListRowCount);
     if (count < 0 || count > 4096 || (count && !rows)) return;
     FlowRow(At<void*>(list, kListPrototype));
-    if (!count) { state.rows.clear(); state.valid = false; return; }
+    if (!count) { Depart(state.rows, nullptr); state.rows.clear(); state.valid = false; return; }
     StretchAll(rows, count);   // before the signature: undo a native layout pass's reset
     const auto signature = Signature(list, rows, count);
     if (state.valid && state.signature == signature) return;
@@ -530,12 +549,21 @@ void Rows(void* list) {
             Row row;
             const auto old = state.rows.find(p);
             if (old != state.rows.end() && old->second.table == At<std::uintptr_t>(p, 0)) row = old->second;
+            else if (old == state.rows.end()) {
+                const auto gone = all.departed.find(p);
+                if (gone != all.departed.end()) {
+                    if (gone->second.table == At<std::uintptr_t>(p, 0)) row = gone->second;
+                    all.departed.erase(gone);
+                }
+            }
             // A native repopulation or resolution change supplies a new authored extent. Keep the
-            // last native baseline otherwise, including when font sizes shrink.
-            const bool newGeometry = !row.known || current.width != row.applied.width || (fixed && saved[i].height != row.saved.height);
+            // last native baseline otherwise, including when font sizes shrink, and when the list
+            // hands back the height Rows gave the row (OwnHeight).
+            const bool authoredChange = fixed && !OwnHeight(row, saved[i].height);
+            const bool newGeometry = !row.known || current.width != row.applied.width || authoredChange;
             if (newGeometry) {
                 const int previousBase = row.baseline.height;
-                const bool authoredHeight = !row.known || (fixed && saved[i].height != row.saved.height);
+                const bool authoredHeight = !row.known || authoredChange;
                 row.table = At<std::uintptr_t>(p, 0);
                 row.baseline = fixed ? saved[i] : current;
                 // A width-only reflow must not promote our expanded saved height to the new
@@ -618,6 +646,7 @@ void Rows(void* list) {
             }
         }
         for (auto& entry : next) entry.second.applied = At<Rect>(entry.first, kExtent);
+        Depart(state.rows, &next);
         state.rows.swap(next);
         StretchAll(rows, count);   // the native pass above reset the entry rows' boxes
         bool settled = true;
@@ -650,6 +679,7 @@ void Rows(void* list) {
 void RowsForget(void* control) {
     State& all = TheState();
     all.lists.erase(control);
+    all.departed.erase(control);
     all.stretched.erase(control);
     all.charts.erase(control);
     for (auto& list : all.lists)

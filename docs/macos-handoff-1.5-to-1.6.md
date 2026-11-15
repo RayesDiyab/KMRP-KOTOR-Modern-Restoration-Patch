@@ -144,6 +144,7 @@ features** (Icon Size, HUD Size, Text Size, issue 92 and others): this document 
 | 143 | Modded Font, and a font from Override fitted to its size |
 | 144 | Check: keyboard and mouse after the startup movies |
 | 145 | X is Assemble on the workbench (issue 104) |
+| 146 | Equipment rows no longer grow on every slot change (issue 106) |
 
 Items 46 and 47 are in the 1.5.1 group below (46: the controller events log; 47: a Linux
 pad's own key, Windows and Wine only).
@@ -1845,6 +1846,26 @@ that badge row, which was itself mapped from Windows' `0x2AA0`; it was not read 
 Mac binary. **How to check:** at a workbench with a pad, put an upgrade in a slot with A,
 press X: the screen closes, and reopening it shows the upgrade applied. The badge on Assemble
 is X.
+
+## 146. Equipment rows no longer grow on every slot change (Windows 2026-11-15, issue 106)
+
+With the menu Text Size above 50%, the equipment screen's item rows grew taller each time the
+player moved to another slot, until only "None" was left in view (reported on a Steam Deck).
+The screen refills its list on every slot change with the same row objects and has the list
+restore their saved extents first (`CSWGuiListBox::AddControls`, restore extents on, Windows
+`0x006B985A`). Those extents hold the height KMRP's text rows gave the rows. A row that had
+left the list was forgotten, so it came back with that grown height as its authored one, and
+the room for the larger icon was added on top again. Windows' `K1TextRows.cpp` now keeps a
+row's state after it leaves its list (`departed`) and treats a saved height it gave the row
+itself as its own (`OwnHeight`).
+
+**Made on the Mac, not built or run:** the same change in
+`macos/patches/kmrp-layout/text_rows.cpp` (`State::departed`, `Depart`, `OwnHeight`, and
+`RowsForget` erasing from it). It passed a syntax-only clang compile on Windows with a stub
+`mach/mach.h`. That the Mac's equipment screen refills its list the same way was not read from
+the Mac binary. **How to check:** set the menu Text Size to 75%, open Equipment with items in
+the inventory, and move between a slot that has items and an empty one ten times: the rows keep
+one height and every item stays in view.
 
 ## Windows-only changes from 1.5 to 1.6 (nothing for the Mac)
 
